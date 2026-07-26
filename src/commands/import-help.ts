@@ -1,0 +1,59 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import {
+  helpArticleImportPayloadSchema,
+  helpArticleImportSchema,
+} from "../authoring/help-schema.js";
+import { getStore } from "../store.js";
+
+function parseInput(path: string): ReturnType<typeof helpArticleImportPayloadSchema.parse> {
+  const body = readFileSync(path, "utf8");
+  if (path.endsWith(".jsonl")) {
+    return body
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, index) => {
+        try {
+          return helpArticleImportSchema.parse(JSON.parse(line));
+        } catch (error) {
+          throw new Error(`Invalid JSONL record at line ${index + 1}: ${String(error)}`);
+        }
+      });
+  }
+  return helpArticleImportPayloadSchema.parse(JSON.parse(body));
+}
+
+export async function runImportHelpCommand(args: string[]): Promise<number> {
+  const batchIndex = args.indexOf("--batch-size");
+  const batchSize = batchIndex >= 0 ? Number(args[batchIndex + 1]) : 50;
+  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 200) {
+    throw new Error("--batch-size must be an integer from 1 to 200.");
+  }
+  const input = args.find(
+    (arg, index) => !arg.startsWith("--") && args[index - 1] !== "--batch-size"
+  );
+  if (!input) {
+    throw new Error("Usage: tieline import-help path/to/articles.json[|jsonl] [--batch-size 50]");
+  }
+  const path = resolve(process.cwd(), input);
+  if (!existsSync(path)) throw new Error(`Not found: ${path}`);
+
+  const articles = parseInput(path);
+  const store = getStore();
+  try {
+    const result = await store.importHelpArticles(articles, { batchSize });
+    const reportPath = `${path}.import-report.json`;
+    writeFileSync(
+      reportPath,
+      `${JSON.stringify({ source: path, status: "complete", ...result }, null, 2)}\n`
+    );
+    process.stderr.write(
+      `Imported ${result.articles} help article(s) in ${result.batches.length} batch(es).\n` +
+        `Report: ${reportPath}\n`
+    );
+    return 0;
+  } finally {
+    await store.close();
+  }
+}

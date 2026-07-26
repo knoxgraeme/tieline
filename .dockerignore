@@ -1,0 +1,22 @@
+# Keep the build context tiny and deterministic. The Dockerfile installs deps
+# from package-lock and compiles src itself — nothing prebuilt is copied in.
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+*.log
+.cache
+.DS_Store
+# Working authoring files
+stories.draft.json
+stories.locked.json
+# Not needed to RUN the server (migrate/ingest run separately from a checkout)
+docs
+evals
+skills
+README.md
+docker-compose.yml
+Dockerfile
+.dockerignore

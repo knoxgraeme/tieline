@@ -1,0 +1,25 @@
+-- ============================================================================
+-- 0001_extensions.sql  (run first)
+--
+-- pgvector is the ONLY extension this server requires — vector storage +
+-- similarity search. Embeddings are computed in the application (see
+-- src/embeddings.ts) and written with each row, so none of the Supabase-specific
+-- embedding-pipeline extensions (pgmq / pg_net / pg_cron / vault / hstore) are
+-- needed anymore.
+--
+-- pgvector is available on essentially every Postgres that matters: the
+-- pgvector/pgvector Docker image (see docker-compose.yml), Neon, RDS
+-- (rds.allowed_extensions), Supabase, Crunchy, Timescale, or a self-hosted
+-- `postgresql-<ver>-pgvector` package.
+--
+-- SCHEMA NOTE: on Supabase pgvector is PRE-INSTALLED in the `extensions` schema,
+-- so the statement below is a no-op there and the `vector` type lives in
+-- `extensions`, not `public`. On generic Postgres this installs it into the
+-- first schema on the search_path (public). Either way, later migrations
+-- reference `vector(384)` unqualified, so the connection's search_path must
+-- include BOTH schemas — scripts/migrate.ts sets `search_path = public,
+-- extensions` on connect so the type resolves on every host. Keep this file
+-- host-agnostic (no `schema extensions`): it must run on plain Postgres too.
+-- ============================================================================
+
+create extension if not exists vector;

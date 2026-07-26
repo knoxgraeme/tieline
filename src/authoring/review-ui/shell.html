@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Story review</title>
+<style>
+  :root { --bg:#f4f6f9; --card:#fff; --line:#e4e8ee; --line-strong:#d6dbe4; --ink:#171b21;
+          --muted:#5b6472; --faint:#8a93a3; --field:#fff; --accent:#2f6feb; --accent-ink:#fff;
+          --good:#0e8a56; --good-bg:#e7f6ee; --good-line:#8ad3ac;
+          --bad:#cf4436; --bad-bg:#fdecea; --bad-line:#f0aaa2; --pending:#9aa3b2;
+          --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+          --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0f1318; --card:#161c24; --line:#242c36; --line-strong:#333c48; --ink:#e7eaef;
+    --muted:#9aa3b2; --faint:#6b7484; --field:#0e131a; --accent:#5f9bff; --accent-ink:#0b0f14;
+    --good:#3fbe86; --good-bg:#112a20; --good-line:#2f6f52;
+    --bad:#f2695f; --bad-bg:#2b1613; --bad-line:#6f3a34; --pending:#6b7484; }}
+  :root[data-theme="light"]{ --bg:#f4f6f9; --card:#fff; --line:#e4e8ee; --line-strong:#d6dbe4;
+    --ink:#171b21; --muted:#5b6472; --faint:#8a93a3; --field:#fff; --accent:#2f6feb; --accent-ink:#fff;
+    --good:#0e8a56; --good-bg:#e7f6ee; --good-line:#8ad3ac; --bad:#cf4436; --bad-bg:#fdecea;
+    --bad-line:#f0aaa2; --pending:#9aa3b2; }
+  :root[data-theme="dark"]{ --bg:#0f1318; --card:#161c24; --line:#242c36; --line-strong:#333c48;
+    --ink:#e7eaef; --muted:#9aa3b2; --faint:#6b7484; --field:#0e131a; --accent:#5f9bff; --accent-ink:#0b0f14;
+    --good:#3fbe86; --good-bg:#112a20; --good-line:#2f6f52; --bad:#f2695f; --bad-bg:#2b1613;
+    --bad-line:#6f3a34; --pending:#6b7484; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 var(--sans); color:var(--ink); background:var(--bg); }
+  header { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line);
+           padding:12px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  .counts { color:var(--muted); } .counts b { color:var(--ink); font-variant-numeric:tabular-nums; }
+  .grow { flex:1; } .savestate { color:var(--faint); font-size:12px; min-width:70px; text-align:right; }
+  button { font:inherit; font-weight:550; cursor:pointer; border:1px solid var(--line-strong);
+           background:var(--card); color:var(--ink); border-radius:8px; padding:8px 13px; }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  main { max-width:920px; margin:0 auto; padding:20px; }
+  .banner { padding:10px 14px; border-radius:8px; margin:0 0 14px; display:none; }
+  .banner.show { display:block; } .banner.good { background:var(--good-bg); color:var(--good); }
+  .banner.bad { background:var(--bad-bg); color:var(--bad); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px;
+          margin-bottom:14px; position:relative; }
+  .card.approved { border-color:var(--good-line); box-shadow:inset 3px 0 0 var(--good); }
+  .card.rejected { opacity:.58; box-shadow:inset 3px 0 0 var(--bad); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  .row > div { flex:1; min-width:180px; }
+  label { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
+          color:var(--faint); margin-bottom:3px; font-weight:600; }
+  input, textarea, select { width:100%; font:inherit; color:var(--ink); background:var(--field);
+          border:1px solid var(--line); border-radius:7px; padding:8px 10px; }
+  textarea { resize:vertical; } .mono textarea { font-family:var(--mono); font-size:12.5px; }
+  .state-btns { display:flex; gap:6px; }
+  .state-btns button.on-approved { background:var(--good-bg); border-color:var(--good-line); color:var(--good); }
+  .state-btns button.on-rejected { background:var(--bad-bg); border-color:var(--bad-line); color:var(--bad); }
+  .meta { color:var(--faint); font-size:12px; font-family:var(--mono); margin-top:8px; }
+  @media (max-width:600px){ .row > div { min-width:100%; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Story review</h1>
+  <span class="counts" id="counts"></span>
+  <span class="grow"></span>
+  <span class="savestate" id="savestate"></span>
+  <button id="lockBtn">Lock &amp; export</button>
+  <button class="primary" id="importBtn">Add approved &rarr; brain</button>
+</header>
+<main>
+  <div class="banner" id="banner"></div>
+  <div id="list"></div>
+</main>
+
+<script id="draft-data" type="application/json">/*__DRAFT__*/</script>
+<script>/*__VIEW__*/</script>
+<script>/*__HOST__*/</script>
+</body>
+</html>

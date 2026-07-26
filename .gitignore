@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+# Transformers.js model cache
+.cache/
+# Working authoring files
+stories.draft.json
+stories.locked.json
