@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Local-first user-story mapping CLI and MCP server for connecting product context, lifecycle history, code, and knowledge-base articles.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knoxgraeme/tieline.git"
+  },
+  "homepage": "https://github.com/knoxgraeme/tieline#readme",
+  "bugs": {
+    "url": "https://github.com/knoxgraeme/tieline/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -12,6 +20,7 @@
     "dist",
     "migrations",
     "skills",
+    "assets",
     "README.md",
     "LICENSE"
   ],

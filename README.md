@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/tieline-logo.png" alt="Tieline" width="520">
+</p>
+
 # Tieline
 
 Tieline maps a product into user stories and keeps those stories connected to their lifecycle,
