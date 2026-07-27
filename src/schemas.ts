@@ -276,7 +276,7 @@ const whyObject = () =>
   });
 
 const scoreBreakdownObject = () =>
-  z.object({ vector: z.number(), entity: z.number(), path: z.number() });
+  z.object({ vector: z.number(), entity: z.number(), path: z.number(), lexical: z.number() });
 
 // find_related: results are a superset of AreaHit | StoryHit (scope-dependent),
 // so scope-specific fields are optional; the shared core is required.

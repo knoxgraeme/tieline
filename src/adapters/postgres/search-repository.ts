@@ -91,6 +91,19 @@ async function footprintsFor(storyIds: number[]): Promise<Map<number, Footprint>
   return map;
 }
 
+/** Attach each row's normalized footprint (slugs/paths/help) — the shared tail
+ *  of every candidate source (knn, structural, lexical). */
+async function withFootprints<T extends { id: number }>(rows: T[]): Promise<(T & Footprint)[]> {
+  const footprints = await footprintsFor(rows.map((r) => r.id));
+  return rows.map((r) => ({
+    ...r,
+    entity_slugs: footprints.get(r.id)?.entity_slugs ?? [],
+    code_paths: footprints.get(r.id)?.code_paths ?? [],
+    help_articles: footprints.get(r.id)?.help_articles ?? [],
+    help_article_count: footprints.get(r.id)?.help_article_count ?? 0,
+  }));
+}
+
 // --- KNN gate ---------------------------------------------------------------
 
 export async function knnCandidates(
@@ -113,14 +126,7 @@ export async function knnCandidates(
     }[]
   >`select * from match_user_stories(${vectorLiteral(embedding)}::vector, ${poolSize})`;
 
-  const footprints = await footprintsFor(rows.map((r) => r.id));
-  return rows.map((r) => ({
-    ...r,
-    entity_slugs: footprints.get(r.id)?.entity_slugs ?? [],
-    code_paths: footprints.get(r.id)?.code_paths ?? [],
-    help_articles: footprints.get(r.id)?.help_articles ?? [],
-    help_article_count: footprints.get(r.id)?.help_article_count ?? 0,
-  }));
+  return withFootprints(rows);
 }
 
 /** Exact entity/path candidates, independent of the semantic KNN pool. */
@@ -164,14 +170,7 @@ export async function structuralCandidates(opts: {
       ))
     order by similarity desc
     limit ${Math.max(opts.poolSize, 1)}`;
-  const footprints = await footprintsFor(rows.map((row) => row.id));
-  return rows.map((row) => ({
-    ...row,
-    entity_slugs: footprints.get(row.id)?.entity_slugs ?? [],
-    code_paths: footprints.get(row.id)?.code_paths ?? [],
-    help_articles: footprints.get(row.id)?.help_articles ?? [],
-    help_article_count: footprints.get(row.id)?.help_article_count ?? 0,
-  }));
+  return withFootprints(rows);
 }
 /**
  * Lexical candidates — keyword (tsvector) + identifier (pg_trgm) matches.
@@ -205,23 +204,24 @@ export async function lexicalCandidates(opts: {
       lexical: number;
     }[]
   >`
-    with prose as (
-      select us.id, ts_rank_cd(us.search_tsv, websearch_to_tsquery('english', ${query})) as raw
-      from user_stories us
-      where us.search_tsv @@ websearch_to_tsquery('english', ${query})
+    with q as (select websearch_to_tsquery('english', ${query}) as tsq),
+    prose as (
+      select us.id, ts_rank_cd(us.search_tsv, q.tsq) as raw
+      from user_stories us, q
+      where us.search_tsv @@ q.tsq
     ),
     ident as (
-      select sc.story_id as id, max(word_similarity(ca.path, ${query})) as raw
-      from story_code_assets sc
-      join code_assets ca on ca.id = sc.code_asset_id
-      where word_similarity(ca.path, ${query}) >= ${threshold}
-      group by sc.story_id
-      union all
-      select se.story_id as id, max(word_similarity(e.entity_slug, ${query})) as raw
-      from story_entities se
-      join entities e on e.id = se.entity_id
-      where word_similarity(e.entity_slug, ${query}) >= ${threshold}
-      group by se.story_id
+      select id, max(sim) as raw from (
+        select sc.story_id as id, word_similarity(ca.path, ${query}) as sim
+        from story_code_assets sc
+        join code_assets ca on ca.id = sc.code_asset_id
+        union all
+        select se.story_id as id, word_similarity(e.entity_slug, ${query}) as sim
+        from story_entities se
+        join entities e on e.id = se.entity_id
+      ) sims
+      where sim >= ${threshold}
+      group by id
     ),
     scored as (
       select id, max(lexn) as lexical from (
@@ -241,14 +241,7 @@ export async function lexicalCandidates(opts: {
     join sections s on s.id = us.section_id
     order by scored.lexical desc
     limit ${Math.max(opts.poolSize, 1)}`;
-  const footprints = await footprintsFor(rows.map((row) => row.id));
-  return rows.map((row) => ({
-    ...row,
-    entity_slugs: footprints.get(row.id)?.entity_slugs ?? [],
-    code_paths: footprints.get(row.id)?.code_paths ?? [],
-    help_articles: footprints.get(row.id)?.help_articles ?? [],
-    help_article_count: footprints.get(row.id)?.help_article_count ?? 0,
-  }));
+  return withFootprints(rows);
 }
 
 

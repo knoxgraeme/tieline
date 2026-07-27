@@ -4,6 +4,7 @@
  *
  * Signals fused by find_related:
  *   vector  — cosine similarity from the pgvector KNN gate (0..1)
+ *   lexical — tsvector + trigram relevance from the lexical source (0..1)
  *   entity  — weighted overlap between query entity slugs and a story's slugs
  *   path    — weighted overlap between query code paths and a story's code paths
  *
@@ -11,11 +12,11 @@
  * hub tags like `settings` (df=35) don't drown out distinctive ones like
  * `tax-rate` (df=5). Overlap sums are saturated to 0..1.
  *
- * Two scores per candidate:
- *   absBlend — weighted sum of the RAW (absolute) signals. Used to gate
- *              relevance / empty results against min_score.
- *   fused    — weighted sum of the POOL-NORMALIZED signals (min-max per the PRD).
- *              Used for ranking and reported in score_breakdown.
+ * Ranking uses Reciprocal Rank Fusion (rrfScores) over the per-signal rankings,
+ * so incomparable score scales fuse without normalization and a single-weighted
+ * signal reduces to that signal's order. absBlend — the weighted sum of the RAW
+ * signals — is the absolute relevance used to gate empty results against
+ * min_score; score_breakdown reports the pool-normalized components.
  */
 
 import type {
@@ -178,7 +179,6 @@ export function extractQueryEntities(context: string, vocab: Iterable<string>): 
 export interface ScoredStory {
   candidate: Candidate;
   absBlend: number; // absolute relevance (for min_score gate + reporting)
-  fused: number; // pool-normalized weighted blend (kept for display/interpretability)
   rrf: number; // reciprocal-rank-fusion score — the ranking key
   breakdown: ScoreBreakdown; // normalized components
   why: Why;
@@ -243,12 +243,10 @@ export function scoreCandidates(input: ScoreInput): ScoredStory[] {
 
   return raw.map((r, i) => {
     const breakdown: ScoreBreakdown = { vector: vN[i], entity: eN[i], path: pN[i], lexical: lN[i] };
-    const fused = w.vector * vN[i] + w.entity * eN[i] + w.path * pN[i] + w.lexical * lN[i];
     const absBlend = w.vector * r.vCos + w.entity * r.eOv + w.path * r.pOv + w.lexical * r.lex;
     return {
       candidate: r.c,
       absBlend,
-      fused,
       rrf: rrf[i],
       breakdown,
       why: { shared_entities: r.ent.shared, shared_code_paths: r.pat.shared },

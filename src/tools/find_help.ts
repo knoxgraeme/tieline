@@ -33,6 +33,17 @@ Examples:
   - find_help(query="invite a teammate", product_area=["projects"]) -> project access articles.
   - find_help(query="update a payment method", product_area=["billing"]) -> billing articles.`;
 
+/** Filter by min-score, sort by score desc, and append each not-yet-seen
+ *  article to `out` (dedupe by slug). Preserves first-source-wins ordering. */
+function appendUnseen(hits: HelpHit[], minScore: number, seen: Set<string>, out: HelpHit[]): void {
+  for (const h of hits.filter((h) => h.score >= minScore).sort((a, b) => b.score - a.score)) {
+    if (!seen.has(h.article_slug)) {
+      seen.add(h.article_slug);
+      out.push(h);
+    }
+  }
+}
+
 export function registerFindHelp(server: McpServer): void {
   server.registerTool(
     "find_help",
@@ -81,22 +92,8 @@ export function registerFindHelp(server: McpServer): void {
         // while guaranteeing results when they are absent.
         const seen = new Set<string>();
         const ordered: HelpHit[] = [];
-        for (const h of knnHits
-          .filter((h) => h.score >= config.helpMinScore)
-          .sort((a, b) => b.score - a.score)) {
-          if (!seen.has(h.article_slug)) {
-            seen.add(h.article_slug);
-            ordered.push(h);
-          }
-        }
-        for (const h of lexicalHits
-          .filter((h) => h.score >= config.helpMinLexicalScore)
-          .sort((a, b) => b.score - a.score)) {
-          if (!seen.has(h.article_slug)) {
-            seen.add(h.article_slug);
-            ordered.push(h);
-          }
-        }
+        appendUnseen(knnHits, config.helpMinScore, seen, ordered);
+        appendUnseen(lexicalHits, config.helpMinLexicalScore, seen, ordered);
         const results = ordered
           .slice(0, limit)
           .map((h) => ({ ...h, score: Math.round(h.score * 1000) / 1000 }));

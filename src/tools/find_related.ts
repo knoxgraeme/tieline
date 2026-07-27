@@ -86,18 +86,16 @@ export function registerFindRelated(server: McpServer): void {
             poolSize: config.candidatePoolSize,
           }),
         ]);
-        // Union all three sources; a later source only fills gaps so a candidate
-        // keeps the richest per-signal scores it already has (knn carries vector,
-        // lexical carries the lexical score).
+        // Union all three sources by story id. Semantic and structural rows are
+        // identical for a shared story (same cosine, same footprint), so the
+        // first-seen row wins. Lexical is the exception: it carries the one field
+        // the others lack, so merge its `lexical` score onto an existing row.
         const byId = new Map(semanticCandidates.map((candidate) => [candidate.id, candidate]));
         for (const candidate of exactStructuralCandidates) {
-          const existing = byId.get(candidate.id);
-          byId.set(candidate.id, existing ? { ...candidate, ...existing } : candidate);
+          byId.set(candidate.id, byId.get(candidate.id) ?? candidate);
         }
         for (const candidate of lexical) {
           const existing = byId.get(candidate.id);
-          // Merge so an existing candidate (with vector) gains the lexical score,
-          // and a lexical-only candidate keeps its lexical score.
           byId.set(candidate.id, existing ? { ...existing, lexical: candidate.lexical } : candidate);
         }
         const candidates = [...byId.values()];
@@ -156,8 +154,9 @@ export function registerFindRelated(server: McpServer): void {
         };
         if (results.length === 0) {
           payload.note =
-            `No stored stories cleared the semantic (min=${config.findRelatedMinVectorScore}) ` +
-            `or structural (min=${config.findRelatedMinStructuralScore}) qualification gate. ` +
+            `No stored stories cleared the semantic (min=${config.findRelatedMinVectorScore}), ` +
+            `lexical (min=${config.findRelatedMinLexicalScore}), or structural ` +
+            `(min=${config.findRelatedMinStructuralScore}) qualification gate. ` +
             `We likely don't have this pattern yet — this empty result is intentional, not an error.`;
         }
         return jsonResult(payload);
