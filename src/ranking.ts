@@ -309,7 +309,10 @@ export function toAreaHits(
     bySection.set(s.candidate.section_key, arr);
   }
 
-  const areas: AreaHit[] = [];
+  // Carry the top member's RRF alongside each area so sections are ORDERED by
+  // RRF (consistent with toStoryHits), while the reported `score` stays the
+  // interpretable absolute blend.
+  const areas: { rrf: number; area: AreaHit }[] = [];
   for (const [, members] of bySection) {
     members.sort((a, b) => b.rrf - a.rrf || b.absBlend - a.absBlend);
     const top = members[0];
@@ -319,26 +322,32 @@ export function toAreaHits(
     const codePaths = dedupeCap(members.flatMap((m) => m.candidate.code_paths), 20);
 
     areas.push({
-      section_key: top.candidate.section_key,
-      section_name: top.candidate.section_name,
-      score: round(top.absBlend),
-      score_breakdown: roundBreakdown(top.breakdown),
-      matched_stories: members.slice(0, storiesPerArea).map((m) => ({
-        story_key: m.candidate.story_key,
-        title: m.candidate.title,
-        story_text: m.candidate.story_text,
-        actor: m.candidate.actor,
-        status: m.candidate.status,
-        score: round(m.absBlend),
-        help_articles: m.candidate.help_articles,
-        help_article_count: m.candidate.help_article_count,
-      })),
-      code_paths: codePaths,
-      why: { shared_entities: sharedEntities, shared_code_paths: sharedPaths },
+      rrf: top.rrf,
+      area: {
+        section_key: top.candidate.section_key,
+        section_name: top.candidate.section_name,
+        score: round(top.absBlend),
+        score_breakdown: roundBreakdown(top.breakdown),
+        matched_stories: members.slice(0, storiesPerArea).map((m) => ({
+          story_key: m.candidate.story_key,
+          title: m.candidate.title,
+          story_text: m.candidate.story_text,
+          actor: m.candidate.actor,
+          status: m.candidate.status,
+          score: round(m.absBlend),
+          help_articles: m.candidate.help_articles,
+          help_article_count: m.candidate.help_article_count,
+        })),
+        code_paths: codePaths,
+        why: { shared_entities: sharedEntities, shared_code_paths: sharedPaths },
+      },
     });
   }
 
-  return areas.sort((a, b) => b.score - a.score).slice(0, limit);
+  return areas
+    .sort((a, b) => b.rrf - a.rrf || b.area.score - a.area.score)
+    .slice(0, limit)
+    .map((a) => a.area);
 }
 
 function round(x: number): number {

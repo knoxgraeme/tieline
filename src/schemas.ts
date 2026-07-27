@@ -356,6 +356,7 @@ export const findCrossoverOutputShape = {
 export const findHelpOutputShape = {
   query: z.object({
     min_score: z.number(),
+    min_lexical_score: z.number(),
     candidate_pool_size: z.number(),
     product_area: z.array(z.string()).optional(),
     audience: z.array(z.string()).optional(),

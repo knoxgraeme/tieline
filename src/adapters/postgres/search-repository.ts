@@ -209,14 +209,25 @@ export async function lexicalCandidates(opts: {
       select us.id, ts_rank_cd(us.search_tsv, q.tsq) as raw
       from user_stories us, q
       where us.search_tsv @@ q.tsq
+      union all
+      -- Section-level vocabulary: a query matching a section's name/definition
+      -- surfaces that section's stories (sections.search_tsv from 0019).
+      select us.id, ts_rank_cd(s.search_tsv, q.tsq) as raw
+      from sections s
+      join user_stories us on us.section_id = s.id
+      cross join q
+      where s.search_tsv @@ q.tsq
     ),
     ident as (
+      -- word_similarity(needle, haystack): the query is the needle found within
+      -- the stored path/slug, so a short identifier query isn't penalized by the
+      -- path's unmatched trigrams. Arg order matters.
       select id, max(sim) as raw from (
-        select sc.story_id as id, word_similarity(ca.path, ${query}) as sim
+        select sc.story_id as id, word_similarity(${query}, ca.path) as sim
         from story_code_assets sc
         join code_assets ca on ca.id = sc.code_asset_id
         union all
-        select se.story_id as id, word_similarity(e.entity_slug, ${query}) as sim
+        select se.story_id as id, word_similarity(${query}, e.entity_slug) as sim
         from story_entities se
         join entities e on e.id = se.entity_id
       ) sims
