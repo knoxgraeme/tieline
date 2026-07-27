@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import postgres from "postgres";
 import type { EmbeddingProvider, StoryApprovalMode } from "../config.js";
 import { migrateDatabase } from "../commands/migrate.js";
@@ -77,16 +78,29 @@ function withDatabaseRole(ownerUrl: string, username: string, password: string):
   return url.toString();
 }
 
-async function localContainerPort(
-  container: string,
-  env: NodeJS.ProcessEnv
-): Promise<string> {
-  const result = await runProcess("docker", ["port", container, "5432/tcp"], env);
-  const match = result.stdout.trim().match(/:(\d+)$/m);
-  if (result.code !== 0 || !match) {
-    throw new Error(`Could not determine the local PostgreSQL port: ${result.stderr.trim()}`);
-  }
-  return match[1];
+/**
+ * Ask the OS for a free loopback TCP port, then release it so Docker can bind it.
+ *
+ * We choose the host port explicitly and publish `127.0.0.1:<port>:5432` rather
+ * than letting Docker auto-assign via `127.0.0.1::5432`. The auto-assign form
+ * requires reading the mapping back with `docker port` / NetworkSettings.Ports,
+ * which Docker Desktop can leave EMPTY even when the container is up (observed on
+ * Docker Desktop 28.x) — and the auto-assigned port also changes on every restart.
+ * An explicit port is deterministic, survives restarts, and never needs the
+ * unreliable read-back path. There is a small TOCTOU window between releasing the
+ * port and Docker binding it; if lost, `docker run` fails loudly rather than
+ * silently, which the caller surfaces.
+ */
+async function findFreePort(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close(() => (port ? resolvePort(port) : reject(new Error("Could not allocate a local port."))));
+    });
+  });
 }
 
 async function waitForPostgres(url: string): Promise<void> {
@@ -104,7 +118,13 @@ async function waitForPostgres(url: string): Promise<void> {
       await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
     }
   }
-  throw new Error(`Local PostgreSQL did not become ready within 60 seconds: ${String(lastError)}`);
+  throw new Error(
+    `Local PostgreSQL did not become ready within 60 seconds: ${String(lastError)}\n` +
+      "The container may be running while 127.0.0.1 cannot reach its published port. This is usually " +
+      "Docker Desktop's port forwarding being wedged (fully quit and reopen Docker Desktop), or a VPN / " +
+      "loopback tool intercepting the connection. As an alternative, re-run with `--database existing` " +
+      "against any Postgres 16 + pgvector connection string."
+  );
 }
 
 async function provisionLocalRoles(ownerUrl: string): Promise<Record<string, string>> {
@@ -143,7 +163,6 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
           throw new Error(`Could not restart local PostgreSQL container '${container}': ${restarted.stderr.trim()}`);
         }
       }
-      const port = await localContainerPort(container, env);
       let configured: URL;
       try {
         configured = new URL(env.DATABASE_URL_INGEST);
@@ -151,13 +170,17 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
         throw new Error(`The saved owner credential for local container '${container}' is not a valid URL.`);
       }
       const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(configured.hostname);
-      if (!loopback || configured.port !== port || configured.pathname !== "/tieline") {
+      if (!loopback || configured.pathname !== "/tieline") {
         throw new Error(
           `Local container '${container}' exists, but DATABASE_URL_INGEST does not identify its mapped Tieline database. ` +
             "Restore the private workspace profile instead of reusing an unrelated credential."
         );
       }
+      // The container was published on an explicit host port, so the saved URL's
+      // port stays valid across restarts. Verify it is actually reachable rather
+      // than re-reading the mapping from Docker (which can be unreliable).
       io.write(`Reusing local PostgreSQL container '${container}'.\n`);
+      await waitForPostgres(env.DATABASE_URL_INGEST);
       return { ownerUrl: env.DATABASE_URL_INGEST, container };
     }
     throw new Error(
@@ -167,7 +190,8 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
   }
 
   const ownerPassword = credential();
-  io.write(`Starting dedicated PostgreSQL + pgvector container '${container}'...\n`);
+  const hostPort = await findFreePort();
+  io.write(`Starting dedicated PostgreSQL + pgvector container '${container}' on 127.0.0.1:${hostPort}...\n`);
   const started = await runProcess(
     "docker",
     [
@@ -182,7 +206,7 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
       "--env",
       "POSTGRES_DB=tieline",
       "--publish",
-      "127.0.0.1::5432",
+      `127.0.0.1:${hostPort}:5432`,
       "--volume",
       `${container}-data:/var/lib/postgresql/data`,
       "pgvector/pgvector:pg16",
@@ -190,8 +214,7 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
     { ...env, POSTGRES_PASSWORD: ownerPassword }
   );
   if (started.code !== 0) throw new Error(`Could not start local PostgreSQL: ${started.stderr.trim()}`);
-  const port = await localContainerPort(container, env);
-  const ownerUrl = `postgresql://postgres:${encodeURIComponent(ownerPassword)}@127.0.0.1:${port}/tieline`;
+  const ownerUrl = `postgresql://postgres:${encodeURIComponent(ownerPassword)}@127.0.0.1:${hostPort}/tieline`;
   await waitForPostgres(ownerUrl);
   return { ownerUrl, container };
 }
