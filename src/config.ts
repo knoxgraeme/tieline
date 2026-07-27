@@ -252,12 +252,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     helpMinScore: boundedNumber("HELP_MIN_SCORE", env.HELP_MIN_SCORE, 0.8, { min: 0, max: 1 }),
 
     weights: {
-      // pure conceptual similarity
-      semantic: { vector: 1.0, entity: 0.0, path: 0.0 },
-      // code in -> lean on code-path overlap; a function body embeds poorly vs prose
-      structural: { vector: 0.15, entity: 0.25, path: 0.6 },
-      // sensible default for a naive agent
-      blended: { vector: 0.5, entity: 0.25, path: 0.25 },
+      // pure conceptual similarity — embeddings only, by definition
+      semantic: { vector: 1.0, entity: 0.0, path: 0.0, lexical: 0.0 },
+      // code in -> lean on code-path overlap; a function body embeds poorly vs prose.
+      // A modest lexical share catches exact identifiers embeddings blur.
+      structural: { vector: 0.15, entity: 0.25, path: 0.5, lexical: 0.1 },
+      // sensible default for a naive agent, and the zero-embedding baseline:
+      // lexical is co-weighted with vector so search still ranks when no
+      // embedding provider is configured (vector collapses to 0 for all).
+      blended: { vector: 0.4, entity: 0.15, path: 0.15, lexical: 0.3 },
     },
 
     characterLimit: boundedNumber("CHARACTER_LIMIT", env.CHARACTER_LIMIT, 25000, {
