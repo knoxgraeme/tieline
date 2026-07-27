@@ -282,8 +282,11 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
   if (options.databaseMode === "existing") {
     if (!env.DATABASE_URL_INGEST && !env.SUPABASE_DB_URL_INGEST) {
       throw new Error(
-        "Existing database setup requires DATABASE_URL_INGEST in the environment. " +
-          "Tieline will copy it into the private profile; credentials are never accepted as CLI arguments."
+        "Connecting your own database requires a Postgres 16 + pgvector connection string in " +
+          "DATABASE_URL_INGEST (set it in the environment or a local .env; credentials are never " +
+          "accepted as CLI arguments, so Tieline reads it from there and copies it into the private " +
+          "profile). Any host works — a local Postgres, or a free hosted database from Neon, Supabase, " +
+          "or similar. Provisioning tools that sync a .env (e.g. Stripe Projects) are picked up here too."
       );
     }
     writeWorkspaceProfile(workspace, env);

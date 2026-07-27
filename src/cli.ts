@@ -309,8 +309,8 @@ async function runInit(args: string[], io: TielineCliIO, env: NodeJS.ProcessEnv)
         io,
         "Database setup",
         [
-          { value: "local", label: "Local Docker PostgreSQL + pgvector (recommended)" },
-          { value: "existing", label: "Existing PostgreSQL + pgvector (credentials from environment)" },
+          { value: "local", label: "Local Docker PostgreSQL + pgvector — Tieline runs the container for you (recommended)" },
+          { value: "existing", label: "Connect your own PostgreSQL + pgvector — no Docker; reads DATABASE_URL_INGEST from the environment (Neon, Supabase, RDS, or any host)" },
           { value: "offline", label: "Offline workspace only; connect a database later" },
         ],
         reuseExisting ? databaseMode : env.DATABASE_URL_INGEST ? "existing" : "local"
