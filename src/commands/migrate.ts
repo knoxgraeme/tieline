@@ -30,6 +30,10 @@ export async function migrateDatabase(dbUrl: string, verifyOnly = false): Promis
     max: 1,
     prepare: false,
     connection: { search_path: "public, extensions" },
+    // Migrations use idempotent `drop ... if exists` / `add column if not exists`,
+    // which raise benign NOTICEs on a fresh DB. Suppress them so the apply log
+    // stays readable; genuine errors still reject.
+    onnotice: () => {},
   });
 
   try {

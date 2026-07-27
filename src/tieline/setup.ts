@@ -132,10 +132,14 @@ async function provisionLocalRoles(ownerUrl: string): Promise<Record<string, str
   const writer = credential();
   const approver = credential();
   const sql = postgres(ownerUrl, { max: 1, prepare: false });
+  // ALTER ROLE ... PASSWORD requires a string literal — Postgres rejects a bind
+  // parameter ($1) in this DDL — so the password is quoted inline via sql.unsafe.
+  // credential() is base64url (no quotes); single quotes are escaped defensively.
+  const passwordLiteral = (secret: string) => `'${secret.replace(/'/g, "''")}'`;
   try {
-    await sql`alter role mcp_reader with login password ${reader}`;
-    await sql`alter role mcp_writer with login password ${writer}`;
-    await sql`alter role mcp_approver with login password ${approver}`;
+    await sql.unsafe(`alter role mcp_reader with login password ${passwordLiteral(reader)}`);
+    await sql.unsafe(`alter role mcp_writer with login password ${passwordLiteral(writer)}`);
+    await sql.unsafe(`alter role mcp_approver with login password ${passwordLiteral(approver)}`);
   } finally {
     await sql.end({ timeout: 5 });
   }
