@@ -206,6 +206,21 @@ explicit `HTTP_ALLOWED_ORIGINS` list, and an authenticated TLS gateway.
 
 The server also provides `schema://taxonomy` and `docs://how-to-query` resources.
 
+### Search works with zero embedding setup
+
+Retrieval fuses three signals — **lexical** full-text search (Postgres `tsvector` +
+`pg_trgm` trigram matching over identifiers/code paths), **structural** overlap (shared
+entity slugs and code paths), and optional **semantic** vector similarity — combined with
+Reciprocal Rank Fusion. Lexical and structural retrieval need only the Postgres tieline
+already requires (the `pg_trgm` extension is added by the packaged migrations), so
+`find_related` returns useful results **without any embedding provider configured** — no
+API key, no model download, no external service.
+
+Embeddings are an optional **semantic-recall upgrade** for paraphrase/synonym matching:
+configure any provider (local `gte-small`, an OpenAI-compatible endpoint, or a Supabase
+edge function) and vector similarity joins the fusion. The embedding storage contract is a
+fixed 384 dimensions; a provider must be used consistently for both ingest and search.
+
 ### Write tools and approval
 
 Write tools use a dedicated `mcp_writer` connection. The default
