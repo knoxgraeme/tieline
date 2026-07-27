@@ -109,6 +109,7 @@ export interface ScoreBreakdown {
   vector: number; // normalized 0..1
   entity: number; // normalized weighted-overlap 0..1
   path: number; // normalized weighted-overlap 0..1
+  lexical: number; // normalized lexical (tsvector + trigram) 0..1
 }
 
 /** A matched story inside an area hit. */

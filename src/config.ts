@@ -16,6 +16,9 @@ export interface FusionWeights {
   vector: number;
   entity: number;
   path: number;
+  // Lexical (tsvector + trigram) weight. Optional so existing 3-signal weight
+  // literals keep compiling; treated as 0 when absent.
+  lexical?: number;
 }
 
 export interface Config {
@@ -65,6 +68,10 @@ export interface Config {
   candidatePoolSize: number;
   findRelatedMinVectorScore: number;
   findRelatedMinStructuralScore: number;
+  // Lexical (FTS) floor — a candidate qualifies on lexical alone at/above this.
+  findRelatedMinLexicalScore: number;
+  // Reciprocal Rank Fusion constant (k). Higher = flatter rank contribution.
+  rrfK: number;
   // find_help (semantic search over help articles)
   helpCandidatePoolSize: number;
   helpMinScore: number;
@@ -224,6 +231,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       0.01,
       { min: 0, max: 1 }
     ),
+    // Lexical floor: real tsvector/trigram matches saturate well above this, so
+    // a low floor admits lexical-only hits while excluding near-zero noise.
+    findRelatedMinLexicalScore: boundedNumber(
+      "FIND_RELATED_MIN_LEXICAL_SCORE",
+      env.FIND_RELATED_MIN_LEXICAL_SCORE,
+      0.05,
+      { min: 0, max: 1 }
+    ),
+    rrfK: boundedNumber("RRF_K", env.RRF_K, 60, { min: 1, max: 10000, integer: true }),
     // Over-fetch from the HNSW gate so post-KNN product_area/audience filters
     // still have candidates to trim from.
     helpCandidatePoolSize: boundedNumber("HELP_CANDIDATE_POOL_SIZE", env.HELP_CANDIDATE_POOL_SIZE, 50, {
