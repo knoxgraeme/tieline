@@ -4,16 +4,22 @@ import { resolve } from "node:path";
 import { scoreCandidates, toStoryHits } from "../src/ranking.js";
 import type { Candidate, DocFrequencies } from "../src/types.js";
 
-type Mode = "semantic" | "structural" | "blended";
+type Mode = "semantic" | "structural" | "blended" | "lexical";
 interface Fixture {
-  thresholds: { min_vector: number; min_structural: number };
+  thresholds: { min_vector: number; min_structural: number; min_lexical: number };
   document_frequencies: { entity: Record<string, number>; path: Record<string, number> };
   cases: Array<{
     name: string;
     mode: Mode;
     query_entities: string[];
     query_paths: string[];
-    candidates: Array<{ key: string; similarity: number; entities: string[]; paths: string[] }>;
+    candidates: Array<{
+      key: string;
+      similarity: number;
+      lexical?: number;
+      entities: string[];
+      paths: string[];
+    }>;
     expected: string[];
   }>;
 }
@@ -25,10 +31,11 @@ const df: DocFrequencies = {
   entity: new Map(Object.entries(fixture.document_frequencies.entity)),
   path: new Map(Object.entries(fixture.document_frequencies.path)),
 };
-const weights: Record<Mode, { vector: number; entity: number; path: number }> = {
-  semantic: { vector: 1, entity: 0, path: 0 },
-  structural: { vector: 0.15, entity: 0.25, path: 0.6 },
-  blended: { vector: 0.5, entity: 0.25, path: 0.25 },
+const weights: Record<Mode, { vector: number; entity: number; path: number; lexical: number }> = {
+  semantic: { vector: 1, entity: 0, path: 0, lexical: 0 },
+  structural: { vector: 0.15, entity: 0.25, path: 0.5, lexical: 0.1 },
+  blended: { vector: 0.4, entity: 0.15, path: 0.15, lexical: 0.3 },
+  lexical: { vector: 0, entity: 0, path: 0, lexical: 1 },
 };
 
 let failed = 0;
@@ -48,6 +55,7 @@ for (const testCase of fixture.cases) {
     help_articles: [],
     help_article_count: 0,
     similarity: candidate.similarity,
+    lexical: candidate.lexical ?? 0,
   }));
   const scored = scoreCandidates({
     candidates,
@@ -61,6 +69,7 @@ for (const testCase of fixture.cases) {
     {
       minVector: fixture.thresholds.min_vector,
       minStructural: fixture.thresholds.min_structural,
+      minLexical: fixture.thresholds.min_lexical,
       allowStructural: testCase.mode !== "semantic",
     },
     20
@@ -70,5 +79,10 @@ for (const testCase of fixture.cases) {
   if (!ok) failed += 1;
 }
 
+const noVectorCases = fixture.cases.filter((c) => c.candidates.every((cand) => (cand.similarity ?? 0) === 0));
 console.log(`\n${fixture.cases.length - failed} passed, ${failed} failed`);
+console.log(
+  `recall: ${noVectorCases.length}/${fixture.cases.length} case(s) exercise lexical/structural recall with the vector signal absent ` +
+    `(these are the "search works with no embeddings" guarantee)`
+);
 process.exitCode = failed === 0 ? 0 : 1;

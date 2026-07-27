@@ -84,9 +84,13 @@ export interface WrittenStory {
   status: string;
 }
 
-/** A candidate produced by the KNN gate (story + raw vector similarity). */
+/** A candidate produced by a retrieval source (story + raw per-signal scores). */
 export interface Candidate extends StoryRecord {
-  similarity: number; // 1 - cosine distance, ~0..1
+  similarity: number; // 1 - cosine distance, ~0..1 (0 when no embedding)
+  /** Lexical relevance 0..1: saturated ts_rank_cd over prose blended with
+   *  pg_trgm word_similarity over linked code paths / entity slugs. Absent/0
+   *  when the candidate did not come from the lexical source. */
+  lexical?: number;
 }
 
 /** Document frequencies used for 1/df rare-slug/path weighting. */
@@ -105,6 +109,7 @@ export interface ScoreBreakdown {
   vector: number; // normalized 0..1
   entity: number; // normalized weighted-overlap 0..1
   path: number; // normalized weighted-overlap 0..1
+  lexical: number; // normalized lexical (tsvector + trigram) 0..1
 }
 
 /** A matched story inside an area hit. */

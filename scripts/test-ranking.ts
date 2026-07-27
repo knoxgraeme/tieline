@@ -148,5 +148,46 @@ console.log("empty-result gate");
   check("below min_score -> empty (not forced)", areas.length === 0);
 }
 
+// --- lexical signal + RRF fusion (U3) --------------------------------------
+console.log("lexical + RRF fusion");
+{
+  // vector absent, strong lexical -> qualifies on the lexical floor alone (R2)
+  const cands: Candidate[] = [
+    cand({ id: 10, story_key: "LEX", similarity: 0, lexical: 0.6 }),
+    cand({ id: 11, story_key: "NIL", similarity: 0, lexical: 0 }),
+  ];
+  const scored = scoreCandidates({
+    candidates: cands,
+    queryEntities: new Set(),
+    queryPaths: new Set(),
+    df,
+    weights: { vector: 0, entity: 0, path: 0, lexical: 1 },
+  });
+  const gate = { minVector: 0.8, minStructural: 0.5, minLexical: 0.05, allowStructural: true };
+  const hits = toStoryHits(scored, gate, 5);
+  check("lexical-only candidate qualifies with no vector (R2)", hits.some((h) => h.story_key === "LEX"));
+  check("below every floor is excluded (R3)", !hits.some((h) => h.story_key === "NIL"));
+  check("lexical flows into score_breakdown", (hits.find((h) => h.story_key === "LEX")?.score_breakdown.lexical ?? 0) > 0);
+}
+{
+  // RRF: a candidate consistently high across BOTH signals ranks above one that
+  // is #1 in a single signal but weak in the other.
+  const cands: Candidate[] = [
+    cand({ id: 20, story_key: "X", similarity: 0.8, lexical: 0.9 }), // v#2, l#1
+    cand({ id: 21, story_key: "Y", similarity: 0.9, lexical: 0.3 }), // v#1, l#3
+    cand({ id: 22, story_key: "Z", similarity: 0.1, lexical: 0.5 }), // v#3, l#2
+  ];
+  const scored = scoreCandidates({
+    candidates: cands,
+    queryEntities: new Set(),
+    queryPaths: new Set(),
+    df,
+    weights: { vector: 0.5, entity: 0, path: 0, lexical: 0.5 },
+  });
+  const hits = toStoryHits(scored, { minVector: 0, minStructural: 0, minLexical: 0.05, allowStructural: true }, 5);
+  check("RRF ranks consistent-across-signals X above single-signal Y", hits[0].story_key === "X");
+  check("RRF full order is X, Y, Z", hits.map((h) => h.story_key).join(",") === "X,Y,Z");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

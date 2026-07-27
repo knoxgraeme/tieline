@@ -25,6 +25,7 @@ Args (all optional, AND-combined — pass at the TOP LEVEL, not nested):
   - help_relationship: string[] — stories with a help link of any of these types (primary, supporting, reference, troubleshooting)
   - help_article_slug: string — reverse lookup: stories linked to this exact help article slug
   - has_help: bool        — true = only stories with help articles; false = only stories without
+  - keyword: string       — full-text filter: only stories whose title/actor/text match (works with no embeddings)
   - group_by ('section'|'status'|'actor'|'product_area'|null): if set, return grouped counts instead of records.
   - limit (int 1-200, default 25): max records when not grouping.
 
@@ -75,6 +76,7 @@ export function registerQueryStories(server: McpServer): void {
           help_relationship: input.help_relationship ?? nested.help_relationship,
           help_article_slug: input.help_article_slug ?? nested.help_article_slug,
           has_help: input.has_help ?? nested.has_help,
+          keyword: input.keyword ?? nested.keyword,
         };
 
         // Echo exactly what the server filtered on (omitting unset keys), so a
@@ -92,6 +94,7 @@ export function registerQueryStories(server: McpServer): void {
           appliedFilters.help_relationship = filters.help_relationship;
         if (filters.help_article_slug) appliedFilters.help_article_slug = filters.help_article_slug;
         if (filters.has_help !== undefined) appliedFilters.has_help = filters.has_help;
+        if (filters.keyword?.trim()) appliedFilters.keyword = filters.keyword.trim();
 
         const store = getStore();
         const result = await store.queryStories({

@@ -16,6 +16,9 @@ export interface FusionWeights {
   vector: number;
   entity: number;
   path: number;
+  // Lexical (tsvector + trigram) weight. Optional so existing 3-signal weight
+  // literals keep compiling; treated as 0 when absent.
+  lexical?: number;
 }
 
 export interface Config {
@@ -65,9 +68,15 @@ export interface Config {
   candidatePoolSize: number;
   findRelatedMinVectorScore: number;
   findRelatedMinStructuralScore: number;
+  // Lexical (FTS) floor — a candidate qualifies on lexical alone at/above this.
+  findRelatedMinLexicalScore: number;
+  // Reciprocal Rank Fusion constant (k). Higher = flatter rank contribution.
+  rrfK: number;
   // find_help (semantic search over help articles)
   helpCandidatePoolSize: number;
   helpMinScore: number;
+  // Lexical floor for the always-on FTS help path.
+  helpMinLexicalScore: number;
 
   // Fusion weights per mode. Each weight set is normalized to sum 1 at use.
   weights: {
@@ -224,6 +233,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       0.01,
       { min: 0, max: 1 }
     ),
+    // Lexical floor: real tsvector/trigram matches saturate well above this, so
+    // a low floor admits lexical-only hits while excluding near-zero noise.
+    findRelatedMinLexicalScore: boundedNumber(
+      "FIND_RELATED_MIN_LEXICAL_SCORE",
+      env.FIND_RELATED_MIN_LEXICAL_SCORE,
+      0.05,
+      { min: 0, max: 1 }
+    ),
+    rrfK: boundedNumber("RRF_K", env.RRF_K, 60, { min: 1, max: 10000, integer: true }),
     // Over-fetch from the HNSW gate so post-KNN product_area/audience filters
     // still have candidates to trim from.
     helpCandidatePoolSize: boundedNumber("HELP_CANDIDATE_POOL_SIZE", env.HELP_CANDIDATE_POOL_SIZE, 50, {
@@ -234,14 +252,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // gte-small runs a high cosine baseline (~0.73-0.78 even off-domain); real
     // help matches sit at ~0.87+. 0.80 cleanly separates signal from noise.
     helpMinScore: boundedNumber("HELP_MIN_SCORE", env.HELP_MIN_SCORE, 0.8, { min: 0, max: 1 }),
+    // Saturated ts_rank floor for lexical help hits (independent of the cosine
+    // helpMinScore, which is calibrated to gte-small's high baseline).
+    helpMinLexicalScore: boundedNumber("HELP_MIN_LEXICAL_SCORE", env.HELP_MIN_LEXICAL_SCORE, 0.05, {
+      min: 0,
+      max: 1,
+    }),
 
     weights: {
-      // pure conceptual similarity
-      semantic: { vector: 1.0, entity: 0.0, path: 0.0 },
-      // code in -> lean on code-path overlap; a function body embeds poorly vs prose
-      structural: { vector: 0.15, entity: 0.25, path: 0.6 },
-      // sensible default for a naive agent
-      blended: { vector: 0.5, entity: 0.25, path: 0.25 },
+      // pure conceptual similarity — embeddings only, by definition
+      semantic: { vector: 1.0, entity: 0.0, path: 0.0, lexical: 0.0 },
+      // code in -> lean on code-path overlap; a function body embeds poorly vs prose.
+      // A modest lexical share catches exact identifiers embeddings blur.
+      structural: { vector: 0.15, entity: 0.25, path: 0.5, lexical: 0.1 },
+      // sensible default for a naive agent, and the zero-embedding baseline:
+      // lexical is co-weighted with vector so search still ranks when no
+      // embedding provider is configured (vector collapses to 0 for all).
+      blended: { vector: 0.4, entity: 0.15, path: 0.15, lexical: 0.3 },
     },
 
     characterLimit: boundedNumber("CHARACTER_LIMIT", env.CHARACTER_LIMIT, 25000, {

@@ -70,8 +70,18 @@ export function registerFindRelated(server: McpServer): void {
 
         const canUseExactOnly =
           modeUsed === "structural" && (queryEntities.size > 0 || queryPaths.size > 0);
-        const vector = canUseExactOnly ? undefined : await getEmbedder().embed(context);
-        const [semanticCandidates, exactStructuralCandidates] = await Promise.all([
+        // Guard only the embed() call: if no provider is configured (or it fails),
+        // degrade to the always-on lexical + structural sources rather than erroring
+        // the whole tool. A downstream store error still propagates to the outer catch.
+        let vector: number[] | undefined;
+        if (!canUseExactOnly) {
+          try {
+            vector = await getEmbedder().embed(context);
+          } catch {
+            vector = undefined;
+          }
+        }
+        const [semanticCandidates, exactStructuralCandidates, lexical] = await Promise.all([
           vector ? store.knnCandidates(vector, config.candidatePoolSize) : Promise.resolve([]),
           store.structuralCandidates({
             embedding: vector,
@@ -79,9 +89,25 @@ export function registerFindRelated(server: McpServer): void {
             codePaths: [...queryPaths],
             poolSize: config.candidatePoolSize,
           }),
+          // Always-on lexical source — needs no embedding provider.
+          store.lexicalCandidates({
+            query: context,
+            embedding: vector,
+            poolSize: config.candidatePoolSize,
+          }),
         ]);
+        // Union all three sources by story id. Semantic and structural rows are
+        // identical for a shared story (same cosine, same footprint), so the
+        // first-seen row wins. Lexical is the exception: it carries the one field
+        // the others lack, so merge its `lexical` score onto an existing row.
         const byId = new Map(semanticCandidates.map((candidate) => [candidate.id, candidate]));
-        for (const candidate of exactStructuralCandidates) byId.set(candidate.id, candidate);
+        for (const candidate of exactStructuralCandidates) {
+          byId.set(candidate.id, byId.get(candidate.id) ?? candidate);
+        }
+        for (const candidate of lexical) {
+          const existing = byId.get(candidate.id);
+          byId.set(candidate.id, existing ? { ...existing, lexical: candidate.lexical } : candidate);
+        }
         const candidates = [...byId.values()];
 
         const scored = scoreCandidates({
@@ -90,6 +116,7 @@ export function registerFindRelated(server: McpServer): void {
           queryPaths,
           df,
           weights,
+          rrfK: config.rrfK,
         });
 
         const results =
@@ -99,6 +126,10 @@ export function registerFindRelated(server: McpServer): void {
                 {
                   minVector: config.findRelatedMinVectorScore,
                   minStructural: config.findRelatedMinStructuralScore,
+                  // Gate lexical by the mode's own weight: semantic mode (lexical
+                  // weight 0) must not admit lexical-only hits — it is vector-only
+                  // by contract. Infinity = never qualifies on lexical alone.
+                  minLexical: (weights.lexical ?? 0) > 0 ? config.findRelatedMinLexicalScore : Infinity,
                   allowStructural: modeUsed !== "semantic",
                 },
                 limit
@@ -108,6 +139,10 @@ export function registerFindRelated(server: McpServer): void {
                 {
                   minVector: config.findRelatedMinVectorScore,
                   minStructural: config.findRelatedMinStructuralScore,
+                  // Gate lexical by the mode's own weight: semantic mode (lexical
+                  // weight 0) must not admit lexical-only hits — it is vector-only
+                  // by contract. Infinity = never qualifies on lexical alone.
+                  minLexical: (weights.lexical ?? 0) > 0 ? config.findRelatedMinLexicalScore : Infinity,
                   allowStructural: modeUsed !== "semantic",
                 },
                 limit
@@ -122,10 +157,12 @@ export function registerFindRelated(server: McpServer): void {
             candidate_pool_size: config.candidatePoolSize,
             semantic_candidates: semanticCandidates.length,
             structural_candidates: exactStructuralCandidates.length,
+            lexical_candidates: lexical.length,
             candidate_union_size: candidates.length,
             embedding_used: Boolean(vector),
             min_vector_score: config.findRelatedMinVectorScore,
             min_structural_score: config.findRelatedMinStructuralScore,
+            min_lexical_score: config.findRelatedMinLexicalScore,
             query_entities: [...queryEntities],
             query_code_paths: [...queryPaths],
           },
@@ -133,8 +170,9 @@ export function registerFindRelated(server: McpServer): void {
         };
         if (results.length === 0) {
           payload.note =
-            `No stored stories cleared the semantic (min=${config.findRelatedMinVectorScore}) ` +
-            `or structural (min=${config.findRelatedMinStructuralScore}) qualification gate. ` +
+            `No stored stories cleared the semantic (min=${config.findRelatedMinVectorScore}), ` +
+            `lexical (min=${config.findRelatedMinLexicalScore}), or structural ` +
+            `(min=${config.findRelatedMinStructuralScore}) qualification gate. ` +
             `We likely don't have this pattern yet — this empty result is intentional, not an error.`;
         }
         return jsonResult(payload);

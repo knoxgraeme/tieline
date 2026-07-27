@@ -30,6 +30,7 @@ export interface StoryFilters {
   help_relationship?: string[];
   help_article_slug?: string;
   has_help?: boolean;
+  keyword?: string;
 }
 
 export type StoryGroupBy = "section" | "status" | "actor" | "product_area";
@@ -231,6 +232,13 @@ export interface SearchStore {
     codePaths: string[];
     poolSize: number;
   }): Promise<Candidate[]>;
+  /** Lexical (tsvector + trigram) candidates. Needs no embedding provider. */
+  lexicalCandidates(opts: {
+    query: string;
+    embedding?: number[];
+    poolSize: number;
+    trigramThreshold?: number;
+  }): Promise<Candidate[]>;
   getDocFrequencies(force?: boolean): Promise<DocFrequencies>;
   findCrossover(opts: {
     sectionKey?: string;
@@ -259,6 +267,13 @@ export interface SearchStore {
 export interface HelpStore {
   matchHelpArticles(opts: {
     embedding: number[];
+    poolSize: number;
+    productArea?: string[];
+    audience?: string[];
+  }): Promise<HelpHit[]>;
+  /** Lexical (tsvector) help search — needs no embedding provider. */
+  lexicalHelpArticles(opts: {
+    query: string;
     poolSize: number;
     productArea?: string[];
     audience?: string[];

@@ -4,6 +4,7 @@
  *
  * Signals fused by find_related:
  *   vector  — cosine similarity from the pgvector KNN gate (0..1)
+ *   lexical — tsvector + trigram relevance from the lexical source (0..1)
  *   entity  — weighted overlap between query entity slugs and a story's slugs
  *   path    — weighted overlap between query code paths and a story's code paths
  *
@@ -11,11 +12,11 @@
  * hub tags like `settings` (df=35) don't drown out distinctive ones like
  * `tax-rate` (df=5). Overlap sums are saturated to 0..1.
  *
- * Two scores per candidate:
- *   absBlend — weighted sum of the RAW (absolute) signals. Used to gate
- *              relevance / empty results against min_score.
- *   fused    — weighted sum of the POOL-NORMALIZED signals (min-max per the PRD).
- *              Used for ranking and reported in score_breakdown.
+ * Ranking uses Reciprocal Rank Fusion (rrfScores) over the per-signal rankings,
+ * so incomparable score scales fuse without normalization and a single-weighted
+ * signal reduces to that signal's order. absBlend — the weighted sum of the RAW
+ * signals — is the absolute relevance used to gate empty results against
+ * min_score; score_breakdown reports the pool-normalized components.
  */
 
 import type {
@@ -59,9 +60,49 @@ export function minMax(values: number[]): number[] {
   return values.map((v) => (v - lo) / range);
 }
 
-export function normalizeWeights(w: FusionWeights): FusionWeights {
-  const sum = w.vector + w.entity + w.path || 1;
-  return { vector: w.vector / sum, entity: w.entity / sum, path: w.path / sum };
+export function normalizeWeights(w: FusionWeights): Required<FusionWeights> {
+  const lexical = w.lexical ?? 0;
+  const sum = w.vector + w.entity + w.path + lexical || 1;
+  return {
+    vector: w.vector / sum,
+    entity: w.entity / sum,
+    path: w.path / sum,
+    lexical: lexical / sum,
+  };
+}
+
+/**
+ * Reciprocal Rank Fusion. Combines heterogeneous per-signal rankings by rank
+ * position (1-based) rather than by raw score, so incomparable scales (cosine,
+ * saturated ts_rank, 1/df overlap) fuse without normalization. A signal with
+ * zero weight does not contribute, so a single-signal weight set reduces to
+ * that signal's ordering. Returns one RRF score per input row, index-aligned.
+ */
+export function rrfScores(
+  raws: { vector: number; lexical: number; entity: number; path: number }[],
+  w: Required<FusionWeights>,
+  k: number
+): number[] {
+  const rrf = new Array<number>(raws.length).fill(0);
+  const signals: [keyof (typeof raws)[number], number][] = [
+    ["vector", w.vector],
+    ["lexical", w.lexical],
+    ["entity", w.entity],
+    ["path", w.path],
+  ];
+  for (const [signal, weight] of signals) {
+    if (weight <= 0) continue;
+    const order = raws.map((_, i) => i).sort((a, b) => raws[b][signal] - raws[a][signal]);
+    order.forEach((idx, pos) => {
+      // Standard RRF credits only candidates a ranker actually retrieved. A zero
+      // raw signal means "not retrieved here" — crediting it would let array/union
+      // order leak into the fused rank. (Zeros sort last, so non-zero ranks are
+      // unaffected.)
+      if (raws[idx][signal] <= 0) return;
+      rrf[idx] += weight * (1 / (k + pos + 1));
+    });
+  }
+  return rrf;
 }
 
 // --- overlap ----------------------------------------------------------------
@@ -142,22 +183,28 @@ export function extractQueryEntities(context: string, vocab: Iterable<string>): 
 
 export interface ScoredStory {
   candidate: Candidate;
-  absBlend: number; // absolute relevance (for min_score gate)
-  fused: number; // pool-normalized (for ranking/display)
+  absBlend: number; // absolute relevance (for min_score gate + reporting)
+  rrf: number; // reciprocal-rank-fusion score — the ranking key
   breakdown: ScoreBreakdown; // normalized components
   why: Why;
-  raw: { vector: number; entity: number; path: number };
+  raw: { vector: number; entity: number; path: number; lexical: number };
 }
 
 export interface QualificationGate {
   minVector: number;
   minStructural: number;
+  // Lexical floor. Optional so legacy callers keep their exact behavior: when
+  // absent it defaults to Infinity, so a candidate never qualifies on lexical
+  // alone unless a caller opts in with a real floor.
+  minLexical?: number;
   allowStructural: boolean;
 }
 
 export function qualifiesCandidate(story: ScoredStory, gate: QualificationGate): boolean {
+  const minLexical = gate.minLexical ?? Infinity;
   return (
     story.raw.vector >= gate.minVector ||
+    story.raw.lexical >= minLexical ||
     (gate.allowStructural &&
       (story.raw.entity >= gate.minStructural || story.raw.path >= gate.minStructural))
   );
@@ -169,35 +216,46 @@ export interface ScoreInput {
   queryPaths: Set<string>;
   df: DocFrequencies;
   weights: FusionWeights; // raw (will be normalized)
+  rrfK?: number; // RRF constant; defaults to 60
 }
 
 export function scoreCandidates(input: ScoreInput): ScoredStory[] {
   const w = normalizeWeights(input.weights);
+  const k = input.rrfK ?? 60;
 
   // Raw per-signal absolute values.
   const raw = input.candidates.map((c) => {
     const vCos = clamp01(c.similarity);
+    const lex = clamp01(c.lexical ?? 0);
     const ent = weightedOverlap(input.queryEntities, c.entity_slugs, input.df.entity);
     const pat = weightedOverlap(input.queryPaths, c.code_paths, input.df.path);
-    return { c, vCos, eOv: saturate(ent.score), pOv: saturate(pat.score), ent, pat };
+    return { c, vCos, lex, eOv: saturate(ent.score), pOv: saturate(pat.score), ent, pat };
   });
 
-  // Pool-normalized signals (min-max each, per PRD).
+  // Pool-normalized signals (min-max each) for the interpretable blend/display.
   const vN = minMax(raw.map((r) => r.vCos));
+  const lN = minMax(raw.map((r) => r.lex));
   const eN = minMax(raw.map((r) => r.eOv));
   const pN = minMax(raw.map((r) => r.pOv));
 
+  // RRF over the RAW per-signal rankings — the ranking key. Computed over the
+  // full pool; filtering later (the gate) preserves survivors' relative order.
+  const rrf = rrfScores(
+    raw.map((r) => ({ vector: r.vCos, lexical: r.lex, entity: r.eOv, path: r.pOv })),
+    w,
+    k
+  );
+
   return raw.map((r, i) => {
-    const breakdown: ScoreBreakdown = { vector: vN[i], entity: eN[i], path: pN[i] };
-    const fused = w.vector * vN[i] + w.entity * eN[i] + w.path * pN[i];
-    const absBlend = w.vector * r.vCos + w.entity * r.eOv + w.path * r.pOv;
+    const breakdown: ScoreBreakdown = { vector: vN[i], entity: eN[i], path: pN[i], lexical: lN[i] };
+    const absBlend = w.vector * r.vCos + w.entity * r.eOv + w.path * r.pOv + w.lexical * r.lex;
     return {
       candidate: r.c,
       absBlend,
-      fused,
+      rrf: rrf[i],
       breakdown,
       why: { shared_entities: r.ent.shared, shared_code_paths: r.pat.shared },
-      raw: { vector: r.vCos, entity: r.eOv, path: r.pOv },
+      raw: { vector: r.vCos, entity: r.eOv, path: r.pOv, lexical: r.lex },
     };
   });
 }
@@ -216,7 +274,7 @@ export function toStoryHits(
 ): StoryHit[] {
   return scored
     .filter((s) => qualifiesCandidate(s, gate))
-    .sort((a, b) => b.fused - a.fused || b.absBlend - a.absBlend)
+    .sort((a, b) => b.rrf - a.rrf || b.absBlend - a.absBlend)
     .slice(0, limit)
     .map((s) => ({
       story_key: s.candidate.story_key,
@@ -253,7 +311,7 @@ export function toAreaHits(
 
   const areas: AreaHit[] = [];
   for (const [, members] of bySection) {
-    members.sort((a, b) => b.fused - a.fused || b.absBlend - a.absBlend);
+    members.sort((a, b) => b.rrf - a.rrf || b.absBlend - a.absBlend);
     const top = members[0];
     // Area score = best member's absolute score (interpretable + thresholdable).
     const sharedEntities = dedupeCap(members.flatMap((m) => m.why.shared_entities), 12);
@@ -288,5 +346,10 @@ function round(x: number): number {
 }
 
 function roundBreakdown(b: ScoreBreakdown): ScoreBreakdown {
-  return { vector: round(b.vector), entity: round(b.entity), path: round(b.path) };
+  return {
+    vector: round(b.vector),
+    entity: round(b.entity),
+    path: round(b.path),
+    lexical: round(b.lexical),
+  };
 }

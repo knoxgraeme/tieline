@@ -3,11 +3,61 @@ import type { HelpArticle, HelpHit } from "../../types.js";
 import type { HelpArticleImportInput, HelpArticleImportResult, HelpLinkSuggestionResult } from "../../domain/knowledge-store.js";
 import { getIngestSql, getReadSql } from "./connections.js";
 import { vectorLiteral } from "./vector.js";
+import { saturate } from "../../ranking.js";
 const getSql = getReadSql;
 
-// --- find_help (semantic search over help articles) -------------------------
+// --- find_help (semantic + lexical search over help articles) ---------------
 
 const HELP_LINKED_STORIES_CAP = 5;
+
+/** The article columns both the KNN and lexical help queries project. */
+type HelpArticleRow = {
+  id: number;
+  article_slug: string;
+  title: string;
+  summary: string | null;
+  url: string | null;
+  product_area: string | null;
+  audience: string | null;
+  tags: string[] | null;
+  headings: unknown;
+};
+
+/** Reverse lookup: the story keys each given article documents, primary-first. */
+async function linkedStoriesFor(ids: number[]): Promise<Map<number, string[]>> {
+  const linkMap = new Map<number, string[]>();
+  if (ids.length === 0) return linkMap;
+  const sql = getSql();
+  const links = await sql<{ help_article_id: number; story_key: string }[]>`
+    select sha.help_article_id, us.story_key
+    from story_help_articles sha
+    join user_stories us on us.id = sha.story_id
+    where sha.help_article_id in ${sql(ids)}
+    order by sha.confidence desc`;
+  for (const l of links) {
+    const arr = linkMap.get(l.help_article_id) ?? [];
+    arr.push(l.story_key);
+    linkMap.set(l.help_article_id, arr);
+  }
+  return linkMap;
+}
+
+/** Shape one article row + its linked stories + a caller-computed score into a HelpHit. */
+function toHelpHit(row: HelpArticleRow, stories: string[], score: number): HelpHit {
+  return {
+    article_slug: row.article_slug,
+    title: row.title,
+    summary: row.summary,
+    url: row.url,
+    product_area: row.product_area,
+    audience: row.audience,
+    tags: row.tags ?? [],
+    headings: Array.isArray(row.headings) ? (row.headings as string[]) : [],
+    score,
+    linked_story_keys: stories.slice(0, HELP_LINKED_STORIES_CAP),
+    linked_story_count: stories.length,
+  };
+}
 
 /** KNN over help_articles, optionally post-filtered by product_area/audience,
  *  each hit enriched with the story keys it documents. The min_score gate and
@@ -19,58 +69,43 @@ export async function matchHelpArticles(opts: {
   audience?: string[];
 }): Promise<HelpHit[]> {
   const sql = getSql();
-  const rows = await sql<
-    {
-      id: number;
-      article_slug: string;
-      title: string;
-      summary: string | null;
-      url: string | null;
-      product_area: string | null;
-      audience: string | null;
-      tags: string[] | null;
-      headings: unknown;
-      similarity: number;
-    }[]
-  >`select * from match_help_articles(
+  const rows = await sql<(HelpArticleRow & { similarity: number })[]>`select * from match_help_articles(
       ${vectorLiteral(opts.embedding)}::vector,
       ${opts.poolSize},
       ${opts.productArea?.length ? opts.productArea : null}::text[],
       ${opts.audience?.length ? opts.audience : null}::text[]
     )`;
+  const linkMap = await linkedStoriesFor(rows.map((r) => r.id));
+  return rows.map((r) => toHelpHit(r, linkMap.get(r.id) ?? [], r.similarity));
+}
 
-  // Reverse lookup: the stories each surviving article documents.
-  const linkMap = new Map<number, string[]>();
-  if (rows.length) {
-    const links = await sql<{ help_article_id: number; story_key: string }[]>`
-      select sha.help_article_id, us.story_key
-      from story_help_articles sha
-      join user_stories us on us.id = sha.story_id
-      where sha.help_article_id in ${sql(rows.map((r) => r.id))}
-      order by sha.confidence desc`;
-    for (const l of links) {
-      const arr = linkMap.get(l.help_article_id) ?? [];
-      arr.push(l.story_key);
-      linkMap.set(l.help_article_id, arr);
-    }
-  }
-
-  return rows.map((r) => {
-    const stories = linkMap.get(r.id) ?? [];
-    return {
-      article_slug: r.article_slug,
-      title: r.title,
-      summary: r.summary,
-      url: r.url,
-      product_area: r.product_area,
-      audience: r.audience,
-      tags: r.tags ?? [],
-      headings: Array.isArray(r.headings) ? (r.headings as string[]) : [],
-      score: r.similarity,
-      linked_story_keys: stories.slice(0, HELP_LINKED_STORIES_CAP),
-      linked_story_count: stories.length,
-    };
-  });
+/** Lexical (tsvector) search over help articles — the always-on path that needs
+ *  no embedding provider. Mirrors matchHelpArticles' shape/filters/enrichment;
+ *  score is a saturated ts_rank_cd (0..1). The min_score gate + final limit are
+ *  applied by the caller, matching the KNN path. */
+export async function lexicalHelpArticles(opts: {
+  query: string;
+  poolSize: number;
+  productArea?: string[];
+  audience?: string[];
+}): Promise<HelpHit[]> {
+  const query = opts.query.trim();
+  if (!query) return [];
+  const sql = getSql();
+  const productArea = opts.productArea?.length ? opts.productArea : null;
+  const audience = opts.audience?.length ? opts.audience : null;
+  const rows = await sql<(HelpArticleRow & { rank: number })[]>`
+    with q as (select websearch_to_tsquery('english', ${query}) as tsq)
+    select ha.id, ha.article_slug, ha.title, ha.summary, ha.url, ha.product_area,
+           ha.audience, ha.tags, ha.headings, ts_rank_cd(ha.search_tsv, q.tsq) as rank
+    from help_articles ha, q
+    where ha.search_tsv @@ q.tsq
+      and (${productArea}::text[] is null or ha.product_area = any(${productArea}::text[]))
+      and (${audience}::text[] is null or ha.audience = any(${audience}::text[]))
+    order by rank desc
+    limit ${Math.max(opts.poolSize, 1)}`;
+  const linkMap = await linkedStoriesFor(rows.map((r) => r.id));
+  return rows.map((r) => toHelpHit(r, linkMap.get(r.id) ?? [], saturate(r.rank)));
 }
 
 // --- get_help_article (full body on demand, by exact slug) ------------------

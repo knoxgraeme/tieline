@@ -52,6 +52,14 @@ export class FakeKnowledgeStore implements KnowledgeStore {
   }): Promise<Candidate[]> {
     return Promise.reject(unconfigured("structuralCandidates"));
   }
+  lexicalCandidates(_opts: {
+    query: string;
+    embedding?: number[];
+    poolSize: number;
+    trigramThreshold?: number;
+  }): Promise<Candidate[]> {
+    return Promise.reject(unconfigured("lexicalCandidates"));
+  }
   getDocFrequencies(_force?: boolean): Promise<DocFrequencies> {
     return Promise.reject(unconfigured("getDocFrequencies"));
   }
@@ -94,6 +102,14 @@ export class FakeKnowledgeStore implements KnowledgeStore {
     audience?: string[];
   }): Promise<HelpHit[]> {
     return Promise.reject(unconfigured("matchHelpArticles"));
+  }
+  lexicalHelpArticles(_opts: {
+    query: string;
+    poolSize: number;
+    productArea?: string[];
+    audience?: string[];
+  }): Promise<HelpHit[]> {
+    return Promise.reject(unconfigured("lexicalHelpArticles"));
   }
   getHelpArticles(_slugs: string[]): Promise<{ articles: HelpArticle[]; not_found: string[] }> {
     return Promise.reject(unconfigured("getHelpArticles"));

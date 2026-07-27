@@ -193,6 +193,13 @@ const makeFilterFields = () => ({
     .boolean()
     .optional()
     .describe("true = only stories with at least one help article; false = only stories with none."),
+  keyword: z
+    .string()
+    .optional()
+    .describe(
+      "Full-text keyword filter: only stories whose title/actor/text match this query " +
+        "(Postgres full-text search). Works with no embedding provider configured."
+    ),
 });
 
 // Internal raw shape. Kept separate so the exported `queryStoriesShape` can be a
@@ -269,7 +276,7 @@ const whyObject = () =>
   });
 
 const scoreBreakdownObject = () =>
-  z.object({ vector: z.number(), entity: z.number(), path: z.number() });
+  z.object({ vector: z.number(), entity: z.number(), path: z.number(), lexical: z.number() });
 
 // find_related: results are a superset of AreaHit | StoryHit (scope-dependent),
 // so scope-specific fields are optional; the shared core is required.
@@ -282,8 +289,10 @@ export const findRelatedOutputShape = {
     candidate_pool_size: z.number(),
     min_vector_score: z.number(),
     min_structural_score: z.number(),
+    min_lexical_score: z.number(),
     semantic_candidates: z.number(),
     structural_candidates: z.number(),
+    lexical_candidates: z.number(),
     candidate_union_size: z.number(),
     embedding_used: z.boolean(),
     query_entities: z.array(z.string()),
