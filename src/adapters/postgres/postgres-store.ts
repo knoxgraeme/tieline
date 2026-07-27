@@ -20,6 +20,7 @@ import type {
 export class PostgresStore implements KnowledgeStore {
   knnCandidates = search.knnCandidates;
   structuralCandidates = search.structuralCandidates;
+  lexicalCandidates = search.lexicalCandidates;
   getDocFrequencies = search.getDocFrequencies;
   matchHelpArticles = help.matchHelpArticles;
   getHelpArticles = help.getHelpArticles;

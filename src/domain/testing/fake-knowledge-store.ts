@@ -52,6 +52,14 @@ export class FakeKnowledgeStore implements KnowledgeStore {
   }): Promise<Candidate[]> {
     return Promise.reject(unconfigured("structuralCandidates"));
   }
+  lexicalCandidates(_opts: {
+    query: string;
+    embedding?: number[];
+    poolSize: number;
+    trigramThreshold?: number;
+  }): Promise<Candidate[]> {
+    return Promise.reject(unconfigured("lexicalCandidates"));
+  }
   getDocFrequencies(_force?: boolean): Promise<DocFrequencies> {
     return Promise.reject(unconfigured("getDocFrequencies"));
   }

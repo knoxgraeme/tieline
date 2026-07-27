@@ -231,6 +231,13 @@ export interface SearchStore {
     codePaths: string[];
     poolSize: number;
   }): Promise<Candidate[]>;
+  /** Lexical (tsvector + trigram) candidates. Needs no embedding provider. */
+  lexicalCandidates(opts: {
+    query: string;
+    embedding?: number[];
+    poolSize: number;
+    trigramThreshold?: number;
+  }): Promise<Candidate[]>;
   getDocFrequencies(force?: boolean): Promise<DocFrequencies>;
   findCrossover(opts: {
     sectionKey?: string;

@@ -71,7 +71,7 @@ export function registerFindRelated(server: McpServer): void {
         const canUseExactOnly =
           modeUsed === "structural" && (queryEntities.size > 0 || queryPaths.size > 0);
         const vector = canUseExactOnly ? undefined : await getEmbedder().embed(context);
-        const [semanticCandidates, exactStructuralCandidates] = await Promise.all([
+        const [semanticCandidates, exactStructuralCandidates, lexical] = await Promise.all([
           vector ? store.knnCandidates(vector, config.candidatePoolSize) : Promise.resolve([]),
           store.structuralCandidates({
             embedding: vector,
@@ -79,9 +79,27 @@ export function registerFindRelated(server: McpServer): void {
             codePaths: [...queryPaths],
             poolSize: config.candidatePoolSize,
           }),
+          // Always-on lexical source — needs no embedding provider.
+          store.lexicalCandidates({
+            query: context,
+            embedding: vector,
+            poolSize: config.candidatePoolSize,
+          }),
         ]);
+        // Union all three sources; a later source only fills gaps so a candidate
+        // keeps the richest per-signal scores it already has (knn carries vector,
+        // lexical carries the lexical score).
         const byId = new Map(semanticCandidates.map((candidate) => [candidate.id, candidate]));
-        for (const candidate of exactStructuralCandidates) byId.set(candidate.id, candidate);
+        for (const candidate of exactStructuralCandidates) {
+          const existing = byId.get(candidate.id);
+          byId.set(candidate.id, existing ? { ...candidate, ...existing } : candidate);
+        }
+        for (const candidate of lexical) {
+          const existing = byId.get(candidate.id);
+          // Merge so an existing candidate (with vector) gains the lexical score,
+          // and a lexical-only candidate keeps its lexical score.
+          byId.set(candidate.id, existing ? { ...existing, lexical: candidate.lexical } : candidate);
+        }
         const candidates = [...byId.values()];
 
         const scored = scoreCandidates({
@@ -90,6 +108,7 @@ export function registerFindRelated(server: McpServer): void {
           queryPaths,
           df,
           weights,
+          rrfK: config.rrfK,
         });
 
         const results =
@@ -99,6 +118,7 @@ export function registerFindRelated(server: McpServer): void {
                 {
                   minVector: config.findRelatedMinVectorScore,
                   minStructural: config.findRelatedMinStructuralScore,
+                  minLexical: config.findRelatedMinLexicalScore,
                   allowStructural: modeUsed !== "semantic",
                 },
                 limit
@@ -108,6 +128,7 @@ export function registerFindRelated(server: McpServer): void {
                 {
                   minVector: config.findRelatedMinVectorScore,
                   minStructural: config.findRelatedMinStructuralScore,
+                  minLexical: config.findRelatedMinLexicalScore,
                   allowStructural: modeUsed !== "semantic",
                 },
                 limit
@@ -122,10 +143,12 @@ export function registerFindRelated(server: McpServer): void {
             candidate_pool_size: config.candidatePoolSize,
             semantic_candidates: semanticCandidates.length,
             structural_candidates: exactStructuralCandidates.length,
+            lexical_candidates: lexical.length,
             candidate_union_size: candidates.length,
             embedding_used: Boolean(vector),
             min_vector_score: config.findRelatedMinVectorScore,
             min_structural_score: config.findRelatedMinStructuralScore,
+            min_lexical_score: config.findRelatedMinLexicalScore,
             query_entities: [...queryEntities],
             query_code_paths: [...queryPaths],
           },
