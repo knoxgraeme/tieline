@@ -75,6 +75,8 @@ export interface Config {
   // find_help (semantic search over help articles)
   helpCandidatePoolSize: number;
   helpMinScore: number;
+  // Lexical floor for the always-on FTS help path.
+  helpMinLexicalScore: number;
 
   // Fusion weights per mode. Each weight set is normalized to sum 1 at use.
   weights: {
@@ -250,6 +252,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // gte-small runs a high cosine baseline (~0.73-0.78 even off-domain); real
     // help matches sit at ~0.87+. 0.80 cleanly separates signal from noise.
     helpMinScore: boundedNumber("HELP_MIN_SCORE", env.HELP_MIN_SCORE, 0.8, { min: 0, max: 1 }),
+    // Saturated ts_rank floor for lexical help hits (independent of the cosine
+    // helpMinScore, which is calibrated to gte-small's high baseline).
+    helpMinLexicalScore: boundedNumber("HELP_MIN_LEXICAL_SCORE", env.HELP_MIN_LEXICAL_SCORE, 0.05, {
+      min: 0,
+      max: 1,
+    }),
 
     weights: {
       // pure conceptual similarity — embeddings only, by definition

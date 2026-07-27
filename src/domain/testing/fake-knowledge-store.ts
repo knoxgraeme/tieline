@@ -103,6 +103,14 @@ export class FakeKnowledgeStore implements KnowledgeStore {
   }): Promise<HelpHit[]> {
     return Promise.reject(unconfigured("matchHelpArticles"));
   }
+  lexicalHelpArticles(_opts: {
+    query: string;
+    poolSize: number;
+    productArea?: string[];
+    audience?: string[];
+  }): Promise<HelpHit[]> {
+    return Promise.reject(unconfigured("lexicalHelpArticles"));
+  }
   getHelpArticles(_slugs: string[]): Promise<{ articles: HelpArticle[]; not_found: string[] }> {
     return Promise.reject(unconfigured("getHelpArticles"));
   }

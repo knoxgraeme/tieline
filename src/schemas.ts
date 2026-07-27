@@ -193,6 +193,13 @@ const makeFilterFields = () => ({
     .boolean()
     .optional()
     .describe("true = only stories with at least one help article; false = only stories with none."),
+  keyword: z
+    .string()
+    .optional()
+    .describe(
+      "Full-text keyword filter: only stories whose title/actor/text match this query " +
+        "(Postgres full-text search). Works with no embedding provider configured."
+    ),
 });
 
 // Internal raw shape. Kept separate so the exported `queryStoriesShape` can be a

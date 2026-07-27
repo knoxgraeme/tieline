@@ -23,6 +23,7 @@ export class PostgresStore implements KnowledgeStore {
   lexicalCandidates = search.lexicalCandidates;
   getDocFrequencies = search.getDocFrequencies;
   matchHelpArticles = help.matchHelpArticles;
+  lexicalHelpArticles = help.lexicalHelpArticles;
   getHelpArticles = help.getHelpArticles;
   importHelpArticles = (articles: HelpArticleImportInput[], opts?: { batchSize?: number }) =>
     help.importHelpArticles(articles, getEmbedder(), opts);

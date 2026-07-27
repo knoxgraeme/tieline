@@ -10,6 +10,7 @@ import { config } from "../config.js";
 import { getEmbedder } from "../embeddings.js";
 import { getStore } from "../store.js";
 import { findHelpShape, findHelpOutputShape, type FindHelpInput } from "../schemas.js";
+import type { HelpHit } from "../types.js";
 import { jsonResult, errorResult, formatError, type ToolResult } from "./shared.js";
 
 const DESCRIPTION = `Find the help-center ARTICLES that best explain a topic, by semantic similarity. Use when you want end-user documentation itself — not the product stories.
@@ -51,19 +52,52 @@ export function registerFindHelp(server: McpServer): void {
       try {
         const { query, product_area, audience, limit } = input;
 
+        const store = getStore();
         const embedder = getEmbedder();
-        const vector = await embedder.embed(query);
-
-        const hits = await getStore().matchHelpArticles({
-          embedding: vector,
+        // KNN needs embeddings; if none are configured (or embedding fails), it
+        // degrades to empty and the always-on lexical path carries the result.
+        const knnHitsP = embedder
+          .embed(query)
+          .then((vector) =>
+            store.matchHelpArticles({
+              embedding: vector,
+              poolSize: config.helpCandidatePoolSize,
+              productArea: product_area,
+              audience,
+            })
+          )
+          .catch(() => []);
+        const lexicalHitsP = store.lexicalHelpArticles({
+          query,
           poolSize: config.helpCandidatePoolSize,
           productArea: product_area,
           audience,
         });
+        const [knnHits, lexicalHits] = await Promise.all([knnHitsP, lexicalHitsP]);
 
-        const results = hits
+        // Semantic hits (cosine >= helpMinScore) first, then lexical hits
+        // (ts_rank >= helpMinLexicalScore) backfilling any article not already
+        // surfaced — preserves semantic-first ordering when embeddings are good
+        // while guaranteeing results when they are absent.
+        const seen = new Set<string>();
+        const ordered: HelpHit[] = [];
+        for (const h of knnHits
           .filter((h) => h.score >= config.helpMinScore)
-          .sort((a, b) => b.score - a.score)
+          .sort((a, b) => b.score - a.score)) {
+          if (!seen.has(h.article_slug)) {
+            seen.add(h.article_slug);
+            ordered.push(h);
+          }
+        }
+        for (const h of lexicalHits
+          .filter((h) => h.score >= config.helpMinLexicalScore)
+          .sort((a, b) => b.score - a.score)) {
+          if (!seen.has(h.article_slug)) {
+            seen.add(h.article_slug);
+            ordered.push(h);
+          }
+        }
+        const results = ordered
           .slice(0, limit)
           .map((h) => ({ ...h, score: Math.round(h.score * 1000) / 1000 }));
 

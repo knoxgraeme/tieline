@@ -566,6 +566,7 @@ export interface StoryFilters {
   help_relationship?: string[];
   help_article_slug?: string;
   has_help?: boolean;
+  keyword?: string;
 }
 
 /** Feature requests linked to each given story (for query_stories records). */
@@ -646,6 +647,8 @@ export async function queryStories(opts: {
     conds.push(sql`us.id in (select story_id from story_help_articles)`);
   if (f.has_help === false)
     conds.push(sql`us.id not in (select story_id from story_help_articles)`);
+  if (f.keyword?.trim())
+    conds.push(sql`us.search_tsv @@ websearch_to_tsquery('english', ${f.keyword.trim()})`);
 
   const whereClause =
     conds.length > 0

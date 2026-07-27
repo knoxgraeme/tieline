@@ -73,6 +73,78 @@ export async function matchHelpArticles(opts: {
   });
 }
 
+/** Lexical (tsvector) search over help articles — the always-on path that needs
+ *  no embedding provider. Mirrors matchHelpArticles' shape/filters/enrichment;
+ *  score is a saturated ts_rank_cd (0..1). The min_score gate + final limit are
+ *  applied by the caller, matching the KNN path. */
+export async function lexicalHelpArticles(opts: {
+  query: string;
+  poolSize: number;
+  productArea?: string[];
+  audience?: string[];
+}): Promise<HelpHit[]> {
+  const query = opts.query.trim();
+  if (!query) return [];
+  const sql = getSql();
+  const productArea = opts.productArea?.length ? opts.productArea : null;
+  const audience = opts.audience?.length ? opts.audience : null;
+  const rows = await sql<
+    {
+      id: number;
+      article_slug: string;
+      title: string;
+      summary: string | null;
+      url: string | null;
+      product_area: string | null;
+      audience: string | null;
+      tags: string[] | null;
+      headings: unknown;
+      rank: number;
+    }[]
+  >`
+    select ha.id, ha.article_slug, ha.title, ha.summary, ha.url, ha.product_area,
+           ha.audience, ha.tags, ha.headings,
+           ts_rank_cd(ha.search_tsv, websearch_to_tsquery('english', ${query})) as rank
+    from help_articles ha
+    where ha.search_tsv @@ websearch_to_tsquery('english', ${query})
+      and (${productArea}::text[] is null or ha.product_area = any(${productArea}::text[]))
+      and (${audience}::text[] is null or ha.audience = any(${audience}::text[]))
+    order by rank desc
+    limit ${Math.max(opts.poolSize, 1)}`;
+
+  const linkMap = new Map<number, string[]>();
+  if (rows.length) {
+    const links = await sql<{ help_article_id: number; story_key: string }[]>`
+      select sha.help_article_id, us.story_key
+      from story_help_articles sha
+      join user_stories us on us.id = sha.story_id
+      where sha.help_article_id in ${sql(rows.map((r) => r.id))}
+      order by sha.confidence desc`;
+    for (const l of links) {
+      const arr = linkMap.get(l.help_article_id) ?? [];
+      arr.push(l.story_key);
+      linkMap.set(l.help_article_id, arr);
+    }
+  }
+
+  return rows.map((r) => {
+    const stories = linkMap.get(r.id) ?? [];
+    return {
+      article_slug: r.article_slug,
+      title: r.title,
+      summary: r.summary,
+      url: r.url,
+      product_area: r.product_area,
+      audience: r.audience,
+      tags: r.tags ?? [],
+      headings: Array.isArray(r.headings) ? (r.headings as string[]) : [],
+      score: r.rank / (r.rank + 1), // saturate unbounded ts_rank into 0..1
+      linked_story_keys: stories.slice(0, HELP_LINKED_STORIES_CAP),
+      linked_story_count: stories.length,
+    };
+  });
+}
+
 // --- get_help_article (full body on demand, by exact slug) ------------------
 
 /** Fetch full article bodies by exact slug. Returns the found articles in the

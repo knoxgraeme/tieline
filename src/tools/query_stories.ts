@@ -75,6 +75,7 @@ export function registerQueryStories(server: McpServer): void {
           help_relationship: input.help_relationship ?? nested.help_relationship,
           help_article_slug: input.help_article_slug ?? nested.help_article_slug,
           has_help: input.has_help ?? nested.has_help,
+          keyword: input.keyword ?? nested.keyword,
         };
 
         // Echo exactly what the server filtered on (omitting unset keys), so a
@@ -92,6 +93,7 @@ export function registerQueryStories(server: McpServer): void {
           appliedFilters.help_relationship = filters.help_relationship;
         if (filters.help_article_slug) appliedFilters.help_article_slug = filters.help_article_slug;
         if (filters.has_help !== undefined) appliedFilters.has_help = filters.has_help;
+        if (filters.keyword?.trim()) appliedFilters.keyword = filters.keyword.trim();
 
         const store = getStore();
         const result = await store.queryStories({
