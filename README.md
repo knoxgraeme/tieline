@@ -95,11 +95,23 @@ Create only the versioned workspace and connect infrastructure later:
 tieline init . --offline
 ```
 
-Use an existing PostgreSQL + pgvector database after securely injecting its credentials:
+Connect your own PostgreSQL + pgvector database instead of running Docker — no container required:
 
 ```bash
 tieline init . --database existing
 ```
+
+This reads a connection string from `DATABASE_URL_INGEST` in the environment or a local `.env`
+(credentials are never accepted as CLI arguments). Tieline needs only **Postgres 16 with the
+`pgvector` extension** — it is not tied to any provider. Any of these work:
+
+- a Postgres you already run locally (`brew install postgresql pgvector`, Postgres.app, …);
+- a free hosted database from **Neon**, **Supabase**, or similar (paste the connection string);
+- any managed Postgres (RDS, Crunchy, Timescale, …) with `pgvector` enabled.
+
+Because Tieline reads `DATABASE_URL_INGEST` from `.env`, provisioning tools that sync a `.env`
+(for example [Stripe Projects](https://docs.stripe.com/projects)) are picked up automatically — no
+extra configuration.
 
 For automation, pass `--yes` plus explicit `--database`, `--embedding`, and `--approval` choices.
 `--yes` alone is deliberately offline so it cannot start containers or migrate a database by
