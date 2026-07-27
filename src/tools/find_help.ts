@@ -1,8 +1,10 @@
 /**
- * find_help — "which help-center article explains this?". Pure semantic search
- * over the help corpus (title + summary + headings embedded with gte-small),
- * independent of whether a user story links the article. Returns ranked articles
- * with the stories each one documents.
+ * find_help — "which help-center article explains this?". Hybrid search over the
+ * help corpus (title + summary + headings): optional semantic (gte-small vector)
+ * matches first, then always-on lexical (Postgres full-text) matches backfill —
+ * so it works with no embedding provider configured. Independent of whether a
+ * user story links the article. Returns ranked articles with the stories each
+ * one documents.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -15,7 +17,7 @@ import { jsonResult, errorResult, formatError, type ToolResult } from "./shared.
 
 const DESCRIPTION = `Find the help-center ARTICLES that best explain a topic, by semantic similarity. Use when you want end-user documentation itself — not the product stories.
 
-Searches the help corpus directly (each article's title + summary + headings are embedded), so it finds relevant docs even for features no user story links yet. Pure vector match — no code/entity overlap.
+Searches the help corpus directly (each article's title + summary + headings), so it finds relevant docs even for features no user story links yet. Hybrid retrieval: semantic (vector) matches when an embedding provider is configured, plus always-on lexical (full-text keyword) matches — so keyword hits surface even with no embeddings. No code/entity overlap.
 
 Args:
   - query (string, required): what the user wants to do or understand, e.g. "invite a teammate to a project".
@@ -26,7 +28,7 @@ Args:
 Returns ranked articles (title, summary, url, headings) each with the stories it documents (linked_story_keys); see the output schema for the full shape. These are POINTERS + previews, not full bodies — to read an article's content, pass its article_slug to get_help_article.
 
 Notes:
-  - score is cosine similarity (0..1). gte-small runs a high baseline, so a min_score gate (~0.8) filters off-topic noise; an empty result (a top-level "note") means no clearly-matching article — not an error.
+  - score is cosine similarity (0..1) for semantic hits, or a normalized full-text rank (0..1) for lexical-only hits. Semantic hits are gated by min_score (~0.8, gte-small's high baseline); lexical hits by a separate lower floor. An empty result (a top-level "note") means no clearly-matching article — not an error.
   - For "what product stories touch X" use find_related / query_stories instead; for the docs attached to a specific story you already have, query_stories returns help_articles inline.
 
 Examples:
@@ -65,19 +67,24 @@ export function registerFindHelp(server: McpServer): void {
 
         const store = getStore();
         const embedder = getEmbedder();
-        // KNN needs embeddings; if none are configured (or embedding fails), it
-        // degrades to empty and the always-on lexical path carries the result.
-        const knnHitsP = embedder
-          .embed(query)
-          .then((vector) =>
-            store.matchHelpArticles({
+        // Guard only the embed() call: with no provider configured (or an embed
+        // failure), degrade to the always-on lexical path. A downstream
+        // matchHelpArticles (DB) error is NOT swallowed — it propagates to the
+        // outer catch rather than masquerading as an empty result.
+        let vector: number[] | undefined;
+        try {
+          vector = await embedder.embed(query);
+        } catch {
+          vector = undefined;
+        }
+        const knnHitsP = vector
+          ? store.matchHelpArticles({
               embedding: vector,
               poolSize: config.helpCandidatePoolSize,
               productArea: product_area,
               audience,
             })
-          )
-          .catch(() => []);
+          : Promise.resolve<HelpHit[]>([]);
         const lexicalHitsP = store.lexicalHelpArticles({
           query,
           poolSize: config.helpCandidatePoolSize,
@@ -101,6 +108,7 @@ export function registerFindHelp(server: McpServer): void {
         const payload: Record<string, unknown> = {
           query: {
             min_score: config.helpMinScore,
+            min_lexical_score: config.helpMinLexicalScore,
             candidate_pool_size: config.helpCandidatePoolSize,
             ...(product_area?.length ? { product_area } : {}),
             ...(audience?.length ? { audience } : {}),
@@ -109,7 +117,8 @@ export function registerFindHelp(server: McpServer): void {
         };
         if (results.length === 0) {
           payload.note =
-            `No help article cleared the relevance threshold (min_score=${config.helpMinScore}). ` +
+            `No help article cleared the semantic (min_score=${config.helpMinScore}) or lexical ` +
+            `(min_lexical_score=${config.helpMinLexicalScore}) threshold. ` +
             `We likely have no article on this yet — this empty result is intentional, not an error.`;
         }
         return jsonResult(payload);

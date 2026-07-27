@@ -21,6 +21,11 @@
 -- so the expression is IMMUTABLE (required for a generated column); the 1-arg
 -- form depends on default_text_search_config and is only STABLE.
 --
+-- LOCK NOTE: adding a STORED generated column rewrites the whole table under an
+-- ACCESS EXCLUSIVE lock (each row's tsvector is computed at ALTER time), and the
+-- GIN builds below are non-CONCURRENT. Negligible on the current small corpus;
+-- against a large, write-active database, run this in a maintenance window.
+--
 -- Run after 0018.
 -- ============================================================================
 
@@ -61,10 +66,13 @@ create index if not exists user_stories_search_tsv_gin on user_stories using gin
 create index if not exists sections_search_tsv_gin      on sections      using gin (search_tsv);
 create index if not exists help_articles_search_tsv_gin on help_articles using gin (search_tsv);
 
--- --- trigram indexes over identifiers ----------------------------------------
--- Partial / identifier matching: `similarity(path, $q)` and `path % $q` use
--- these. Distinct from the prose tsvector above — code paths and entity slugs
--- are tokens FTS stemming mangles.
-
-create index if not exists code_assets_path_trgm on code_assets using gin (path gin_trgm_ops);
-create index if not exists entities_slug_trgm     on entities   using gin (entity_slug gin_trgm_ops);
+-- --- trigram identifier matching (pg_trgm) -----------------------------------
+-- lexicalCandidates uses word_similarity(path/slug, $q) to catch partial code
+-- paths and entity slugs that FTS stemming mangles. No GIN trigram index is
+-- created here on purpose: the function-form predicate
+-- `word_similarity(col, $q) >= threshold` cannot use a gin_trgm_ops index (only
+-- the %/<%/%> operators engage it), so an index would be dead weight. At this
+-- corpus size the per-query scan of the small story<->code/entity join tables is
+-- cheap. When the corpus grows, switch the query to the `%>` operator driven by
+-- `pg_trgm.word_similarity_threshold` and add the gin_trgm_ops indexes in a new
+-- migration so the planner can use them.

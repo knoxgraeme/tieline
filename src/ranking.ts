@@ -94,6 +94,11 @@ export function rrfScores(
     if (weight <= 0) continue;
     const order = raws.map((_, i) => i).sort((a, b) => raws[b][signal] - raws[a][signal]);
     order.forEach((idx, pos) => {
+      // Standard RRF credits only candidates a ranker actually retrieved. A zero
+      // raw signal means "not retrieved here" — crediting it would let array/union
+      // order leak into the fused rank. (Zeros sort last, so non-zero ranks are
+      // unaffected.)
+      if (raws[idx][signal] <= 0) return;
       rrf[idx] += weight * (1 / (k + pos + 1));
     });
   }

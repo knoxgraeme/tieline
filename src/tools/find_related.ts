@@ -70,7 +70,17 @@ export function registerFindRelated(server: McpServer): void {
 
         const canUseExactOnly =
           modeUsed === "structural" && (queryEntities.size > 0 || queryPaths.size > 0);
-        const vector = canUseExactOnly ? undefined : await getEmbedder().embed(context);
+        // Guard only the embed() call: if no provider is configured (or it fails),
+        // degrade to the always-on lexical + structural sources rather than erroring
+        // the whole tool. A downstream store error still propagates to the outer catch.
+        let vector: number[] | undefined;
+        if (!canUseExactOnly) {
+          try {
+            vector = await getEmbedder().embed(context);
+          } catch {
+            vector = undefined;
+          }
+        }
         const [semanticCandidates, exactStructuralCandidates, lexical] = await Promise.all([
           vector ? store.knnCandidates(vector, config.candidatePoolSize) : Promise.resolve([]),
           store.structuralCandidates({
@@ -116,7 +126,10 @@ export function registerFindRelated(server: McpServer): void {
                 {
                   minVector: config.findRelatedMinVectorScore,
                   minStructural: config.findRelatedMinStructuralScore,
-                  minLexical: config.findRelatedMinLexicalScore,
+                  // Gate lexical by the mode's own weight: semantic mode (lexical
+                  // weight 0) must not admit lexical-only hits — it is vector-only
+                  // by contract. Infinity = never qualifies on lexical alone.
+                  minLexical: (weights.lexical ?? 0) > 0 ? config.findRelatedMinLexicalScore : Infinity,
                   allowStructural: modeUsed !== "semantic",
                 },
                 limit
@@ -126,7 +139,10 @@ export function registerFindRelated(server: McpServer): void {
                 {
                   minVector: config.findRelatedMinVectorScore,
                   minStructural: config.findRelatedMinStructuralScore,
-                  minLexical: config.findRelatedMinLexicalScore,
+                  // Gate lexical by the mode's own weight: semantic mode (lexical
+                  // weight 0) must not admit lexical-only hits — it is vector-only
+                  // by contract. Infinity = never qualifies on lexical alone.
+                  minLexical: (weights.lexical ?? 0) > 0 ? config.findRelatedMinLexicalScore : Infinity,
                   allowStructural: modeUsed !== "semantic",
                 },
                 limit
