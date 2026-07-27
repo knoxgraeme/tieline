@@ -1,5 +1,5 @@
 {
-  "thresholds": { "min_vector": 0.8, "min_structural": 0.01 },
+  "thresholds": { "min_vector": 0.8, "min_structural": 0.01, "min_lexical": 0.1 },
   "document_frequencies": {
     "entity": { "project": 40, "tax-rate": 4 },
     "path": { "src/projects/invite.ts": 2 }
@@ -47,6 +47,40 @@
         { "key": "NOISE-004", "similarity": 0.79, "entities": ["project"], "paths": [] }
       ],
       "expected": []
+    },
+    {
+      "name": "lexical keyword match rescues a story with no vector or structural signal",
+      "mode": "lexical",
+      "query_entities": [],
+      "query_paths": [],
+      "candidates": [
+        { "key": "LEX-001", "similarity": 0, "lexical": 0.6, "entities": [], "paths": [] },
+        { "key": "NOISE-005", "similarity": 0, "lexical": 0, "entities": [], "paths": [] }
+      ],
+      "expected": ["LEX-001"]
+    },
+    {
+      "name": "blended search works with no embeddings (vector absent for all)",
+      "mode": "blended",
+      "query_entities": ["tax-rate"],
+      "query_paths": [],
+      "candidates": [
+        { "key": "NOEMB-LEX", "similarity": 0, "lexical": 0.5, "entities": [], "paths": [] },
+        { "key": "NOEMB-STRUCT", "similarity": 0, "lexical": 0, "entities": ["tax-rate"], "paths": [] },
+        { "key": "NOEMB-NIL", "similarity": 0, "lexical": 0, "entities": [], "paths": [] }
+      ],
+      "expected": ["NOEMB-LEX", "NOEMB-STRUCT"]
+    },
+    {
+      "name": "hybrid RRF ranks a dual-signal story above a higher-vector single-signal story",
+      "mode": "blended",
+      "query_entities": [],
+      "query_paths": [],
+      "candidates": [
+        { "key": "HYB-DUAL", "similarity": 0.85, "lexical": 0.85, "entities": [], "paths": [] },
+        { "key": "HYB-SOLO", "similarity": 0.95, "lexical": 0, "entities": [], "paths": [] }
+      ],
+      "expected": ["HYB-DUAL", "HYB-SOLO"]
     }
   ]
 }
