@@ -20,11 +20,11 @@
     "dist",
     "migrations",
     "skills",
-    "assets",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "prepublishOnly": "npm run clean && npm run build",
     "build": "tsc",
     "postbuild": "node scripts/build-app-ui.mjs",
     "build:app": "node scripts/build-app-ui.mjs",
