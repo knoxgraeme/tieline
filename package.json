@@ -1,6 +1,6 @@
 {
   "name": "tieline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local-first user-story mapping CLI and MCP server for connecting product context, lifecycle history, code, and knowledge-base articles.",
   "license": "MIT",
   "repository": {
