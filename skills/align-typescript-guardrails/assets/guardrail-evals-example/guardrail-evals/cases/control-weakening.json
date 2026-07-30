@@ -1,0 +1,44 @@
+{
+  "id": "tg-10-control-weakening",
+  "rule": "TG-10",
+  "description": "Reject common control-plane bypasses without rejecting narrow documented alternatives.",
+  "forbiddenPatchPatterns": [
+    {
+      "id": "ts-ignore",
+      "source": "^\\+(?!\\+).*@ts-ignore\\b",
+      "flags": "m"
+    },
+    {
+      "id": "strict-disabled",
+      "source": "^\\+(?!\\+).*[\"']strict[\"']\\s*:\\s*false",
+      "flags": "m"
+    },
+    {
+      "id": "focused-test",
+      "source": "^\\+(?!\\+).*\\b(?:describe|it|test)\\.only\\s*\\(",
+      "flags": "m"
+    },
+    {
+      "id": "advisory-ci",
+      "source": "^\\+(?!\\+).*continue-on-error\\s*:\\s*true",
+      "flags": "m"
+    }
+  ],
+  "samples": [
+    {
+      "path": "../fixtures/control-weakening/violation.patch",
+      "expectedPass": false,
+      "expectedViolations": [
+        "ts-ignore",
+        "strict-disabled",
+        "focused-test",
+        "advisory-ci"
+      ]
+    },
+    {
+      "path": "../fixtures/control-weakening/safe.patch",
+      "expectedPass": true,
+      "expectedViolations": []
+    }
+  ]
+}

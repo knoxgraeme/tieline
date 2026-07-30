@@ -1,0 +1,18 @@
+{
+  "description": "Example TypeScript repository guardrails. Tailor before use.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(apply_patch|Edit|Write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking patch guardrails"
+          }
+        ]
+      }
+    ]
+  }
+}
