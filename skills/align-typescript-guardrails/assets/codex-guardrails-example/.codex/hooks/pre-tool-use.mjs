@@ -41,8 +41,9 @@ if (
       .replace(/^eslint-disable(?:-next-line|-line)?/, "")
       .replace(/\*\/.*$/, "")
       .trim();
+    const ruleList = remainder.replace(/(?:^|\s)--(?:\s.*)?$/, "").trim();
 
-    return remainder.length === 0;
+    return ruleList.length === 0;
   })
 ) {
   violations.push("broad eslint-disable without named rules");

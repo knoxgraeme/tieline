@@ -28,20 +28,33 @@ if (rootResult.status !== 0) {
 }
 
 const repositoryRoot = rootResult.stdout.trim();
-const statusResult = spawnSync("git", ["status", "--porcelain"], {
-  cwd: repositoryRoot,
-  encoding: "utf8",
-});
+const statusResult = spawnSync(
+  "git",
+  ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+  {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  },
+);
 
 if (statusResult.status !== 0 || statusResult.stdout.trim() === "") {
   process.stdout.write("{}");
   process.exit(0);
 }
 
-const changedPaths = statusResult.stdout
-  .trim()
-  .split("\n")
-  .flatMap((line) => line.slice(3).split(" -> "));
+const statusEntries = statusResult.stdout.split("\0").filter(Boolean);
+const changedPaths = [];
+
+for (let index = 0; index < statusEntries.length; index += 1) {
+  const entry = statusEntries[index];
+  const status = entry.slice(0, 2);
+  changedPaths.push(entry.slice(3));
+
+  if (status.includes("R") || status.includes("C")) {
+    index += 1;
+    if (index < statusEntries.length) changedPaths.push(statusEntries[index]);
+  }
+}
 
 const requiresCodeCheck = changedPaths.some(
   (path) =>
