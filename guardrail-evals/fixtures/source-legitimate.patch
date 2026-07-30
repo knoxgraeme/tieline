@@ -1,0 +1,31 @@
+diff --git a/src/example.ts b/src/example.ts
+index 1111111..2222222 100644
+--- a/src/example.ts
++++ b/src/example.ts
+@@ -1,2 +1,8 @@
++/* eslint-disable no-console */
++// Compiler contract: a string must remain invalid here.
++// @ts-expect-error -- this fixture proves the public input remains numeric.
+ export const answer = 42;
++// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- boundary fixture
++consume(answer);
++console.log(answer); // eslint-disable-line no-console -- expected fixture output
++test("answer", () => {});
+diff --git a/guardrail-evals/fixtures/example.patch b/guardrail-evals/fixtures/example.patch
+index 1111111..2222222 100644
+--- a/guardrail-evals/fixtures/example.patch
++++ b/guardrail-evals/fixtures/example.patch
+@@ -1,2 +1,3 @@
++export const forbiddenToken = "@ts-ignore";
+diff --git a/skills/example/assets/codex-guardrails-example/.codex/hooks/pre-tool-use.test.mjs b/skills/example/assets/codex-guardrails-example/.codex/hooks/pre-tool-use.test.mjs
+index 1111111..2222222 100644
+--- a/skills/example/assets/codex-guardrails-example/.codex/hooks/pre-tool-use.test.mjs
++++ b/skills/example/assets/codex-guardrails-example/.codex/hooks/pre-tool-use.test.mjs
+@@ -1,2 +1,3 @@
++export const violatingFixture = "+test.only('focused', () => {});";
+diff --git a/skills/example/scripts/collect-signals.mjs b/skills/example/scripts/collect-signals.mjs
+index 1111111..2222222 100644
+--- a/skills/example/scripts/collect-signals.mjs
++++ b/skills/example/scripts/collect-signals.mjs
+@@ -1,2 +1,3 @@
++export const ignoredSignal = /@ts-ignore/;

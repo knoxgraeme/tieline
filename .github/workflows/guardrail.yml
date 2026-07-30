@@ -1,0 +1,38 @@
+name: Guardrail
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardrail-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guardrail:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # pull_request_target intentionally runs only code from the trusted base
+      # revision. The PR commit is fetched for diffing but is never checked out
+      # or executed by this job.
+      - name: Check out trusted base revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+
+      - name: Grade submitted diff with trusted base grader
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --no-tags --depth=1 origin "pull/$PR_NUMBER/head"
+          git diff --no-ext-diff --no-renames --unified=0 "$BASE_SHA" FETCH_HEAD |
+            node guardrail-evals/run.mjs --stdin

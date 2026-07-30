@@ -5,11 +5,32 @@
  * malformed GROUP BY, a filter that doesn't actually narrow, or broken
  * zero-result suggestions.
  *
- * Requires DATABASE_URL (read-only role is fine). Skips cleanly if unset, so
- * it's safe to wire into CI that may not always have DB access.
+ * Read-only checks require DATABASE_URL (a read role is fine). Write checks
+ * require dedicated TIELINE_TEST_DATABASE_URL* credentials plus an exact
+ * TIELINE_CONFIRM_TEST_DATABASE acknowledgement. Generic write credentials are
+ * deliberately ignored.
  *
- * Run: DATABASE_URL=... npx tsx scripts/integration.ts
+ * Run read-only: DATABASE_URL=... npx tsx scripts/integration.ts
  */
+
+import {
+  clearGenericWriteDatabaseUrls,
+  configureTestDatabase,
+  hasTestDatabaseUrl,
+  type TestDatabaseRole,
+} from "./integration-safety.js";
+
+const ingestChecksEnabled = hasTestDatabaseUrl(process.env, "ingest");
+const lifecycleChecksRequested =
+  hasTestDatabaseUrl(process.env, "write") ||
+  hasTestDatabaseUrl(process.env, "approval");
+const testRoles: TestDatabaseRole[] = [];
+if (ingestChecksEnabled || lifecycleChecksRequested) testRoles.push("read");
+if (ingestChecksEnabled) testRoles.push("ingest");
+if (lifecycleChecksRequested) testRoles.push("write", "approval");
+
+clearGenericWriteDatabaseUrls(process.env);
+if (testRoles.length > 0) configureTestDatabase(testRoles, process.env);
 
 if (!process.env.DATABASE_URL && !process.env.SUPABASE_DB_URL) {
   console.log("SKIP - DATABASE_URL not set; integration test needs a live corpus.");
@@ -20,9 +41,8 @@ process.env.EMBEDDING_PROVIDER = process.env.EMBEDDING_PROVIDER || "hash";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer } from "../src/server.js";
-import { approveStoryChange, closeSql, rejectStoryChange } from "../src/db.js";
-import { getStore } from "../src/store.js";
+
+let closeSql: () => Promise<void> = async () => {};
 
 let passed = 0;
 let failed = 0;
@@ -43,6 +63,7 @@ interface QueryResult {
   group_by?: string | null;
   applied_filters?: Record<string, unknown>;
   records?: {
+    story_key: string;
     status: string;
     section_key: string;
     actor: string | null;
@@ -55,7 +76,15 @@ interface QueryResult {
 }
 
 async function main(): Promise<void> {
-  if (process.env.DATABASE_URL_INGEST) {
+  const [{ createServer }, db, { getStore }] = await Promise.all([
+    import("../src/server.js"),
+    import("../src/db.js"),
+    import("../src/store.js"),
+  ]);
+  const { approveStoryChange, rejectStoryChange } = db;
+  closeSql = db.closeSql;
+
+  if (ingestChecksEnabled) {
     const importedHelp = await getStore().importHelpArticles(
       [
         {
@@ -186,7 +215,7 @@ async function main(): Promise<void> {
     check(`bare filename "${base}" -> suggests the canonical full path`, resolved, JSON.stringify(nearMiss.suggestions).slice(0, 200));
   }
 
-  if (process.env.DATABASE_URL_INGEST) {
+  if (ingestChecksEnabled) {
     console.log("KB filtering + read-only suggestions");
     const help = await callTool("find_help", {
       query: "Invite teammates Invite and manage project teammates Project access Invitations",
@@ -218,7 +247,7 @@ async function main(): Promise<void> {
   // Runs only with the least-privilege writer plus dedicated human approver.
   // Test stories intentionally remain in the audit corpus: history is immutable,
   // so deleting them as "cleanup" would violate the behavior under test.
-  if (process.env.DATABASE_URL_WRITE || process.env.SUPABASE_DB_URL_WRITE) {
+  if (lifecycleChecksRequested) {
     console.log("lifecycle round-trip (writer + human-only approver)");
     const created = await callTool("create_user_story", {
         section_key: sampleSection,
@@ -451,7 +480,9 @@ async function main(): Promise<void> {
     const bad = await callTool("create_feature_request", { title: "bad", primary_story_key: "NOPE-DOES-NOT-EXIST" });
     check("create_feature_request rejects an unknown primary atomically", bad.isError === true, JSON.stringify(bad.data).slice(0, 160));
   } else {
-    console.log("SKIP write round-trip — DATABASE_URL_WRITE not set.");
+    console.log(
+      "SKIP write round-trip — TIELINE_TEST_DATABASE_URL_WRITE and TIELINE_TEST_DATABASE_URL_APPROVAL not set."
+    );
   }
 
   await finish(client, server);

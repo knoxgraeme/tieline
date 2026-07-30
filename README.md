@@ -319,18 +319,39 @@ skills/backfill-stories/    provider-neutral coding-agent workflow
 ## Development and verification
 
 ```bash
-npm install
-npm run build
-npm run typecheck:ui
-npm run test:tieline
-npm run test:ranking
-npm run test:retrieval
-npm run test:embeddings
-npm run test:http
-npm run test:smoke
+npm ci
+npm run check:fast
+npm run check
 ```
 
-Database integration tests skip when their required credentials are absent.
+`npm run check` is the canonical CI-equivalent path: it builds the production source,
+type-checks the browser UI and repository scripts, runs the offline test suite and
+guardrail evals, and verifies the package contents.
+
+Pull requests also run a trusted-base guardrail job that grades the submitted diff
+without checking out or executing PR code. Configure branch protection to require both
+the `quality` and `guardrail` jobs and Code Owner approval for protected control files.
+
+The read-only integration test accepts `DATABASE_URL` and skips when it is absent:
+
+```bash
+npm run test:integration
+```
+
+Write-capable integration tests never consume generic write credentials or load `.env`
+implicitly. They require dedicated URLs targeting the same visibly disposable database,
+plus an exact database-name confirmation:
+
+| Command | Required dedicated variables |
+|---|---|
+| `npm run test:import` | `TIELINE_TEST_DATABASE_URL_INGEST` |
+| `npm run test:approval-mode` | `TIELINE_TEST_DATABASE_URL`, `TIELINE_TEST_DATABASE_URL_WRITE`, `TIELINE_TEST_DATABASE_URL_APPROVAL` |
+| Write portions of `npm run test:integration` | The read URL plus the dedicated ingest and/or write + approval URLs used by that portion |
+
+Set `TIELINE_CONFIRM_TEST_DATABASE` to the exact database name in those URLs. The
+guard rejects non-PostgreSQL URLs, mixed targets, target-overriding query parameters,
+database names without a standalone `test`, `itest`, or `integration` token, and names
+containing `prod`, `stage`, or `live`.
 
 ## Docker
 

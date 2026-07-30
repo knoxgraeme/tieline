@@ -146,9 +146,12 @@ async function main(): Promise<void> {
 
   console.log("resource read (docs is static, no DB)");
   const howto = await client.readResource({ uri: "docs://how-to-query" });
+  const howtoContent = howto.contents[0];
   check(
     "docs://how-to-query returns markdown",
-    (howto.contents[0]?.text as string)?.includes("Five primary read verbs")
+    howtoContent !== undefined &&
+      "text" in howtoContent &&
+      howtoContent.text.includes("Five primary read verbs")
   );
 
   await client.close();

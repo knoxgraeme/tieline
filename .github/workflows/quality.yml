@@ -1,0 +1,57 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Check out trusted base guardrails
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .guardrail-base
+          sparse-checkout: guardrail-evals
+          persist-credentials: false
+
+      - name: Grade submitted diff
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          grader_path="guardrail-evals/run.mjs"
+          if [[ -f ".guardrail-base/guardrail-evals/run.mjs" ]]; then
+            grader_path=".guardrail-base/guardrail-evals/run.mjs"
+          fi
+          git diff --no-ext-diff --no-renames --unified=0 "$BASE_SHA" HEAD |
+            node "$grader_path" --stdin
+
+      - name: Run canonical verification
+        run: npm run check

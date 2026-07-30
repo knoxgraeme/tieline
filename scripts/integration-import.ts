@@ -1,11 +1,14 @@
 /** Live batch/import-ref behavior check against a disposable integration DB. */
-import "../src/loadEnv.js";
-import { importStories } from "../src/authoring/import.js";
 import type { ImportPayload } from "../src/authoring/schema.js";
-import { getEmbedder } from "../src/embeddings.js";
-import { closeConnections, getIngestSql } from "../src/adapters/postgres/connections.js";
+import {
+  clearGenericWriteDatabaseUrls,
+  configureTestDatabase,
+  hasTestDatabaseUrl,
+} from "./integration-safety.js";
 
 let passed = 0;
+let closeIntegrationConnections: () => Promise<void> = async () => {};
+
 function check(name: string, condition: boolean): void {
   if (!condition) throw new Error(`FAIL - ${name}`);
   passed += 1;
@@ -15,7 +18,13 @@ function check(name: string, condition: boolean): void {
 function payload(source: string, count: number): ImportPayload {
   return {
     import_source: source,
-    sections: [{ section_key: "import-scale", section_name: "Import scale" }],
+    sections: [
+      {
+        section_key: "import-scale",
+        section_name: "Import scale",
+        routes: [],
+      },
+    ],
     stories: Array.from({ length: count }, (_, index) => ({
       import_ref: `record-${index + 1}`,
       story_key: null,
@@ -31,10 +40,23 @@ function payload(source: string, count: number): ImportPayload {
 }
 
 async function main(): Promise<void> {
-  if (!process.env.DATABASE_URL_INGEST && !process.env.SUPABASE_DB_URL_INGEST) {
-    console.log("SKIP - DATABASE_URL_INGEST not set; import integration needs a writable database.");
+  const enabled = hasTestDatabaseUrl(process.env, "ingest");
+  clearGenericWriteDatabaseUrls(process.env);
+  if (!enabled) {
+    console.log(
+      "SKIP - TIELINE_TEST_DATABASE_URL_INGEST not set; generic write credentials are never used by integration tests."
+    );
     return;
   }
+  configureTestDatabase(["ingest"], process.env);
+
+  const [{ importStories }, { getEmbedder }, connections] = await Promise.all([
+    import("../src/authoring/import.js"),
+    import("../src/embeddings.js"),
+    import("../src/adapters/postgres/connections.js"),
+  ]);
+  const { closeConnections, getIngestSql } = connections;
+  closeIntegrationConnections = closeConnections;
   const sql = getIngestSql();
   const embedder = getEmbedder();
   const source = `integration-scale-${Date.now()}`;
@@ -99,6 +121,6 @@ async function main(): Promise<void> {
 
 main().catch(async (error) => {
   console.error(error);
-  await closeConnections();
+  await closeIntegrationConnections();
   process.exitCode = 1;
 });

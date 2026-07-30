@@ -1,0 +1,7 @@
+diff --git a/tsconfig.scripts.json b/tsconfig.scripts.json
+index 1111111..2222222 100644
+--- a/tsconfig.scripts.json
++++ b/tsconfig.scripts.json
+@@ -4,3 +4,3 @@
+-  "include": ["scripts/smoke.ts"]
++  "include": ["scripts/**/*.ts"]

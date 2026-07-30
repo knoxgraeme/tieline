@@ -1,0 +1,18 @@
+diff --git a/tsconfig.json b/tsconfig.json
+index 1111111..2222222 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -2,7 +2,5 @@
+-    "strict": true
++    "strict": false,
+-    "noImplicitReturns": true,
++    "noImplicitReturns": false,
+-    "noFallthroughCasesInSwitch": true,
+-    "noImplicitOverride": true
+diff --git a/tsconfig.ui.json b/tsconfig.ui.json
+index 1111111..2222222 100644
+--- a/tsconfig.ui.json
++++ b/tsconfig.ui.json
+@@ -2,3 +2,3 @@
+-    "exactOptionalPropertyTypes": true
++    "exactOptionalPropertyTypes": false

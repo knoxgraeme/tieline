@@ -1,0 +1,8 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 1111111..2222222 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -78,4 +78,2 @@
+- [TG-9] `npm run check` is the canonical full verification path.
+- [TG-11] Run `npm run test:guardrails` after changing protected controls.
+ - Keep synthetic scenarios in disposable workspaces.

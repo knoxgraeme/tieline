@@ -11,6 +11,7 @@
   "bugs": {
     "url": "https://github.com/knoxgraeme/tieline/issues"
   },
+  "packageManager": "npm@10.7.0",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -28,7 +29,9 @@
     "build": "tsc",
     "postbuild": "node scripts/build-app-ui.mjs",
     "build:app": "node scripts/build-app-ui.mjs",
+    "typecheck": "tsc --noEmit && npm run typecheck:ui && npm run typecheck:scripts",
     "typecheck:ui": "tsc -p tsconfig.ui.json",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "clean": "rm -rf dist",
     "tieline": "node dist/cli.js",
     "start": "node dist/cli.js serve",
@@ -44,11 +47,19 @@
     "test:retrieval": "tsx scripts/evaluate-retrieval.ts",
     "test:embeddings": "tsx scripts/test-embeddings.ts",
     "test:http": "tsx scripts/test-http.ts",
-    "test:tieline": "npm run build && node --import tsx scripts/test-tieline.ts",
+    "test:tieline": "npm run build && npm run test:tieline:built",
+    "test:tieline:built": "node --import tsx scripts/test-tieline.ts",
     "test:smoke": "tsx scripts/smoke.ts",
+    "test:integration-safety": "tsx scripts/integration-safety.test.ts",
     "test:integration": "tsx scripts/integration.ts",
     "test:import": "tsx scripts/integration-import.ts",
-    "test:approval-mode": "tsx scripts/integration-approval-mode.ts"
+    "test:approval-mode": "tsx scripts/integration-approval-mode.ts",
+    "test:offline": "npm run build && npm run test:offline:built",
+    "test:offline:built": "npm run test:integration-safety && npm run test:tieline:built && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke",
+    "test:offline:fast": "npm run test:integration-safety && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke",
+    "test:guardrails": "node guardrail-evals/run.mjs",
+    "check:fast": "npm run typecheck && npm run test:offline:fast && npm run test:guardrails",
+    "check": "npm run build && npm run typecheck:ui && npm run typecheck:scripts && npm run test:offline:built && npm run test:guardrails && npm pack --dry-run --ignore-scripts"
   },
   "engines": {
     "node": ">=18"

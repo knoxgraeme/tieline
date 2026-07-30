@@ -101,6 +101,8 @@ function cand(p: Partial<Candidate>): Candidate {
     status: "production",
     entity_slugs: [],
     code_paths: [],
+    help_articles: [],
+    help_article_count: 0,
     similarity: 0.5,
     ...p,
   };
