@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ideation: NASA-inspired guardrails for autonomous coding agents</title>
+  <style>
+    :root {
+      --ink: #17212b;
+      --muted: #576574;
+      --paper: #f4f1ea;
+      --panel: #fffdf8;
+      --navy: #0b2742;
+      --navy-2: #163d5f;
+      --blue-soft: #e7f0f7;
+      --amber: #d78d18;
+      --amber-soft: #fff0cf;
+      --green: #176b50;
+      --green-soft: #e4f3ec;
+      --red: #9e3f36;
+      --red-soft: #f8e9e7;
+      --line: #d8d2c7;
+      --shadow: 0 8px 28px rgba(19, 38, 54, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 15px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: #165f92; text-underline-offset: 0.16em; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.91em;
+      background: #eeeae0;
+      border-radius: 4px;
+      padding: 0.08em 0.3em;
+    }
+    .hero {
+      background: var(--navy);
+      color: #fff;
+      padding: 4.6rem 1.5rem 3.5rem;
+    }
+    .hero-inner, main, footer {
+      max-width: 940px;
+      margin-inline: auto;
+    }
+    .eyebrow {
+      color: #f6bc58;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0.55rem 0 1rem;
+      max-width: 22ch;
+      font-size: clamp(2rem, 5vw, 3.75rem);
+      line-height: 1.02;
+      letter-spacing: -0.045em;
+    }
+    .dek {
+      max-width: 68ch;
+      margin: 0;
+      color: #dbe8f2;
+      font-size: 1.08rem;
+    }
+    .metadata {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-top: 1.6rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 1.85rem;
+      padding: 0.25rem 0.7rem;
+      border: 1px solid rgba(255,255,255,0.23);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: #f5f8fa;
+      font-size: 0.78rem;
+    }
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(244, 241, 234, 0.95);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+    .nav-inner {
+      max-width: 940px;
+      margin-inline: auto;
+      padding: 0.8rem 1.5rem;
+      display: flex;
+      gap: 1rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .nav-inner a {
+      color: var(--navy-2);
+      font-size: 0.8rem;
+      font-weight: 750;
+      text-decoration: none;
+    }
+    main { padding: 2.4rem 1.5rem 4rem; }
+    section { scroll-margin-top: 4.5rem; margin-top: 3.4rem; }
+    section:first-child { margin-top: 0; }
+    h2 {
+      margin: 0 0 1rem;
+      color: var(--navy);
+      font-size: 1.55rem;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1.25rem;
+      line-height: 1.24;
+    }
+    p { max-width: 74ch; }
+    .callout {
+      padding: 1.2rem 1.3rem;
+      border-radius: 10px;
+      background: var(--amber-soft);
+      color: #5f400c;
+      box-shadow: inset 0 0 0 1px #efd09a;
+    }
+    .callout strong { color: inherit; }
+    .ground-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .ground-card, .axis-card {
+      padding: 1.1rem 1.2rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+    .ground-card h3, .axis-card h3 { font-size: 0.98rem; }
+    .ground-card p, .axis-card p { margin: 0.45rem 0 0; color: var(--muted); }
+    .axes {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+    .axis-card {
+      padding: 0.85rem;
+      background: var(--blue-soft);
+      border-color: #cadce9;
+    }
+    .axis-num {
+      display: inline-block;
+      margin-bottom: 0.45rem;
+      color: #285f83;
+      font-size: 0.7rem;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+    }
+    .jump-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.55rem;
+      margin: 1.2rem 0 1.6rem;
+      padding: 0;
+      list-style: none;
+    }
+    .jump-list a {
+      display: block;
+      height: 100%;
+      padding: 0.72rem 0.85rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--navy-2);
+      font-weight: 730;
+      text-decoration: none;
+    }
+    .idea {
+      margin: 1rem 0;
+      padding: 1.35rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      scroll-margin-top: 4.5rem;
+    }
+    .idea-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+    }
+    .rank {
+      flex: 0 0 auto;
+      min-width: 2rem;
+      height: 2rem;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--navy);
+      color: white;
+      font-weight: 850;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.85rem 0 1rem 2.85rem;
+    }
+    .badge {
+      padding: 0.22rem 0.58rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+    .badge.axis { background: var(--blue-soft); color: #275c7f; }
+    .badge.conf { background: var(--green-soft); color: #185b47; }
+    .badge.cx { background: var(--amber-soft); color: #68470f; }
+    .idea-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem 1.2rem;
+      margin-left: 2.85rem;
+    }
+    .field { min-width: 0; }
+    .field.wide { grid-column: 1 / -1; }
+    .field-label {
+      display: block;
+      margin-bottom: 0.22rem;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .field p { margin: 0; max-width: none; }
+    .basis {
+      padding: 0.82rem 0.9rem;
+      border-radius: 8px;
+      background: var(--green-soft);
+      color: #184c3d;
+    }
+    .diagram {
+      margin: 1rem 0 0 2.85rem;
+      padding: 1rem;
+      border: 1px solid #cadce9;
+      border-radius: 10px;
+      background: #f2f7fa;
+      overflow-x: auto;
+    }
+    .diagram-title {
+      margin: 0 0 0.7rem;
+      color: #315b77;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    svg { width: 100%; min-width: 650px; height: auto; display: block; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      font-size: 0.86rem;
+    }
+    th, td {
+      padding: 0.68rem 0.72rem;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--navy); color: #fff; }
+    tr:nth-child(even) td { background: #faf7f0; }
+    .sources li { margin: 0.5rem 0; max-width: 80ch; }
+    footer {
+      padding: 1.6rem 1.5rem 3rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    @media (max-width: 760px) {
+      .ground-grid, .idea-grid, .jump-list { grid-template-columns: 1fr; }
+      .axes { grid-template-columns: 1fr 1fr; }
+      .field.wide { grid-column: auto; }
+      .badges, .idea-grid, .diagram { margin-left: 0; }
+      .hero { padding-top: 3rem; }
+    }
+    @media (max-width: 460px) {
+      .axes { grid-template-columns: 1fr; }
+      .idea { padding: 1rem; }
+      .idea-head { gap: 0.65rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Ranked ideation · software assurance</div>
+      <h1>NASA-inspired guardrails for autonomous coding agents</h1>
+      <p class="dek">A codebase agents can safely maintain needs two mutually reinforcing layers: constrained code shapes that are easy to analyze, and an evidence system that constrains what changes mean, prove, and permit.</p>
+      <div class="metadata" aria-label="Document metadata">
+        <span class="chip">Date: <time datetime="2026-07-29">2026-07-29</time></span>
+        <span class="chip">Topic: nasa-inspired-autonomous-agent-guardrails</span>
+        <span class="chip">Mode: repo-grounded</span>
+        <span class="chip">Focus: machine-maintainable intent and long-running agent guardrails</span>
+      </div>
+    </div>
+  </header>
+
+  <nav aria-label="Document sections">
+    <div class="nav-inner">
+      <a href="#grounding">Grounding</a>
+      <a href="#axes">Topic axes</a>
+      <a href="#ideas">Ranked ideas</a>
+      <a href="#rejections">Cuts</a>
+      <a href="#sources">Sources</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="grounding">
+      <h2>Codebase Context</h2>
+      <div class="callout">
+        <strong>Correction incorporated:</strong> code-shape discipline is not secondary. Its real value is analyzability—reducing hidden control flow, unbounded resource use, non-local state, unchecked failures, and indirection. Those properties help static tools and coding agents for the same reason: fewer plausible interpretations and fewer reachable failure states.
+      </div>
+      <div class="ground-grid" style="margin-top: 1rem;">
+        <article class="ground-card">
+          <h3>What Tieline already does well</h3>
+          <p>Approved product-context checksums, explicit coverage, deterministic shard merge, path validation, immutable history, runtime schemas, database constraints, and separate writer/approver credentials are strong assurance primitives.</p>
+        </article>
+        <article class="ground-card">
+          <h3>The planned next layer</h3>
+          <p>The living-spec plan adds acceptance criteria, test links, a committed manifest, and deterministic path-level drift. It correctly moves the product from “where behavior lives” toward “what it should do.”</p>
+        </article>
+        <article class="ground-card">
+          <h3>The important semantic gap</h3>
+          <p>The plan currently defines <em>verified</em> structurally—a test link exists—and defers test-result evidence. A link proves association, not adequacy, execution, freshness, or independence.</p>
+        </article>
+        <article class="ground-card">
+          <h3>The important code-shape gap</h3>
+          <p>The repository enables TypeScript <code>strict</code>, but package scripts expose no linter or second static analyzer. Several core modules are large, and no explicit machine-enforced complexity, indirection, bounded-async, or error-contract profile exists.</p>
+        </article>
+      </div>
+      <p>NASA’s broader engineering guidance supplies what Power of 10 alone does not: bidirectional traceability, objective evidence, validation distinct from verification, off-nominal behavior, risk-based tailoring, independent V&amp;V, controlled waivers, formal entry/exit criteria, and runtime assurance for autonomous systems. The strongest design uses both levels.</p>
+    </section>
+
+    <section id="axes">
+      <h2>Topic Axes</h2>
+      <div class="axes">
+        <article class="axis-card"><span class="axis-num">AXIS 1</span><h3>Code shape</h3><p>Local analyzability and bounded behavior.</p></article>
+        <article class="axis-card"><span class="axis-num">AXIS 2</span><h3>Intent graph</h3><p>Traceability and semantic completeness.</p></article>
+        <article class="axis-card"><span class="axis-num">AXIS 3</span><h3>Execution</h3><p>Authority, budgets, monitoring, safe stop.</p></article>
+        <article class="axis-card"><span class="axis-num">AXIS 4</span><h3>Evidence</h3><p>Proof, adverse cases, independent judgment.</p></article>
+        <article class="axis-card"><span class="axis-num">AXIS 5</span><h3>Evolution</h3><p>Risk tailoring, waivers, drift, guardrail health.</p></article>
+      </div>
+    </section>
+
+    <section id="ideas">
+      <h2>Ranked Ideas</h2>
+      <ol class="jump-list">
+        <li><a href="#idea-1">1. Agent Power of 10 for TypeScript</a></li>
+        <li><a href="#idea-2">2. Living assurance graph</a></li>
+        <li><a href="#idea-3">3. Mission-scoped assurance envelope</a></li>
+        <li><a href="#idea-4">4. Negative intent and off-nominal behavior</a></li>
+        <li><a href="#idea-5">5. Independent evidence pipeline</a></li>
+        <li><a href="#idea-6">6. Risk-tiered profiles and waivers</a></li>
+        <li><a href="#idea-7">7. Adaptive guardrail laboratory</a></li>
+      </ol>
+
+      <article class="idea" id="idea-1">
+        <div class="idea-head"><span class="rank">1</span><h3>Agent Power of 10 for TypeScript</h3></div>
+        <div class="badges"><span class="badge axis">Code shape</span><span class="badge conf">Confidence 95%</span><span class="badge cx">Complexity Medium</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Define a deliberately small, enforceable TypeScript rule set: simple control flow; bounded retries, concurrency, queues, and result sets; small single-purpose functions; explicit invariants and recovery; narrow state and capability scope; checked results and validated inputs; restricted reflection, dynamic dispatch, and type escapes; bounded indirection; and zero compiler, linter, or static-analysis warnings. Enforce it on changed code first, then ratchet the existing baseline.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · direct</span><p>Power of 10 was created to remove constructs that defeat code review and static analysis. This repository has <code>strict</code> TypeScript and strong runtime schemas, but no visible lint/static-analysis gate beyond compilation.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>Agent-maintainable code is code whose relevant control flow, state, bounds, and contracts are locally visible. This shrinks the reasoning problem for tools, reviewers, and models simultaneously.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>Naive numeric limits invite gaming. Generated code, UI adapters, and query repositories need explicit tailoring; the governing metric should be local comprehensibility, not aesthetic uniformity.</p></div>
+        </div>
+        <div class="diagram">
+          <p class="diagram-title">The two-layer model</p>
+          <svg viewBox="0 0 820 180" role="img" aria-label="Code shape makes each unit analyzable; semantic assurance makes each change justifiable">
+            <defs>
+              <marker id="arrow1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#315b77"/></marker>
+            </defs>
+            <rect x="15" y="35" width="220" height="110" rx="12" fill="#e7f0f7" stroke="#7ba3be"/>
+            <text x="125" y="68" text-anchor="middle" font-size="16" font-weight="700" fill="#163d5f">Constrained code shape</text>
+            <text x="125" y="94" text-anchor="middle" font-size="13" fill="#315b77">visible flow · bounded work</text>
+            <text x="125" y="116" text-anchor="middle" font-size="13" fill="#315b77">local state · explicit failure</text>
+            <line x1="240" y1="90" x2="365" y2="90" stroke="#315b77" stroke-width="2" marker-end="url(#arrow1)"/>
+            <text x="302" y="75" text-anchor="middle" font-size="12" fill="#315b77">makes analyzable</text>
+            <rect x="375" y="35" width="180" height="110" rx="12" fill="#e4f3ec" stroke="#66a58d"/>
+            <text x="465" y="76" text-anchor="middle" font-size="16" font-weight="700" fill="#185b47">Agent change</text>
+            <text x="465" y="103" text-anchor="middle" font-size="13" fill="#326f5c">smaller search space</text>
+            <line x1="560" y1="90" x2="685" y2="90" stroke="#315b77" stroke-width="2" marker-end="url(#arrow1)"/>
+            <text x="622" y="75" text-anchor="middle" font-size="12" fill="#315b77">makes defensible</text>
+            <rect x="695" y="35" width="110" height="110" rx="12" fill="#fff0cf" stroke="#d9a343"/>
+            <text x="750" y="72" text-anchor="middle" font-size="15" font-weight="700" fill="#68470f">Evidence</text>
+            <text x="750" y="96" text-anchor="middle" font-size="13" fill="#68470f">intent</text>
+            <text x="750" y="116" text-anchor="middle" font-size="13" fill="#68470f">risk · proof</text>
+          </svg>
+        </div>
+      </article>
+
+      <article class="idea" id="idea-2">
+        <div class="idea-head"><span class="rank">2</span><h3>Living assurance graph</h3></div>
+        <div class="badges"><span class="badge axis">Intent graph</span><span class="badge conf">Confidence 92%</span><span class="badge cx">Complexity High</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Evolve story → acceptance criteria → tests → code into a typed graph of claims, assumptions, prohibited outcomes or hazards, verification methods, objective evidence, code, tests, waivers, and decisions. Compute orphan, stale, contradicted, and insufficiently evidenced states from graph relationships rather than manually declaring them.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · direct</span><p>The living-spec plan identifies missing acceptance-criteria/test linkage. NASA SWE-052 requires bidirectional traces and explicitly uses them to detect both unimplemented user needs and extra system behavior with no justified parent.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>This turns semantic intent from retrieval context into a machine-checkable assurance structure. It also gives deterministic drift and change-impact analysis a principled substrate.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>The schema and migration cost is high. The graph becomes ceremony if its first slice does not immediately answer useful questions in CI and agent workflows.</p></div>
+        </div>
+        <div class="diagram">
+          <p class="diagram-title">From a link chain to a defensible claim</p>
+          <svg viewBox="0 0 820 230" role="img" aria-label="Assurance graph connects product outcome, behavior claim, assumptions and prohibited outcomes to code, verification method, evidence and waivers">
+            <defs>
+              <marker id="arrow2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#315b77"/></marker>
+            </defs>
+            <rect x="20" y="78" width="130" height="62" rx="10" fill="#e7f0f7" stroke="#7ba3be"/><text x="85" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#163d5f">Product outcome</text><text x="85" y="125" text-anchor="middle" font-size="12" fill="#315b77">why</text>
+            <line x1="152" y1="109" x2="225" y2="109" stroke="#315b77" stroke-width="2" marker-end="url(#arrow2)"/>
+            <rect x="235" y="78" width="140" height="62" rx="10" fill="#e4f3ec" stroke="#66a58d"/><text x="305" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#185b47">Behavior claim</text><text x="305" y="125" text-anchor="middle" font-size="12" fill="#326f5c">what must hold</text>
+            <line x1="377" y1="109" x2="450" y2="109" stroke="#315b77" stroke-width="2" marker-end="url(#arrow2)"/>
+            <rect x="460" y="78" width="140" height="62" rx="10" fill="#fff0cf" stroke="#d9a343"/><text x="530" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#68470f">Verification</text><text x="530" y="125" text-anchor="middle" font-size="12" fill="#68470f">method + evidence</text>
+            <line x1="602" y1="109" x2="675" y2="109" stroke="#315b77" stroke-width="2" marker-end="url(#arrow2)"/>
+            <rect x="685" y="78" width="115" height="62" rx="10" fill="#f8e9e7" stroke="#c78179"/><text x="742" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#7b332d">Code + tests</text><text x="742" y="125" text-anchor="middle" font-size="12" fill="#7b332d">implementation</text>
+            <rect x="235" y="10" width="140" height="42" rx="8" fill="#fffdf8" stroke="#aaa398"/><text x="305" y="36" text-anchor="middle" font-size="12" fill="#576574">Assumptions</text>
+            <line x1="305" y1="54" x2="305" y2="76" stroke="#576574" stroke-width="1.5" marker-end="url(#arrow2)"/>
+            <rect x="235" y="166" width="140" height="42" rx="8" fill="#fffdf8" stroke="#aaa398"/><text x="305" y="192" text-anchor="middle" font-size="12" fill="#576574">Must-not / hazards</text>
+            <line x1="305" y1="164" x2="305" y2="142" stroke="#576574" stroke-width="1.5" marker-end="url(#arrow2)"/>
+            <rect x="460" y="166" width="140" height="42" rx="8" fill="#fffdf8" stroke="#aaa398"/><text x="530" y="192" text-anchor="middle" font-size="12" fill="#576574">Waiver / accepted risk</text>
+            <line x1="530" y1="164" x2="530" y2="142" stroke="#576574" stroke-width="1.5" marker-end="url(#arrow2)"/>
+          </svg>
+        </div>
+      </article>
+
+      <article class="idea" id="idea-3">
+        <div class="idea-head"><span class="rank">3</span><h3>Mission-scoped assurance envelope</h3></div>
+        <div class="badges"><span class="badge axis">Execution</span><span class="badge conf">Confidence 87%</span><span class="badge cx">Complexity High</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Give every autonomous run a machine-readable envelope: intended claims, allowed paths and mutation classes, forbidden effects, capability and tool leases, resource budgets, expected evidence, checkpoint policy, and a safe stopping state. A supervisor monitors the run; a postflight check compares actual mutations and evidence to the declaration.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · external + reasoned</span><p>Power of 10’s fixed bounds make execution analyzable. NASA runtime-assurance work adds the autonomous-system pattern: monitor a complex or untrusted controller and intervene before a protected property is violated.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>Long-running agents need controls during execution, not only review after completion. The envelope makes scope drift, capability creep, repeated failure, and ambiguous partial work observable.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>Requires run telemetry, interruption semantics, and recoverable checkpoints. Tight envelopes can cause false stops; loose ones become decorative.</p></div>
+        </div>
+      </article>
+
+      <article class="idea" id="idea-4">
+        <div class="idea-head"><span class="rank">4</span><h3>Negative intent and off-nominal behavior</h3></div>
+        <div class="badges"><span class="badge axis">Evidence</span><span class="badge conf">Confidence 90%</span><span class="badge cx">Complexity Medium</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Add first-class “must not,” hazard, boundary-condition, recovery, and known-safe-state clauses beside positive acceptance criteria. Require high-risk changes to trace these clauses to explicit negative and off-nominal tests.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · external</span><p>NASA IV&amp;V asks separately whether software avoids unintended behavior and responds correctly under adverse conditions. Hazardous requirements are derived into nominal, abnormal, and off-nominal tests.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>Agents naturally optimize for the requested happy path. Prohibited outcomes supply semantic boundaries and focus test generation on costly omissions.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>Hazard language can become inflated in ordinary product code. Apply it by risk profile and insist on concrete observable outcomes.</p></div>
+        </div>
+      </article>
+
+      <article class="idea" id="idea-5">
+        <div class="idea-head"><span class="rank">5</span><h3>Independent evidence pipeline</h3></div>
+        <div class="badges"><span class="badge axis">Evidence + governance</span><span class="badge conf">Confidence 89%</span><span class="badge cx">Complexity Medium</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Separate implementation, semantic validation, and technical verification. The implementing agent cannot author the only success evidence or declare completion; completion is derived from required evidence and signed by a deterministic check, distinct verifier context, or human according to risk.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · direct</span><p>Tieline already prevents the MCP writer from approving its own proposals. NASA IV&amp;V treats technical independence as additive because self-verification misses different classes of error.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>This generalizes one of the repository’s strongest existing boundaries from database approval to the whole change-and-assurance loop.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>Independent contexts cost time and tokens and can still share a bad specification or flawed toolchain. Independence improves confidence; it does not create truth.</p></div>
+        </div>
+      </article>
+
+      <article class="idea" id="idea-6">
+        <div class="idea-head"><span class="rank">6</span><h3>Risk-tiered assurance profiles with expiring waivers</h3></div>
+        <div class="badges"><span class="badge axis">Evolution + governance</span><span class="badge conf">Confidence 88%</span><span class="badge cx">Complexity Medium</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Classify behavior or change impact into a few profiles that select required code-shape checks, evidence types, negative tests, reviewer independence, execution budgets, and approval. Any tailored-out rule becomes a scoped, justified, mitigated, approved, expiring waiver with revalidation triggers.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · external</span><p>NASA varies assurance rigor by software criticality and requires tailoring or waiver rationale, accepted risk, mitigation, and the appropriate authority.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>Uniform maximum rigor will not survive ordinary development. Explicit proportionality preserves strict controls where they matter without teaching agents and teams to bypass the whole system.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>Risk can be gamed downward. Defaults, automatic escalation signals, and waiver visibility must be conservative.</p></div>
+        </div>
+      </article>
+
+      <article class="idea" id="idea-7">
+        <div class="idea-head"><span class="rank">7</span><h3>Adaptive guardrail laboratory</h3></div>
+        <div class="badges"><span class="badge axis">Evolution</span><span class="badge conf">Confidence 82%</span><span class="badge cx">Complexity Medium</span></div>
+        <div class="idea-grid">
+          <div class="field wide"><span class="field-label">Description</span><p>Treat the guardrails as software under test. Maintain seeded bad changes, mutation tests, policy-bypass attempts, stale-evidence cases, and synthetic scope creep; measure catch rate, false positives, escape rate, and time-to-disposition. Feed real escapes back into change-class checklists.</p></div>
+          <div class="field wide basis"><span class="field-label">Basis · external + reasoned</span><p>NASA formal-inspection guidance evolves checklists from recurring escaped defects. Assurance guidance also treats tool output and objective evidence as artifacts whose credibility matters.</p></div>
+          <div class="field"><span class="field-label">Rationale</span><p>Autonomous agents will discover accidental loopholes even without adversarial intent. An untested guardrail suite eventually becomes compliance theater.</p></div>
+          <div class="field"><span class="field-label">Downsides</span><p>Needs a representative corpus and ongoing curation. Synthetic violations can overfit controls to known patterns.</p></div>
+        </div>
+      </article>
+    </section>
+
+    <section id="rejections">
+      <h2>Rejection Summary</h2>
+      <table>
+        <thead><tr><th>#</th><th>Considered idea</th><th>Reason cut</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Evidence, not links</td><td>Folded into the assurance graph and independent evidence pipeline.</td></tr>
+          <tr><td>2</td><td>No orphan behavior</td><td>Core invariant of the assurance graph.</td></tr>
+          <tr><td>3</td><td>Assumption invalidation</td><td>Folded into graph freshness propagation.</td></tr>
+          <tr><td>4</td><td>Evidence gaps as backlog</td><td>Useful view, but downstream of the graph rather than a distinct direction.</td></tr>
+          <tr><td>5</td><td>Policy compiler</td><td>Implementation expression shared by profiles, graph, and envelope.</td></tr>
+          <tr><td>6</td><td>Preflight mission envelope</td><td>Folded into the broader mission-scoped assurance envelope.</td></tr>
+          <tr><td>7</td><td>Postflight diff attestation</td><td>Folded into the broader mission-scoped assurance envelope.</td></tr>
+          <tr><td>8</td><td>Runtime supervisor</td><td>Folded into the broader mission-scoped assurance envelope.</td></tr>
+          <tr><td>9</td><td>Automatic impact closure</td><td>Folded into the living assurance graph.</td></tr>
+          <tr><td>10</td><td>Tieline as an assurance case</td><td>Renamed and made more concrete as the living assurance graph.</td></tr>
+          <tr><td>11</td><td>Guardrails as a product under test</td><td>Folded into the adaptive guardrail laboratory.</td></tr>
+          <tr><td>12</td><td>Risk attached to behavior</td><td>Folded into risk-tiered assurance profiles.</td></tr>
+          <tr><td>13</td><td>Separate validation from verification</td><td>Folded into independent evidence and the assurance graph.</td></tr>
+          <tr><td>14</td><td>Confidence is earned</td><td>A derived property of the evidence pipeline, not a standalone direction.</td></tr>
+          <tr><td>15</td><td>Verification-method contracts</td><td>Folded into the living assurance graph.</td></tr>
+          <tr><td>16</td><td>Freshness propagation</td><td>Folded into the living assurance graph.</td></tr>
+          <tr><td>17</td><td>Two-key agent authority</td><td>Folded into the independent evidence pipeline.</td></tr>
+          <tr><td>18</td><td>Learning inspection checklists</td><td>Folded into the adaptive guardrail laboratory.</td></tr>
+          <tr><td>19</td><td>Agent flight recorder</td><td>Enabling artifact for the mission envelope, not a standalone direction.</td></tr>
+          <tr><td>20</td><td>Semantic circuit breakers</td><td>Folded into the mission-scoped assurance envelope.</td></tr>
+          <tr><td>21</td><td>Guardrail chaos engineering</td><td>Folded into the adaptive guardrail laboratory.</td></tr>
+          <tr><td>22</td><td>Capability leases</td><td>Folded into the mission-scoped assurance envelope.</td></tr>
+          <tr><td>23</td><td>Semantic quarantine</td><td>Useful state in the assurance graph, weaker as a standalone direction.</td></tr>
+          <tr><td>24</td><td>Zero implicit intent</td><td>Too absolute for infrastructure; use orphan detection plus design rationale.</td></tr>
+          <tr><td>25</td><td>Zero permanent exceptions</td><td>Folded into profiles with expiring waivers.</td></tr>
+          <tr><td>26</td><td>One safe stopping state</td><td>Folded into the mission-scoped assurance envelope.</td></tr>
+          <tr><td>27</td><td>Bound everything measurable</td><td>Folded into the TypeScript profile and mission envelope.</td></tr>
+          <tr><td>28</td><td>No self-authored success</td><td>Folded into the independent evidence pipeline.</td></tr>
+          <tr><td>29</td><td>Complexity budgets by change</td><td>Implementation mechanism of the Agent Power of 10 profile.</td></tr>
+          <tr><td>30</td><td>Bounded async</td><td>One rule inside the Agent Power of 10 profile.</td></tr>
+          <tr><td>31</td><td>Executable contracts at trust boundaries</td><td>One rule inside the Agent Power of 10 profile.</td></tr>
+          <tr><td>32</td><td>Local comprehensibility metric</td><td>Underlying principle of the Agent Power of 10 profile.</td></tr>
+          <tr><td>33</td><td>One canonical path per operation</td><td>Valuable cleanup, but below the ambition floor as a standalone direction.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="sources" class="sources">
+      <h2>Sources and References</h2>
+      <ul>
+        <li><a href="https://en.wikipedia.org/wiki/The_Power_of_10%3A_Rules_for_Developing_Safety-Critical_Code">The Power of 10 overview and rule list</a>, with the original paper linked from the page.</li>
+        <li><a href="https://swehb.nasa.gov/spaces/7150/pages/16450285/SWE-052%2B-%2BBidirectional%2BTraceability%2BBetween%2BHigher%2BLevel%2BRequirements%2Band%2BSoftware%2BRequirements">NASA SWE-052: Bidirectional Traceability</a>.</li>
+        <li><a href="https://sma.nasa.gov/news/articles/newsitem/2026/03/25/identifying-objective-evidence-improves-requirement-implementation">NASA: Identifying Objective Evidence Improves Requirement Implementation</a>.</li>
+        <li><a href="https://swehb.nasa.gov/spaces/SWEHBVD/pages/102695499/SWE-141%2B-%2BSoftware%2BIndependent%2BVerification%2Band%2BValidation">NASA SWE-141: Independent Verification and Validation</a>.</li>
+        <li><a href="https://swehb.nasa.gov/spaces/SWEHBVD/pages/102695527/SWE-192%2B-%2BSoftware%2BHazardous%2BRequirements">NASA SWE-192: Hazardous Requirements and off-nominal testing</a>.</li>
+        <li><a href="https://swehb.nasa.gov/spaces/SWEHBVC/pages/50888944/SWE-088%2B-%2BSoftware%2BPeer%2BReviews%2Band%2BInspections%2B-%2BChecklist%2BCriteria%2Band%2BTracking">NASA SWE-088: Inspection checklists, entry/exit criteria, and action tracking</a>.</li>
+        <li><a href="https://swehb.nasa.gov/spaces/SWEHBVD/pages/102695506/SWE-150%2B-%2BReview%2BChanges%2BTo%2BTailored%2BRequirements">NASA SWE-150: Review changes to tailored requirements</a>.</li>
+        <li><a href="https://ntrs.nasa.gov/citations/20230018233">NASA: Dynamic Assurance of Autonomous Systems Through Ground Control Software</a>.</li>
+        <li><a href="https://github.com/knoxgraeme/user-story-context-mcp-server/blob/main/docs/plans/2026-07-27-002-feat-tieline-living-spec-plan.md">Tieline living-spec plan</a>.</li>
+        <li><a href="https://github.com/knoxgraeme/user-story-context-mcp-server/blob/main/docs/plans/2026-07-27-003-feat-tieline-drift-remediation-plan.md">Tieline drift-remediation plan</a>.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="composition-signal">Composed 2026-07-30T04:27:55Z by ce-ideate from the user prompt, repository evidence, and the linked NASA/JPL sources.</footer>
+</body>
+</html>
