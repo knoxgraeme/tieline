@@ -809,7 +809,7 @@
             {
               "aliases": [],
               "applies_to": null,
-              "contract_hash": "0a80b721aa394d1aec6eb093bbc7a8ba29cb73615e0734af0f1b9157bcc24650",
+              "contract_hash": "6e5b4ac47ad981ab84dc3f047bfaa0f325c2149e645f85899962b064276c286d",
               "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
               "links": [
                 {
@@ -930,18 +930,18 @@
               "rationale": null,
               "scenarios": [
                 {
-                  "given": "no embedding provider is installed or reachable",
+                  "given": "a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion",
                   "position": 0,
                   "stable_id": "MATCHING-001-AC2-S1",
-                  "then": "Tieline must return full-text or identifier matches with explicit signal features and match reasons",
-                  "when": "a caller searches with an authorized retrieval profile"
-                },
-                {
-                  "given": "a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion",
-                  "position": 1,
-                  "stable_id": "MATCHING-001-AC2-S2",
                   "then": "the dismissed relationship must contribute no graph proximity",
                   "when": "Tieline ranks the authorized semantic candidate set"
+                },
+                {
+                  "given": "no embedding provider is installed or reachable",
+                  "position": 1,
+                  "stable_id": "MATCHING-001-AC2-S2",
+                  "then": "Tieline must return full-text or identifier matches with explicit signal features and match reasons",
+                  "when": "a caller searches with an authorized retrieval profile"
                 }
               ],
               "stable_id": "MATCHING-001-AC2",
@@ -1714,7 +1714,7 @@
     },
     {
       "path": ".tieline/spec/matching.yaml",
-      "sha256": "49b4a678b2f6f513bd1b69e28b191db1f1d23ba98706cbee79df16eebdee1421"
+      "sha256": "70b8d8159d3aff9ac9aa164bfd03aeb4f32a47ec0a7aa7451cb18007f119a5df"
     },
     {
       "path": ".tieline/spec/retrieval.yaml",
@@ -1726,7 +1726,7 @@
     }
   ],
   "repository": {
-    "commit": "a67d6d3f3e2980f3c10a4f70c3cf04cc592c8fc9",
+    "commit": "5fc640d13d11aa6d69bf9d39908dc772d83373d6",
     "key": "tieline"
   },
   "schema_version": 1
