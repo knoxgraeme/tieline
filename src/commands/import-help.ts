@@ -4,7 +4,8 @@ import {
   helpArticleImportPayloadSchema,
   helpArticleImportSchema,
 } from "../authoring/help-schema.js";
-import { getStore } from "../store.js";
+import { importHelpArticles } from "../adapters/postgres/help-repository.js";
+import { closeConnections } from "../adapters/postgres/connections.js";
 
 function parseInput(path: string): ReturnType<typeof helpArticleImportPayloadSchema.parse> {
   const body = readFileSync(path, "utf8");
@@ -40,9 +41,8 @@ export async function runImportHelpCommand(args: string[]): Promise<number> {
   if (!existsSync(path)) throw new Error(`Not found: ${path}`);
 
   const articles = parseInput(path);
-  const store = getStore();
   try {
-    const result = await store.importHelpArticles(articles, { batchSize });
+    const result = await importHelpArticles(articles, { batchSize });
     const reportPath = `${path}.import-report.json`;
     writeFileSync(
       reportPath,
@@ -54,6 +54,6 @@ export async function runImportHelpCommand(args: string[]): Promise<number> {
     );
     return 0;
   } finally {
-    await store.close();
+    await closeConnections();
   }
 }

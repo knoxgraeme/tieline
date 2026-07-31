@@ -1,0 +1,144 @@
+version: 1
+capability:
+  key: MATCHING
+  name: Semantic matching and consolidation
+  description: Focused semantic documents and auditable suggestions help equivalent language converge.
+  stories:
+    - key: MATCHING-001
+      title: Search before creating product or planning records
+      actor: author
+      goal: find equivalent Stories, Acceptance Criteria, work, and evidence
+      benefit: alternate phrasing converges without deleting source history
+      lifecycle: production
+      aliases:
+        - duplicate prevention
+        - semantic consolidation
+      acceptance_criteria:
+        - key: MATCHING-001-AC1
+          criterion: Tieline must derive separate semantic documents for Stories, Acceptance Criteria, Scenarios, Backlog Items, and sanitized Observations.
+          rationale: Focused documents preserve specificity and avoid re-embedding unrelated criteria.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/derived/embedding-documents.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/embeddings.ts
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/vector.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-embeddings.ts
+                framework_hint: custom-script
+        - key: MATCHING-001-AC2
+          criterion: Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.
+          scenarios:
+            - given: no embedding provider is installed or reachable
+              when: a caller searches with an authorized retrieval profile
+              then: Tieline must return full-text or identifier matches with explicit signal features and match reasons
+            - given: a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion
+              when: Tieline ranks the authorized semantic candidate set
+              then: the dismissed relationship must contribute no graph proximity
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/semantic-search-store.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/semantic-repository.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/search-context.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/ranking.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/find_related.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/search-knowledge.ts
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0001_baseline.sql
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-ranking.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/evaluate-retrieval.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-evidence.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-baseline.ts
+                framework_hint: custom-script
+        - key: MATCHING-001-AC3
+          criterion: Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.
+          scenarios:
+            - given: a high-scoring semantic match without an explicit human decision
+              when: the suggestion is persisted
+              then: its state must remain suggested
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/semantic-matching.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/backlog-advisor.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/attributions.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-evidence.ts
+                framework_hint: custom-script

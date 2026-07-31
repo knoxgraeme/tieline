@@ -1,0 +1,88 @@
+version: 1
+capability:
+  key: RETRIEVAL
+  name: Intent-aware organization search
+  description: Callers retrieve exact or semantic business context without confusing production truth and planning material.
+  stories:
+    - key: RETRIEVAL-001
+      title: Retrieve Stories through their Acceptance Criteria
+      actor: business or engineering teammate
+      goal: inspect behavior with its evidence and state
+      benefit: answers stay grounded in the most specific known contract
+      lifecycle: production
+      acceptance_criteria:
+        - key: RETRIEVAL-001-AC1
+          criterion: Tieline must return structured Stories with ordered Acceptance Criteria, direct and fallback links, coverage, freshness, lifecycle, and authority.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/types.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/contract-read-store.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-read-repository.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/schemas.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/query_stories.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-read.ts
+                framework_hint: custom-script
+    - key: RETRIEVAL-002
+      title: Select an explicit retrieval intent
+      actor: MCP consumer
+      goal: choose production, engineering, discovery, or full authorized context
+      benefit: the result state is clear without permanently hiding useful records
+      lifecycle: production
+      acceptance_criteria:
+        - key: RETRIEVAL-002-AC1
+          criterion: Tieline must resolve a versioned retrieval profile before cross-type search and allow caller filters only to narrow it.
+          scenarios:
+            - given: the support profile excludes planning authority
+              when: a caller requests both planning and repository authority
+              then: Tieline must search only the repository intersection
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/profile-repository.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/profile.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/resources.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-evidence.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script

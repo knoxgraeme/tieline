@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tieline Author"
+  short_description: "Author and reconcile Tieline product contracts"
+  default_prompt: "Use $tieline-author to reconcile this work with the product contract."

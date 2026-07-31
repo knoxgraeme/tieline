@@ -1,0 +1,109 @@
+---
+name: tieline-author
+description: Author, plan, implement, or reconcile Tieline User Stories and Acceptance Criteria. Use for requests to create or refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
+---
+
+# Tieline author
+
+Treat the pull request as the proposal and merge as approval. Never create a
+separate draft, proposal, or semantic-approval record.
+
+Read [contract.md](references/contract.md) before editing contract YAML.
+
+## Orient to this repository
+
+1. Read `.tieline/config.json` before searching or authoring.
+2. Use each configured context source:
+   - Treat inline `description` content as product framing.
+   - Read `local` locations from the repository.
+   - Fetch a `website` only when its `allow_external_fetch` value is `true`.
+3. Report which sources informed the work and which were unavailable. A source
+   locator is not evidence that its content was actually inspected.
+4. Review `repository.source_roots` and confirm they describe the code whose
+   mapping coverage will be measured.
+
+When `.tieline/spec/` has no YAML, perform semantic onboarding before normal
+reconciliation. Discover repository-specific capabilities from configured
+context, README and product docs, public code entry points, and tests. Author
+the capability boundaries and first Stories/ACs, then summarize them for normal
+pull-request review; never create generic starter capabilities merely to make
+the directory non-empty.
+
+## Choose the flow
+
+- For ideation or planning, use MCP writes when planning writes are available.
+  Keep Stories/ACs in Postgres with `authority=planning` and
+  `lifecycle=backlog`. Do not modify the worktree. If planning writes are
+  unavailable, disclose that the planning record cannot yet be persisted.
+- For implementation, materialize a selected planning Story/AC or author the
+  repository definition directly under `.tieline/spec/`.
+- For reconciliation, compare the branch, accepted YAML, planning candidates,
+  and `list_handoff_conflicts`; then update YAML and its manifest. Present both
+  the merged repository definition and later planning snapshot before choosing
+  what to preserve.
+- For work coordination without a defined behavior, create or update a Backlog
+  Item. It remains a DB record and never moves into YAML.
+
+An Observation is evidence, not a required starting point. A flow may begin
+from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
+
+## Search before creating
+
+1. Run `tieline status --json` and inspect its capability flags.
+2. Search local YAML and the manifest for stable IDs, aliases, and related
+   criteria.
+3. If semantic matching is unavailable, continue with the local search and
+   state that org-wide duplicate checking was not performed. Otherwise call
+   `find_related` with `profile=discovery` and the intended behavior.
+4. Prefer, in order: reuse the existing record; add an alias; update or
+   supersede the existing record; create a new stable ID.
+5. Never treat a semantic score as confirmation. Present credible matches and
+   honor the user's reuse or explicit-continue choice.
+
+## Shape planning work
+
+- Use `create_planning_story` or `update_planning_story` for desired behavior.
+- Use `create_backlog_item`, `update_backlog_item`, and
+  `set_backlog_item_links` for optional consolidated work.
+- Before updating a Backlog Item or replacing its links, call
+  `get_backlog_item`. Use its current revision and preserve every existing link
+  the user did not explicitly remove.
+- Write familiar Story language: actor, goal, and benefit are separate fields.
+- Write each AC as one observable outcome using
+  `<subject> must <outcome> [when <condition>]`.
+- Allow incomplete planning records when information is genuinely unresolved.
+  Complete every required field before materialization.
+
+## Materialize or reconcile repository behavior
+
+1. Inspect the implementation diff and the most specific existing ACs.
+2. Call `list_handoff_conflicts` for the Story being materialized or
+   reconciled. Resolve the later planning definition explicitly rather than
+   silently overwriting it.
+3. When materializing a planning Story, preserve its Story and AC stable IDs
+   and add `planning_origin.record_id` plus its current `revision`.
+4. Put implementation, test, and help locators on the most specific AC. Use a
+   Story-level link only as a shared or coarse fallback.
+5. Preserve Backlog Item and Observation IDs only as `motivated_by` pointers;
+   never copy their payloads into YAML.
+6. Write strict YAML under `.tieline/spec/`.
+7. Run:
+
+   ```sh
+   tieline contract validate .
+   tieline contract compile .
+   tieline contract coverage .
+   tieline check --base origin/main
+   ```
+
+8. Summarize the semantic diff, impacted ACs, freshness warnings, coverage
+   delta, likely duplicates, unresolved conflicts, and unmapped source files.
+
+Do not mutate a repository-owned Story through MCP. Change its YAML on the
+branch and let normal PR review accept or reject it.
+
+## Completion
+
+Leave the branch with valid YAML and a byte-current `.tieline/manifest.json`.
+Warnings are review input, not a second gate. Do not claim that linked tests ran;
+test links are framework-agnostic evidence locators only.

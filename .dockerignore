@@ -9,14 +9,9 @@ dist
 *.log
 .cache
 .DS_Store
-# Working authoring files
-stories.draft.json
-stories.locked.json
-# Not needed to RUN the server (migrate/ingest run separately from a checkout)
+# Not needed in the runtime image.
 docs
 evals
-skills
 README.md
-docker-compose.yml
 Dockerfile
 .dockerignore

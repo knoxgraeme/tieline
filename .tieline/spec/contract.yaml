@@ -1,0 +1,135 @@
+version: 1
+capability:
+  key: CONTRACT
+  name: Living product contract
+  description: Accepted product behavior is strict, reviewable, and measurable beside the implementation.
+  aliases:
+    - semantic contract
+    - living specification
+  stories:
+    - key: CONTRACT-001
+      title: Review accepted behavior with code
+      actor: maintainer
+      goal: define product behavior in a stable Story and Acceptance Criterion hierarchy
+      benefit: intent and implementation change through the same review
+      lifecycle: production
+      aliases:
+        - author accepted behavior
+      acceptance_criteria:
+        - key: CONTRACT-001-AC1
+          criterion: Tieline must reject repository contract documents that violate the accepted Story and Acceptance Criterion schema.
+          rationale: Structural failures make semantic impact and synchronization untrustworthy.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/schema.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/load.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/validate.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/index.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC2
+          criterion: Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.
+          scenarios:
+            - given: ten eligible source files and eight mapped paths
+              when: mapping coverage is calculated
+              then: Tieline must report 80 percent coverage and name both unmapped files
+            - given: configured source roots contain no eligible files
+              when: mapping coverage is calculated
+              then: Tieline must report that coverage is not measured instead of reporting 100 percent
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/coverage.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC3
+          criterion: Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.
+          rationale: Drift should be visible during review while the MVP remains warn-only.
+          scenarios:
+            - given: a linked implementation path changes without a refreshed manifest
+              when: the branch is checked against its base
+              then: Tieline must report the linked criterion as impacted and stale
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/impact.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC4
+          criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.
+          rationale: Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-page.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script

@@ -91,7 +91,7 @@ class LocalEmbedder implements Embedder {
 
 // --- OpenAI-compatible HTTP endpoint ----------------------------------------
 
-class OpenAIEmbedder implements Embedder {
+export class OpenAIEmbedder implements Embedder {
   readonly provider = "openai" as const;
   constructor(
     readonly dim: number,
@@ -363,6 +363,17 @@ export function getEmbedder(): Embedder {
       const exhaustive: never = config.embeddingProvider;
       throw new Error(`Unknown EMBEDDING_PROVIDER: ${String(exhaustive)}`);
     }
+  }
+}
+
+/** Search remains useful through lexical retrieval when embeddings are optional. */
+export async function optionalQueryEmbedding(
+  text: string
+): Promise<number[] | undefined> {
+  try {
+    return await getEmbedder().embed(text);
+  } catch {
+    return undefined;
   }
 }
 

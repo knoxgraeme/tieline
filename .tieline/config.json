@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "product": {
+    "name": "Tieline",
+    "repo_name": "tieline"
+  },
+  "repository": {
+    "root": "..",
+    "source_roots": [
+      "src"
+    ],
+    "ignore": [
+      ".git",
+      ".tieline",
+      "node_modules",
+      "dist",
+      "coverage"
+    ]
+  },
+  "context": {
+    "sources": [
+      {
+        "id": "source-1",
+        "type": "description",
+        "location": null,
+        "content": "A living Story and Acceptance Criterion contract grounded in code, tests, help content, and organizational evidence.",
+        "allow_external_fetch": false
+      }
+    ]
+  },
+  "runtime": {
+    "default_embedding_provider": "hash",
+    "default_database_mode": "offline"
+  },
+  "files": {
+    "spec_directory": "spec",
+    "manifest": "manifest.json",
+    "mcp_config": "mcp.json"
+  },
+  "created_at": "2026-07-29T00:00:00.000Z",
+  "updated_at": "2026-07-30T07:06:06.000Z"
+}

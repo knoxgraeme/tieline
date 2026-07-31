@@ -5,11 +5,16 @@ import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import postgres from "postgres";
-import type { EmbeddingProvider, StoryApprovalMode } from "../config.js";
+import type { EmbeddingProvider } from "../config.js";
 import { migrateDatabase } from "../commands/migrate.js";
 import type { TielineWorkspace } from "./workspace.js";
-import { writeTielineConfig } from "./workspace.js";
-import { tielineConfigHome, writeWorkspaceProfile } from "./profile.js";
+import {
+  DATABASE_PROFILE_ENV_KEYS,
+  profileIdForWorkspace,
+  tielineConfigHome,
+  writeWorkspaceProfile,
+  type TielineRuntimeState,
+} from "./profile.js";
 
 export type DatabaseMode = "local" | "existing" | "offline";
 
@@ -21,7 +26,6 @@ export interface SetupOptions {
   workspace: TielineWorkspace;
   databaseMode: DatabaseMode;
   embeddingProvider: EmbeddingProvider;
-  approvalMode: StoryApprovalMode;
   installLocalEmbedder: boolean;
   skipMigrate: boolean;
   env: NodeJS.ProcessEnv;
@@ -78,19 +82,6 @@ function withDatabaseRole(ownerUrl: string, username: string, password: string):
   return url.toString();
 }
 
-/**
- * Ask the OS for a free loopback TCP port, then release it so Docker can bind it.
- *
- * We choose the host port explicitly and publish `127.0.0.1:<port>:5432` rather
- * than letting Docker auto-assign via `127.0.0.1::5432`. The auto-assign form
- * requires reading the mapping back with `docker port` / NetworkSettings.Ports,
- * which Docker Desktop can leave EMPTY even when the container is up (observed on
- * Docker Desktop 28.x) — and the auto-assigned port also changes on every restart.
- * An explicit port is deterministic, survives restarts, and never needs the
- * unreliable read-back path. There is a small TOCTOU window between releasing the
- * port and Docker binding it; if lost, `docker run` fails loudly rather than
- * silently, which the caller surfaces.
- */
 async function findFreePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
     const server = createServer();
@@ -98,7 +89,10 @@ async function findFreePort(): Promise<number> {
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       const port = typeof address === "object" && address ? address.port : 0;
-      server.close(() => (port ? resolvePort(port) : reject(new Error("Could not allocate a local port."))));
+      server.close(() => {
+        if (port) resolvePort(port);
+        else reject(new Error("Could not allocate a local port."));
+      });
     });
   });
 }
@@ -120,9 +114,9 @@ async function waitForPostgres(url: string): Promise<void> {
   }
   throw new Error(
     `Local PostgreSQL did not become ready within 60 seconds: ${String(lastError)}\n` +
-      "The container may be running while 127.0.0.1 cannot reach its published port. This is usually " +
-      "Docker Desktop's port forwarding being wedged (fully quit and reopen Docker Desktop), or a VPN / " +
-      "loopback tool intercepting the connection. As an alternative, re-run with `--database existing` " +
+      "The container may be running while 127.0.0.1 cannot reach its published port. " +
+      "Fully quit and reopen Docker Desktop, and check whether a VPN or loopback tool is " +
+      "intercepting the connection. Alternatively, re-run with `--database existing` " +
       "against any Postgres 16 + pgvector connection string."
   );
 }
@@ -130,29 +124,25 @@ async function waitForPostgres(url: string): Promise<void> {
 async function provisionLocalRoles(ownerUrl: string): Promise<Record<string, string>> {
   const reader = credential();
   const writer = credential();
-  const approver = credential();
+  const sync = credential();
   const sql = postgres(ownerUrl, { max: 1, prepare: false });
-  // ALTER ROLE ... PASSWORD requires a string literal — Postgres rejects a bind
-  // parameter ($1) in this DDL — so the password is quoted inline via sql.unsafe.
-  // credential() is base64url (no quotes); single quotes are escaped defensively.
-  const passwordLiteral = (secret: string) => `'${secret.replace(/'/g, "''")}'`;
   try {
-    await sql.unsafe(`alter role mcp_reader with login password ${passwordLiteral(reader)}`);
-    await sql.unsafe(`alter role mcp_writer with login password ${passwordLiteral(writer)}`);
-    await sql.unsafe(`alter role mcp_approver with login password ${passwordLiteral(approver)}`);
+    await sql`alter role tieline_reader with login password ${reader}`;
+    await sql`alter role tieline_planning_writer with login password ${writer}`;
+    await sql`alter role tieline_repository_sync with login password ${sync}`;
   } finally {
     await sql.end({ timeout: 5 });
   }
   return {
-    DATABASE_URL: withDatabaseRole(ownerUrl, "mcp_reader", reader),
-    DATABASE_URL_INGEST: ownerUrl,
-    DATABASE_URL_WRITE: withDatabaseRole(ownerUrl, "mcp_writer", writer),
-    DATABASE_URL_APPROVAL: withDatabaseRole(ownerUrl, "mcp_approver", approver),
+    DATABASE_URL: withDatabaseRole(ownerUrl, "tieline_reader", reader),
+    DATABASE_URL_WRITE: withDatabaseRole(ownerUrl, "tieline_planning_writer", writer),
+    DATABASE_URL_SYNC: withDatabaseRole(ownerUrl, "tieline_repository_sync", sync),
+    DATABASE_URL_ADMIN: ownerUrl,
   };
 }
 
 async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.ProcessEnv, io: SetupIO) {
-  const profileSuffix = (workspace.config.runtime.profile_id || "workspace").slice(-12);
+  const profileSuffix = profileIdForWorkspace(workspace).slice(-12);
   const container = `tieline-postgres-${workspace.config.product.repo_name.slice(0, 28)}-${profileSuffix}`;
   const version = await runProcess("docker", ["version", "--format", "{{.Server.Version}}"], env);
   if (version.code !== 0) {
@@ -160,7 +150,7 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
   }
   const inspect = await runProcess("docker", ["inspect", "-f", "{{.State.Running}}", container], env);
   if (inspect.code === 0) {
-    if (env.DATABASE_URL_INGEST) {
+    if (env.DATABASE_URL_ADMIN) {
       if (inspect.stdout.trim() !== "true") {
         const restarted = await runProcess("docker", ["start", container], env);
         if (restarted.code !== 0) {
@@ -169,23 +159,20 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
       }
       let configured: URL;
       try {
-        configured = new URL(env.DATABASE_URL_INGEST);
+        configured = new URL(env.DATABASE_URL_ADMIN);
       } catch {
         throw new Error(`The saved owner credential for local container '${container}' is not a valid URL.`);
       }
       const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(configured.hostname);
       if (!loopback || configured.pathname !== "/tieline") {
         throw new Error(
-          `Local container '${container}' exists, but DATABASE_URL_INGEST does not identify its mapped Tieline database. ` +
+          `Local container '${container}' exists, but DATABASE_URL_ADMIN does not identify its mapped Tieline database. ` +
             "Restore the private workspace profile instead of reusing an unrelated credential."
         );
       }
-      // The container was published on an explicit host port, so the saved URL's
-      // port stays valid across restarts. Verify it is actually reachable rather
-      // than re-reading the mapping from Docker (which can be unreliable).
       io.write(`Reusing local PostgreSQL container '${container}'.\n`);
-      await waitForPostgres(env.DATABASE_URL_INGEST);
-      return { ownerUrl: env.DATABASE_URL_INGEST, container };
+      await waitForPostgres(env.DATABASE_URL_ADMIN);
+      return { ownerUrl: env.DATABASE_URL_ADMIN, container };
     }
     throw new Error(
       `Docker container '${container}' already exists, but its owner credential is unavailable. ` +
@@ -195,7 +182,9 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
 
   const ownerPassword = credential();
   const hostPort = await findFreePort();
-  io.write(`Starting dedicated PostgreSQL + pgvector container '${container}' on 127.0.0.1:${hostPort}...\n`);
+  io.write(
+    `Starting dedicated PostgreSQL + pgvector container '${container}' on 127.0.0.1:${hostPort}...\n`
+  );
   const started = await runProcess(
     "docker",
     [
@@ -266,67 +255,63 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
     provisionLocalRoles,
     ...options.dependencies,
   };
-  env.DATABASE_URL ||= env.SUPABASE_DB_URL;
-  env.DATABASE_URL_INGEST ||= env.SUPABASE_DB_URL_INGEST;
-  env.DATABASE_URL_WRITE ||= env.SUPABASE_DB_URL_WRITE;
   env.EMBEDDING_PROVIDER = options.embeddingProvider;
-  env.STORY_APPROVAL_MODE = options.approvalMode;
   validateEmbeddingConfiguration(options.embeddingProvider, env);
-
-  workspace.config.runtime.database_mode = options.databaseMode;
-  workspace.config.runtime.embedding_provider = options.embeddingProvider;
-  workspace.config.runtime.approval_mode = options.approvalMode;
-  workspace.config.runtime.setup_completed_at = null;
-  writeTielineConfig(workspace);
+  const pendingRuntime: TielineRuntimeState = {
+    database_mode: options.databaseMode,
+    embedding_provider: options.embeddingProvider,
+    setup_completed_at: null,
+  };
 
   if (options.embeddingProvider === "local" && options.installLocalEmbedder) {
     env.TIELINE_LOCAL_EMBEDDER_ROOT = await dependencies.installLocalEmbedder(env, io);
   }
 
   if (options.databaseMode === "existing") {
-    if (!env.DATABASE_URL_INGEST && !env.SUPABASE_DB_URL_INGEST) {
+    if (!env.DATABASE_URL_ADMIN) {
       throw new Error(
         "Connecting your own database requires a Postgres 16 + pgvector connection string in " +
-          "DATABASE_URL_INGEST (set it in the environment or a local .env; credentials are never " +
-          "accepted as CLI arguments, so Tieline reads it from there and copies it into the private " +
-          "profile). Any host works — a local Postgres, or a free hosted database from Neon, Supabase, " +
-          "or similar. Provisioning tools that sync a .env (e.g. Stripe Projects) are picked up here too."
+          "DATABASE_URL_ADMIN. Set it in the environment or a local .env; credentials are never " +
+          "accepted as CLI arguments. Any host works, including a local Postgres or a hosted " +
+          "database from Neon, Supabase, RDS, or another provider."
       );
     }
-    writeWorkspaceProfile(workspace, env);
+    writeWorkspaceProfile(workspace, env, pendingRuntime);
     if (!options.skipMigrate) {
       io.write("Applying packaged Tieline migrations to the configured database...\n");
-      await dependencies.migrateDatabase(env.DATABASE_URL_INGEST || env.SUPABASE_DB_URL_INGEST!);
+      await dependencies.migrateDatabase(env.DATABASE_URL_ADMIN);
     }
   } else if (options.databaseMode === "local") {
     const local = await dependencies.startLocalDatabase(workspace, env, io);
-    env.DATABASE_URL_INGEST = local.ownerUrl;
-    writeWorkspaceProfile(workspace, env);
+    env.DATABASE_URL_ADMIN = local.ownerUrl;
+    writeWorkspaceProfile(workspace, env, pendingRuntime);
     if (!options.skipMigrate) {
       io.write("Applying packaged Tieline migrations to the local database...\n");
       await dependencies.migrateDatabase(local.ownerUrl);
       Object.assign(env, await dependencies.provisionLocalRoles(local.ownerUrl));
     } else {
-      env.DATABASE_URL_INGEST = local.ownerUrl;
+      env.DATABASE_URL_ADMIN = local.ownerUrl;
     }
   }
 
-  workspace.config.runtime.setup_completed_at = new Date().toISOString();
-  writeTielineConfig(workspace);
+  const runtime: TielineRuntimeState = {
+    ...pendingRuntime,
+    setup_completed_at:
+      options.databaseMode === "offline" || !options.skipMigrate
+        ? new Date().toISOString()
+        : null,
+  };
   const profileEnv = options.databaseMode === "offline" ? { ...env } : env;
   if (options.databaseMode === "offline") {
-    for (const key of [
-      "DATABASE_URL",
-      "DATABASE_URL_INGEST",
-      "DATABASE_URL_WRITE",
-      "DATABASE_URL_APPROVAL",
-      "SUPABASE_DB_URL",
-      "SUPABASE_DB_URL_INGEST",
-      "SUPABASE_DB_URL_WRITE",
-    ]) {
+    for (const key of DATABASE_PROFILE_ENV_KEYS) {
       delete profileEnv[key];
     }
   }
-  const stored = writeWorkspaceProfile(workspace, profileEnv, env);
+  const stored = writeWorkspaceProfile(
+    workspace,
+    profileEnv,
+    runtime,
+    env
+  );
   return { profilePath: stored.path };
 }

@@ -1,0 +1,375 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
+import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
+import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
+import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
+import {
+  closeConnections,
+  getSyncSql,
+} from "../adapters/postgres/connections.js";
+import {
+  attachCurrentArtifactHashes,
+  compileContractManifest,
+  readContractManifest,
+  serializeContractManifest,
+  type ContractManifest,
+} from "../contract/manifest.js";
+import {
+  loadAcceptedContract,
+  loadAcceptedContractWithSources,
+} from "../contract/load.js";
+import { renderContractReviewPage } from "../contract/review-page.js";
+import { syncContractManifest } from "../contract/sync.js";
+import { findTielineWorkspace } from "../tieline/workspace.js";
+import { contractEmbeddingDocuments } from "../derived/embedding-documents.js";
+import { getEmbedder, mapWithConcurrency } from "../embeddings.js";
+import { computeRepositoryMappingCoverage } from "../contract/coverage.js";
+
+interface ContractCommandIO {
+  write(message: string): void;
+}
+
+interface ParsedContractCommand {
+  action: "validate" | "review" | "compile" | "coverage" | "sync";
+  repositoryRoot: string;
+  repositoryKey: string;
+  commit?: string;
+  outputPath: string;
+  specDirectory: string;
+  sourceRoots: string[];
+  ignore: string[];
+  expectedPreviousCommit?: string;
+  json: boolean;
+}
+
+function valueAfter(args: string[], index: number, name: string): string {
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`--${name} requires a value.`);
+  }
+  return value;
+}
+
+function gitCommit(repositoryRoot: string): string {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    throw new Error(
+      "Could not determine the repository commit. Run inside a Git checkout or pass --commit <sha>."
+    );
+  }
+}
+
+function parseContractCommand(args: string[]): ParsedContractCommand {
+  const action = args[0];
+  if (
+    action !== "validate" &&
+    action !== "review" &&
+    action !== "compile" &&
+    action !== "coverage" &&
+    action !== "sync"
+  ) {
+    throw new Error(
+      "Usage: tieline contract <validate|review|compile|coverage|sync> [repository] [options]"
+    );
+  }
+
+  let repositoryPath: string | undefined;
+  let repositoryKey: string | undefined;
+  let commit: string | undefined;
+  let outputPath: string | undefined;
+  let specDirectory: string | undefined;
+  let expectedPreviousCommit: string | undefined;
+  let json = false;
+
+  for (let index = 1; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    if (!arg.startsWith("--")) {
+      if (repositoryPath) {
+        throw new Error("contract commands accept at most one repository path.");
+      }
+      repositoryPath = arg;
+      continue;
+    }
+    const [rawName, inlineValue] = arg.slice(2).split("=", 2);
+    const name = rawName;
+    if (
+      name !== "repo" &&
+      name !== "commit" &&
+      name !== "output" &&
+      name !== "spec" &&
+      name !== "expected-previous-commit"
+    ) {
+      throw new Error(`Unknown contract option: --${name}`);
+    }
+    const value = inlineValue ?? valueAfter(args, index, name);
+    if (inlineValue === undefined) index++;
+    if (name === "repo") repositoryKey = value;
+    if (name === "commit") commit = value;
+    if (name === "output") outputPath = value;
+    if (name === "spec") specDirectory = value;
+    if (name === "expected-previous-commit") expectedPreviousCommit = value;
+  }
+
+  const requestedRoot = resolve(repositoryPath ?? process.cwd());
+  const workspace = findTielineWorkspace(requestedRoot);
+  const repositoryRoot = workspace?.root ?? requestedRoot;
+  repositoryKey ??= workspace?.config.product.repo_name ?? basename(repositoryRoot);
+  specDirectory ??= workspace
+    ? workspace.config.files.spec_directory.startsWith(".tieline/")
+      ? workspace.config.files.spec_directory
+      : `.tieline/${workspace.config.files.spec_directory}`
+    : ".tieline/spec";
+  const resolvedOutput = outputPath
+    ? isAbsolute(outputPath)
+      ? outputPath
+      : resolve(repositoryRoot, outputPath)
+    : resolve(
+        repositoryRoot,
+        action === "review" ? ".tieline/review.html" : ".tieline/manifest.json"
+      );
+  return {
+    action,
+    repositoryRoot,
+    repositoryKey,
+    commit,
+    outputPath: resolvedOutput,
+    specDirectory,
+    sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
+    ignore: workspace?.config.repository.ignore ?? [],
+    expectedPreviousCommit,
+    json,
+  };
+}
+
+function coverage(manifest: ContractManifest): {
+  stories: number;
+  acceptance_criteria: number;
+  criteria_with_direct_links: number;
+  criteria_without_direct_links: string[];
+  direct_links: number;
+} {
+  const stories = manifest.capabilities.flatMap((capability) => capability.stories);
+  const criteria = stories.flatMap((story) => story.acceptance_criteria);
+  return {
+    stories: stories.length,
+    acceptance_criteria: criteria.length,
+    criteria_with_direct_links: criteria.filter((criterion) => criterion.links.length > 0)
+      .length,
+    criteria_without_direct_links: criteria
+      .filter((criterion) => criterion.links.length === 0)
+      .map((criterion) => criterion.stable_id),
+    direct_links: criteria.reduce(
+      (total, criterion) => total + criterion.links.length,
+      0
+    ),
+  };
+}
+
+export async function runContractCommand(
+  args: string[],
+  io: ContractCommandIO
+): Promise<number> {
+  const parsed = parseContractCommand(args);
+  if (parsed.action === "validate") {
+    const result = loadAcceptedContract(parsed.repositoryRoot, parsed.specDirectory);
+    const response = {
+      valid: true,
+      documents: result.documents.length,
+      stories: result.documents.reduce(
+        (total, document) => total + document.capability.stories.length,
+        0
+      ),
+      acceptance_criteria: result.documents.reduce(
+        (total, document) =>
+          total +
+          document.capability.stories.reduce(
+            (storyTotal, story) =>
+              storyTotal + story.acceptance_criteria.length,
+            0
+          ),
+        0
+      ),
+      warnings: result.warnings,
+    };
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(response, null, 2)}\n`
+        : `Contract valid: ${response.stories} Stories, ${response.acceptance_criteria} acceptance criteria, ${response.warnings.length} warning(s).\n`
+    );
+    return 0;
+  }
+
+  if (parsed.action === "review") {
+    const result = loadAcceptedContractWithSources(
+      parsed.repositoryRoot,
+      parsed.specDirectory
+    );
+    const serialized = renderContractReviewPage({
+      repositoryKey: parsed.repositoryKey,
+      documents: result.documents.map((document, index) => ({
+        path: result.sources[index]!.path,
+        document,
+      })),
+      warnings: result.warnings,
+    });
+    mkdirSync(dirname(parsed.outputPath), { recursive: true });
+    writeFileSync(parsed.outputPath, serialized);
+    const response = {
+      output: parsed.outputPath,
+      bytes: Buffer.byteLength(serialized),
+      capabilities: result.documents.length,
+      stories: result.documents.reduce(
+        (total, document) => total + document.capability.stories.length,
+        0
+      ),
+      acceptance_criteria: result.documents.reduce(
+        (total, document) =>
+          total +
+          document.capability.stories.reduce(
+            (storyTotal, story) =>
+              storyTotal + story.acceptance_criteria.length,
+            0
+          ),
+        0
+      ),
+      warnings: result.warnings,
+    };
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(response, null, 2)}\n`
+        : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath}.\n`
+    );
+    return 0;
+  }
+
+  if (parsed.action === "sync") {
+    const reviewedManifest = readContractManifest(parsed.outputPath);
+    if (reviewedManifest.repository.key !== parsed.repositoryKey) {
+      throw new Error(
+        `Reviewed manifest repository '${reviewedManifest.repository.key}' does not match requested repository '${parsed.repositoryKey}'.`
+      );
+    }
+    const manifest = attachCurrentArtifactHashes(
+      {
+        ...reviewedManifest,
+        repository: {
+          ...reviewedManifest.repository,
+          commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
+        },
+      },
+      parsed.repositoryRoot
+    );
+    try {
+      const result = await syncContractManifest(
+        new PostgresContractSyncRepository(getSyncSql()),
+        manifest,
+        { expectedPreviousCommit: parsed.expectedPreviousCommit }
+      );
+      const reads = new PostgresContractReadRepository(getSyncSql);
+      const projected = await reads.queryContractStories({
+        filters: {
+          repositories: [manifest.repository.key],
+          authorities: ["repository"],
+          include_inactive_criteria: true,
+        },
+        limit: 10_000,
+      });
+      const documents =
+        projected.mode === "records"
+          ? contractEmbeddingDocuments(projected.records)
+          : [];
+      const semantic = new PostgresSemanticRepository(getSyncSql, getEmbedder);
+      const indexed = await mapWithConcurrency(
+        documents,
+        4,
+        (document) => semantic.upsertEmbeddingDocument(document)
+      );
+      const indexing = {
+        documents: documents.length,
+        embedded: indexed.filter(
+          (entry) => entry.embedding_status === "embedded"
+        ).length,
+        unchanged: indexed.filter(
+          (entry) => entry.embedding_status === "unchanged"
+        ).length,
+        embedding_unavailable: indexed.filter(
+          (entry) => entry.embedding_status === "unavailable"
+        ).length,
+      };
+      io.write(
+        parsed.json
+          ? `${JSON.stringify({
+              ...result,
+              embedding_documents: documents.length,
+              re_embedded: indexing.embedded,
+              semantic_index: indexing,
+            }, null, 2)}\n`
+          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s); ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n`
+      );
+      return 0;
+    } finally {
+      await closeConnections();
+    }
+  }
+
+  const manifest = compileContractManifest({
+    repositoryRoot: parsed.repositoryRoot,
+    repositoryKey: parsed.repositoryKey,
+    commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
+    specDirectory: parsed.specDirectory,
+  });
+  const mappingCoverage = computeRepositoryMappingCoverage(manifest, {
+    repositoryRoot: parsed.repositoryRoot,
+    sourceRoots: parsed.sourceRoots,
+    ignore: parsed.ignore,
+  });
+
+  if (parsed.action === "compile") {
+    mkdirSync(dirname(parsed.outputPath), { recursive: true });
+    const serialized = serializeContractManifest(manifest);
+    writeFileSync(parsed.outputPath, serialized);
+    const response = {
+      output: parsed.outputPath,
+      bytes: Buffer.byteLength(serialized),
+      repository: manifest.repository,
+      ...coverage(manifest),
+      mapping_coverage: mappingCoverage,
+    };
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(response, null, 2)}\n`
+        : `Compiled ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath} (${response.bytes} bytes).\n`
+    );
+    return 0;
+  }
+
+  if (parsed.action === "coverage") {
+    const response = {
+      repository: manifest.repository,
+      ...coverage(manifest),
+      mapping_coverage: mappingCoverage,
+    };
+    const repositoryCoverage =
+      response.mapping_coverage.status === "no_eligible_files"
+        ? `no eligible repository files were found under the configured source roots (${response.mapping_coverage.source_roots.join(", ")}), so mapping coverage is not measured`
+        : `${response.mapping_coverage.mapped_files}/${response.mapping_coverage.eligible_files} eligible repository files mapped (${response.mapping_coverage.percentage}%)`;
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(response, null, 2)}\n`
+        : `${response.criteria_with_direct_links}/${response.acceptance_criteria} acceptance criteria have direct evidence links; ${repositoryCoverage}.\n${response.mapping_coverage.unmapped_files.length ? `Unmapped: ${response.mapping_coverage.unmapped_files.join(", ")}\n` : ""}`
+    );
+    return 0;
+  }
+
+  throw new Error(`Unsupported contract action: ${parsed.action}`);
+}
