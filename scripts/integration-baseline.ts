@@ -181,6 +181,65 @@ try {
   assert.equal(lexicalStory.vector_score, 0);
   assert.ok(lexicalStory.lexical_score >= 0.3);
 
+  let embeddingAvailable = false;
+  const recoveringSemanticRepository = new PostgresSemanticRepository(
+    () => sql,
+    () => ({
+      provider: "hash",
+      dim: 384,
+      async embed() {
+        if (!embeddingAvailable) {
+          throw new Error("embedding provider temporarily unavailable");
+        }
+        return new Array<number>(384).fill(0.01);
+      },
+    })
+  );
+  const recoveringDocument = {
+    entity_kind: "story" as const,
+    entity_id: story.id,
+    document_kind: "story" as const,
+    canonical_text: "Recover vector indexing without changing source text",
+    source_text_hash: "recovering-vector-source",
+    filter_metadata: {
+      repository: "baseline-integration",
+      authority: "planning",
+      lifecycle: "backlog",
+      active: true,
+      story_id: story.id,
+      story_stable_id: "BASELINE-PLANNING-001",
+      identifiers: ["BASELINE-PLANNING-001"],
+    },
+  };
+  const unavailableWrite =
+    await recoveringSemanticRepository.upsertEmbeddingDocument(
+      recoveringDocument
+    );
+  assert.equal(unavailableWrite.embedding_status, "unavailable");
+  const [lexicalWrite] = await sql<{ has_embedding: boolean }[]>`
+    select embedding is not null as has_embedding
+    from embedding_documents
+    where id = ${unavailableWrite.document_id}`;
+  assert.equal(lexicalWrite.has_embedding, false);
+
+  embeddingAvailable = true;
+  const recoveredWrite =
+    await recoveringSemanticRepository.upsertEmbeddingDocument(
+      recoveringDocument
+    );
+  assert.equal(recoveredWrite.embedding_status, "embedded");
+  assert.equal(recoveredWrite.document_id, unavailableWrite.document_id);
+  const [vectorWrite] = await sql<{ has_embedding: boolean }[]>`
+    select embedding is not null as has_embedding
+    from embedding_documents
+    where id = ${recoveredWrite.document_id}`;
+  assert.equal(vectorWrite.has_embedding, true);
+  const unchangedWrite =
+    await recoveringSemanticRepository.upsertEmbeddingDocument(
+      recoveringDocument
+    );
+  assert.equal(unchangedWrite.embedding_status, "unchanged");
+
   await assert.rejects(
     sql`
       insert into user_stories (

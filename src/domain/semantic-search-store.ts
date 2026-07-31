@@ -102,10 +102,16 @@ export interface SemanticSearchStore {
   }): Promise<SemanticSearchCandidate[]>;
 }
 
+export interface DerivedDocumentWriteResult {
+  embedded: boolean;
+  document_id: string;
+  embedding_status: "embedded" | "unchanged" | "unavailable";
+}
+
 export interface DerivedDocumentStore {
   upsertEmbeddingDocument(
     document: DerivedEmbeddingDocument
-  ): Promise<{ embedded: boolean; document_id: string }>;
+  ): Promise<DerivedDocumentWriteResult>;
 }
 
 export interface AttributionSuggestionStore {

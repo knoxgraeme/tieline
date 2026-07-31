@@ -9,6 +9,7 @@ import type {
   AttributionSuggestionRecord,
   AttributionSuggestionStore,
   DerivedDocumentStore,
+  DerivedDocumentWriteResult,
   ResolvedRetrievalProfile,
   RetrievalProfileDefinition,
   SemanticSearchCandidate,
@@ -303,21 +304,22 @@ export class PostgresSemanticRepository
     const vectorCandidates = queryVector
       ? sql`
           select
-            document.id,
+            ed.id,
             greatest(
               0,
               1 - (
-                document.embedding OPERATOR(extensions.<=>)
+                ed.embedding OPERATOR(extensions.<=>)
                 ${queryVector}::extensions.vector
               )
             ) as vector_score
-          from filtered_documents document
-          where document.embedding_model = ${queryModel}
-            and document.embedding is not null
+          from embedding_documents ed
+          ${where}
+            and ed.embedding_model = ${queryModel}
+            and ed.embedding is not null
           order by
-            document.embedding OPERATOR(extensions.<=>)
+            ed.embedding OPERATOR(extensions.<=>)
             ${queryVector}::extensions.vector,
-            document.id
+            ed.id
           limit ${candidateLimit}`
       : sql`
           select document.id, 0::double precision as vector_score
@@ -497,7 +499,7 @@ export class PostgresSemanticRepository
 
   async upsertEmbeddingDocument(
     document: DerivedEmbeddingDocument
-  ): Promise<{ embedded: boolean; document_id: string }> {
+  ): Promise<DerivedDocumentWriteResult> {
     const sql = this.sqlProvider();
     let embedder: Embedder | undefined;
     try {
@@ -509,8 +511,12 @@ export class PostgresSemanticRepository
       config.embeddingModel?.trim() ||
       embedder?.provider ||
       config.embeddingProvider;
-    const existing = await sql<{ id: string; source_text_hash: string }[]>`
-      select id, source_text_hash
+    const existing = await sql<{
+      id: string;
+      source_text_hash: string;
+      has_embedding: boolean;
+    }[]>`
+      select id, source_text_hash, embedding is not null as has_embedding
       from embedding_documents
       where entity_kind = ${document.entity_kind}::semantic_entity_kind
         and entity_id = ${document.entity_id}
@@ -520,13 +526,17 @@ export class PostgresSemanticRepository
     const changed =
       !existing[0] ||
       existing[0].source_text_hash !== document.source_text_hash;
-    if (!changed && existing[0]) {
+    if (!changed && existing[0]?.has_embedding) {
       await sql`
         update embedding_documents
         set filter_metadata = ${jsonValue(sql, document.filter_metadata)},
             updated_at = now()
         where id = ${existing[0].id}`;
-      return { embedded: false, document_id: existing[0].id };
+      return {
+        embedded: false,
+        document_id: existing[0].id,
+        embedding_status: "unchanged",
+      };
     }
     let embedding: number[] | undefined;
     if (embedder) {
@@ -562,7 +572,12 @@ export class PostgresSemanticRepository
         filter_metadata = excluded.filter_metadata,
         updated_at = now()
       returning id`;
-    return { embedded: embedding !== undefined, document_id: rows[0].id };
+    return {
+      embedded: embedding !== undefined,
+      document_id: rows[0].id,
+      embedding_status:
+        embedding === undefined ? "unavailable" : "embedded",
+    };
   }
 
   async saveAttributionSuggestion(input: {

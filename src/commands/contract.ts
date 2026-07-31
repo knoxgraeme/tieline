@@ -294,14 +294,27 @@ export async function runContractCommand(
         4,
         (document) => semantic.upsertEmbeddingDocument(document)
       );
+      const indexing = {
+        documents: documents.length,
+        embedded: indexed.filter(
+          (entry) => entry.embedding_status === "embedded"
+        ).length,
+        unchanged: indexed.filter(
+          (entry) => entry.embedding_status === "unchanged"
+        ).length,
+        embedding_unavailable: indexed.filter(
+          (entry) => entry.embedding_status === "unavailable"
+        ).length,
+      };
       io.write(
         parsed.json
           ? `${JSON.stringify({
               ...result,
               embedding_documents: documents.length,
-              re_embedded: indexed.filter((entry) => entry.embedded).length,
+              re_embedded: indexing.embedded,
+              semantic_index: indexing,
             }, null, 2)}\n`
-          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s); ${indexed.filter((entry) => entry.embedded).length}/${documents.length} semantic document(s) embedded.\n`
+          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s); ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n`
       );
       return 0;
     } finally {
