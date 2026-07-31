@@ -82,6 +82,55 @@ test("artifact and graph context break a close semantic tie", () => {
   assert.equal(ranked[0]?.features.graph, 0.75);
 });
 
+test("RRF rewards candidates supported by both lexical and vector signals", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "consistent",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-consistent",
+      canonical_text: "consistent across retrieval signals",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-consistent",
+      vector_score: 0.8,
+      lexical_score: 0.9,
+      metadata: {},
+    },
+    {
+      document_id: "vector-only",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-vector",
+      canonical_text: "best vector only",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-vector",
+      vector_score: 0.9,
+      lexical_score: 0,
+      metadata: {},
+    },
+  ]);
+  assert.equal(ranked[0]?.document_id, "consistent");
+  assert.ok(ranked[0]?.features.rrf > 0);
+  assert.match(ranked[0]?.why.join(" ") ?? "", /vector.*lexical/i);
+});
+
+test("lexical-only candidates remain useful without an embedding", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "lexical",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-lexical",
+      canonical_text: "identifier-only match",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-lexical",
+      vector_score: 0,
+      lexical_score: 0.8,
+      metadata: {},
+    },
+  ]);
+  assert.ok((ranked[0]?.score ?? 0) > 0);
+  assert.equal(ranked[0]?.features.vector, 0);
+  assert.match(ranked[0]?.why.join(" ") ?? "", /lexical/i);
+});
+
 test("Scenario and AC hits collapse around the same AC", () => {
   const grouped = groupSemanticHitsAroundAcceptanceCriteria(
     rankSemanticDocuments([

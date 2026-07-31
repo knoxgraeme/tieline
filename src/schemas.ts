@@ -143,6 +143,10 @@ export type SearchKnowledgeInput = z.infer<typeof searchKnowledgeSchema>;
 export const searchKnowledgeOutputShape = {
   profile: z.object({ key: z.string(), version: z.number() }),
   applied_filters: z.record(z.unknown()),
+  signals: z.object({
+    lexical: z.literal("applied"),
+    embedding: z.enum(["applied", "unavailable"]),
+  }),
   results: z.array(
     z.object({
       entity_kind: documentKind,
@@ -160,7 +164,9 @@ export const searchKnowledgeOutputShape = {
         artifact: z.number(),
         graph: z.number(),
         applicability: z.number(),
+        rrf: z.number(),
       }),
+      why: z.array(z.string()),
       canonical_text: z.string(),
       context_anchor: semanticSearchAnchor.optional(),
       state: z.object({

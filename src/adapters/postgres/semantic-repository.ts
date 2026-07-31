@@ -153,7 +153,7 @@ export class PostgresSemanticRepository
 
   async searchSemantic(input: {
     query: string;
-    embedding: number[];
+    embedding?: number[];
     profile: ResolvedRetrievalProfile;
     filters?: SemanticSearchFilters;
     context?: SemanticSearchContext;
@@ -190,9 +190,7 @@ export class PostgresSemanticRepository
     );
 
     const conditions: ReturnType<Sql>[] = [
-      sql`ed.embedding_model = ${modelKey(this.embedderProvider())}`,
       sql`ed.embedding_version = ${EMBEDDING_DOCUMENT_VERSION}`,
-      sql`ed.embedding is not null`,
     ];
     if (filters.authorities?.length) {
       conditions.push(
@@ -296,27 +294,100 @@ export class PostgresSemanticRepository
       400
     );
     const resultLimit = Math.min(Math.max(input.limit * 4, 20), 200);
-    const queryVector = vectorLiteral(input.embedding);
+    const queryModel = input.embedding
+      ? modelKey(this.embedderProvider())
+      : "";
+    const queryVector = input.embedding
+      ? vectorLiteral(input.embedding)
+      : undefined;
+    const vectorCandidates = queryVector
+      ? sql`
+          select
+            document.id,
+            greatest(
+              0,
+              1 - (
+                document.embedding OPERATOR(extensions.<=>)
+                ${queryVector}::extensions.vector
+              )
+            ) as vector_score
+          from filtered_documents document
+          where document.embedding_model = ${queryModel}
+            and document.embedding is not null
+          order by
+            document.embedding OPERATOR(extensions.<=>)
+            ${queryVector}::extensions.vector,
+            document.id
+          limit ${candidateLimit}`
+      : sql`
+          select document.id, 0::double precision as vector_score
+          from filtered_documents document
+          where false`;
     const rows = await sql<DocumentRow[]>`
-      with vector_candidates as materialized (
-        select ed.id
+      with filtered_documents as materialized (
+        select distinct on (
+          ed.entity_kind,
+          ed.entity_id,
+          ed.document_kind
+        ) ed.*
         from embedding_documents ed
         ${where}
         order by
-          ed.embedding OPERATOR(extensions.<=>)
-          ${queryVector}::extensions.vector
-        limit ${candidateLimit}
+          ed.entity_kind,
+          ed.entity_id,
+          ed.document_kind,
+          case
+            when ${Boolean(input.embedding)}
+              and ed.embedding_model = ${queryModel}
+              then 0
+            else 1
+          end,
+          ed.updated_at desc,
+          ed.id
+      ),
+      query_terms as (
+        select websearch_to_tsquery('english', ${input.query}) as tsquery
+      ),
+      vector_candidates as materialized (
+        ${vectorCandidates}
       ),
       lexical_candidates as materialized (
-        select ed.id
-        from embedding_documents ed
-        ${where}
-          and ed.search_vector @@ plainto_tsquery('simple', ${input.query})
+        select
+          document.id,
+          greatest(
+            prose.score / (prose.score + 1),
+            identifiers.score
+          ) as lexical_score
+        from filtered_documents document
+        cross join query_terms
+        cross join lateral (
+          select ts_rank_cd(
+            document.search_vector,
+            query_terms.tsquery
+          ) as score
+        ) prose
+        cross join lateral (
+          select coalesce(max(word_similarity(
+            lower(${input.query}),
+            lower(identifier.value)
+          )), 0) as score
+          from jsonb_array_elements_text(
+            case
+              when jsonb_typeof(document.filter_metadata->'identifiers') = 'array'
+                then document.filter_metadata->'identifiers'
+              else '[]'::jsonb
+            end
+          ) identifier(value)
+        ) identifiers
+        where
+          document.search_vector @@ query_terms.tsquery
+          or identifiers.score >= 0.3
         order by
-          ts_rank_cd(
-            ed.search_vector,
-            plainto_tsquery('simple', ${input.query})
-          ) desc
+          greatest(
+            prose.score / (prose.score + 1),
+            identifiers.score
+          ) desc,
+          document.id
         limit ${candidateLimit}
       ),
       candidate_ids as (
@@ -330,15 +401,14 @@ export class PostgresSemanticRepository
         ed.entity_id,
         ed.document_kind,
         ed.canonical_text,
-        greatest(0, 1 - (ed.embedding OPERATOR(extensions.<=>) ${queryVector}::extensions.vector)) as vector_score,
-        ts_rank_cd(
-          ed.search_vector,
-          plainto_tsquery('simple', ${input.query})
-        ) as lexical_score,
+        coalesce(vector.vector_score, 0) as vector_score,
+        coalesce(lexical.lexical_score, 0) as lexical_score,
         ed.filter_metadata,
         attribution.effective_state as attribution_state
       from candidate_ids candidate
-      join embedding_documents ed on ed.id = candidate.id
+      join filtered_documents ed on ed.id = candidate.id
+      left join vector_candidates vector on vector.id = ed.id
+      left join lexical_candidates lexical on lexical.id = ed.id
       left join lateral (
         select case
           when bool_or(states.state = 'confirmed') then 'confirmed'
@@ -368,11 +438,8 @@ export class PostgresSemanticRepository
       ) attribution on true
       order by
         (
-          0.72 * greatest(0, 1 - (ed.embedding OPERATOR(extensions.<=>) ${queryVector}::extensions.vector)) +
-          0.28 * ts_rank_cd(
-            ed.search_vector,
-            plainto_tsquery('simple', ${input.query})
-          )
+          0.65 * coalesce(vector.vector_score, 0) +
+          0.35 * coalesce(lexical.lexical_score, 0)
         ) desc,
         ed.id
       limit ${resultLimit}`;
@@ -432,8 +499,16 @@ export class PostgresSemanticRepository
     document: DerivedEmbeddingDocument
   ): Promise<{ embedded: boolean; document_id: string }> {
     const sql = this.sqlProvider();
-    const embedder = this.embedderProvider();
-    const model = modelKey(embedder);
+    let embedder: Embedder | undefined;
+    try {
+      embedder = this.embedderProvider();
+    } catch {
+      embedder = undefined;
+    }
+    const model =
+      config.embeddingModel?.trim() ||
+      embedder?.provider ||
+      config.embeddingProvider;
     const existing = await sql<{ id: string; source_text_hash: string }[]>`
       select id, source_text_hash
       from embedding_documents
@@ -445,9 +520,22 @@ export class PostgresSemanticRepository
     const changed =
       !existing[0] ||
       existing[0].source_text_hash !== document.source_text_hash;
-    const embedding = changed
-      ? await embedder.embed(document.canonical_text)
-      : undefined;
+    if (!changed && existing[0]) {
+      await sql`
+        update embedding_documents
+        set filter_metadata = ${jsonValue(sql, document.filter_metadata)},
+            updated_at = now()
+        where id = ${existing[0].id}`;
+      return { embedded: false, document_id: existing[0].id };
+    }
+    let embedding: number[] | undefined;
+    if (embedder) {
+      try {
+        embedding = await embedder.embed(document.canonical_text);
+      } catch {
+        embedding = undefined;
+      }
+    }
     const rows = await sql<{ id: string }[]>`
       insert into embedding_documents (
         entity_kind, entity_id, document_kind, canonical_text,
@@ -470,11 +558,11 @@ export class PostgresSemanticRepository
       ) do update set
         canonical_text = excluded.canonical_text,
         source_text_hash = excluded.source_text_hash,
-        embedding = coalesce(excluded.embedding, embedding_documents.embedding),
+        embedding = excluded.embedding,
         filter_metadata = excluded.filter_metadata,
         updated_at = now()
       returning id`;
-    return { embedded: changed, document_id: rows[0].id };
+    return { embedded: embedding !== undefined, document_id: rows[0].id };
   }
 
   async saveAttributionSuggestion(input: {

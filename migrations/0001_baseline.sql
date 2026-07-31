@@ -17,6 +17,7 @@ begin
 end;
 $$;
 create extension if not exists pgcrypto;
+create extension if not exists pg_trgm;
 
 create type contract_authority as enum ('planning', 'repository');
 create type story_lifecycle as enum ('backlog', 'in_progress', 'production', 'retired');
@@ -317,7 +318,7 @@ create table embedding_documents (
   document_kind text not null check (document_kind in ('story', 'acceptance_criterion', 'scenario', 'backlog_item', 'observation')),
   canonical_text text not null,
   search_vector tsvector generated always as (
-    to_tsvector('simple', canonical_text)
+    to_tsvector('english', canonical_text)
   ) stored,
   source_text_hash text not null,
   embedding_model text not null,

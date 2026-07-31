@@ -366,6 +366,17 @@ export function getEmbedder(): Embedder {
   }
 }
 
+/** Search remains useful through lexical retrieval when embeddings are optional. */
+export async function optionalQueryEmbedding(
+  text: string
+): Promise<number[] | undefined> {
+  try {
+    return await getEmbedder().embed(text);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Test seam: override the embedder (used by unit tests / smoke runs). */
 export function setEmbedder(e: Embedder): void {
   singleton = e;

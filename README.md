@@ -127,15 +127,16 @@ converges definitions without deleting history.
 - Docker with a running daemon when using `--database local`.
 - An existing PostgreSQL database with pgvector when using
   `--database existing`.
-- An OpenAI-compatible provider, Supabase Edge function, or the optional local
-  embedding runtime for semantic search outside deterministic tests.
+- Embeddings are optional for retrieval. An OpenAI-compatible provider,
+  Supabase Edge function, or the optional local runtime adds vector similarity;
+  full-text and identifier search remain available without one.
 
 The architecture in this repository is newer than the package currently
 published to npm. To exercise this version, install it from source:
 
 ```bash
-git clone https://github.com/knoxgraeme/user-story-context-mcp-server.git
-cd user-story-context-mcp-server
+git clone https://github.com/knoxgraeme/tieline.git
+cd tieline
 npm ci
 npm run build
 npm link
@@ -356,7 +357,8 @@ artifacts from the caller's current task:
 ```
 
 Responses include the profile version and each result’s authority/lifecycle or
-planning state, attribution state when applicable, coverage, and freshness.
+planning state, attribution state when applicable, coverage, freshness, applied
+retrieval signals, ranking features, and reader-facing match reasons.
 An optional `context` can name an Observation, Backlog Item, Story, or AC anchor
 and/or code, test, or help artifacts. Context reranks only the candidate set
 already allowed by the profile and filters. Artifact overlap and confirmed graph
@@ -365,6 +367,14 @@ relationships do not create proximity or become confirmed through search. Each
 result also includes a typed `context_anchor` when it can be used directly in a
 follow-up search. Callers can inspect the scores without Tieline claiming that
 an unresolved artifact locator was applied.
+
+Lexical retrieval is always on. English full-text search covers semantic prose,
+while `pg_trgm` identifier matching recalls stable IDs, aliases, code/test
+paths, selectors, and external help identifiers that stemming handles poorly.
+Vector similarity is added when an embedding provider is available. Reciprocal
+rank fusion combines the available lexical and vector rankings with exact alias,
+artifact-overlap, and confirmed graph-proximity signals, so a missing embedding
+backend does not turn search into an error.
 
 Graph proximity traverses structural links, repository-declared relationships,
 and confirmed attributions up to three hops. The graph feature decays from
@@ -413,10 +423,11 @@ Copy `.env.example` and set only the credentials needed by the process:
 The MCP server uses read and planning-write connections. Sync/admin credentials
 belong to explicit CLI/CI operations and should not be exposed to ordinary agents.
 The baseline migration must run with an administrative database role that can
-install the `vector` and `pgcrypto` extensions and create the three Tieline
-runtime roles. Managed Postgres environments may require an administrator to
-preinstall pgvector or grant the equivalent `CREATE EXTENSION` and `CREATE ROLE`
-capabilities before `tieline migrate` runs.
+install the `vector`, `pgcrypto`, and `pg_trgm` extensions and create the three
+Tieline runtime roles. Managed Postgres environments may require an
+administrator to preinstall pgvector/Postgres contrib extensions or grant the
+equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities before
+`tieline migrate` runs.
 
 Choose one embedding provider:
 

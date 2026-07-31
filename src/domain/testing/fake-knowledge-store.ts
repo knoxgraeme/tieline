@@ -204,7 +204,7 @@ export class FakeKnowledgeStore implements KnowledgeStore {
   }
   searchSemantic(_input: {
     query: string;
-    embedding: number[];
+    embedding?: number[];
     profile: ResolvedRetrievalProfile;
     filters?: SemanticSearchFilters;
     context?: SemanticSearchContext;

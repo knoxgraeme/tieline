@@ -40,8 +40,11 @@ capability:
                 path: scripts/test-embeddings.ts
                 framework_hint: custom-script
         - key: MATCHING-001-AC2
-          criterion: Tieline must apply retrieval metadata as narrowing filters and use optional artifact overlap and graph proximity across eligible relationships bounded to three hops when ranking semantic candidates with their matched level and ancestry.
+          criterion: Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.
           scenarios:
+            - given: no embedding provider is installed or reachable
+              when: a caller searches with an authorized retrieval profile
+              then: Tieline must return full-text or identifier matches with explicit signal features and match reasons
             - given: a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion
               when: Tieline ranks the authorized semantic candidate set
               then: the dismissed relationship must contribute no graph proximity
@@ -76,6 +79,11 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tools/search-knowledge.ts
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0001_baseline.sql
             - relation: tests
               target:
                 kind: test
@@ -99,6 +107,12 @@ capability:
                 kind: test
                 repository: tieline
                 path: scripts/smoke.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-baseline.ts
                 framework_hint: custom-script
         - key: MATCHING-001-AC3
           criterion: Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.

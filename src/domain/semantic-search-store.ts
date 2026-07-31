@@ -94,7 +94,7 @@ export interface SemanticSearchStore {
   ): Promise<ResolvedRetrievalProfile>;
   searchSemantic(input: {
     query: string;
-    embedding: number[];
+    embedding?: number[];
     profile: ResolvedRetrievalProfile;
     filters?: SemanticSearchFilters;
     context?: SemanticSearchContext;

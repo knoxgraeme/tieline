@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getEmbedder } from "../embeddings.js";
+import { optionalQueryEmbedding } from "../embeddings.js";
 import {
   groupSemanticHitsAroundAcceptanceCriteria,
   rankSemanticDocuments,
@@ -82,7 +82,7 @@ export function registerSearchKnowledge(server: McpServer): void {
           input.profile,
           input.profile_version
         );
-        const embedding = await getEmbedder().embed(input.query);
+        const embedding = await optionalQueryEmbedding(input.query);
         const candidates = await store.searchSemantic({
           query: input.query,
           embedding,
@@ -113,6 +113,7 @@ export function registerSearchKnowledge(server: McpServer): void {
             hit.acceptance_criterion_stable_id,
           score: hit.score,
           features: hit.features,
+          why: hit.why,
           canonical_text: hit.canonical_text,
           context_anchor: resultContextAnchor(hit),
           state: {
@@ -147,6 +148,10 @@ export function registerSearchKnowledge(server: McpServer): void {
             repository: input.repository,
             applicability: input.applicability,
             include_inactive: input.include_inactive,
+          },
+          signals: {
+            lexical: "applied",
+            embedding: embedding ? "applied" : "unavailable",
           },
           results,
           ...(results.length === 0

@@ -16,10 +16,14 @@ import type {
   AttributionSuggestionRecord,
   SemanticSearchFilters,
 } from "./domain/semantic-search-store.js";
-import { getEmbedder } from "./embeddings.js";
+import {
+  getEmbedder,
+  optionalQueryEmbedding,
+} from "./embeddings.js";
 import {
   groupSemanticHitsAroundAcceptanceCriteria,
   rankSemanticDocuments,
+  type SemanticRankingFeatures,
 } from "./ranking.js";
 
 export interface MatchCandidate {
@@ -33,7 +37,7 @@ export interface MatchCandidate {
   acceptance_criterion_stable_id?: string;
   score: number;
   method: string;
-  features: Record<string, number>;
+  features: SemanticRankingFeatures;
 }
 
 export interface SemanticMatcher {
@@ -79,7 +83,7 @@ export class DefaultSemanticMatcher implements SemanticMatcher {
   ): Promise<ReturnType<typeof rankSemanticDocuments>> {
     const profile =
       await this.repository.resolveRetrievalProfile("discovery");
-    const embedding = await getEmbedder().embed(query);
+    const embedding = await optionalQueryEmbedding(query);
     const rows = await this.repository.searchSemantic({
       query,
       embedding,

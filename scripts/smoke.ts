@@ -128,10 +128,10 @@ try {
 
 let capturedSearchContext: unknown;
 setEmbedder({
-  provider: "hash",
+  provider: "local",
   dim: 384,
   async embed() {
-    return new Array(384).fill(0);
+    throw new Error("embedding provider unavailable");
   },
 });
 class ContextualSearchStore extends FakeKnowledgeStore {
@@ -154,8 +154,8 @@ class ContextualSearchStore extends FakeKnowledgeStore {
         entity_id: "00000000-0000-4000-8000-000000000011",
         matched_level: "acceptance_criterion" as const,
         canonical_text: "Contextually grounded acceptance criterion",
-        vector_score: 0.8,
-        lexical_score: 0.4,
+        vector_score: 0,
+        lexical_score: 0.8,
         alias_match: false,
         artifact_overlap: 1,
         graph_proximity: 0.5,
@@ -224,6 +224,14 @@ try {
   assert.deepEqual(
     (contextualResults[0]?.features as Record<string, unknown>)?.artifact,
     1
+  );
+  assert.deepEqual(contextualSearch.structuredContent?.signals, {
+    lexical: "applied",
+    embedding: "unavailable",
+  });
+  assert.match(
+    ((contextualResults[0]?.why as string[]) ?? []).join(" "),
+    /lexical.*artifact/i
   );
   assert.deepEqual(contextualResults[0]?.context_anchor, {
     kind: "acceptance_criterion",

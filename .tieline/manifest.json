@@ -188,7 +188,7 @@
                 },
                 {
                   "relation": "enforces",
-                  "reviewed_content_hash": "15fe23bee80eb7e95a0213a289d73125f0098a117bf4f6925533f34729119435",
+                  "reviewed_content_hash": "8124daf81c62a307a05f0b381795e92d8493fe4f637848192aaab37f8b377cc3",
                   "target": {
                     "kind": "code",
                     "path": "src/tieline/setup.ts",
@@ -197,7 +197,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "b56782e19309ebd85800a949def85cc86cd0cde665382bbf46bee272fec4ec56",
+                  "reviewed_content_hash": "e29f795a2b1267f39c4cc2557ff34bf8fa9b2dc47f7112528049a39c99205ed1",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -207,7 +207,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "ac27ef21db49e91892480f8a14f956181ea5c57e59ee636f8b83412f74168d89",
+                  "reviewed_content_hash": "185b17f4ae9053750201363f4a6189361108ca5cdf876d6bc67ea5d6816a3fc7",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -773,7 +773,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "22e62d67a282bbd8d39a7fd27931d9f4bb681a7e99dade7e8d83dfd36f74e66a",
+                  "reviewed_content_hash": "b0d31a33fb78baca4843965305f51b2f4ef33e9cbaa8311d2a9e305e87a373a6",
                   "target": {
                     "kind": "code",
                     "path": "src/derived/embedding-documents.ts",
@@ -782,7 +782,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "5f6c0677999e7f9572ca2c1bc109d2a5a583d11fc107179f3836e3575d737278",
+                  "reviewed_content_hash": "266ddb411c0d793bd65f0d5b37f86c63f01d570491de6d4051878ee9f92e7a0e",
                   "target": {
                     "kind": "code",
                     "path": "src/embeddings.ts",
@@ -809,9 +809,18 @@
             {
               "aliases": [],
               "applies_to": null,
-              "contract_hash": "7c033699f4cae3d2f54cd490d085fd58a336ac961741e483a51d2fd1ee4770cd",
-              "criterion": "Tieline must apply retrieval metadata as narrowing filters and use optional artifact overlap and graph proximity across eligible relationships bounded to three hops when ranking semantic candidates with their matched level and ancestry.",
+              "contract_hash": "0a80b721aa394d1aec6eb093bbc7a8ba29cb73615e0734af0f1b9157bcc24650",
+              "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
               "links": [
+                {
+                  "relation": "enforces",
+                  "reviewed_content_hash": "c5306bf0d66e3b3998f2fadda214b8be1e2b7d8e602056957e89dbae4a19ce1e",
+                  "target": {
+                    "kind": "code",
+                    "path": "migrations/0001_baseline.sql",
+                    "repository": "tieline"
+                  }
+                },
                 {
                   "relation": "implements",
                   "reviewed_content_hash": "64640888aa510a254bee13e878c88709b5b6897ef232e86b532dc5f07a560ff6",
@@ -823,7 +832,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "5cef42b087fd395bdbd9e89c46bea0f2d16dfd363cebe40c31501be2d30d21f7",
+                  "reviewed_content_hash": "4cc2607f5c578665774eb0841bce2cf30dc8b08a931b9125eea3a1bd558a0cf0",
                   "target": {
                     "kind": "code",
                     "path": "src/adapters/postgres/semantic-repository.ts",
@@ -832,7 +841,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "3268d7f1f12303e985a7856fb5f9da84966f39ceed53d0f5e932281ba9098866",
+                  "reviewed_content_hash": "52787797831648f702e9343878f86340098a513ccf1426d02181fdc91caba662",
                   "target": {
                     "kind": "code",
                     "path": "src/domain/semantic-search-store.ts",
@@ -841,7 +850,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "c8af085ee5fccd3cc86d904072c6aa942325ffc64bf155267fed8e665f4dd63a",
+                  "reviewed_content_hash": "e818dbc89937780cd4371eee0c78c090435053ead87067a6578c21564378d714",
                   "target": {
                     "kind": "code",
                     "path": "src/ranking.ts",
@@ -850,7 +859,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "3095c52be6f913bfbd76484ef650843e9f163dffc82e9988bb8a5ff3df988a23",
+                  "reviewed_content_hash": "4945ef4e73ce620eaed6afe073d023f9cf3aa6e4ba998b890c36f6cf7476af86",
                   "target": {
                     "kind": "code",
                     "path": "src/tools/find_related.ts",
@@ -859,7 +868,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "9c58e4501e6a75709487f9f824145fa7720014718924eb103a4a46607c4e69e9",
+                  "reviewed_content_hash": "5a2a0f53379ae8e323fe3fc5d8f218ba35812f8151ccb135a27fc2a10acbbf2a",
                   "target": {
                     "kind": "code",
                     "path": "src/tools/search-knowledge.ts",
@@ -878,6 +887,16 @@
                 },
                 {
                   "relation": "tests",
+                  "reviewed_content_hash": "e29f795a2b1267f39c4cc2557ff34bf8fa9b2dc47f7112528049a39c99205ed1",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/integration-baseline.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
                   "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
                   "target": {
                     "framework_hint": "custom-script",
@@ -888,7 +907,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "fe4578cbeeb775f78cd3e65a48de1520ac23e2ff34ed7fbc9f546800def90b84",
+                  "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -898,7 +917,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "f11bf0a7c836e822414cc4d9a8006d19eec210fa7184742dc619d493c55dcd59",
+                  "reviewed_content_hash": "d9598f35ac9949ba63c23e4d08f21610913fe623e316a622aabadf2c8f10f956",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -911,9 +930,16 @@
               "rationale": null,
               "scenarios": [
                 {
-                  "given": "a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion",
+                  "given": "no embedding provider is installed or reachable",
                   "position": 0,
                   "stable_id": "MATCHING-001-AC2-S1",
+                  "then": "Tieline must return full-text or identifier matches with explicit signal features and match reasons",
+                  "when": "a caller searches with an authorized retrieval profile"
+                },
+                {
+                  "given": "a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion",
+                  "position": 1,
+                  "stable_id": "MATCHING-001-AC2-S2",
                   "then": "the dismissed relationship must contribute no graph proximity",
                   "when": "Tieline ranks the authorized semantic candidate set"
                 }
@@ -938,7 +964,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "1138cb8aae4c5ff547f697d134680b4fe5a5bae84a52541a46f507f564a4ee0f",
+                  "reviewed_content_hash": "67810d26c4a8712498e4bdcae86c036203ef30e1605f6667cf9385ee81494f27",
                   "target": {
                     "kind": "code",
                     "path": "src/semantic-matching.ts",
@@ -1036,7 +1062,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "f8b5e4932ea4923b883e31c186f234e06e524d78332a1b03c1808b0fc21313a6",
+                  "reviewed_content_hash": "d7182ff744107d5928f55990a4f678988c3946c0f939518a4f865ce86f04478b",
                   "target": {
                     "kind": "code",
                     "path": "src/schemas.ts",
@@ -1121,7 +1147,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "5cbac58dc7d4a67440d379b895de7179dd30c60cdb0e8d8309aee45cc90612e9",
+                  "reviewed_content_hash": "6a89bf6c089ecc524a8e03bea85fc4c4365c1e202fe4759e734fa485a00a73ae",
                   "target": {
                     "kind": "code",
                     "path": "src/resources.ts",
@@ -1140,7 +1166,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "fe4578cbeeb775f78cd3e65a48de1520ac23e2ff34ed7fbc9f546800def90b84",
+                  "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1235,7 +1261,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "31c72e2f61cc54fd5c81c174be3d4a2d1fb0d82f7cc9f599fd55c8b4c52f947b",
+                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1267,7 +1293,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "15fe23bee80eb7e95a0213a289d73125f0098a117bf4f6925533f34729119435",
+                  "reviewed_content_hash": "8124daf81c62a307a05f0b381795e92d8493fe4f637848192aaab37f8b377cc3",
                   "target": {
                     "kind": "code",
                     "path": "src/tieline/setup.ts",
@@ -1285,7 +1311,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "31c72e2f61cc54fd5c81c174be3d4a2d1fb0d82f7cc9f599fd55c8b4c52f947b",
+                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1326,7 +1352,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "31c72e2f61cc54fd5c81c174be3d4a2d1fb0d82f7cc9f599fd55c8b4c52f947b",
+                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1402,7 +1428,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "0a0d2c812de179f76e1a8ef8c70ccb3b372f44821d1eee5ef3d0e87de594d9b4",
+                  "reviewed_content_hash": "bad9efc78294bf27618ec982da3b940382dae6d29f320c4f734aebf60b2ba118",
                   "target": {
                     "kind": "code",
                     "path": "src/server.ts",
@@ -1420,7 +1446,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "fe4578cbeeb775f78cd3e65a48de1520ac23e2ff34ed7fbc9f546800def90b84",
+                  "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1520,7 +1546,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "1a95a1b831cec25cca95471e39c77c1d82bf684a5fc35efaf7c7d24ce5badcf7",
+                  "reviewed_content_hash": "0aecc59b02491316c83f90a82da9358a6969464d4b0386d08676ee0251e660da",
                   "target": {
                     "kind": "code",
                     "path": "src/domain/testing/fake-knowledge-store.ts",
@@ -1570,7 +1596,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "0a0d2c812de179f76e1a8ef8c70ccb3b372f44821d1eee5ef3d0e87de594d9b4",
+                  "reviewed_content_hash": "bad9efc78294bf27618ec982da3b940382dae6d29f320c4f734aebf60b2ba118",
                   "target": {
                     "kind": "code",
                     "path": "src/server.ts",
@@ -1579,7 +1605,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "fe4578cbeeb775f78cd3e65a48de1520ac23e2ff34ed7fbc9f546800def90b84",
+                  "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1589,7 +1615,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "31c72e2f61cc54fd5c81c174be3d4a2d1fb0d82f7cc9f599fd55c8b4c52f947b",
+                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1688,7 +1714,7 @@
     },
     {
       "path": ".tieline/spec/matching.yaml",
-      "sha256": "41a9b469d4e6bfd13e011f23089e0a8bb047c46a9f5a83078581bc75ac6f2802"
+      "sha256": "49b4a678b2f6f513bd1b69e28b191db1f1d23ba98706cbee79df16eebdee1421"
     },
     {
       "path": ".tieline/spec/retrieval.yaml",
@@ -1700,7 +1726,7 @@
     }
   ],
   "repository": {
-    "commit": "e9f2d8e1f00624870a5c3a51a425770284960e0a",
+    "commit": "0b006a028803d9521d915a4abbefdf5de06855ea",
     "key": "tieline"
   },
   "schema_version": 1

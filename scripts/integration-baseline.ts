@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import postgres from "postgres";
 import { migrateDatabase } from "../src/commands/migrate.js";
 import { PostgresProfileRepository } from "../src/adapters/postgres/profile-repository.js";
+import { PostgresSemanticRepository } from "../src/adapters/postgres/semantic-repository.js";
 
 const adminUrl = process.env.DATABASE_URL_ADMIN;
 if (!adminUrl) {
@@ -63,6 +64,11 @@ try {
     join pg_namespace namespace on namespace.oid = extension.extnamespace
     where extension.extname = 'vector'`;
   assert.equal(vectorExtension.schema, "extensions");
+  const [trigramExtension] = await sql<{ present: boolean }[]>`
+    select exists (
+      select 1 from pg_extension where extname = 'pg_trgm'
+    ) as present`;
+  assert.equal(trigramExtension.present, true);
   const [privileges] = await sql<{
     writer_observation_insert: boolean;
     writer_observation_update: boolean;
@@ -131,6 +137,49 @@ try {
     )
     returning id`;
   assert.ok(story);
+
+  await sql`
+    insert into embedding_documents (
+      entity_kind, entity_id, document_kind, canonical_text,
+      source_text_hash, embedding_model, embedding_version,
+      embedding, filter_metadata
+    ) values (
+      'story', ${story.id}, 'story',
+      'Rotate authentication credentials safely',
+      'baseline-lexical-only', 'unconfigured', 'contract-v1',
+      null,
+      ${sql.json({
+        repository: "baseline-integration",
+        authority: "planning",
+        lifecycle: "backlog",
+        active: true,
+        story_id: story.id,
+        story_stable_id: "BASELINE-PLANNING-001",
+        identifiers: [
+          "BASELINE-PLANNING-001",
+          "src/auth/token-rotator.ts",
+        ],
+      })}
+    )`;
+  const semanticRepository = new PostgresSemanticRepository(
+    () => sql,
+    () => {
+      throw new Error("embedding provider must not be required");
+    }
+  );
+  const discoveryProfile =
+    await semanticRepository.resolveRetrievalProfile("discovery");
+  const lexicalOnly = await semanticRepository.searchSemantic({
+    query: "token-rotator",
+    profile: discoveryProfile,
+    limit: 5,
+  });
+  const lexicalStory = lexicalOnly.find(
+    (candidate) => candidate.entity_id === story.id
+  );
+  assert.ok(lexicalStory);
+  assert.equal(lexicalStory.vector_score, 0);
+  assert.ok(lexicalStory.lexical_score >= 0.3);
 
   await assert.rejects(
     sql`

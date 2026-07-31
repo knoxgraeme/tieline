@@ -18,6 +18,7 @@ for (const required of [
   "create table backlog_items",
   "create table embedding_documents",
   "create table retrieval_profiles",
+  "create extension if not exists pg_trgm",
   "create role tieline_reader",
   "create role tieline_planning_writer",
   "create role tieline_repository_sync",
@@ -39,6 +40,11 @@ assert.match(
   sql,
   /search_vector\s+tsvector\s+generated\s+always[\s\S]+using\s+gin\s*\(\s*search_vector\s*\)/i,
   "hybrid retrieval needs a persisted lexical vector and GIN index"
+);
+assert.match(
+  sql,
+  /to_tsvector\s*\(\s*'english'/i,
+  "lexical prose search must use an explicit immutable English configuration"
 );
 
 assert.doesNotThrow(() => assertBaselineHistory([]));

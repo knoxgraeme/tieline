@@ -22,10 +22,11 @@ change and pull request.
 
 ## Reads
 
-- \`search_knowledge\` performs cross-type semantic search and requires a retrieval
-  profile: \`support\`, \`engineering\`, \`discovery\`, or \`all\`. Its optional
-  typed context accepts an Observation, Backlog Item, Story, or AC anchor and
-  code, test, or help artifacts.
+- \`search_knowledge\` performs cross-type hybrid search and requires a retrieval
+  profile: \`support\`, \`engineering\`, \`discovery\`, or \`all\`. Full-text
+  and identifier recall are always available; vector similarity is optional.
+  Its typed context accepts an Observation, Backlog Item, Story, or AC anchor
+  and code, test, or help artifacts.
 - \`find_related\` is the shorter engineering-oriented semantic entry point and
   still returns the applied profile version.
 - \`query_stories\` is an exact Story/AC lookup with authority and lifecycle filters.
@@ -42,7 +43,8 @@ overlap and graph proximity across structural links, repository-declared
 relationships, and confirmed attributions. Traversal is bounded to three hops;
 suggested and dismissed relationships do not create proximity. Search results
 return lifecycle/authority or planning state explicitly and include a reusable
-typed context anchor when one is available.
+typed context anchor when one is available. Results also disclose which signals
+were applied, their ranking features, and concise match reasons.
 
 ## Intake and planning writes
 

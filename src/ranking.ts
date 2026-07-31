@@ -22,47 +22,116 @@ export interface SemanticDocumentCandidate {
   metadata: Record<string, unknown>;
 }
 
-export interface RankedSemanticDocument extends SemanticDocumentCandidate {
-  score: number;
-  features: {
-    vector: number;
-    lexical: number;
-    alias: number;
-    artifact: number;
-    graph: number;
-    applicability: number;
-  };
-}
-
 export function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
+}
+
+type RankingSignal =
+  | "vector"
+  | "lexical"
+  | "alias"
+  | "artifact"
+  | "graph";
+
+const SIGNAL_WEIGHTS: Record<RankingSignal, number> = {
+  vector: 0.58,
+  lexical: 0.2,
+  alias: 0.08,
+  artifact: 0.07,
+  graph: 0.07,
+};
+
+export interface SemanticRankingFeatures
+  extends Record<RankingSignal, number> {
+  applicability: number;
+  rrf: number;
+}
+
+export interface RankedSemanticDocument extends SemanticDocumentCandidate {
+  score: number;
+  features: SemanticRankingFeatures;
+  why: string[];
+}
+
+export function reciprocalRankFusion(
+  rows: Array<Record<RankingSignal, number>>,
+  k = 60
+): number[] {
+  const scores = rows.map(() => 0);
+  for (const signal of Object.keys(SIGNAL_WEIGHTS) as RankingSignal[]) {
+    const ordered = rows
+      .map((row, index) => ({ index, value: row[signal] }))
+      .filter((entry) => entry.value > 0)
+      .sort(
+        (left, right) =>
+          right.value - left.value || left.index - right.index
+      );
+    ordered.forEach((entry, rank) => {
+      scores[entry.index] +=
+        SIGNAL_WEIGHTS[signal] / (k + rank + 1);
+    });
+  }
+  const maximum = 1 / (k + 1);
+  return scores.map((score) => clamp01(score / maximum));
+}
+
+function rankingWhy(
+  features: Omit<SemanticRankingFeatures, "rrf">
+): string[] {
+  const why: string[] = [];
+  if (features.vector > 0) why.push("vector similarity");
+  if (features.lexical > 0) why.push("lexical or identifier match");
+  if (features.alias > 0) why.push("exact alias match");
+  if (features.artifact > 0) why.push("shared artifact context");
+  if (features.graph > 0) why.push("confirmed graph proximity");
+  if (features.applicability === 0) why.push("applicability mismatch penalty");
+  return why;
 }
 
 export function rankSemanticDocuments(
   candidates: SemanticDocumentCandidate[]
 ): RankedSemanticDocument[] {
-  return candidates
-    .map((candidate) => {
-      const features = {
-        vector: clamp01(candidate.vector_score),
-        lexical: clamp01(candidate.lexical_score),
-        alias: candidate.alias_match ? 1 : 0,
-        artifact: clamp01(candidate.artifact_overlap ?? 0),
-        graph: clamp01(candidate.graph_proximity ?? 0),
-        applicability: candidate.applicable === false ? 0 : 1,
-      };
-      const relevance =
-        features.vector * 0.58 +
-        features.lexical * 0.2 +
-        features.alias * 0.08 +
-        features.artifact * 0.07 +
-        features.graph * 0.07;
+  const raw = candidates.map((candidate) => {
+    const features = {
+      vector: clamp01(candidate.vector_score),
+      lexical: clamp01(candidate.lexical_score),
+      alias: candidate.alias_match ? 1 : 0,
+      artifact: clamp01(candidate.artifact_overlap ?? 0),
+      graph: clamp01(candidate.graph_proximity ?? 0),
+      applicability: candidate.applicable === false ? 0 : 1,
+    };
+    return { candidate, features };
+  });
+  const rrf = reciprocalRankFusion(
+    raw.map(({ features }) => ({
+      vector: features.vector,
+      lexical: features.lexical,
+      alias: features.alias,
+      artifact: features.artifact,
+      graph: features.graph,
+    }))
+  );
+  return raw
+    .map(({ candidate, features }, index) => {
+      const absolute =
+        features.vector * SIGNAL_WEIGHTS.vector +
+        features.lexical * SIGNAL_WEIGHTS.lexical +
+        features.alias * SIGNAL_WEIGHTS.alias +
+        features.artifact * SIGNAL_WEIGHTS.artifact +
+        features.graph * SIGNAL_WEIGHTS.graph;
+      const applicabilityPenalty =
+        candidate.applicable === false ? 0.85 : 1;
       return {
         ...candidate,
         score: clamp01(
-          relevance * (candidate.applicable === false ? 0.85 : 1)
+          (rrf[index] * 0.65 + absolute * 0.35) *
+            applicabilityPenalty
         ),
-        features,
+        features: {
+          ...features,
+          rrf: rrf[index],
+        },
+        why: rankingWhy(features),
       };
     })
     .sort(

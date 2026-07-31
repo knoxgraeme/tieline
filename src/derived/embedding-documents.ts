@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type {
   ContractAcceptanceCriterionRecord,
+  ContractEvidenceLink,
   ContractScenarioRecord,
   ContractStoryRecord,
 } from "../domain/contract-read-store.js";
@@ -47,6 +48,30 @@ function applicability(value: Record<string, string[]>): string | null {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([dimension, values]) => `${dimension}: ${[...values].sort().join(", ")}`);
   return dimensions.length > 0 ? `Applies to: ${dimensions.join("; ")}` : null;
+}
+
+function uniqueIdentifiers(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.map((value) => value?.trim()).filter(
+    (value): value is string => Boolean(value)
+  ))];
+}
+
+function linkIdentifiers(links: ContractEvidenceLink[]): string[] {
+  return uniqueIdentifiers(
+    links.flatMap((link) =>
+      link.target.kind === "help"
+        ? [
+            link.target.source,
+            link.target.external_id,
+            `${link.target.source}:${link.target.external_id}`,
+          ]
+        : [
+            link.target.repository,
+            link.target.path,
+            link.target.selector,
+          ]
+    )
+  );
 }
 
 function baseMetadata(
@@ -113,6 +138,19 @@ export function storyEmbeddingDocument(
     matched_level: "story",
     aliases: story.aliases,
     applicability: story.effective_applies_to,
+    identifiers: uniqueIdentifiers([
+      story.repository,
+      story.stable_id,
+      story.capability.stable_id,
+      story.capability.name,
+      ...story.aliases,
+      ...story.footprint.code_paths,
+      ...story.footprint.help.flatMap((help) => [
+        help.source,
+        help.external_id,
+        `${help.source}:${help.external_id}`,
+      ]),
+    ]),
   });
 }
 
@@ -135,6 +173,16 @@ export function criterionEmbeddingDocument(
     aliases: criterion.aliases,
     applicability: criterion.effective_applies_to,
     freshness: criterion.freshness,
+    identifiers: uniqueIdentifiers([
+      story.repository,
+      story.stable_id,
+      criterion.stable_id,
+      ...criterion.aliases,
+      ...linkIdentifiers([
+        ...criterion.direct_links,
+        ...criterion.fallback_story_links,
+      ]),
+    ]),
   });
 }
 
@@ -164,6 +212,17 @@ export function scenarioEmbeddingDocument(
     scenario_stable_id: scenario.stable_id,
     applicability: criterion.effective_applies_to,
     freshness: criterion.freshness,
+    identifiers: uniqueIdentifiers([
+      story.repository,
+      story.stable_id,
+      criterion.stable_id,
+      scenario.stable_id,
+      scenario.name,
+      ...linkIdentifiers([
+        ...criterion.direct_links,
+        ...criterion.fallback_story_links,
+      ]),
+    ]),
   });
 }
 
@@ -191,6 +250,7 @@ export function observationEmbeddingDocument(
     {
       matched_level: "observation",
       observation_kind: observation.kind,
+      identifiers: [observation.kind],
       active: true,
       coverage: null,
       freshness: "not_applicable",
@@ -209,6 +269,7 @@ export function backlogEmbeddingDocument(
       matched_level: "backlog_item",
       backlog_stable_id: item.stable_id,
       backlog_stage: item.stage,
+      identifiers: [item.stable_id],
       active: item.superseded_by === null,
       coverage: null,
       freshness: "not_applicable",
