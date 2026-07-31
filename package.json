@@ -1,7 +1,7 @@
 {
   "name": "tieline",
   "version": "0.1.2",
-  "description": "Local-first user-story mapping CLI and MCP server for connecting product context, lifecycle history, code, and knowledge-base articles.",
+  "description": "Living Story/AC contract and semantic graph grounded in code, tests, help content, and organizational evidence.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -24,22 +24,15 @@
     "LICENSE"
   ],
   "scripts": {
-    "prepublishOnly": "npm run clean && npm run build",
-    "build": "tsc",
-    "postbuild": "node scripts/build-app-ui.mjs",
-    "build:app": "node scripts/build-app-ui.mjs",
-    "typecheck:ui": "tsc -p tsconfig.ui.json",
+    "prepublishOnly": "npm run build",
+    "build": "npm run clean && tsc",
     "clean": "rm -rf dist",
     "tieline": "node dist/cli.js",
     "start": "node dist/cli.js serve",
     "start:http": "node dist/cli.js serve --http",
     "dev": "tsx watch src/index.ts",
     "migrate": "node dist/cli.js migrate",
-    "import": "node dist/cli.js import",
     "import:help": "node dist/cli.js import-help",
-    "review": "node dist/cli.js review",
-    "review:changes": "tsx scripts/review-changes.ts",
-    "changes": "tsx scripts/story-changes.ts",
     "test:ranking": "tsx scripts/test-ranking.ts",
     "test:retrieval": "tsx scripts/evaluate-retrieval.ts",
     "test:embeddings": "tsx scripts/test-embeddings.ts",
@@ -47,8 +40,18 @@
     "test:tieline": "npm run build && node --import tsx scripts/test-tieline.ts",
     "test:smoke": "tsx scripts/smoke.ts",
     "test:integration": "tsx scripts/integration.ts",
-    "test:import": "tsx scripts/integration-import.ts",
-    "test:approval-mode": "tsx scripts/integration-approval-mode.ts"
+    "test:contract": "tsx scripts/test-contract.ts && tsx scripts/test-manifest.ts && tsx scripts/test-contract-command.ts",
+    "test:manifest": "tsx scripts/test-manifest.ts",
+    "test:contract-command": "tsx scripts/test-contract-command.ts",
+    "test:contract-read": "tsx scripts/test-contract-read.ts",
+    "test:impact": "tsx scripts/test-impact.ts",
+    "test:evidence": "tsx scripts/test-evidence.ts",
+    "test:integration:contract-sync": "tsx scripts/integration-contract-sync.ts",
+    "test:integration:evidence": "tsx scripts/integration-evidence.ts",
+    "test:integration:planning": "tsx scripts/integration-planning.ts",
+    "test:integration:lifecycle": "tsx scripts/integration-lifecycle.ts",
+    "test:baseline": "tsx scripts/test-baseline.ts",
+    "test:integration:baseline": "tsx scripts/integration-baseline.ts"
   },
   "engines": {
     "node": ">=18"
@@ -57,13 +60,12 @@
     "@modelcontextprotocol/sdk": "^1.12.0",
     "express": "^4.21.2",
     "postgres": "^3.4.5",
+    "yaml": "^2.8.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@modelcontextprotocol/ext-apps": "^1.7.4",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
-    "esbuild": "^0.28.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

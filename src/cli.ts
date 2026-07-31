@@ -2,25 +2,39 @@
 
 import "./loadEnv.js";
 import { realpathSync } from "node:fs";
+import { basename, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reloadConfig, type EmbeddingProvider, type StoryApprovalMode } from "./config.js";
+import type { EmbeddingProvider } from "./config.js";
 import {
   detectProductName,
   detectSourceRoots,
   initWorkspace,
   slugifyRepoName,
-  writeWorkspaceMcpConfig,
 } from "./tieline/init.js";
-import { resolveEmbeddingProvider, runDatabasePreflight } from "./tieline/preflight.js";
-import { loadWorkspaceProfile } from "./tieline/profile.js";
-import { configureWorkspaceRuntime, type DatabaseMode } from "./tieline/setup.js";
-import { getTielineStatus, statusFromPath, type TielineStatus } from "./tieline/status.js";
 import {
-  approveProductContext,
+  resolveEmbeddingProvider,
+  runInitPreflight,
+  type PreflightCheck,
+} from "./tieline/preflight.js";
+import {
+  DATABASE_PROFILE_ENV_KEYS,
+  loadWorkspaceProfileForCommand,
+  readWorkspaceProfile,
+} from "./tieline/profile.js";
+import {
+  configureWorkspaceRuntime,
+  type DatabaseMode,
+} from "./tieline/setup.js";
+import {
+  getTielineStatus,
+  statusFromPath,
+  type TielineStatus,
+} from "./tieline/status.js";
+import {
   findTielineWorkspace,
+  type TielineWorkspace,
 } from "./tieline/workspace.js";
 
 export interface TielineCliIO {
@@ -29,139 +43,145 @@ export interface TielineCliIO {
   question(message: string): Promise<string>;
 }
 
-interface ParsedOptions {
-  positionals: string[];
-  values: Map<string, string[]>;
-  flags: Set<string>;
+async function reloadRuntimeConfig(
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const { reloadConfig } = await import("./config.js");
+  reloadConfig(env);
 }
 
-const VALUE_OPTIONS = new Set([
-  "product",
-  "repo-name",
-  "description",
-  "context",
-  "source-root",
-  "ignore",
-  "database",
-  "embedding",
-  "approval",
-]);
-const BOOLEAN_OPTIONS = new Set([
-  "yes",
-  "force",
-  "json",
-  "prune",
-  "help",
-  "skip-db-check",
-  "skip-migrate",
-  "install-local-embedder",
-  "offline",
-]);
+interface InitOptions {
+  target: string;
+  product?: string;
+  repoName?: string;
+  description?: string;
+  context: string[];
+  sourceRoots: string[];
+  ignore: string[];
+  database: DatabaseMode;
+  databaseExplicit: boolean;
+  embedding: EmbeddingProvider;
+  embeddingExplicit: boolean;
+  yes: boolean;
+  skipMigrate: boolean;
+  installLocalEmbedder: boolean;
+}
 
-function parseOptions(args: string[]): ParsedOptions {
-  const parsed: ParsedOptions = { positionals: [], values: new Map(), flags: new Set() };
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+function optionValue(args: string[], index: number, name: string): string {
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`--${name} requires a value.`);
+  }
+  return value;
+}
+
+function parseInit(
+  args: string[],
+  env: NodeJS.ProcessEnv
+): InitOptions {
+  let target: string | undefined;
+  let product: string | undefined;
+  let repoName: string | undefined;
+  let description: string | undefined;
+  let database: DatabaseMode = "offline";
+  let databaseExplicit = false;
+  let embedding = resolveEmbeddingProvider(env);
+  let embeddingExplicit = false;
+  const context: string[] = [];
+  const sourceRoots: string[] = [];
+  const ignore: string[] = [];
+  let yes = false;
+  let skipMigrate = false;
+  let installLocalEmbedder = false;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
     if (!arg.startsWith("--")) {
-      parsed.positionals.push(arg);
+      if (target) throw new Error("tieline init accepts one repository path.");
+      target = arg;
       continue;
     }
-    const eq = arg.indexOf("=");
-    const name = arg.slice(2, eq === -1 ? undefined : eq);
-    if (BOOLEAN_OPTIONS.has(name)) {
-      if (eq !== -1) throw new Error(`--${name} does not take a value.`);
-      parsed.flags.add(name);
+    if (arg === "--yes") {
+      yes = true;
       continue;
     }
-    if (!VALUE_OPTIONS.has(name)) throw new Error(`Unknown option: --${name}`);
-    const value = eq === -1 ? args[++i] : arg.slice(eq + 1);
-    if (value === undefined || value.startsWith("--")) throw new Error(`--${name} requires a value.`);
-    parsed.values.set(name, [...(parsed.values.get(name) ?? []), value]);
+    if (arg === "--offline") {
+      database = "offline";
+      databaseExplicit = true;
+      continue;
+    }
+    if (arg === "--skip-migrate") {
+      skipMigrate = true;
+      continue;
+    }
+    if (arg === "--install-local-embedder") {
+      installLocalEmbedder = true;
+      continue;
+    }
+    const [name, inline] = arg.slice(2).split("=", 2);
+    if (
+      ![
+        "product",
+        "repo-name",
+        "description",
+        "context",
+        "source-root",
+        "ignore",
+        "database",
+        "embedding",
+      ].includes(name)
+    ) {
+      throw new Error(`Unknown init option: --${name}`);
+    }
+    const value = inline ?? optionValue(args, index, name);
+    if (inline === undefined) index++;
+    if (name === "product") product = value;
+    if (name === "repo-name") repoName = value;
+    if (name === "description") description = value;
+    if (name === "context") context.push(value);
+    if (name === "source-root") sourceRoots.push(value);
+    if (name === "ignore") ignore.push(value);
+    if (name === "database") {
+      if (!["local", "existing", "offline"].includes(value)) {
+        throw new Error("--database must be local, existing, or offline.");
+      }
+      database = value as DatabaseMode;
+      databaseExplicit = true;
+    }
+    if (name === "embedding") {
+      if (
+        !["local", "openai", "supabase-edge", "hash"].includes(value)
+      ) {
+        throw new Error(
+          "--embedding must be local, openai, supabase-edge, or hash."
+        );
+      }
+      embedding = value as EmbeddingProvider;
+      embeddingExplicit = true;
+    }
   }
-  return parsed;
+  return {
+    target: resolve(target ?? process.cwd()),
+    product,
+    repoName,
+    description,
+    context,
+    sourceRoots,
+    ignore,
+    database,
+    databaseExplicit,
+    embedding,
+    embeddingExplicit,
+    yes,
+    skipMigrate,
+    installLocalEmbedder,
+  };
 }
 
-function first(parsed: ParsedOptions, name: string): string | undefined {
-  return parsed.values.get(name)?.[0];
-}
-
-function splitList(value: string): string[] {
-  return value.split(",").map((part) => part.trim()).filter(Boolean);
-}
-
-async function askWithDefault(io: TielineCliIO, prompt: string, fallback: string): Promise<string> {
-  const answer = (await io.question(`${prompt} [${fallback}]: `)).trim();
-  return answer || fallback;
-}
-
-async function confirm(io: TielineCliIO, prompt: string): Promise<boolean> {
-  const answer = (await io.question(`${prompt} [y/N]: `)).trim().toLowerCase();
-  return answer === "y" || answer === "yes";
-}
-
-async function choose<T extends string>(
-  io: TielineCliIO,
-  prompt: string,
-  options: Array<{ value: T; label: string }>,
-  fallback: T
-): Promise<T> {
-  io.write(`${prompt}\n`);
-  options.forEach((option, index) => io.write(`  ${index + 1}. ${option.label}\n`));
-  const fallbackIndex = options.findIndex((option) => option.value === fallback) + 1;
-  const answer = (await io.question(`Choose [${fallbackIndex}]: `)).trim();
-  if (!answer) return fallback;
-  const index = Number(answer) - 1;
-  if (!Number.isInteger(index) || index < 0 || index >= options.length) {
-    throw new Error(`Choose a number from 1 to ${options.length}.`);
-  }
-  return options[index].value;
-}
-
-function selectedDatabaseMode(parsed: ParsedOptions, fallback: DatabaseMode): DatabaseMode {
-  if (parsed.flags.has("offline") && first(parsed, "database")) {
-    throw new Error("Use either --offline or --database, not both.");
-  }
-  const value = parsed.flags.has("offline") ? "offline" : first(parsed, "database") ?? fallback;
-  if (value !== "local" && value !== "existing" && value !== "offline") {
-    throw new Error("--database must be local, existing, or offline.");
-  }
-  return value;
-}
-
-function selectedEmbeddingProvider(parsed: ParsedOptions, fallback: EmbeddingProvider): EmbeddingProvider {
-  const value = first(parsed, "embedding") ?? fallback;
-  if (value !== "local" && value !== "openai" && value !== "supabase-edge" && value !== "hash") {
-    throw new Error("--embedding must be local, openai, supabase-edge, or hash.");
-  }
-  return value;
-}
-
-function selectedApprovalMode(parsed: ParsedOptions, fallback: StoryApprovalMode): StoryApprovalMode {
-  const value = first(parsed, "approval") ?? fallback;
-  if (value !== "production" && value !== "all" && value !== "off") {
-    throw new Error("--approval must be production, all, or off.");
-  }
-  return value;
-}
-
-function commandArtifactPath(command: string, args: string[]): string | undefined {
-  if (command !== "import" && command !== "import-help") return args.find((arg) => !arg.startsWith("--"));
-  return args.find(
-    (arg, index) => !arg.startsWith("--") && args[index - 1] !== "--batch-size"
-  );
-}
-
-function withoutDatabaseEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+function withoutDatabaseEnvironment(
+  env: NodeJS.ProcessEnv
+): NodeJS.ProcessEnv {
   const isolated = { ...env };
-  for (const key of [
-    "DATABASE_URL",
-    "DATABASE_URL_INGEST",
-    "DATABASE_URL_WRITE",
-    "DATABASE_URL_APPROVAL",
-    "SUPABASE_DB_URL",
-    "SUPABASE_DB_URL_INGEST",
-    "SUPABASE_DB_URL_WRITE",
-  ]) {
+  for (const key of DATABASE_PROFILE_ENV_KEYS) {
     delete isolated[key];
   }
   return isolated;
@@ -171,307 +191,254 @@ function renderStatus(status: TielineStatus): string {
   return [
     `Tieline: ${status.product} (${status.repo})`,
     `  root: ${status.root}`,
-    `  runtime: database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, approval=${status.runtime.approval_mode}, setup=${status.runtime.setup_complete ? "complete" : "incomplete"}`,
-    `  product context: ${status.context.status}`,
-    `  coverage: ${status.coverage.status} (${status.coverage.areas_examined} areas examined, ${status.coverage.uncertain_areas} uncertain; current: ${status.coverage.product_context_current ? "yes" : "no"})`,
-    `  shards: ${status.shards.count} (${status.shards.stories} stories, ${status.shards.unreadable} unreadable; merged: ${status.shards.merged ? "yes" : "no"})`,
-    `  stories: ${status.draft.stories} (${status.draft.approved} approved, ${status.draft.pending} pending, ${status.draft.rejected} rejected)`,
-    `  context matches draft: ${status.draft.product_context_current ? "yes" : "no"}`,
-    `  import: ${status.import.status ?? "not run"}${status.import.report_exists ? ` (current: ${status.import.current ? "yes" : "no"})` : ""}`,
+    `  runtime: profile=${status.runtime.profile_present ? "present" : "missing"}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${status.runtime.setup_complete ? "complete" : "incomplete"}`,
+    `  capabilities: semantic_matching=${status.capabilities.semantic_matching_configured ? "configured" : "unconfigured"}, planning_writes=${status.capabilities.planning_writes_configured ? "configured" : "unconfigured"}`,
+    `  integration: mcp_template=${status.integration.mcp_template_present ? "present" : "missing"}`,
+    `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${status.contract.manifest_exists ? "present" : "missing"}`,
     `Next: ${status.next_action}`,
   ].join("\n");
 }
 
-function printInitHelp(io: TielineCliIO): void {
-  io.write(`Usage: tieline init [repository] [options]
-
-Create a local .tieline/ workspace for agent-assisted product-context and story backfill.
-
-Options:
-  --product <name>          Combined company/product name
-  --repo-name <slug>       Stable code-asset and import identity
-  --description <text>     Initial product description
-  --context <url-or-path>  Context source; repeatable
-  --source-root <path>     Source root relative to repository; repeatable
-  --ignore <path>          Ignored path; repeatable
-  --yes                    Accept detected defaults without prompts
-  --force                  Replace an existing .tieline/ workspace
-  --database <mode>        local, existing, or offline
-  --offline                Alias for --database offline
-  --embedding <provider>   local, openai, supabase-edge, or hash
-  --approval <mode>        production (default), all, or off
-  --install-local-embedder Install the optional local embedding runtime
-  --skip-migrate           Save configuration without applying database migrations
-  --skip-db-check          Do not connect to configured ingest database during preflight
-  --json                    Print machine-readable output
-`);
+function renderInitSummary(
+  workspace: TielineWorkspace,
+  preflight: PreflightCheck[],
+  io: TielineCliIO,
+  env: NodeJS.ProcessEnv
+): void {
+  io.write(
+    `Source scope: ${workspace.config.repository.source_roots.join(", ")}\n`
+  );
+  if (
+    workspace.config.repository.source_roots.length === 1 &&
+    workspace.config.repository.source_roots[0] === "."
+  ) {
+    io.write(
+      "Warning [source_scope]: no conventional source directory was detected; review repository.source_roots before claiming coverage.\n"
+    );
+  }
+  for (const check of preflight.filter(
+    (candidate) => candidate.status === "warning"
+  )) {
+    io.write(`Warning [${check.key}]: ${check.message}\n`);
+  }
+  const status = getTielineStatus(workspace, env);
+  if (status.contract.stories === 0) {
+    io.write(
+      "Semantic onboarding has not started: the empty spec is intentional until repository-specific capabilities, Stories, and ACs are authored.\n"
+    );
+  }
+  io.write(
+    "MCP template: register `.tieline/mcp.json` with your host and ensure its `tieline` command resolves this package.\n"
+  );
+  io.write(
+    "Next: invoke MCP prompt `tieline_author` (or the bundled /tieline-author skill) to onboard or reconcile behavior.\n"
+  );
 }
 
 function printHelp(io: TielineCliIO): void {
-  io.write(`Tieline user-story mapping CLI
+  io.write(`Tieline living-contract CLI
 
 Usage:
   tieline init [repository] [options]
   tieline status [repository] [--json]
-  tieline context approve [repository] [--yes] [--json]
-  tieline merge [repository] [--prune] [--json]
+  tieline contract <validate|review|compile|coverage|sync> [repository] [options]
+  tieline check --base <ref> [repository] [--json]
+  tieline profile <list|put> [options]
   tieline migrate [--verify]
-  tieline review [stories.draft.json]
-  tieline import [stories.draft.json] [--all] [--batch-size 50]
   tieline import-help <articles.json|articles.jsonl> [--batch-size 50]
   tieline serve [--http|--stdio]
 
-Run \`tieline init --help\` for init options.
+Use /tieline-author for planning Story/AC writes, implementation, and branch reconciliation.
 `);
 }
 
-async function runInit(args: string[], io: TielineCliIO, env: NodeJS.ProcessEnv): Promise<number> {
-  const parsed = parseOptions(args);
-  if (parsed.flags.has("help")) {
-    printInitHelp(io);
-    return 0;
+function firstPositional(
+  args: string[],
+  valueOptions: Set<string>,
+  startIndex = 0
+): string | undefined {
+  for (let index = startIndex; index < args.length; index++) {
+    const arg = args[index]!;
+    if (!arg.startsWith("--")) return arg;
+    const name = arg.slice(2).split("=", 1)[0]!;
+    if (!arg.includes("=") && valueOptions.has(name)) index++;
   }
-  if (parsed.positionals.length > 1) throw new Error("tieline init accepts at most one repository path.");
-  const targetPath = resolve(parsed.positionals[0] ?? process.cwd());
-  const existing = findTielineWorkspace(targetPath);
-  const reusableWorkspace =
-    existing && existing.root === targetPath && !parsed.flags.has("force") ? existing : null;
-  const reuseExisting = Boolean(reusableWorkspace);
-  const runtimeRequested =
-    parsed.flags.has("offline") ||
-    parsed.flags.has("install-local-embedder") ||
-    parsed.flags.has("skip-migrate") ||
-    Boolean(first(parsed, "database") || first(parsed, "embedding") || first(parsed, "approval"));
-  if (reusableWorkspace?.config.runtime.setup_completed_at && !runtimeRequested) {
-    const status = getTielineStatus(reusableWorkspace);
-    if (parsed.flags.has("json")) io.write(`${JSON.stringify({ created: false, status }, null, 2)}\n`);
-    else {
-      io.write(`Tieline is already initialized at ${reusableWorkspace.directory}. Resuming existing workspace.\n`);
-      io.write(`${renderStatus(status)}\n`);
-    }
-    return 0;
-  }
+  return undefined;
+}
 
-  const detectedProduct = detectProductName(targetPath);
-  const nonInteractive = parsed.flags.has("yes");
-  const productName =
-    first(parsed, "product") ??
-    (reuseExisting
-      ? reusableWorkspace!.config.product.name
-      : nonInteractive
-        ? detectedProduct
-        : await askWithDefault(io, "Company/product name", detectedProduct));
-  const detectedRepo = slugifyRepoName(basename(targetPath));
-  const repoName = slugifyRepoName(
-    first(parsed, "repo-name") ??
-      (reuseExisting
-        ? reusableWorkspace!.config.product.repo_name
-        : nonInteractive
-          ? detectedRepo
-          : await askWithDefault(io, "Stable repository name", detectedRepo))
-  );
-  const description =
-    first(parsed, "description") ??
-    (nonInteractive || reuseExisting
-      ? undefined
-      : (await io.question("Short product description (optional): ")).trim() || undefined);
-  let contexts = parsed.values.get("context") ?? [];
-  if (!nonInteractive && !reuseExisting && contexts.length === 0) {
-    contexts = splitList(
-      await io.question("Marketing/help URLs or local context paths, comma-separated (optional): ")
+export function workspaceStartForCommand(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv
+): string {
+  if (command !== "init" && env.TIELINE_WORKSPACE) {
+    return env.TIELINE_WORKSPACE;
+  }
+  if (command === "init") {
+    return (
+      firstPositional(
+        args,
+        new Set([
+          "product",
+          "repo-name",
+          "description",
+          "context",
+          "source-root",
+          "ignore",
+          "database",
+          "embedding",
+        ])
+      ) ?? process.cwd()
     );
   }
-  let sourceRoots = parsed.values.get("source-root") ?? [];
-  if (!nonInteractive && !reuseExisting && sourceRoots.length === 0) {
-    const detected = detectSourceRoots(targetPath).join(",");
-    sourceRoots = splitList(await askWithDefault(io, "Source roots", detected));
-  }
-
-  const envProvider = resolveEmbeddingProvider(env);
-  const envApproval = selectedApprovalMode(
-    parsed,
-    (env.STORY_APPROVAL_MODE as StoryApprovalMode) ||
-      reusableWorkspace?.config.runtime.approval_mode ||
-      "production"
-  );
-  let databaseMode = selectedDatabaseMode(
-    parsed,
-    reuseExisting ? reusableWorkspace!.config.runtime.database_mode : "offline"
-  );
-  let embeddingProvider = selectedEmbeddingProvider(
-    parsed,
-    reuseExisting ? reusableWorkspace!.config.runtime.embedding_provider : envProvider
-  );
-  let approvalMode = envApproval;
-  if (!nonInteractive) {
-    if (!first(parsed, "database") && !parsed.flags.has("offline")) {
-      databaseMode = await choose(
-        io,
-        "Database setup",
-        [
-          { value: "local", label: "Local Docker PostgreSQL + pgvector — Tieline runs the container for you (recommended)" },
-          { value: "existing", label: "Connect your own PostgreSQL + pgvector — no Docker; reads DATABASE_URL_INGEST from the environment (Neon, Supabase, RDS, or any host)" },
-          { value: "offline", label: "Offline workspace only; connect a database later" },
-        ],
-        reuseExisting ? databaseMode : env.DATABASE_URL_INGEST ? "existing" : "local"
-      );
-    }
-    if (!first(parsed, "embedding")) {
-      embeddingProvider = await choose(
-        io,
-        "Embedding provider (one 384-dimension provider must be used for ingest and search)",
-        [
-          { value: "local", label: "Local gte-small runtime (recommended, large optional install)" },
-          { value: "openai", label: "OpenAI-compatible endpoint" },
-          { value: "supabase-edge", label: "Existing Supabase embedding edge function" },
-          { value: "hash", label: "Hash fallback (tests only; no semantic search)" },
-        ],
-        embeddingProvider
-      );
-    }
-    if (!first(parsed, "approval")) {
-      approvalMode = await choose(
-        io,
-        "Story write approval policy",
-        [
-          { value: "production", label: "Require approval for production-sensitive changes (recommended)" },
-          { value: "all", label: "Require approval for every story mutation" },
-          { value: "off", label: "Auto-apply through the separate approver credential" },
-        ],
-        envApproval
-      );
-    }
-  }
-  const installLocalEmbedder =
-    embeddingProvider === "local" &&
-    (parsed.flags.has("install-local-embedder") ||
-      (!nonInteractive && (await confirm(io, "Install the optional local embedding runtime now?"))));
-
-  env.EMBEDDING_PROVIDER = embeddingProvider;
-  env.STORY_APPROVAL_MODE = approvalMode;
-
-  if (!nonInteractive) {
-    io.write(
-      `\nTieline will ${reuseExisting ? "resume" : "create"} ${resolve(targetPath, ".tieline")} for ` +
-        `'${productName}' (${repoName}); database=${databaseMode}, embedding=${embeddingProvider}, approval=${approvalMode}.\n`
+  if (command === "contract") {
+    return (
+      firstPositional(
+        args,
+        new Set([
+          "repo",
+          "commit",
+          "output",
+          "spec",
+          "expected-previous-commit",
+        ]),
+        1
+      ) ?? process.cwd()
     );
-    if (!(await confirm(io, parsed.flags.has("force") ? "Replace the existing workspace?" : "Continue?"))) {
-      io.write("Initialization cancelled.\n");
+  }
+  if (command === "check") {
+    return (
+      firstPositional(args, new Set(["base", "repo"])) ?? process.cwd()
+    );
+  }
+  if (command === "status") {
+    return firstPositional(args, new Set()) ?? process.cwd();
+  }
+  return process.cwd();
+}
+
+async function runInit(
+  args: string[],
+  io: TielineCliIO,
+  env: NodeJS.ProcessEnv
+): Promise<number> {
+  const parsed = parseInit(args, env);
+  const existing = findTielineWorkspace(parsed.target);
+  if (existing) {
+    const stored = readWorkspaceProfile(existing, env);
+    const databaseMode = parsed.databaseExplicit
+      ? parsed.database
+      : stored?.profile.runtime.database_mode ??
+        existing.config.runtime.default_database_mode;
+    const embeddingProvider = parsed.embeddingExplicit
+      ? parsed.embedding
+      : stored?.profile.runtime.embedding_provider ??
+        existing.config.runtime.default_embedding_provider;
+    const shouldConfigure =
+      !stored?.profile.runtime.setup_completed_at ||
+      parsed.databaseExplicit ||
+      parsed.embeddingExplicit ||
+      parsed.installLocalEmbedder;
+    if (shouldConfigure) {
+      env.EMBEDDING_PROVIDER = embeddingProvider;
+      const runtime = await configureWorkspaceRuntime({
+        workspace: existing,
+        databaseMode,
+        embeddingProvider,
+        installLocalEmbedder: parsed.installLocalEmbedder,
+        skipMigrate: parsed.skipMigrate,
+        env,
+        io,
+      });
+      await reloadRuntimeConfig(env);
+      io.write(`Completed Tieline runtime setup at ${existing.directory}.\n`);
+      io.write(`Private runtime profile: ${runtime.profilePath}\n`);
+      renderInitSummary(
+        existing,
+        runInitPreflight(
+          existing.root,
+          embeddingProvider,
+          databaseMode === "offline"
+            ? withoutDatabaseEnvironment(env)
+            : env
+        ),
+        io,
+        env
+      );
       return 0;
     }
+    io.write(
+      `Tieline is already initialized at ${existing.directory}.\n${renderStatus(getTielineStatus(existing, env))}\n`
+    );
+    return 0;
   }
-
-  const initEnv = databaseMode === "offline" ? withoutDatabaseEnvironment(env) : env;
+  const detectedProduct = detectProductName(parsed.target);
+  const product =
+    parsed.product ??
+    (parsed.yes
+      ? detectedProduct
+      : (await io.question(`Company/product name [${detectedProduct}]: `)).trim() ||
+        detectedProduct);
+  const detectedRepo = slugifyRepoName(basename(parsed.target));
+  const repoName = slugifyRepoName(
+    parsed.repoName ??
+      (parsed.yes
+        ? detectedRepo
+        : (await io.question(`Stable repository name [${detectedRepo}]: `)).trim() ||
+          detectedRepo)
+  );
+  env.EMBEDDING_PROVIDER = parsed.embedding;
+  const initEnv =
+    parsed.database === "offline"
+      ? withoutDatabaseEnvironment(env)
+      : env;
   const result = initWorkspace({
-    targetPath,
-    productName,
+    targetPath: parsed.target,
+    productName: product,
     repoName,
-    description,
-    contextLocations: contexts,
-    sourceRoots: sourceRoots.length ? sourceRoots : undefined,
-    ignore: parsed.values.get("ignore"),
-    force: parsed.flags.has("force"),
-    databaseMode,
-    approvalMode,
+    description: parsed.description,
+    contextLocations: parsed.context,
+    sourceRoots:
+      parsed.sourceRoots.length > 0
+        ? parsed.sourceRoots
+        : detectSourceRoots(parsed.target),
+    ignore: parsed.ignore.length > 0 ? parsed.ignore : undefined,
+    databaseMode: parsed.database,
     env: initEnv,
   });
-  writeWorkspaceMcpConfig(result.workspace);
   const runtime = await configureWorkspaceRuntime({
     workspace: result.workspace,
-    databaseMode,
-    embeddingProvider,
-    approvalMode,
-    installLocalEmbedder,
-    skipMigrate: parsed.flags.has("skip-migrate"),
+    databaseMode: parsed.database,
+    embeddingProvider: parsed.embedding,
+    installLocalEmbedder: parsed.installLocalEmbedder,
+    skipMigrate: parsed.skipMigrate,
     env,
     io,
   });
-  reloadConfig(env);
-  const preflight = parsed.flags.has("skip-db-check") || databaseMode === "offline"
-    ? result.preflight
-    : [...result.preflight, ...(await runDatabasePreflight(env))];
-  const status = getTielineStatus(result.workspace);
-  if (parsed.flags.has("json")) {
-    io.write(`${JSON.stringify({ created: result.created, profile: runtime.profilePath, preflight, status }, null, 2)}\n`);
-    return 0;
-  }
-
-  io.write(`\nCreated ${result.workspace.directory}\n`);
-  for (const check of preflight) {
-    io.write(`  ${check.status === "pass" ? "ok" : "warn"}  ${check.message}\n`);
-  }
-  io.write(`\nAgent handoff: ${result.workspace.handoffPath}\n`);
-  io.write(`MCP config: ${result.workspace.mcpConfigPath}\n`);
+  await reloadRuntimeConfig(env);
+  io.write(`Created ${result.workspace.directory}\n`);
+  io.write(`Contract directory: ${result.workspace.specDirectoryPath}\n`);
   io.write(`Private runtime profile: ${runtime.profilePath}\n`);
-  io.write("Next: ask your coding agent to follow .tieline/AGENT_HANDOFF.md.\n");
+  renderInitSummary(result.workspace, result.preflight, io, env);
   return 0;
 }
 
-async function runMerge(args: string[], io: TielineCliIO): Promise<number> {
-  const parsed = parseOptions(args);
-  if (parsed.positionals.length > 1) throw new Error("tieline merge accepts at most one repository path.");
-  const workspace = findTielineWorkspace(parsed.positionals[0] ?? process.cwd());
-  if (!workspace) throw new Error("No .tieline/config.json found.");
-  const { mergeShards } = await import("./tieline/merge.js");
-  const result = mergeShards(workspace, { prune: parsed.flags.has("prune") });
-  const status = getTielineStatus(workspace);
-  if (parsed.flags.has("json")) {
-    io.write(`${JSON.stringify({ merge: result, status }, null, 2)}\n`);
-    return 0;
+function parseStatusArgs(args: string[]): {
+  path: string;
+  json: boolean;
+} {
+  const positionals = args.filter((arg) => !arg.startsWith("--"));
+  if (positionals.length > 1) {
+    throw new Error("tieline status accepts one repository path.");
   }
-  io.write(`Merged ${result.shards.length} shard(s) into ${result.draft_path}\n`);
-  for (const shard of result.shards) {
-    io.write(`  ${shard.shard}: ${shard.stories} stories, ${shard.sections} sections\n`);
-  }
-  io.write(
-    `\n${result.stories} stories in ${result.sections} sections ` +
-      `(${result.approved} approved, ${result.pending} pending, ${result.rejected} rejected).\n`
+  const unknown = args.filter(
+    (arg) => arg.startsWith("--") && arg !== "--json"
   );
-  if (result.preserved > 0) io.write(`Kept ${result.preserved} existing review decision(s).\n`);
-  if (result.dropped.length > 0) io.write(`Pruned ${result.dropped.length} story/stories no shard produces.\n`);
-  for (const duplicate of result.duplicate_titles) {
-    io.write(
-      `  warn  '${duplicate.title}' appears ${duplicate.ids.length}x in section ` +
-        `'${duplicate.section_key}' (${duplicate.ids.join(", ")})\n`
-    );
-  }
-  io.write(`Next: ${status.next_action}\n`);
-  return 0;
-}
-
-async function runStatus(args: string[], io: TielineCliIO): Promise<number> {
-  const parsed = parseOptions(args);
-  if (parsed.positionals.length > 1) throw new Error("tieline status accepts at most one repository path.");
-  const status = statusFromPath(parsed.positionals[0] ?? process.cwd());
-  io.write(parsed.flags.has("json") ? `${JSON.stringify(status, null, 2)}\n` : `${renderStatus(status)}\n`);
-  return 0;
-}
-
-async function runContext(args: string[], io: TielineCliIO): Promise<number> {
-  const action = args[0];
-  if (action !== "approve") throw new Error("Usage: tieline context approve [repository] [--yes] [--json]");
-  const parsed = parseOptions(args.slice(1));
-  if (parsed.positionals.length > 1) throw new Error("context approve accepts at most one repository path.");
-  const workspace = findTielineWorkspace(parsed.positionals[0] ?? process.cwd());
-  if (!workspace) throw new Error("No .tieline/config.json found.");
-  if (!parsed.flags.has("yes")) {
-    const approved = await confirm(
-      io,
-      `Has a human reviewed and approved ${workspace.config.product.name}'s product context?`
-    );
-    if (!approved) {
-      io.write("Context remains draft.\n");
-      return 0;
-    }
-  }
-  const checksum = approveProductContext(workspace);
-  const status = getTielineStatus(workspace);
-  if (parsed.flags.has("json")) io.write(`${JSON.stringify({ checksum, status }, null, 2)}\n`);
-  else {
-    io.write(`Product context approved.\nChecksum: ${checksum}\n`);
-    io.write("Next: have the agent generate .tieline/stories.draft.json using this checksum.\n");
-  }
-  return 0;
+  if (unknown[0]) throw new Error(`Unknown status option: ${unknown[0]}`);
+  return {
+    path: positionals[0] ?? process.cwd(),
+    json: args.includes("--json"),
+  };
 }
 
 export async function runCli(
@@ -480,41 +447,53 @@ export async function runCli(
   env: NodeJS.ProcessEnv = process.env
 ): Promise<number> {
   const [command, ...args] = argv;
-  if (!command || command === "help" || command === "--help" || command === "-h") {
+  if (
+    !command ||
+    command === "help" ||
+    command === "--help" ||
+    command === "-h"
+  ) {
     printHelp(io);
     return 0;
   }
-  const firstPositional = commandArtifactPath(command, args);
-  const parsedWorkspacePath =
-    command === "init" || command === "status" || command === "merge"
-      ? parseOptions(args).positionals[0]
-      : command === "context"
-        ? parseOptions(args.slice(1)).positionals[0]
-        : firstPositional;
-  const workspaceStart =
-    env.TIELINE_WORKSPACE ||
-    parsedWorkspacePath ||
-    process.cwd();
-  loadWorkspaceProfile(workspaceStart, env);
-  reloadConfig(env);
+  loadWorkspaceProfileForCommand(
+    command,
+    workspaceStartForCommand(command, args, env),
+    env
+  );
+  await reloadRuntimeConfig(env);
+
   if (command === "init") return runInit(args, io, env);
-  if (command === "status") return runStatus(args, io);
-  if (command === "context") return runContext(args, io);
-  if (command === "merge") return runMerge(args, io);
+  if (command === "status") {
+    const parsed = parseStatusArgs(args);
+    const status = statusFromPath(parsed.path, env);
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(status, null, 2)}\n`
+        : `${renderStatus(status)}\n`
+    );
+    return 0;
+  }
+  if (command === "contract") {
+    const { runContractCommand } = await import("./commands/contract.js");
+    return runContractCommand(args, io);
+  }
+  if (command === "check") {
+    const { runCheckCommand } = await import("./commands/check.js");
+    return runCheckCommand(args, io);
+  }
+  if (command === "profile") {
+    const { runProfileCommand } = await import("./commands/profile.js");
+    return runProfileCommand(args, io);
+  }
   if (command === "migrate") {
     const { runMigrateCommand } = await import("./commands/migrate.js");
     return runMigrateCommand(args);
   }
-  if (command === "review") {
-    const { runReviewCommand } = await import("./commands/review.js");
-    return runReviewCommand(args);
-  }
-  if (command === "import") {
-    const { runImportCommand } = await import("./commands/import-stories.js");
-    return runImportCommand(args);
-  }
   if (command === "import-help") {
-    const { runImportHelpCommand } = await import("./commands/import-help.js");
+    const { runImportHelpCommand } = await import(
+      "./commands/import-help.js"
+    );
     return runImportHelpCommand(args);
   }
   if (command === "serve") {
@@ -534,7 +513,9 @@ async function main(): Promise<void> {
   try {
     process.exitCode = await runCli(process.argv.slice(2), io);
   } catch (error) {
-    io.error(`Tieline error: ${error instanceof Error ? error.message : String(error)}\n`);
+    io.error(
+      `Tieline error: ${error instanceof Error ? error.message : String(error)}\n`
+    );
     process.exitCode = 1;
   } finally {
     readline.close();
@@ -543,7 +524,8 @@ async function main(): Promise<void> {
 
 if (
   process.argv[1] &&
-  realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)
+  realpathSync(resolve(process.argv[1])) ===
+    fileURLToPath(import.meta.url)
 ) {
   void main();
 }

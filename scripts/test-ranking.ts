@@ -1,193 +1,242 @@
-/**
- * Offline unit tests for the pure ranking logic (no DB, no model).
- * Run: npm run test:ranking
- */
-
+import assert from "node:assert/strict";
 import {
-  minMax,
-  saturate,
-  clamp01,
-  weightedOverlap,
-  detectCode,
-  extractQueryPaths,
-  extractQueryEntities,
-  scoreCandidates,
-  toAreaHits,
-  toStoryHits,
+  groupSemanticHitsAroundAcceptanceCriteria,
+  rankSemanticDocuments,
 } from "../src/ranking.js";
-import type { Candidate, DocFrequencies } from "../src/types.js";
+import { narrowSemanticFilters } from "../src/adapters/postgres/semantic-repository.js";
+import { parseRetrievalProfileDefinition } from "../src/adapters/postgres/profile-repository.js";
+import {
+  createBacklogItemSchema,
+  createPlanningStorySchema,
+  searchKnowledgeSchema,
+} from "../src/schemas.js";
 
 let passed = 0;
-let failed = 0;
-function check(name: string, cond: boolean): void {
-  if (cond) {
-    passed++;
-    console.log(`  ok  - ${name}`);
-  } else {
-    failed++;
-    console.error(`  FAIL- ${name}`);
-  }
-}
-function approx(a: number, b: number, eps = 1e-6): boolean {
-  return Math.abs(a - b) < eps;
+function test(name: string, run: () => void): void {
+  run();
+  passed += 1;
+  console.log(`  ok  - ${name}`);
 }
 
-// --- numeric helpers --------------------------------------------------------
-console.log("numeric helpers");
-check("clamp01 clamps", clamp01(1.5) === 1 && clamp01(-0.2) === 0 && clamp01(0.4) === 0.4);
-check("saturate 0->0, monotonic", saturate(0) === 0 && saturate(1) === 0.5 && saturate(3) === 0.75);
-{
-  const n = minMax([1, 3, 5]);
-  check("minMax scales to 0..1", approx(n[0], 0) && approx(n[1], 0.5) && approx(n[2], 1));
-  const flat = minMax([0.2, 0.2]);
-  check("minMax equal-values keeps absolute", approx(flat[0], 0.2) && approx(flat[1], 0.2));
-}
+console.log("hierarchical semantic ranking");
 
-// --- weighted overlap (1/df) ------------------------------------------------
-console.log("weighted overlap");
-{
-  const df = new Map([
-    ["settings", 35],
-    ["tax-rate", 5],
+test("applicability breaks a close semantic tie", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "inapplicable",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-1",
+      canonical_text: "inapplicable AC",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-1",
+      vector_score: 0.9,
+      lexical_score: 0.5,
+      applicable: false,
+      metadata: {},
+    },
+    {
+      document_id: "applicable",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-2",
+      canonical_text: "applicable AC",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-2",
+      vector_score: 0.87,
+      lexical_score: 0.5,
+      applicable: true,
+      metadata: {},
+    },
   ]);
-  const o = weightedOverlap(new Set(["settings", "tax-rate"]), ["settings", "tax-rate", "other"], df);
-  check("shared captured", o.shared.length === 2);
-  check("rare slug outweighs hub", o.weights[0].key === "tax-rate");
-  check("score = 1/5 + 1/35", approx(o.score, 1 / 5 + 1 / 35));
-}
+  assert.equal(ranked[0]?.document_id, "applicable");
+});
 
-// --- code detection + extraction -------------------------------------------
-console.log("code detection / extraction");
-check("detects vue/ts code", detectCode(`import x from './a.ts';\nexport const f = () => { return 1; }`));
-check("prose is not code", !detectCode("invite a teammate to a project"));
-{
-  const paths = extractQueryPaths(
-    "diff --git a/src/projects/InviteMember.ts b/src/projects/projectAccess.ts"
-  );
-  check("extracts first path", paths.includes("src/projects/InviteMember.ts"));
-  check("extracts second path + strips a/", paths.includes("src/projects/projectAccess.ts"));
-}
-{
-  const ents = extractQueryEntities("invite a teammate with project access control", [
-    "project",
-    "access-control",
-    "tax-rate",
+test("artifact and graph context break a close semantic tie", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "semantic-only",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-semantic",
+      canonical_text: "slightly stronger semantic match",
+      matched_level: "acceptance_criterion",
+      vector_score: 0.83,
+      lexical_score: 0.5,
+      artifact_overlap: 0,
+      graph_proximity: 0,
+      metadata: {},
+    },
+    {
+      document_id: "contextual",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-contextual",
+      canonical_text: "contextually grounded match",
+      matched_level: "acceptance_criterion",
+      vector_score: 0.8,
+      lexical_score: 0.5,
+      artifact_overlap: 1,
+      graph_proximity: 0.75,
+      metadata: {},
+    },
   ]);
-  check("matches single-word slug", ents.includes("project"));
-  check("matches multiword slug as phrase", ents.includes("access-control"));
-  check("no false positive", !ents.includes("tax-rate"));
-}
+  assert.equal(ranked[0]?.document_id, "contextual");
+  assert.equal(ranked[0]?.features.artifact, 1);
+  assert.equal(ranked[0]?.features.graph, 0.75);
+});
 
-// --- scoring + shaping ------------------------------------------------------
-console.log("scoring + area/story shaping");
-const df: DocFrequencies = {
-  entity: new Map([
-    ["project", 98],
-    ["tax-rate", 5],
-    ["invitation", 3],
-  ]),
-  path: new Map([["src/a/Reorder.vue", 2]]),
-};
-function cand(p: Partial<Candidate>): Candidate {
-  return {
-    id: 0,
-    story_key: "K",
-    section_id: 1,
-    section_key: "sec",
-    section_name: "Sec",
-    title: "t",
-    actor: "member",
-    story_text: "txt",
-    status: "production",
-    entity_slugs: [],
-    code_paths: [],
-    similarity: 0.5,
-    ...p,
-  };
-}
-
-{
-  const candidates: Candidate[] = [
-    cand({ id: 1, story_key: "A", section_key: "alpha", section_name: "Alpha", similarity: 0.9, entity_slugs: ["tax-rate", "invitation"] }),
-    cand({ id: 2, story_key: "B", section_key: "beta", section_name: "Beta", similarity: 0.6, entity_slugs: ["project"] }),
-    cand({ id: 3, story_key: "C", section_key: "beta", section_name: "Beta", similarity: 0.2, entity_slugs: [] }),
-  ];
-  const scored = scoreCandidates({
-    candidates,
-    queryEntities: new Set(["tax-rate", "invitation", "project"]),
-    queryPaths: new Set(),
-    df,
-    weights: { vector: 0.5, entity: 0.25, path: 0.25 },
-  });
-  check("scored every candidate", scored.length === 3);
-  const areas = toAreaHits(scored, { minVector: 0, minStructural: 0, allowStructural: true }, 5);
-  check("areas grouped by section (2)", areas.length === 2);
-  check("top area is alpha (high sim + rare slugs)", areas[0].section_key === "alpha");
-  check("why carries shared entities", areas[0].why.shared_entities.includes("tax-rate"));
-
-  const stories = toStoryHits(scored, { minVector: 0, minStructural: 0, allowStructural: true }, 5);
-  check("story hits ranked, A first", stories[0].story_key === "A");
-}
-
-// --- empty-result correctness ----------------------------------------------
-console.log("empty-result gate");
-{
-  const weak: Candidate[] = [cand({ id: 9, similarity: 0.05, entity_slugs: [] })];
-  const scored = scoreCandidates({
-    candidates: weak,
-    queryEntities: new Set(),
-    queryPaths: new Set(),
-    df,
-    weights: { vector: 1, entity: 0, path: 0 },
-  });
-  const areas = toAreaHits(
-    scored,
-    { minVector: 0.99, minStructural: 0.99, allowStructural: true },
-    5
+test("Scenario and AC hits collapse around the same AC", () => {
+  const grouped = groupSemanticHitsAroundAcceptanceCriteria(
+    rankSemanticDocuments([
+      {
+        document_id: "ac",
+        entity_kind: "acceptance_criterion",
+        entity_id: "ac-3",
+        canonical_text: "acceptance criterion",
+        matched_level: "acceptance_criterion",
+        acceptance_criterion_id: "ac-3",
+        vector_score: 0.8,
+        lexical_score: 0.4,
+        metadata: {},
+      },
+      {
+        document_id: "scenario",
+        entity_kind: "scenario",
+        entity_id: "scenario-3",
+        canonical_text: "scenario",
+        matched_level: "scenario",
+        acceptance_criterion_id: "ac-3",
+        vector_score: 0.95,
+        lexical_score: 0.6,
+        metadata: {},
+      },
+    ])
   );
-  check("below min_score -> empty (not forced)", areas.length === 0);
-}
+  assert.equal(grouped.length, 1);
+  assert.equal(grouped[0]?.matched_level, "scenario");
+});
 
-// --- lexical signal + RRF fusion (U3) --------------------------------------
-console.log("lexical + RRF fusion");
-{
-  // vector absent, strong lexical -> qualifies on the lexical floor alone (R2)
-  const cands: Candidate[] = [
-    cand({ id: 10, story_key: "LEX", similarity: 0, lexical: 0.6 }),
-    cand({ id: 11, story_key: "NIL", similarity: 0, lexical: 0 }),
-  ];
-  const scored = scoreCandidates({
-    candidates: cands,
-    queryEntities: new Set(),
-    queryPaths: new Set(),
-    df,
-    weights: { vector: 0, entity: 0, path: 0, lexical: 1 },
-  });
-  const gate = { minVector: 0.8, minStructural: 0.5, minLexical: 0.05, allowStructural: true };
-  const hits = toStoryHits(scored, gate, 5);
-  check("lexical-only candidate qualifies with no vector (R2)", hits.some((h) => h.story_key === "LEX"));
-  check("below every floor is excluded (R3)", !hits.some((h) => h.story_key === "NIL"));
-  check("lexical flows into score_breakdown", (hits.find((h) => h.story_key === "LEX")?.score_breakdown.lexical ?? 0) > 0);
-}
-{
-  // RRF: a candidate consistently high across BOTH signals ranks above one that
-  // is #1 in a single signal but weak in the other.
-  const cands: Candidate[] = [
-    cand({ id: 20, story_key: "X", similarity: 0.8, lexical: 0.9 }), // v#2, l#1
-    cand({ id: 21, story_key: "Y", similarity: 0.9, lexical: 0.3 }), // v#1, l#3
-    cand({ id: 22, story_key: "Z", similarity: 0.1, lexical: 0.5 }), // v#3, l#2
-  ];
-  const scored = scoreCandidates({
-    candidates: cands,
-    queryEntities: new Set(),
-    queryPaths: new Set(),
-    df,
-    weights: { vector: 0.5, entity: 0, path: 0, lexical: 0.5 },
-  });
-  const hits = toStoryHits(scored, { minVector: 0, minStructural: 0, minLexical: 0.05, allowStructural: true }, 5);
-  check("RRF ranks consistent-across-signals X above single-signal Y", hits[0].story_key === "X");
-  check("RRF full order is X, Y, Z", hits.map((h) => h.story_key).join(",") === "X,Y,Z");
-}
+test("caller filters can narrow but not broaden a profile", () => {
+  const narrowed = narrowSemanticFilters(
+    {
+      authorities: ["repository"],
+      lifecycles: ["production"],
+      include: ["story", "acceptance_criterion"],
+      include_inactive: false,
+    },
+    {
+      authorities: ["repository", "planning"],
+      document_kinds: ["acceptance_criterion", "observation"],
+      include_inactive: true,
+    }
+  );
+  assert.deepEqual(narrowed.authorities, ["repository"]);
+  assert.deepEqual(narrowed.document_kinds, ["acceptance_criterion"]);
+  assert.equal(narrowed.include_inactive, false);
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed === 0 ? 0 : 1);
+  const allowedInactive = narrowSemanticFilters(
+    { include_inactive: true }
+  );
+  assert.equal(allowedInactive.include_inactive, true);
+  assert.equal(
+    narrowSemanticFilters(
+      { include_inactive: true },
+      { include_inactive: false }
+    ).include_inactive,
+    false
+  );
+  assert.equal(
+    searchKnowledgeSchema.parse({
+      query: "production behavior",
+      profile: "engineering",
+    }).include_inactive,
+    undefined
+  );
+});
+
+test("empty retrieval filters and profile predicates are rejected", () => {
+  assert.equal(
+    searchKnowledgeSchema.safeParse({
+      query: "production behavior",
+      profile: "support",
+      authority: [],
+    }).success,
+    false
+  );
+  assert.throws(
+    () => parseRetrievalProfileDefinition({ authorities: [] }),
+    /array/i
+  );
+  assert.equal(
+    parseRetrievalProfileDefinition({ include_inactive: false })
+      .include_inactive,
+    false
+  );
+});
+
+test("knowledge search accepts bounded typed retrieval context", () => {
+  const parsed = searchKnowledgeSchema.parse({
+    query: "find the affected production behavior",
+    profile: "engineering",
+    context: {
+      anchor: {
+        kind: "observation",
+        id: "00000000-0000-4000-8000-000000000001",
+      },
+      artifacts: [
+        {
+          kind: "code",
+          repository: "tieline",
+          path: "src/tools/search-knowledge.ts",
+        },
+        {
+          kind: "help",
+          source: "intercom",
+          external_id: "article-123",
+        },
+      ],
+    },
+  });
+  assert.equal(parsed.context?.artifacts?.length, 2);
+  assert.equal(
+    searchKnowledgeSchema.safeParse({
+      query: "find the affected production behavior",
+      profile: "engineering",
+      context: {},
+    }).success,
+    false
+  );
+  assert.equal(
+    searchKnowledgeSchema.safeParse({
+      query: "find the affected production behavior",
+      profile: "engineering",
+      context: {
+        artifacts: Array.from({ length: 51 }, (_, index) => ({
+          kind: "code",
+          repository: "tieline",
+          path: `src/context-${index}.ts`,
+        })),
+      },
+    }).success,
+    false
+  );
+});
+
+test("create schemas accept machine candidate selection tokens", () => {
+  const token = "candidate:00000000-0000-4000-8000-000000000001";
+  assert.equal(
+    createBacklogItemSchema.safeParse({
+      title: "Reuse related planning work",
+      summary: "Select the machine candidate instead of creating a duplicate.",
+      selected_suggestion_id: token,
+    }).success,
+    true
+  );
+  assert.equal(
+    createPlanningStorySchema.safeParse({
+      repository: "tieline",
+      title: "Reuse related behavior",
+      selected_suggestion_id: token,
+    }).success,
+    true
+  );
+});
+
+console.log(`\n${passed} passed, 0 failed`);

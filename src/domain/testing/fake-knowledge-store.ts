@@ -1,214 +1,276 @@
-/**
- * Minimal in-memory/test adapter seam.
- *
- * Tests can subclass this and override only the capabilities they exercise.
- * Every unconfigured operation fails loudly so a test cannot accidentally pass
- * because the fake returned an empty value for an unsupported capability.
- */
-
 import type {
-  CrossoverGraph,
+  HelpArticleRecord,
+  HelpArticleRef,
+  HelpSearchHit,
   KnowledgeStore,
-  NewFeatureRequest,
-  QueryStoriesResult,
-  StoryFilters,
-  StoryGroupBy,
-  StoryImportResult,
-  StoryHistory,
-  StoryChangeProposal,
-  StoryMutationResult,
-  RelationshipMutationResult,
-  StoryRelationshipPatch,
-  HelpArticleImportInput,
-  HelpArticleImportResult,
-  HelpLinkSuggestionResult,
-  FeatureRequestLinkMutationResult,
-  TargetFootprint,
-  Taxonomy,
 } from "../knowledge-store.js";
 import type {
-  Candidate,
-  CrossoverHit,
-  DocFrequencies,
-  FeatureRequestRecord,
-  HelpArticle,
-  HelpHit,
-  WrittenStory,
+  AttributionDecision,
+  AttributionDecisionRecord,
+  BacklogItemLinks,
+  BacklogItemRecord,
+  BacklogItemSnapshot,
+  BacklogMutationResult,
+  BacklogStage,
+  ObservationRecord,
+  PreparedObservation,
+} from "../evidence-write-store.js";
+import {
+  buildContractGraph,
+  type ContractCriterionLookup,
+  type ContractGraph,
+  type HandoffConflictRecord,
+  type ContractStoryFilters,
+  type ContractStoryGroupBy,
+  type ContractStoryRecord,
+  type QueryContractStoriesResult,
+} from "../contract-read-store.js";
+import type {
+  CreatePlanningStoryInput,
+  PlanningStoryMutationResult,
+  UpdatePlanningStoryInput,
+} from "../planning-contract-write-store.js";
+import type {
+  ResolvedRetrievalProfile,
+  SemanticSearchCandidate,
+  SemanticSearchContext,
+  SemanticSearchFilters,
+} from "../semantic-search-store.js";
+import type {
+  ContractAuthority,
+  StoryLifecycle,
 } from "../../types.js";
-import type { ImportPayload } from "../../authoring/schema.js";
 
 const unconfigured = (operation: string): Error =>
   new Error(`FakeKnowledgeStore.${operation} was not configured for this test.`);
 
 export class FakeKnowledgeStore implements KnowledgeStore {
-  knnCandidates(_embedding: number[], _poolSize: number): Promise<Candidate[]> {
-    return Promise.reject(unconfigured("knnCandidates"));
+  private readonly contractStories: ContractStoryRecord[] | null;
+
+  constructor(options?: { contractStories?: ContractStoryRecord[] }) {
+    this.contractStories = options?.contractStories ?? null;
   }
-  structuralCandidates(_opts: {
-    embedding?: number[];
-    entitySlugs: string[];
-    codePaths: string[];
-    poolSize: number;
-  }): Promise<Candidate[]> {
-    return Promise.reject(unconfigured("structuralCandidates"));
-  }
-  lexicalCandidates(_opts: {
-    query: string;
-    embedding?: number[];
-    poolSize: number;
-    trigramThreshold?: number;
-  }): Promise<Candidate[]> {
-    return Promise.reject(unconfigured("lexicalCandidates"));
-  }
-  getDocFrequencies(_force?: boolean): Promise<DocFrequencies> {
-    return Promise.reject(unconfigured("getDocFrequencies"));
-  }
-  findCrossover(_opts: { sectionKey?: string; storyKey?: string; limit: number }): Promise<{
-    found: boolean;
-    target?: TargetFootprint;
-    hits: CrossoverHit[];
-  }> {
-    return Promise.reject(unconfigured("findCrossover"));
-  }
-  sectionCrossoverGraph(_opts?: {
-    minWeight?: number;
-    maxEdges?: number;
-    status?: string[];
-    topSignals?: number;
-  }): Promise<CrossoverGraph> {
-    return Promise.reject(unconfigured("sectionCrossoverGraph"));
-  }
-  queryStories(_opts: {
-    filters: StoryFilters;
-    groupBy?: StoryGroupBy | null;
+
+  async queryContractStories(input: {
+    filters: ContractStoryFilters;
+    groupBy?: ContractStoryGroupBy | null;
     limit: number;
-  }): Promise<QueryStoriesResult> {
-    return Promise.reject(unconfigured("queryStories"));
+  }): Promise<QueryContractStoriesResult> {
+    if (!this.contractStories) throw unconfigured("queryContractStories");
+    const records = this.contractStories.filter((story) => {
+      const filters = input.filters;
+      if (
+        filters.repositories?.length &&
+        !filters.repositories.includes(story.repository)
+      ) return false;
+      if (
+        filters.capabilities?.length &&
+        !filters.capabilities.includes(story.capability.stable_id)
+      ) return false;
+      if (
+        filters.story_keys?.length &&
+        !filters.story_keys.includes(story.stable_id)
+      ) return false;
+      if (
+        filters.actors?.length &&
+        (!story.actor || !filters.actors.includes(story.actor))
+      ) return false;
+      if (
+        filters.lifecycles?.length &&
+        !filters.lifecycles.includes(story.lifecycle)
+      ) return false;
+      if (
+        filters.authorities?.length &&
+        !filters.authorities.includes(story.authority)
+      ) return false;
+      if (
+        filters.code_path &&
+        !story.footprint.code_paths.includes(filters.code_path)
+      ) return false;
+      if (
+        filters.help_source &&
+        !story.footprint.help.some(
+          (link) => link.source === filters.help_source
+        )
+      ) return false;
+      if (
+        filters.help_external_id &&
+        !story.footprint.help.some(
+          (link) => link.external_id === filters.help_external_id
+        )
+      ) return false;
+      if (filters.has_direct_ac_links !== undefined) {
+        const hasDirect = story.acceptance_criteria.some(
+          (criterion) => criterion.direct_links.length > 0
+        );
+        if (hasDirect !== filters.has_direct_ac_links) return false;
+      }
+      return true;
+    });
+    if (input.groupBy) {
+      const counts = new Map<string, number>();
+      for (const story of records) {
+        const group =
+          input.groupBy === "repository"
+            ? story.repository
+            : input.groupBy === "capability"
+              ? story.capability.stable_id
+              : input.groupBy === "lifecycle"
+                ? story.lifecycle
+                : input.groupBy === "authority"
+                  ? story.authority
+                  : story.actor ?? "(none)";
+        counts.set(group, (counts.get(group) ?? 0) + 1);
+      }
+      return {
+        mode: "grouped",
+        groups: [...counts]
+          .map(([group, count]) => ({ group, count }))
+          .sort(
+            (left, right) =>
+              right.count - left.count ||
+              left.group.localeCompare(right.group)
+          ),
+      };
+    }
+    return {
+      mode: "records",
+      total: records.length,
+      records: records.slice(0, input.limit).map((story) => ({
+        ...story,
+        acceptance_criteria: input.filters.include_inactive_criteria
+          ? story.acceptance_criteria
+          : story.acceptance_criteria.filter((criterion) => criterion.active),
+      })),
+    };
   }
-  suggestVocabulary(_opts: {
-    codePath?: string;
-    entitySlug?: string;
-    limit?: number;
-  }): Promise<{ code_path?: string[]; entity_slug?: string[] }> {
-    return Promise.reject(unconfigured("suggestVocabulary"));
+
+  async getAcceptanceCriterion(input: {
+    repository: string;
+    stableId: string;
+    includeInactive?: boolean;
+  }): Promise<ContractCriterionLookup | null> {
+    if (!this.contractStories) throw unconfigured("getAcceptanceCriterion");
+    const story = this.contractStories.find(
+      (candidate) =>
+        candidate.repository === input.repository &&
+        candidate.acceptance_criteria.some(
+          (criterion) =>
+            criterion.stable_id === input.stableId &&
+            (input.includeInactive || criterion.active)
+        )
+    );
+    if (!story) return null;
+    return {
+      story: {
+        repository: story.repository,
+        stable_id: story.stable_id,
+        title: story.title,
+        lifecycle: story.lifecycle,
+        authority: story.authority,
+      },
+      criterion: story.acceptance_criteria.find(
+        (criterion) => criterion.stable_id === input.stableId
+      )!,
+    };
   }
-  getTaxonomy(): Promise<Taxonomy> {
-    return Promise.reject(unconfigured("getTaxonomy"));
+
+  async contractGraph(
+    input: {
+      repositories?: string[];
+      lifecycles?: StoryLifecycle[];
+      authorities?: ContractAuthority[];
+      includeInactiveCriteria?: boolean;
+    } = {}
+  ): Promise<ContractGraph> {
+    const result = await this.queryContractStories({
+      filters: {
+        repositories: input.repositories,
+        lifecycles: input.lifecycles,
+        authorities: input.authorities,
+        include_inactive_criteria: input.includeInactiveCriteria,
+      },
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+    return buildContractGraph(result.mode === "records" ? result.records : []);
   }
-  matchHelpArticles(_opts: {
-    embedding: number[];
-    poolSize: number;
-    productArea?: string[];
-    audience?: string[];
-  }): Promise<HelpHit[]> {
-    return Promise.reject(unconfigured("matchHelpArticles"));
+
+  listHandoffConflicts(): Promise<HandoffConflictRecord[]> {
+    return Promise.reject(unconfigured("listHandoffConflicts"));
   }
-  lexicalHelpArticles(_opts: {
+
+  resolveRetrievalProfile(): Promise<ResolvedRetrievalProfile> {
+    return Promise.reject(unconfigured("resolveRetrievalProfile"));
+  }
+  searchSemantic(_input: {
     query: string;
-    poolSize: number;
-    productArea?: string[];
-    audience?: string[];
-  }): Promise<HelpHit[]> {
-    return Promise.reject(unconfigured("lexicalHelpArticles"));
+    embedding: number[];
+    profile: ResolvedRetrievalProfile;
+    filters?: SemanticSearchFilters;
+    context?: SemanticSearchContext;
+    limit: number;
+  }): Promise<SemanticSearchCandidate[]> {
+    return Promise.reject(unconfigured("searchSemantic"));
   }
-  getHelpArticles(_slugs: string[]): Promise<{ articles: HelpArticle[]; not_found: string[] }> {
-    return Promise.reject(unconfigured("getHelpArticles"));
+  createPlanningStory(
+    _input: CreatePlanningStoryInput
+  ): Promise<ContractStoryRecord> {
+    return Promise.reject(unconfigured("createPlanningStory"));
   }
-  importHelpArticles(
-    _articles: HelpArticleImportInput[],
-    _opts?: { batchSize?: number }
-  ): Promise<HelpArticleImportResult> {
-    return Promise.reject(unconfigured("importHelpArticles"));
+  updatePlanningStory(
+    _input: UpdatePlanningStoryInput
+  ): Promise<PlanningStoryMutationResult> {
+    return Promise.reject(unconfigured("updatePlanningStory"));
   }
-  suggestStoryHelpLinks(_opts: {
-    storyKey?: string;
-    articleSlug?: string;
-    limit?: number;
-  }): Promise<HelpLinkSuggestionResult | null> {
-    return Promise.reject(unconfigured("suggestStoryHelpLinks"));
+  recordObservation(_input: PreparedObservation): Promise<ObservationRecord> {
+    return Promise.reject(unconfigured("recordObservation"));
   }
-  createUserStory(_opts: {
-    sectionKey: string;
+  decideAttribution(
+    _input: AttributionDecision
+  ): Promise<AttributionDecisionRecord> {
+    return Promise.reject(unconfigured("decideAttribution"));
+  }
+  createBacklogItem(_input: {
+    stable_id?: string;
     title: string;
-    storyText: string;
-    actor?: string | null;
-    status?: string;
-    reason?: string | null;
-    source?: string;
-    proposedBy?: string | null;
-  }): Promise<StoryMutationResult> {
-    return Promise.reject(unconfigured("createUserStory"));
+    summary: string;
+    stage?: BacklogStage;
+  }): Promise<BacklogItemRecord> {
+    return Promise.reject(unconfigured("createBacklogItem"));
   }
-  updateUserStory(_opts: {
-    storyKey: string;
+  getBacklogItem(_input: {
+    stable_id: string;
+  }): Promise<BacklogItemSnapshot | null> {
+    return Promise.reject(unconfigured("getBacklogItem"));
+  }
+  updateBacklogItem(_input: {
+    stable_id: string;
+    expected_revision: number;
     title?: string;
-    storyText?: string;
-    actor?: string | null;
-    sectionKey?: string;
-    status?: string;
-    expectedRevision?: number;
-    reason?: string | null;
-    source?: string;
-    proposedBy?: string | null;
-  }): Promise<StoryMutationResult> {
-    return Promise.reject(unconfigured("updateUserStory"));
+    summary?: string;
+    stage?: BacklogStage;
+    superseded_by?: string | null;
+  }): Promise<BacklogMutationResult> {
+    return Promise.reject(unconfigured("updateBacklogItem"));
   }
-  updateStoryRelationships(_opts: {
-    storyKey: string;
-    patch: StoryRelationshipPatch;
-    expectedRevision?: number;
-    reason?: string | null;
-    source?: string;
-    proposedBy?: string | null;
-  }): Promise<RelationshipMutationResult> {
-    return Promise.reject(unconfigured("updateStoryRelationships"));
+  setBacklogItemLinks(_input: {
+    stable_id: string;
+    expected_revision: number;
+    links: BacklogItemLinks;
+  }): Promise<BacklogMutationResult & { links?: BacklogItemLinks }> {
+    return Promise.reject(unconfigured("setBacklogItemLinks"));
   }
-  createFeatureRequest(_opts: {
-    fr: NewFeatureRequest;
-    primaryStoryKey: string;
-    secondaryStoryKeys?: string[];
-    linkSource?: string | null;
-  }): Promise<{ id: number; link_revision: number; links: { story_key: string; link_type: string }[] }> {
-    return Promise.reject(unconfigured("createFeatureRequest"));
+  searchHelpArticles(_input: {
+    query: string;
+    sources?: string[];
+    limit: number;
+  }): Promise<HelpSearchHit[]> {
+    return Promise.reject(unconfigured("searchHelpArticles"));
   }
-  linkFeatureRequest(_opts: {
-    featureRequestId: number;
-    storyKey: string;
-    linkType: "primary" | "secondary";
-    linkSource?: string | null;
-  }): Promise<{ feature_request_id: number; story_key: string; link_type: string; link_revision: number }> {
-    return Promise.reject(unconfigured("linkFeatureRequest"));
-  }
-  getFeatureRequest(_id: number): Promise<FeatureRequestRecord | null> {
-    return Promise.reject(unconfigured("getFeatureRequest"));
-  }
-  setFeatureRequestStoryLinks(_opts: {
-    featureRequestId: number;
-    primaryStoryKey: string;
-    secondaryStoryKeys?: string[];
-    linkSource?: string | null;
-    expectedVersion?: number;
-  }): Promise<FeatureRequestLinkMutationResult> {
-    return Promise.reject(unconfigured("setFeatureRequestStoryLinks"));
-  }
-  importStories(_payload: ImportPayload): Promise<StoryImportResult> {
-    return Promise.reject(unconfigured("importStories"));
-  }
-  getStoryHistory(
-    _storyKey: string,
-    _opts?: { revisionLimit?: number; eventLimit?: number }
-  ): Promise<StoryHistory | null> {
-    return Promise.reject(unconfigured("getStoryHistory"));
-  }
-  listStoryChangeProposals(_opts?: {
-    status?: Array<"pending" | "approved" | "rejected" | "stale">;
-    storyKey?: string;
-    limit?: number;
-  }): Promise<StoryChangeProposal[]> {
-    return Promise.reject(unconfigured("listStoryChangeProposals"));
-  }
-  getStoryChangeProposal(_id: number): Promise<StoryChangeProposal | null> {
-    return Promise.reject(unconfigured("getStoryChangeProposal"));
+  getHelpArticles(
+    _refs: HelpArticleRef[]
+  ): Promise<{ articles: HelpArticleRecord[]; not_found: HelpArticleRef[] }> {
+    return Promise.reject(unconfigured("getHelpArticles"));
   }
   async close(): Promise<void> {}
 }

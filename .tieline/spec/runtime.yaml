@@ -1,0 +1,237 @@
+version: 1
+capability:
+  key: RUNTIME
+  name: Portable and safe operation
+  description: Tieline initializes, serves, and composes its contract capabilities without leaking privileged writers into read paths.
+  stories:
+    - key: RUNTIME-001
+      title: Initialize a portable Tieline workspace
+      actor: maintainer
+      goal: configure contract roots and private runtime credentials
+      benefit: the repository remains shareable without committing secrets
+      lifecycle: production
+      acceptance_criteria:
+        - key: RUNTIME-001-AC1
+          criterion: Tieline must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/init.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/status.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/workspace.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC2
+          criterion: Tieline must report workspace initialization, clone-local setup, and database-backed capability configuration as separate states.
+          rationale: A tracked config cannot prove that another clone has credentials or semantic matching available.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/profile.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/setup.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/status.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC3
+          criterion: Tieline must surface detected source roots and preflight warnings while leaving the specification empty until repository-specific semantic onboarding.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/init.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+    - key: RUNTIME-002
+      title: Serve lifecycle-aware tools through MCP
+      actor: agent
+      goal: use a focused contract, search, evidence, and planning interface
+      benefit: tool capabilities match their database authority
+      lifecycle: production
+      acceptance_criteria:
+        - key: RUNTIME-002-AC1
+          criterion: Tieline must compose read, evidence-write, and planning-write capabilities without exposing repository synchronization through MCP tools.
+          links:
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/knowledge-store.ts
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/postgres-store.ts
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/default-store.ts
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/store.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/server.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/shared.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC2
+          criterion: Tieline must serve stdio by default and require explicit gateway configuration for non-loopback HTTP.
+          links:
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/config.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/http.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/index.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/loadEnv.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/serve.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/stdio.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-http.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC3
+          criterion: Tieline must provide a loud in-memory test seam for contract and tool verification without weakening production adapters.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/testing/fake-knowledge-store.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-read.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC4
+          criterion: Tieline must expose a semantic-authoring prompt that uses configured repository context and falls back to disclosed local duplicate checks when database-backed matching is unavailable.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/prompts.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/server.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline-author/SKILL.md
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+    - key: RUNTIME-003
+      title: Verify the lifecycle as one system
+      actor: maintainer
+      goal: exercise evidence, planning, authority transfer, profiles, and the baseline together
+      benefit: clean installations prove the shared contract end to end
+      lifecycle: production
+      acceptance_criteria:
+        - key: RUNTIME-003-AC1
+          criterion: Tieline must run the clean lifecycle integration suite against a disposable baseline database.
+          links:
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-lifecycle.ts
+                framework_hint: custom-script

@@ -91,7 +91,7 @@ class LocalEmbedder implements Embedder {
 
 // --- OpenAI-compatible HTTP endpoint ----------------------------------------
 
-class OpenAIEmbedder implements Embedder {
+export class OpenAIEmbedder implements Embedder {
   readonly provider = "openai" as const;
   constructor(
     readonly dim: number,

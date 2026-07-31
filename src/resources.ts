@@ -1,162 +1,89 @@
-/**
- * Two static orientation resources. Everything dynamic goes through tools;
- * an agent that ignores these still has full functionality.
- *
- *   schema://taxonomy     — valid keys/actors/statuses + slug vocab w/ df + modes
- *   docs://how-to-query   — routing, lifecycle, and mutation guide
- */
-
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getStore } from "./store.js";
-import { formatError } from "./tools/shared.js";
 
-const HOW_TO_QUERY = `# How to query the user-story context server
+const HOW_TO_QUERY = `# Tieline contract guide
 
-Five primary read verbs cover search and exact fetches; lifecycle reads are explicit.
+Tieline distinguishes accepted behavior, planning work, and source evidence.
 
-- **"things *like* this"** -> \`find_related(context, mode?, scope?, limit?)\`
-  Primary entry point. Pass free text OR pasted code. Returns ranked areas/stories
-  with story text + code paths + a "why". Start here when all you have is prose/code.
+- A **Story** describes desired user value using structured actor, goal, and benefit.
+- An **acceptance criterion (AC)** states one observable outcome and is the primary
+  anchor for code, test, help, and observation relationships.
+- An optional **Scenario** illustrates an AC with Given / When / Then.
+- An **Observation** is append-only source evidence: a request, bug, or question.
+- A **Backlog Item** is optional work that may target Stories or ACs. It is not a
+  second representation or lifecycle container for a Story.
 
-- **"things *entangled with* this"** -> \`find_crossover(section_key? | story_key?, limit?)\`
-  You already have a key. Returns OTHER sections that share its code paths / entity
-  slugs, weighted so rare shared signals outrank hub tags.
+## Authority and lifecycle
 
-- **"things *matching* these attributes"** -> \`query_stories(status?, section_key?, actor?, entity_slug?, code_path?, product_area?, audience?, help_relationship?, help_article_slug?, has_help?, group_by?, limit?)\`
-  Exact, complete, deterministic. Whitelisted top-level filters (status, section_key,
-  actor, entity_slug, code_path, plus help-doc facets product_area / audience /
-  help_relationship / help_article_slug / has_help), optionally grouped into counts.
-  Every response echoes \`applied_filters\` so you can confirm what the server filtered on.
+Postgres owns Stories and ACs only while their lifecycle is \`backlog\`. Once the
+same stable IDs are materialized into strict YAML under \`.tieline/spec/\` and the
+pull request merges, the repository owns them as \`in_progress\`, \`production\`,
+or \`retired\`. Repository-owned definitions change only through another code
+change and pull request.
 
-- **"which help article explains this?"** -> \`find_help(query, product_area?, audience?, limit?)\`
-  Semantic search over the help-center corpus itself (not the stories). Returns ranked
-  article POINTERS + previews (title, summary, url, headings) with the stories each one
-  documents. Use when you want end-user docs; use the others when you want product stories.
+## Reads
 
-- **"give me that article's full text"** -> \`get_help_article(article_slug? , article_slugs?)\`
-  The fetch step after find_help / query_stories / find_related hand you a slug. Returns the
-  full markdown body by exact slug. Pull only the slugs you need — bodies cost real tokens.
+- \`search_knowledge\` performs cross-type semantic search and requires a retrieval
+  profile: \`support\`, \`engineering\`, \`discovery\`, or \`all\`. Its optional
+  typed context accepts an Observation, Backlog Item, Story, or AC anchor and
+  code, test, or help artifacts.
+- \`find_related\` is the shorter engineering-oriented semantic entry point and
+  still returns the applied profile version.
+- \`query_stories\` is an exact Story/AC lookup with authority and lifecycle filters.
+- \`get_backlog_item\` returns a Backlog Item's optimistic revision and complete
+  Observation/Story/AC link set before an update replaces state.
+- \`list_handoff_conflicts\` returns the merged repository definition alongside
+  later planning content for explicit reconciliation.
+- \`find_help\` and \`get_help_article\` search/fetch external help content by its
+  stable source + external_id pointer.
 
-## Typical flow
-1. Start with \`find_related\` using whatever context you hold.
-2. Take a returned \`section_key\`/\`story_key\` and call \`find_crossover\` to widen, or
-   \`query_stories\` to pull exact matching records (incl. \`query_stories(story_key=[...])\` to fetch one by id).
-3. For docs: \`find_help\` to locate articles, then \`get_help_article\` to read the one(s) you pick.
+Explicit filters only narrow a profile; they cannot re-include records the profile
+excluded. Context reranks that same authorized candidate set using artifact
+overlap and graph proximity across structural links, repository-declared
+relationships, and confirmed attributions. Traversal is bounded to three hops;
+suggested and dismissed relationships do not create proximity. Search results
+return lifecycle/authority or planning state explicitly and include a reusable
+typed context anchor when one is available.
 
-## Writing stories (the WRITE tools)
-1. **Search first** — \`find_related(scope='stories')\` / \`query_stories\` — reuse or edit an
-   existing story rather than duplicating.
-2. \`create_user_story(section_key, title, story_text, status?, actor?)\` — you assign the
-   section and the key is minted. Accepted stories are embedded and immediately searchable.
-   A production create is a pending proposal by default and is not searchable until approved.
-3. \`update_user_story(story_key, expected_revision?, ...)\` — edit content, move sections, or
-   promote status. Production-sensitive changes are proposals; stale revisions never overwrite.
-4. \`update_story_relationships\` atomically adds/removes/replaces typed entity, code, and help
-   links. \`get_story_history\` retrieves accepted revisions plus lifecycle/relationship events.
-   Ordinary search always uses only the latest accepted row.
+## Intake and planning writes
 
-## Feature-request triage
-Mapping an incoming customer request to product work:
-1. Search for an existing story; a **strong match** is the primary, **adjacent** ones are secondary.
-2. **No match** → \`create_user_story(..., status='feature_request')\` — the canonical record of the request.
-3. \`create_feature_request(title, primary_story_key, secondary_story_keys?, ...)\` — logs the
-   request (every request is logged; dedup is at the story level) and writes its links in one
-   call. Read it back with \`get_feature_request\`.
+1. \`record_observation\` commits a request, bug, or question before matching.
+2. Review the returned suggestions; semantic similarity never confirms a link.
+3. Use \`decide_attribution\` or the suggestion decision tools to confirm/dismiss.
+4. Create a Backlog Item only when work consolidation is useful.
+5. Read a Backlog Item before updating it or replacing its links; preserve links
+   that were not explicitly removed.
+6. Create or update planning Stories/ACs through the planning tools. The tools
+   search before creation and require an explicit reuse-or-continue decision.
 
-## Concept & status definitions
-Nouns:
-- **section** — a product area (e.g. \`project-sharing\`); every story lives in exactly one.
-- **user story** — a unit of product behavior ("as an <actor>, I want … so that …"), with a
-  \`story_key\`, \`title\`, \`story_text\`, \`actor\`, and \`status\`.
-- **entity slug** — a canonical product concept a story touches (e.g. \`invitation\`); vocabulary +
-  document frequency live in schema://taxonomy.
-- **code path** — a real repository file a story is implemented in; shared paths are what
-  \`find_crossover\` ranks (rarer shared paths weigh more, via 1/df).
-- **document frequency (df)** — the number of distinct current stories carrying an entity slug
-  or code path. Ranking uses \`1/df\`, so a rare exact overlap carries more evidence than a hub.
-- **help article** — an end-user help-center doc, linked to the stories it documents.
-- **feature request** — one incoming customer ask (append-only evidence); many can map to one story.
-- **actor** — the persona a story serves (e.g. \`member\`, \`administrator\`).
+Invoke the MCP \`tieline_author\` prompt (or use the bundled
+\`/tieline-author\` skill) to onboard repository behavior, materialize planning
+definitions, reconcile branch changes, validate/compile YAML, and review the
+semantic diff. Normal pull-request merge is the semantic approval event.
 
-Statuses (a story's lifecycle — you pick it on create/update):
-- **production** — shipped and live in the product.
-- **in_review** — built, under review.
-- **qa** — in testing / quality assurance.
-- **in_progress** — actively being built.
-- **idea** — proposed, not yet committed (the default for a newly created story).
-- **feature_request** — an incoming customer/stakeholder ask captured during triage.
-- **cancelled** — dropped / won't do.
-
-## Good to know
-- \`find_related\` returns an empty list when we genuinely lack a matching pattern —
-  that's correct, not a failure. Don't retry with looser intent expecting matches.
-- Scores: \`find_related.score\` is an absolute 0..1 relevance blend; \`score_breakdown\`
-  shows pool-normalized per-signal strength (vector / entity / path).
-- Read \`schema://taxonomy\` to learn valid section keys, actors, statuses, the
-  entity-slug vocabulary (with document frequency), and the help-doc facets
-  (product areas, audiences, relationship types) before constructing filters.
-- Every story result carries \`help_articles\` (capped at 5, primary-first) plus a
-  \`help_article_count\` — the help-center docs that explain that feature. Filter or
-  group by \`product_area\` / \`has_help\` to slice by documentation coverage.
-- \`suggest_story_help_links\` is read-only. It ranks possible story/article pairs; accepting a
-  suggestion still requires \`update_story_relationships\` and therefore the normal approval rule.
+Coverage describes whether every AC has direct implementation, test, or help
+links. Freshness separately describes whether linked repository content still
+matches its reviewed hash. A linked test is not a test execution receipt; execution
+receipts are intentionally deferred beyond the MVP.
 `;
 
 export function registerResources(server: McpServer): void {
   server.registerResource(
-    "taxonomy",
-    "schema://taxonomy",
+    "Tieline contract guide",
+    "docs://tieline-contract",
     {
-      title: "Corpus taxonomy",
+      title: "Tieline contract guide",
       description:
-        "Valid section keys, actors, statuses, the entity-slug vocabulary with " +
-        "document frequency, the help-doc facets (product areas, audiences, relationship " +
-        "types), the mode enum, and corpus totals. Learn our vocabulary so tool calls are " +
-        "well-formed. Honestly advertises gaps (e.g. no interaction-pattern slug facet exists yet).",
-      mimeType: "application/json",
-    },
-    async (uri) => {
-      try {
-        const taxonomy = await getStore().getTaxonomy();
-        const enriched = {
-          ...taxonomy,
-          gaps: [
-            "No interaction-pattern slug facet exists yet (verbs like drag/drop/reorder " +
-              "are not tagged); 'do we have this pattern elsewhere' currently rides on the " +
-              "vector embedding only.",
-          ],
-        };
-        return {
-          contents: [
-            { uri: uri.href, mimeType: "application/json", text: JSON.stringify(enriched, null, 2) },
-          ],
-        };
-      } catch (error) {
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              mimeType: "text/plain",
-              text: `Error loading taxonomy: ${formatError(error)}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  server.registerResource(
-    "how-to-query",
-    "docs://how-to-query",
-    {
-      title: "How to query",
-      description:
-        "Short orientation: start with find_related; use returned keys with " +
-        "find_crossover / query_stories.",
+        "Vocabulary, authority, retrieval profiles, and evidence/planning workflow.",
       mimeType: "text/markdown",
     },
     async (uri) => ({
-      contents: [{ uri: uri.href, mimeType: "text/markdown", text: HOW_TO_QUERY }],
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "text/markdown",
+          text: HOW_TO_QUERY,
+        },
+      ],
     })
   );
 }

@@ -4,8 +4,8 @@ import { config } from "../../config.js";
 
 let readSql: Sql | null = null;
 let writeSql: Sql | null = null;
-let ingestSql: Sql | null = null;
-let approvalSql: Sql | null = null;
+let syncSql: Sql | null = null;
+let adminSql: Sql | null = null;
 
 export function getReadSql(): Sql {
   if (!readSql) {
@@ -17,34 +17,45 @@ export function getReadSql(): Sql {
 
 export function getWriteSql(): Sql {
   if (!writeSql) {
-    if (!config.dbWriteUrl) throw new Error("DATABASE_URL_WRITE is not set. Write tools require the least-privilege mcp_writer connection.");
+    if (!config.dbWriteUrl) {
+      throw new Error(
+        "DATABASE_URL_WRITE is not set. Evidence and planning tools require the least-privilege tieline_planning_writer connection."
+      );
+    }
     writeSql = postgres(config.dbWriteUrl, { max: 3, idle_timeout: 20, prepare: false });
   }
   return writeSql;
 }
 
-export function getIngestSql(): Sql {
-  if (!ingestSql) {
-    if (!config.dbUrlIngest) throw new Error("DATABASE_URL_INGEST is not set; bulk import requires an explicit write-capable role and never falls back to DATABASE_URL.");
-    ingestSql = postgres(config.dbUrlIngest, { max: 2, idle_timeout: 20, prepare: false });
+export function getSyncSql(): Sql {
+  if (!syncSql) {
+    if (!config.dbSyncUrl) {
+      throw new Error(
+        "DATABASE_URL_SYNC is not set. Repository projection requires the dedicated sync role."
+      );
+    }
+    syncSql = postgres(config.dbSyncUrl, { max: 2, idle_timeout: 20, prepare: false });
   }
-  return ingestSql;
+  return syncSql;
 }
 
-export function getApprovalSql(): Sql {
-  if (!approvalSql) {
-    if (!config.dbApprovalUrl) throw new Error("DATABASE_URL_APPROVAL is not set. Human decisions and STORY_APPROVAL_MODE=off require the mcp_approver connection.");
-    approvalSql = postgres(config.dbApprovalUrl, { max: 2, idle_timeout: 20, prepare: false });
+export function getAdminSql(): Sql {
+  if (!adminSql) {
+    if (!config.dbAdminUrl) {
+      throw new Error(
+        "DATABASE_URL_ADMIN is not set. DDL and privileged retention require an offline admin connection."
+      );
+    }
+    adminSql = postgres(config.dbAdminUrl, { max: 1, idle_timeout: 20, prepare: false });
   }
-  return approvalSql;
+  return adminSql;
 }
 
 export async function closeConnections(): Promise<void> {
   await Promise.all(
-    [readSql, writeSql, ingestSql, approvalSql]
+    [readSql, writeSql, syncSql, adminSql]
       .filter((sql): sql is Sql => sql !== null)
       .map((sql) => sql.end({ timeout: 5 }))
   );
-  readSql = writeSql = ingestSql = approvalSql = null;
+  readSql = writeSql = syncSql = adminSql = null;
 }
-

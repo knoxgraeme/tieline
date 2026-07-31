@@ -48,8 +48,7 @@ test("remote bind needs both gateway acknowledgement and origins", () => {
 test("invalid numeric config fails fast", () => {
   assert.throws(() => loadConfig({ PORT: "banana" }), /Invalid PORT/);
   assert.throws(() => loadConfig({ PORT: "70000" }), /Invalid PORT/);
-  assert.throws(() => loadConfig({ FIND_RELATED_MIN_VECTOR_SCORE: "1.1" }), /Invalid/);
-  assert.throws(() => loadConfig({ CANDIDATE_POOL_SIZE: "1.5" }), /Invalid/);
+  assert.throws(() => loadConfig({ CHARACTER_LIMIT: "1.5" }), /Invalid/);
 });
 
 console.log(`\n${passed} passed, 0 failed`);

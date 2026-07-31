@@ -47,8 +47,8 @@ export function runInitPreflight(
   env: NodeJS.ProcessEnv = process.env
 ): PreflightCheck[] {
   const gitDetected = existsSync(resolve(targetPath, ".git"));
-  const ingestConfigured = Boolean(env.DATABASE_URL_INGEST || env.SUPABASE_DB_URL_INGEST);
-  const readConfigured = Boolean(env.DATABASE_URL || env.SUPABASE_DB_URL);
+  const adminConfigured = Boolean(env.DATABASE_URL_ADMIN);
+  const readConfigured = Boolean(env.DATABASE_URL);
   const checks: PreflightCheck[] = [
     {
       key: "repository",
@@ -58,11 +58,11 @@ export function runInitPreflight(
         : "No .git metadata detected; onboarding can continue, but code provenance will be less useful.",
     },
     {
-      key: "database_ingest",
-      status: ingestConfigured ? "pass" : "warning",
-      message: ingestConfigured
-        ? "Explicit ingest credentials are configured."
-        : "DATABASE_URL_INGEST is not configured; draft generation works offline, but review/import will not.",
+      key: "database_admin",
+      status: adminConfigured ? "pass" : "warning",
+      message: adminConfigured
+        ? "Explicit admin credentials are configured for setup and migrations."
+        : "DATABASE_URL_ADMIN is not configured; offline authoring remains available.",
     },
     {
       key: "database_read",
@@ -74,7 +74,8 @@ export function runInitPreflight(
     {
       key: "review_workflow",
       status: "pass",
-      message: "Reviewed .tieline drafts can be checked with `tieline review` and persisted with `tieline import`.",
+      message:
+        "Repository contract changes are validated locally and accepted through normal pull-request review and merge.",
     },
   ];
 
@@ -85,7 +86,7 @@ export function runInitPreflight(
       status: installed ? "pass" : "warning",
       message: installed
         ? "Local gte-small embedding runtime is installed."
-        : "Embedding provider is local, but @huggingface/transformers is not installed; install it before import.",
+        : "Embedding provider is local, but @huggingface/transformers is not installed; install it before semantic search or sync.",
     });
   } else if (provider === "hash") {
     checks.push({
@@ -103,11 +104,11 @@ export function runInitPreflight(
   return checks;
 }
 
-/** Read-only verification of the database required by migrate/import. Offline init remains valid. */
+/** Read-only verification of the database required by migrate/sync. Offline init remains valid. */
 export async function runDatabasePreflight(
   env: NodeJS.ProcessEnv = process.env
 ): Promise<PreflightCheck[]> {
-  const dbUrl = env.DATABASE_URL_INGEST || env.SUPABASE_DB_URL_INGEST;
+  const dbUrl = env.DATABASE_URL_ADMIN;
   if (!dbUrl) return [];
   let sql: ReturnType<typeof postgres> | null = null;
   try {
@@ -120,7 +121,7 @@ export async function runDatabasePreflight(
         exists(select 1 from pg_extension where extname = 'vector') as vector_available,
         to_regclass('public.schema_migrations') is not null as migrations_available`;
     const checks: PreflightCheck[] = [
-      { key: "database_connection", status: "pass", message: "Ingest database connection succeeded." },
+      { key: "database_connection", status: "pass", message: "Admin database connection succeeded." },
       {
         key: "pgvector",
         status: capabilities.vector_available ? "pass" : "warning",
@@ -168,7 +169,7 @@ export async function runDatabasePreflight(
       {
         key: "database_connection",
         status: "warning",
-        message: `Could not verify the ingest database: ${message}`,
+        message: `Could not verify the admin database: ${message}`,
       },
     ];
   } finally {
