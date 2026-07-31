@@ -1,12 +1,23 @@
 #!/usr/bin/env node
 
 import "./loadEnv.js";
-import { realpathSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
+import type { Interface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
+import { Command, CommanderError, Option } from "commander";
 import type { EmbeddingProvider } from "./config.js";
+import {
+  ask,
+  createPalette,
+  intro,
+  outro,
+  paletteFor,
+  renderBanner,
+} from "./cli-ui.js";
+import type { Palette } from "./cli-ui.js";
 import {
   detectProductName,
   detectSourceRoots,
@@ -41,7 +52,18 @@ export interface TielineCliIO {
   write(message: string): void;
   error(message: string): void;
   question(message: string): Promise<string>;
+  /** True when attached to a real terminal; enables Clack prompts and color. */
+  interactive?: boolean;
 }
+
+const packageVersion = (
+  JSON.parse(
+    readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../package.json"),
+      "utf8"
+    )
+  ) as { version: string }
+).version;
 
 async function reloadRuntimeConfig(
   env: NodeJS.ProcessEnv
@@ -67,116 +89,6 @@ interface InitOptions {
   installLocalEmbedder: boolean;
 }
 
-function optionValue(args: string[], index: number, name: string): string {
-  const value = args[index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`--${name} requires a value.`);
-  }
-  return value;
-}
-
-function parseInit(
-  args: string[],
-  env: NodeJS.ProcessEnv
-): InitOptions {
-  let target: string | undefined;
-  let product: string | undefined;
-  let repoName: string | undefined;
-  let description: string | undefined;
-  let database: DatabaseMode = "offline";
-  let databaseExplicit = false;
-  let embedding = resolveEmbeddingProvider(env);
-  let embeddingExplicit = false;
-  const context: string[] = [];
-  const sourceRoots: string[] = [];
-  const ignore: string[] = [];
-  let yes = false;
-  let skipMigrate = false;
-  let installLocalEmbedder = false;
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index]!;
-    if (!arg.startsWith("--")) {
-      if (target) throw new Error("tieline init accepts one repository path.");
-      target = arg;
-      continue;
-    }
-    if (arg === "--yes") {
-      yes = true;
-      continue;
-    }
-    if (arg === "--offline") {
-      database = "offline";
-      databaseExplicit = true;
-      continue;
-    }
-    if (arg === "--skip-migrate") {
-      skipMigrate = true;
-      continue;
-    }
-    if (arg === "--install-local-embedder") {
-      installLocalEmbedder = true;
-      continue;
-    }
-    const [name, inline] = arg.slice(2).split("=", 2);
-    if (
-      ![
-        "product",
-        "repo-name",
-        "description",
-        "context",
-        "source-root",
-        "ignore",
-        "database",
-        "embedding",
-      ].includes(name)
-    ) {
-      throw new Error(`Unknown init option: --${name}`);
-    }
-    const value = inline ?? optionValue(args, index, name);
-    if (inline === undefined) index++;
-    if (name === "product") product = value;
-    if (name === "repo-name") repoName = value;
-    if (name === "description") description = value;
-    if (name === "context") context.push(value);
-    if (name === "source-root") sourceRoots.push(value);
-    if (name === "ignore") ignore.push(value);
-    if (name === "database") {
-      if (!["local", "existing", "offline"].includes(value)) {
-        throw new Error("--database must be local, existing, or offline.");
-      }
-      database = value as DatabaseMode;
-      databaseExplicit = true;
-    }
-    if (name === "embedding") {
-      if (
-        !["local", "openai", "supabase-edge", "hash"].includes(value)
-      ) {
-        throw new Error(
-          "--embedding must be local, openai, supabase-edge, or hash."
-        );
-      }
-      embedding = value as EmbeddingProvider;
-      embeddingExplicit = true;
-    }
-  }
-  return {
-    target: resolve(target ?? process.cwd()),
-    product,
-    repoName,
-    description,
-    context,
-    sourceRoots,
-    ignore,
-    database,
-    databaseExplicit,
-    embedding,
-    embeddingExplicit,
-    yes,
-    skipMigrate,
-    installLocalEmbedder,
-  };
-}
-
 function withoutDatabaseEnvironment(
   env: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv {
@@ -187,15 +99,17 @@ function withoutDatabaseEnvironment(
   return isolated;
 }
 
-function renderStatus(status: TielineStatus): string {
+function renderStatus(status: TielineStatus, ui: Palette): string {
+  const state = (ok: boolean, good: string, bad: string): string =>
+    ok ? ui.green(good) : ui.yellow(bad);
   return [
-    `Tieline: ${status.product} (${status.repo})`,
+    ui.bold(`Tieline: ${status.product} (${status.repo})`),
     `  root: ${status.root}`,
-    `  runtime: profile=${status.runtime.profile_present ? "present" : "missing"}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${status.runtime.setup_complete ? "complete" : "incomplete"}`,
-    `  capabilities: semantic_matching=${status.capabilities.semantic_matching_configured ? "configured" : "unconfigured"}, planning_writes=${status.capabilities.planning_writes_configured ? "configured" : "unconfigured"}`,
-    `  integration: mcp_template=${status.integration.mcp_template_present ? "present" : "missing"}`,
-    `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${status.contract.manifest_exists ? "present" : "missing"}`,
-    `Next: ${status.next_action}`,
+    `  runtime: profile=${state(status.runtime.profile_present, "present", "missing")}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${state(status.runtime.setup_complete, "complete", "incomplete")}`,
+    `  capabilities: semantic_matching=${state(status.capabilities.semantic_matching_configured, "configured", "unconfigured")}, planning_writes=${state(status.capabilities.planning_writes_configured, "configured", "unconfigured")}`,
+    `  integration: mcp_template=${state(status.integration.mcp_template_present, "present", "missing")}`,
+    `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${state(status.contract.manifest_exists, "present", "missing")}`,
+    `${ui.cyan("Next:")} ${status.next_action}`,
   ].join("\n");
 }
 
@@ -205,6 +119,7 @@ function renderInitSummary(
   io: TielineCliIO,
   env: NodeJS.ProcessEnv
 ): void {
+  const ui = paletteFor(io);
   io.write(
     `Source scope: ${workspace.config.repository.source_roots.join(", ")}\n`
   );
@@ -213,13 +128,15 @@ function renderInitSummary(
     workspace.config.repository.source_roots[0] === "."
   ) {
     io.write(
-      "Warning [source_scope]: no conventional source directory was detected; review repository.source_roots before claiming coverage.\n"
+      ui.yellow(
+        "Warning [source_scope]: no conventional source directory was detected; review repository.source_roots before claiming coverage.\n"
+      )
     );
   }
   for (const check of preflight.filter(
     (candidate) => candidate.status === "warning"
   )) {
-    io.write(`Warning [${check.key}]: ${check.message}\n`);
+    io.write(ui.yellow(`Warning [${check.key}]: ${check.message}\n`));
   }
   const status = getTielineStatus(workspace, env);
   if (status.contract.stories === 0) {
@@ -231,25 +148,8 @@ function renderInitSummary(
     "MCP template: register `.tieline/mcp.json` with your host and ensure its `tieline` command resolves this package.\n"
   );
   io.write(
-    "Next: invoke MCP prompt `tieline_author` (or the bundled /tieline-author skill) to onboard or reconcile behavior.\n"
+    `${ui.cyan("Next:")} invoke MCP prompt \`tieline_author\` (or the bundled /tieline-author skill) to onboard or reconcile behavior.\n`
   );
-}
-
-function printHelp(io: TielineCliIO): void {
-  io.write(`Tieline living-contract CLI
-
-Usage:
-  tieline init [repository] [options]
-  tieline status [repository] [--json]
-  tieline contract <validate|review|compile|coverage|sync> [repository] [options]
-  tieline check --base <ref> [repository] [--json]
-  tieline profile <list|put> [options]
-  tieline migrate [--verify]
-  tieline import-help <articles.json|articles.jsonl> [--batch-size 50]
-  tieline serve [--http|--stdio]
-
-Use /tieline-author for planning Story/AC writes, implementation, and branch reconciliation.
-`);
 }
 
 function firstPositional(
@@ -318,11 +218,10 @@ export function workspaceStartForCommand(
 }
 
 async function runInit(
-  args: string[],
+  parsed: InitOptions,
   io: TielineCliIO,
   env: NodeJS.ProcessEnv
 ): Promise<number> {
-  const parsed = parseInit(args, env);
   const existing = findTielineWorkspace(parsed.target);
   if (existing) {
     const stored = readWorkspaceProfile(existing, env);
@@ -368,25 +267,32 @@ async function runInit(
       return 0;
     }
     io.write(
-      `Tieline is already initialized at ${existing.directory}.\n${renderStatus(getTielineStatus(existing, env))}\n`
+      `Tieline is already initialized at ${existing.directory}.\n${renderStatus(getTielineStatus(existing, env), paletteFor(io))}\n`
     );
     return 0;
   }
+  const willPrompt =
+    !parsed.yes && (!parsed.product || !parsed.repoName);
+  if (willPrompt && io.interactive) {
+    io.write(`${renderBanner(paletteFor(io))}\n\n`);
+  }
+  if (willPrompt) await intro(io, "tieline init");
   const detectedProduct = detectProductName(parsed.target);
   const product =
     parsed.product ??
     (parsed.yes
       ? detectedProduct
-      : (await io.question(`Company/product name [${detectedProduct}]: `)).trim() ||
-        detectedProduct);
+      : await ask(io, "Company/product name", detectedProduct));
   const detectedRepo = slugifyRepoName(basename(parsed.target));
   const repoName = slugifyRepoName(
     parsed.repoName ??
       (parsed.yes
         ? detectedRepo
-        : (await io.question(`Stable repository name [${detectedRepo}]: `)).trim() ||
-          detectedRepo)
+        : await ask(io, "Stable repository name", detectedRepo))
   );
+  if (willPrompt) {
+    await outro(io, `Creating workspace for ${product} (${repoName})`);
+  }
   env.EMBEDDING_PROVIDER = parsed.embedding;
   const initEnv =
     parsed.database === "offline"
@@ -423,22 +329,255 @@ async function runInit(
   return 0;
 }
 
-function parseStatusArgs(args: string[]): {
-  path: string;
-  json: boolean;
-} {
-  const positionals = args.filter((arg) => !arg.startsWith("--"));
-  if (positionals.length > 1) {
-    throw new Error("tieline status accepts one repository path.");
-  }
-  const unknown = args.filter(
-    (arg) => arg.startsWith("--") && arg !== "--json"
-  );
-  if (unknown[0]) throw new Error(`Unknown status option: ${unknown[0]}`);
-  return {
-    path: positionals[0] ?? process.cwd(),
-    json: args.includes("--json"),
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+interface ContractActionOptions {
+  repo?: string;
+  commit?: string;
+  output?: string;
+  spec?: string;
+  expectedPreviousCommit?: string;
+  json?: boolean;
+}
+
+function buildProgram(
+  io: TielineCliIO,
+  env: NodeJS.ProcessEnv,
+  setExit: (code: number) => void,
+  writeErr: (message: string) => void
+): Command {
+  const program = new Command("tieline");
+  program
+    .description("Tieline living-contract CLI")
+    .version(packageVersion)
+    .exitOverride()
+    .configureOutput({
+      writeOut: (message) => io.write(message),
+      writeErr,
+    })
+    .addHelpText("before", () => `${renderBanner(paletteFor(io))}\n\n`)
+    .addHelpText(
+      "after",
+      "\nUse /tieline-author for planning Story/AC writes, implementation, and branch reconciliation."
+    );
+
+  program
+    .command("init")
+    .description("Create a Tieline workspace or resume runtime setup")
+    .argument("[repository]", "repository path", process.cwd())
+    .option("--product <name>", "company/product name")
+    .option("--repo-name <name>", "stable repository name")
+    .option("--description <text>", "product description")
+    .option("--context <location>", "context source (repeatable)", collect, [])
+    .option("--source-root <path>", "source root (repeatable)", collect, [])
+    .option("--ignore <pattern>", "ignore pattern (repeatable)", collect, [])
+    .addOption(
+      new Option("--database <mode>", "database mode").choices([
+        "local",
+        "existing",
+        "offline",
+      ])
+    )
+    .addOption(
+      new Option("--offline", "shorthand for --database offline").conflicts(
+        "database"
+      )
+    )
+    .addOption(
+      new Option("--embedding <provider>", "embedding provider").choices([
+        "local",
+        "openai",
+        "supabase-edge",
+        "hash",
+      ])
+    )
+    .option("--yes", "accept detected defaults without prompting")
+    .option("--skip-migrate", "skip applying database migrations")
+    .option(
+      "--install-local-embedder",
+      "install the optional local embedding runtime"
+    )
+    .action(async (repository: string, opts) => {
+      setExit(
+        await runInit(
+          {
+            target: resolve(repository),
+            product: opts.product,
+            repoName: opts.repoName,
+            description: opts.description,
+            context: opts.context,
+            sourceRoots: opts.sourceRoot,
+            ignore: opts.ignore,
+            database: opts.offline
+              ? "offline"
+              : ((opts.database as DatabaseMode | undefined) ?? "offline"),
+            databaseExplicit: Boolean(opts.offline || opts.database),
+            embedding:
+              (opts.embedding as EmbeddingProvider | undefined) ??
+              resolveEmbeddingProvider(env),
+            embeddingExplicit: Boolean(opts.embedding),
+            yes: Boolean(opts.yes),
+            skipMigrate: Boolean(opts.skipMigrate),
+            installLocalEmbedder: Boolean(opts.installLocalEmbedder),
+          },
+          io,
+          env
+        )
+      );
+    });
+
+  program
+    .command("status")
+    .description("Show workspace, runtime, and contract status")
+    .argument("[repository]", "repository path", process.cwd())
+    .option("--json", "emit machine-readable JSON")
+    .action((repository: string, opts) => {
+      const status = statusFromPath(repository, env);
+      io.write(
+        opts.json
+          ? `${JSON.stringify(status, null, 2)}\n`
+          : `${renderStatus(status, paletteFor(io))}\n`
+      );
+    });
+
+  const contract = program
+    .command("contract")
+    .description("Validate, review, compile, and sync the living contract");
+  const contractAction = (
+    name: string,
+    description: string
+  ): Command => {
+    const sub = contract
+      .command(name)
+      .description(description)
+      .argument("[repository]", "repository path")
+      .option("--repo <key>", "stable repository key")
+      .option("--commit <sha>", "commit recorded in the manifest")
+      .option("--output <path>", "output path")
+      .option("--spec <dir>", "spec directory")
+      .option("--json", "emit machine-readable JSON");
+    sub.action(async (repository: string | undefined, opts) => {
+      const { runContractCommand } = await import("./commands/contract.js");
+      setExit(
+        await runContractCommand(
+          name as
+            | "validate"
+            | "review"
+            | "compile"
+            | "coverage"
+            | "sync",
+          { repository, ...(opts as ContractActionOptions) },
+          io
+        )
+      );
+    });
+    return sub;
   };
+  contractAction("validate", "Validate accepted contract YAML");
+  contractAction("review", "Render a browser review page");
+  contractAction("compile", "Compile the contract manifest");
+  contractAction("coverage", "Report evidence and mapping coverage");
+  contractAction("sync", "Sync the reviewed manifest to the database").option(
+    "--expected-previous-commit <sha>",
+    "guard against concurrent syncs"
+  );
+
+  program
+    .command("check")
+    .description("Evaluate semantic impact of changes against a base ref")
+    .argument("[repository]", "repository path")
+    .requiredOption("--base <ref>", "git base ref to diff against")
+    .option("--repo <key>", "stable repository key")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (repository: string | undefined, opts) => {
+      const { runCheckCommand } = await import("./commands/check.js");
+      setExit(
+        await runCheckCommand(
+          {
+            base: opts.base,
+            repository,
+            repo: opts.repo,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+
+  const profile = program
+    .command("profile")
+    .description("Manage stored search profiles");
+  profile
+    .command("list")
+    .description("List stored profiles")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runProfileListCommand } = await import(
+        "./commands/profile.js"
+      );
+      setExit(await runProfileListCommand({ json: Boolean(opts.json) }, io));
+    });
+  profile
+    .command("put")
+    .description("Store a profile definition")
+    .requiredOption("--key <key>", "profile key")
+    .requiredOption("--file <definition.json>", "profile definition file")
+    .requiredOption("--created-by <actor>", "actor recorded on the profile")
+    .action(async (opts) => {
+      const { runProfilePutCommand } = await import(
+        "./commands/profile.js"
+      );
+      setExit(
+        await runProfilePutCommand(
+          { key: opts.key, file: opts.file, createdBy: opts.createdBy },
+          io
+        )
+      );
+    });
+
+  program
+    .command("migrate")
+    .description("Apply or verify packaged database migrations")
+    .option("--verify", "verify without applying")
+    .action(async (opts) => {
+      const { runMigrateCommand } = await import("./commands/migrate.js");
+      setExit(await runMigrateCommand({ verify: Boolean(opts.verify) }));
+    });
+
+  program
+    .command("import-help")
+    .description("Import help articles from JSON or JSONL")
+    .argument("<input>", "articles.json or articles.jsonl")
+    .option("--batch-size <n>", "articles per batch (1-200)", "50")
+    .action(async (inputPath: string, opts) => {
+      const { runImportHelpCommand } = await import(
+        "./commands/import-help.js"
+      );
+      setExit(
+        await runImportHelpCommand(inputPath, {
+          batchSize: Number(opts.batchSize),
+        })
+      );
+    });
+
+  program
+    .command("serve")
+    .description("Run the Tieline MCP server")
+    .addOption(new Option("--http", "serve over HTTP").conflicts("stdio"))
+    .option("--stdio", "serve over stdio")
+    .action(async (opts) => {
+      const { runServeCommand } = await import("./commands/serve.js");
+      setExit(
+        await runServeCommand({
+          http: Boolean(opts.http),
+          stdio: Boolean(opts.stdio),
+        })
+      );
+    });
+
+  return program;
 }
 
 export async function runCli(
@@ -446,6 +585,18 @@ export async function runCli(
   io: TielineCliIO,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<number> {
+  let exitCode = 0;
+  let commanderErr = "";
+  const program = buildProgram(
+    io,
+    env,
+    (code) => {
+      exitCode = code;
+    },
+    (message) => {
+      commanderErr += message;
+    }
+  );
   const [command, ...args] = argv;
   if (
     !command ||
@@ -453,7 +604,7 @@ export async function runCli(
     command === "--help" ||
     command === "-h"
   ) {
-    printHelp(io);
+    program.outputHelp();
     return 0;
   }
   loadWorkspaceProfileForCommand(
@@ -462,63 +613,100 @@ export async function runCli(
     env
   );
   await reloadRuntimeConfig(env);
+  try {
+    await program.parseAsync(argv, { from: "user" });
+    return exitCode;
+  } catch (error) {
+    if (error instanceof CommanderError) {
+      if (error.exitCode === 0) return 0;
+      if (error.code === "commander.help") {
+        io.error(commanderErr);
+        return error.exitCode || 1;
+      }
+      throw new Error(
+        (commanderErr.trim() || error.message).replace(/^error: /, "")
+      );
+    }
+    throw error;
+  }
+}
 
-  if (command === "init") return runInit(args, io, env);
-  if (command === "status") {
-    const parsed = parseStatusArgs(args);
-    const status = statusFromPath(parsed.path, env);
-    io.write(
-      parsed.json
-        ? `${JSON.stringify(status, null, 2)}\n`
-        : `${renderStatus(status)}\n`
+/**
+ * Buffers input lines so answers piped through stdin survive the gap
+ * between questions, and rejects (instead of letting the process exit
+ * silently) when input ends before an answer arrives.
+ */
+function createQuestioner(): {
+  question(message: string): Promise<string>;
+  close(): void;
+} {
+  let readline: Interface | undefined;
+  const buffered: string[] = [];
+  let waiter:
+    | { resolve: (line: string) => void; reject: (error: Error) => void }
+    | undefined;
+  let closed = false;
+  const endedEarly = () =>
+    new Error(
+      "Input ended before a response was received; pass flags or --yes for non-interactive runs."
     );
-    return 0;
-  }
-  if (command === "contract") {
-    const { runContractCommand } = await import("./commands/contract.js");
-    return runContractCommand(args, io);
-  }
-  if (command === "check") {
-    const { runCheckCommand } = await import("./commands/check.js");
-    return runCheckCommand(args, io);
-  }
-  if (command === "profile") {
-    const { runProfileCommand } = await import("./commands/profile.js");
-    return runProfileCommand(args, io);
-  }
-  if (command === "migrate") {
-    const { runMigrateCommand } = await import("./commands/migrate.js");
-    return runMigrateCommand(args);
-  }
-  if (command === "import-help") {
-    const { runImportHelpCommand } = await import(
-      "./commands/import-help.js"
-    );
-    return runImportHelpCommand(args);
-  }
-  if (command === "serve") {
-    const { runServeCommand } = await import("./commands/serve.js");
-    return runServeCommand(args);
-  }
-  throw new Error(`Unknown command '${command}'. Run \`tieline --help\`.`);
+  const ensure = (): void => {
+    if (readline) return;
+    readline = createInterface({ input, output });
+    readline.on("line", (line) => {
+      if (waiter) {
+        const current = waiter;
+        waiter = undefined;
+        current.resolve(line);
+      } else {
+        buffered.push(line);
+      }
+    });
+    readline.on("close", () => {
+      closed = true;
+      if (waiter) {
+        const current = waiter;
+        waiter = undefined;
+        current.reject(endedEarly());
+      }
+    });
+  };
+  return {
+    question(message) {
+      ensure();
+      output.write(message);
+      const line = buffered.shift();
+      if (line !== undefined) return Promise.resolve(line);
+      if (closed) return Promise.reject(endedEarly());
+      return new Promise((resolve, reject) => {
+        waiter = { resolve, reject };
+      });
+    },
+    close() {
+      readline?.close();
+    },
+  };
 }
 
 async function main(): Promise<void> {
-  const readline = createInterface({ input, output });
+  const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const questioner = createQuestioner();
   const io: TielineCliIO = {
     write: (message) => process.stdout.write(message),
     error: (message) => process.stderr.write(message),
-    question: (message) => readline.question(message),
+    question: (message) => questioner.question(message),
+    interactive,
   };
   try {
     process.exitCode = await runCli(process.argv.slice(2), io);
   } catch (error) {
+    const ui = createPalette(interactive);
     io.error(
-      `Tieline error: ${error instanceof Error ? error.message : String(error)}\n`
+      `${ui.red("Tieline error:")} ${error instanceof Error ? error.message : String(error)}\n`
     );
     process.exitCode = 1;
   } finally {
-    readline.close();
+    questioner.close();
   }
 }
 

@@ -94,16 +94,14 @@ export async function migrateDatabase(dbUrl: string, verifyOnly = false): Promis
   }
 }
 
-export async function runMigrateCommand(args: string[]): Promise<number> {
-  const unknown = args.filter((arg) => arg !== "--verify");
-  if (unknown.length > 0) {
-    throw new Error(`Unknown migrate option '${unknown[0]}'. Usage: tieline migrate [--verify]`);
-  }
+export async function runMigrateCommand(options: {
+  verify?: boolean;
+}): Promise<number> {
   if (!config.dbAdminUrl) {
     throw new Error(
       "Set DATABASE_URL_ADMIN to the database owner used for DDL; the MCP server never loads this connection."
     );
   }
-  await migrateDatabase(config.dbAdminUrl, args.includes("--verify"));
+  await migrateDatabase(config.dbAdminUrl, options.verify === true);
   return 0;
 }

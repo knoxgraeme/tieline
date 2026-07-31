@@ -123,7 +123,7 @@ converges definitions without deleting history.
 
 ## Requirements and installation
 
-- Node.js 18 or newer.
+- Node.js 20.12 or newer.
 - Docker with a running daemon when using `--database local`.
 - An existing PostgreSQL database with pgvector when using
   `--database existing`.
