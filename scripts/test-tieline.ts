@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -280,7 +281,7 @@ try {
     runCli(["init", target, "--yes", "--force"], io().adapter, {
       TIELINE_CONFIG_HOME: configHome,
     }),
-    /Unknown init option: --force/
+    /unknown option '--force'/
   );
 
   await assert.rejects(
@@ -401,9 +402,56 @@ try {
       runCli([removed], io().adapter, {
         TIELINE_CONFIG_HOME: configHome,
       }),
-      /Unknown command/
+      /unknown command/i
     );
   }
+
+  // The stdin questioner lives in main(), so runCli-based tests bypass it;
+  // spawn the built CLI with piped stdin to exercise buffering and EOF.
+  const cliBin = resolve(process.cwd(), "dist/cli.js");
+  const pipedTarget = resolve(root, "piped-init");
+  mkdirSync(resolve(pipedTarget, "src"), { recursive: true });
+  writeFileSync(
+    resolve(pipedTarget, "package.json"),
+    JSON.stringify({ name: "piped-product" })
+  );
+  const piped = spawnSync(
+    "node",
+    [cliBin, "init", pipedTarget, "--embedding", "hash"],
+    {
+      input: "Piped Product\npiped-repo\n",
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(piped.status, 0, piped.stderr);
+  const pipedWorkspace = findTielineWorkspace(pipedTarget);
+  assert.ok(pipedWorkspace);
+  assert.equal(pipedWorkspace.config.product.name, "Piped Product");
+  assert.equal(pipedWorkspace.config.product.repo_name, "piped-repo");
+
+  const eofTarget = resolve(root, "eof-init");
+  mkdirSync(resolve(eofTarget, "src"), { recursive: true });
+  const eof = spawnSync(
+    "node",
+    [cliBin, "init", eofTarget, "--embedding", "hash"],
+    {
+      input: "",
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(eof.status, 1);
+  assert.match(eof.stderr, /Input ended before a response was received/);
+
+  // Bare group commands print clean help on stderr, not a "Tieline error:".
+  const bareContract = spawnSync("node", [cliBin, "contract"], {
+    encoding: "utf8",
+    env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+  });
+  assert.equal(bareContract.status, 1);
+  assert.match(bareContract.stderr, /Usage: tieline contract/);
+  assert.doesNotMatch(bareContract.stderr, /Tieline error:/);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

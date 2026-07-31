@@ -15,43 +15,23 @@ interface CheckIO {
   write(message: string): void;
 }
 
-function option(args: string[], name: string): string | undefined {
-  const inline = args.find((arg) => arg.startsWith(`--${name}=`));
-  if (inline) return inline.slice(name.length + 3);
-  const index = args.indexOf(`--${name}`);
-  return index >= 0 ? args[index + 1] : undefined;
-}
-
-function repositoryPath(args: string[]): string {
-  const valueOptions = new Set(["base", "repo"]);
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index]!;
-    if (!arg.startsWith("--")) {
-      if (index > 0 && valueOptions.has(args[index - 1]!.slice(2))) {
-        continue;
-      }
-      return arg;
-    }
-    if (!arg.includes("=") && valueOptions.has(arg.slice(2))) index++;
-  }
-  return process.cwd();
+export interface CheckCommandOptions {
+  base: string;
+  repository?: string;
+  repo?: string;
+  json?: boolean;
 }
 
 export async function runCheckCommand(
-  args: string[],
+  options: CheckCommandOptions,
   io: CheckIO
 ): Promise<number> {
-  const base = option(args, "base");
-  if (!base) {
-    throw new Error(
-      "Usage: tieline check --base <ref> [repository] [--json]"
-    );
-  }
-  const requestedRoot = resolve(repositoryPath(args));
+  const base = options.base;
+  const requestedRoot = resolve(options.repository ?? process.cwd());
   const workspace = findTielineWorkspace(requestedRoot);
   const root = workspace?.root ?? requestedRoot;
   const repositoryKey =
-    option(args, "repo") ??
+    options.repo ??
     workspace?.config.product.repo_name ??
     basename(root);
   const manifestPath =
@@ -108,7 +88,7 @@ export async function runCheckCommand(
         ),
     ],
   };
-  if (args.includes("--json")) {
+  if (options.json) {
     io.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
     io.write(

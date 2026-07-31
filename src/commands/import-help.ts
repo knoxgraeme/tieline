@@ -25,17 +25,13 @@ function parseInput(path: string): ReturnType<typeof helpArticleImportPayloadSch
   return helpArticleImportPayloadSchema.parse(JSON.parse(body));
 }
 
-export async function runImportHelpCommand(args: string[]): Promise<number> {
-  const batchIndex = args.indexOf("--batch-size");
-  const batchSize = batchIndex >= 0 ? Number(args[batchIndex + 1]) : 50;
+export async function runImportHelpCommand(
+  input: string,
+  options: { batchSize: number }
+): Promise<number> {
+  const batchSize = options.batchSize;
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 200) {
     throw new Error("--batch-size must be an integer from 1 to 200.");
-  }
-  const input = args.find(
-    (arg, index) => !arg.startsWith("--") && args[index - 1] !== "--batch-size"
-  );
-  if (!input) {
-    throw new Error("Usage: tieline import-help path/to/articles.json[|jsonl] [--batch-size 50]");
   }
   const path = resolve(process.cwd(), input);
   if (!existsSync(path)) throw new Error(`Not found: ${path}`);

@@ -107,7 +107,7 @@ capability:
   const baselineOutput: string[] = [];
   assert.equal(
     await runCheckCommand(
-      ["--base", "HEAD", root, "--json"],
+      { base: "HEAD", repository: root, json: true },
       { write: (message) => baselineOutput.push(message) }
     ),
     0
@@ -172,7 +172,7 @@ capability:
   const output: string[] = [];
   assert.equal(
     await runCheckCommand(
-      ["--base", "HEAD", root, "--json"],
+      { base: "HEAD", repository: root, json: true },
       { write: (message) => output.push(message) }
     ),
     0
@@ -186,7 +186,7 @@ capability:
 
   await assert.rejects(
     runCheckCommand(
-      ["--base", "HEAD", `${root}-missing`],
+      { base: "HEAD", repository: `${root}-missing` },
       { write: () => undefined }
     ),
     /unreadable/i

@@ -30,8 +30,25 @@ interface ContractCommandIO {
   write(message: string): void;
 }
 
+export type ContractAction =
+  | "validate"
+  | "review"
+  | "compile"
+  | "coverage"
+  | "sync";
+
+export interface ContractCommandOptions {
+  repository?: string;
+  repo?: string;
+  commit?: string;
+  output?: string;
+  spec?: string;
+  expectedPreviousCommit?: string;
+  json?: boolean;
+}
+
 interface ParsedContractCommand {
-  action: "validate" | "review" | "compile" | "coverage" | "sync";
+  action: ContractAction;
   repositoryRoot: string;
   repositoryKey: string;
   commit?: string;
@@ -41,14 +58,6 @@ interface ParsedContractCommand {
   ignore: string[];
   expectedPreviousCommit?: string;
   json: boolean;
-}
-
-function valueAfter(args: string[], index: number, name: string): string {
-  const value = args[index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`--${name} requires a value.`);
-  }
-  return value;
 }
 
 function gitCommit(repositoryRoot: string): string {
@@ -65,74 +74,26 @@ function gitCommit(repositoryRoot: string): string {
   }
 }
 
-function parseContractCommand(args: string[]): ParsedContractCommand {
-  const action = args[0];
-  if (
-    action !== "validate" &&
-    action !== "review" &&
-    action !== "compile" &&
-    action !== "coverage" &&
-    action !== "sync"
-  ) {
-    throw new Error(
-      "Usage: tieline contract <validate|review|compile|coverage|sync> [repository] [options]"
-    );
-  }
-
-  let repositoryPath: string | undefined;
-  let repositoryKey: string | undefined;
-  let commit: string | undefined;
-  let outputPath: string | undefined;
-  let specDirectory: string | undefined;
-  let expectedPreviousCommit: string | undefined;
-  let json = false;
-
-  for (let index = 1; index < args.length; index++) {
-    const arg = args[index]!;
-    if (arg === "--json") {
-      json = true;
-      continue;
-    }
-    if (!arg.startsWith("--")) {
-      if (repositoryPath) {
-        throw new Error("contract commands accept at most one repository path.");
-      }
-      repositoryPath = arg;
-      continue;
-    }
-    const [rawName, inlineValue] = arg.slice(2).split("=", 2);
-    const name = rawName;
-    if (
-      name !== "repo" &&
-      name !== "commit" &&
-      name !== "output" &&
-      name !== "spec" &&
-      name !== "expected-previous-commit"
-    ) {
-      throw new Error(`Unknown contract option: --${name}`);
-    }
-    const value = inlineValue ?? valueAfter(args, index, name);
-    if (inlineValue === undefined) index++;
-    if (name === "repo") repositoryKey = value;
-    if (name === "commit") commit = value;
-    if (name === "output") outputPath = value;
-    if (name === "spec") specDirectory = value;
-    if (name === "expected-previous-commit") expectedPreviousCommit = value;
-  }
-
-  const requestedRoot = resolve(repositoryPath ?? process.cwd());
+function resolveContractCommand(
+  action: ContractAction,
+  options: ContractCommandOptions
+): ParsedContractCommand {
+  const requestedRoot = resolve(options.repository ?? process.cwd());
   const workspace = findTielineWorkspace(requestedRoot);
   const repositoryRoot = workspace?.root ?? requestedRoot;
-  repositoryKey ??= workspace?.config.product.repo_name ?? basename(repositoryRoot);
-  specDirectory ??= workspace
-    ? workspace.config.files.spec_directory.startsWith(".tieline/")
-      ? workspace.config.files.spec_directory
-      : `.tieline/${workspace.config.files.spec_directory}`
-    : ".tieline/spec";
-  const resolvedOutput = outputPath
-    ? isAbsolute(outputPath)
-      ? outputPath
-      : resolve(repositoryRoot, outputPath)
+  const repositoryKey =
+    options.repo ?? workspace?.config.product.repo_name ?? basename(repositoryRoot);
+  const specDirectory =
+    options.spec ??
+    (workspace
+      ? workspace.config.files.spec_directory.startsWith(".tieline/")
+        ? workspace.config.files.spec_directory
+        : `.tieline/${workspace.config.files.spec_directory}`
+      : ".tieline/spec");
+  const resolvedOutput = options.output
+    ? isAbsolute(options.output)
+      ? options.output
+      : resolve(repositoryRoot, options.output)
     : resolve(
         repositoryRoot,
         action === "review" ? ".tieline/review.html" : ".tieline/manifest.json"
@@ -141,13 +102,13 @@ function parseContractCommand(args: string[]): ParsedContractCommand {
     action,
     repositoryRoot,
     repositoryKey,
-    commit,
+    commit: options.commit,
     outputPath: resolvedOutput,
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
-    expectedPreviousCommit,
-    json,
+    expectedPreviousCommit: options.expectedPreviousCommit,
+    json: options.json === true,
   };
 }
 
@@ -176,10 +137,11 @@ function coverage(manifest: ContractManifest): {
 }
 
 export async function runContractCommand(
-  args: string[],
+  action: ContractAction,
+  options: ContractCommandOptions,
   io: ContractCommandIO
 ): Promise<number> {
-  const parsed = parseContractCommand(args);
+  const parsed = resolveContractCommand(action, options);
   if (parsed.action === "validate") {
     const result = loadAcceptedContract(parsed.repositoryRoot, parsed.specDirectory);
     const response = {
