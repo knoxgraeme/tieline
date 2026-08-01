@@ -491,6 +491,10 @@ function buildProgram(
     .requiredOption("--base <ref>", "git base ref to diff against")
     .option("--repo <key>", "stable repository key")
     .option("--json", "emit machine-readable JSON")
+    .option(
+      "--no-fail-on-broken",
+      "report broken links as warnings instead of failing"
+    )
     .action(async (repository: string | undefined, opts) => {
       const { runCheckCommand } = await import("./commands/check.js");
       setExit(
@@ -500,6 +504,7 @@ function buildProgram(
             repository,
             repo: opts.repo,
             json: Boolean(opts.json),
+            failOnBroken: opts.failOnBroken !== false,
           },
           io
         )

@@ -1,6 +1,8 @@
 import type {
   ContractManifest,
+  ManifestAcceptanceCriterion,
   ManifestLink,
+  ManifestStory,
 } from "./manifest.js";
 import {
   createArtifactHashResolver,
@@ -11,10 +13,23 @@ export type RepositoryPathChange =
   | { status: "modified" | "added" | "deleted"; path: string }
   | { status: "renamed"; old_path: string; path: string };
 
+/**
+ * Why a link is structurally broken. These causes require no human judgement:
+ * the manifest points somewhere that cannot hold reviewable evidence.
+ */
+export type BrokenLinkCause =
+  | "missing"
+  | "not_file"
+  | "outside_repository";
+
 export interface AcceptanceCriterionImpact {
   repository: string;
   story_stable_id: string;
+  /** Story title, so a reviewer sees the behaviour, not only the identifier. */
+  story_title: string;
   acceptance_criterion_stable_id: string;
+  /** The acceptance criterion sentence exactly as it was accepted. */
+  acceptance_criterion: string;
   relation: string;
   link_scope: "direct" | "story_fallback" | "contract";
   path: string;
@@ -23,23 +38,58 @@ export interface AcceptanceCriterionImpact {
     | "added"
     | "deleted"
     | "renamed"
-    | "contract_definition_changed";
-  freshness: "current" | "stale" | "unknown" | "not_applicable";
+    | "contract_definition_changed"
+    | "link_target_broken";
+  freshness:
+    | "current"
+    | "stale"
+    | "unknown"
+    | "not_applicable"
+    | "broken";
+  /** Present only when `freshness` is `broken`. */
+  broken_cause?: BrokenLinkCause;
+}
+
+interface LinkFreshness {
+  freshness: AcceptanceCriterionImpact["freshness"];
+  broken_cause?: BrokenLinkCause;
+}
+
+export function isBrokenImpact(
+  impact: AcceptanceCriterionImpact
+): boolean {
+  return impact.freshness === "broken";
+}
+
+export function describeBrokenCause(cause: BrokenLinkCause): string {
+  switch (cause) {
+    case "missing":
+      return "the linked path does not exist";
+    case "not_file":
+      return "the linked path is not a file";
+    case "outside_repository":
+      return "the linked path resolves outside the repository";
+  }
 }
 
 function linkFreshness(
   hashes: ArtifactHashResolver,
   ownerRepository: string,
   link: ManifestLink
-): AcceptanceCriterionImpact["freshness"] {
-  if (link.target.kind === "help") return "not_applicable";
-  if (link.target.repository !== ownerRepository) return "unknown";
-  if (!link.reviewed_content_hash) return "stale";
+): LinkFreshness {
+  if (link.target.kind === "help") return { freshness: "not_applicable" };
+  if (link.target.repository !== ownerRepository) {
+    return { freshness: "unknown" };
+  }
   const measured = hashes.measure(link.target.path);
-  return measured.status === "hashed" &&
-    measured.hash === link.reviewed_content_hash
-    ? "current"
-    : "stale";
+  if (measured.status !== "hashed") {
+    return { freshness: "broken", broken_cause: measured.status };
+  }
+  if (!link.reviewed_content_hash) return { freshness: "stale" };
+  return {
+    freshness:
+      measured.hash === link.reviewed_content_hash ? "current" : "stale",
+  };
 }
 
 function changeForPath(
@@ -63,8 +113,8 @@ function linkedImpact(input: {
   hashes: ArtifactHashResolver;
   manifest: ContractManifest;
   changes: RepositoryPathChange[];
-  storyStableId: string;
-  criterionStableId: string;
+  story: ManifestStory;
+  criterion: ManifestAcceptanceCriterion;
   link: ManifestLink;
   scope: "direct" | "story_fallback";
 }): AcceptanceCriterionImpact | null {
@@ -74,20 +124,70 @@ function linkedImpact(input: {
     input.link.target.path
   );
   if (!change) return null;
+  const freshness = linkFreshness(
+    input.hashes,
+    input.manifest.repository.key,
+    input.link
+  );
   return {
     repository: input.manifest.repository.key,
-    story_stable_id: input.storyStableId,
-    acceptance_criterion_stable_id: input.criterionStableId,
+    story_stable_id: input.story.stable_id,
+    story_title: input.story.title,
+    acceptance_criterion_stable_id: input.criterion.stable_id,
+    acceptance_criterion: input.criterion.criterion,
     relation: input.link.relation,
     link_scope: input.scope,
     path: input.link.target.path,
     reason: reason(change),
-    freshness: linkFreshness(
-      input.hashes,
-      input.manifest.repository.key,
-      input.link
-    ),
+    freshness: freshness.freshness,
+    ...(freshness.broken_cause
+      ? { broken_cause: freshness.broken_cause }
+      : {}),
   };
+}
+
+/**
+ * A link can rot without the change under review touching it, so broken links
+ * are swept independently of the diff.
+ */
+function brokenLinkImpact(input: {
+  hashes: ArtifactHashResolver;
+  manifest: ContractManifest;
+  story: ManifestStory;
+  criterion: ManifestAcceptanceCriterion;
+  link: ManifestLink;
+  scope: "direct" | "story_fallback";
+}): AcceptanceCriterionImpact | null {
+  if (input.link.target.kind === "help") return null;
+  const freshness = linkFreshness(
+    input.hashes,
+    input.manifest.repository.key,
+    input.link
+  );
+  if (freshness.freshness !== "broken" || !freshness.broken_cause) {
+    return null;
+  }
+  return {
+    repository: input.manifest.repository.key,
+    story_stable_id: input.story.stable_id,
+    story_title: input.story.title,
+    acceptance_criterion_stable_id: input.criterion.stable_id,
+    acceptance_criterion: input.criterion.criterion,
+    relation: input.link.relation,
+    link_scope: input.scope,
+    path: input.link.target.path,
+    reason: "link_target_broken",
+    freshness: "broken",
+    broken_cause: freshness.broken_cause,
+  };
+}
+
+function linkKey(impact: AcceptanceCriterionImpact): string {
+  return [
+    impact.acceptance_criterion_stable_id,
+    impact.path,
+    impact.link_scope,
+  ].join("\0");
 }
 
 export function analyzeContractImpact(input: {
@@ -97,6 +197,7 @@ export function analyzeContractImpact(input: {
   specDirectory?: string;
 }): AcceptanceCriterionImpact[] {
   const impacts: AcceptanceCriterionImpact[] = [];
+  const broken: AcceptanceCriterionImpact[] = [];
   const hashes = createArtifactHashResolver(input.repositoryRoot);
   const specPrefix = `${(input.specDirectory ?? ".tieline/spec").replace(/\/+$/, "")}/`;
   const contractChanged = input.changes.some((change) => {
@@ -114,7 +215,9 @@ export function analyzeContractImpact(input: {
           impacts.push({
             repository: input.manifest.repository.key,
             story_stable_id: story.stable_id,
+            story_title: story.title,
             acceptance_criterion_stable_id: criterion.stable_id,
+            acceptance_criterion: criterion.criterion,
             relation: "defines",
             link_scope: "contract",
             path: input.specDirectory ?? ".tieline/spec",
@@ -122,29 +225,39 @@ export function analyzeContractImpact(input: {
             freshness: "not_applicable",
           });
         }
-        for (const link of criterion.links) {
+        const scoped: Array<{
+          link: ManifestLink;
+          scope: "direct" | "story_fallback";
+        }> = [
+          ...criterion.links.map((link) => ({
+            link,
+            scope: "direct" as const,
+          })),
+          ...story.links.map((link) => ({
+            link,
+            scope: "story_fallback" as const,
+          })),
+        ];
+        for (const { link, scope } of scoped) {
           const impact = linkedImpact({
             hashes,
             manifest: input.manifest,
             changes: input.changes,
-            storyStableId: story.stable_id,
-            criterionStableId: criterion.stable_id,
+            story,
+            criterion,
             link,
-            scope: "direct",
+            scope,
           });
           if (impact) impacts.push(impact);
-        }
-        for (const link of story.links) {
-          const impact = linkedImpact({
+          const brokenImpact = brokenLinkImpact({
             hashes,
             manifest: input.manifest,
-            changes: input.changes,
-            storyStableId: story.stable_id,
-            criterionStableId: criterion.stable_id,
+            story,
+            criterion,
             link,
-            scope: "story_fallback",
+            scope,
           });
-          if (impact) impacts.push(impact);
+          if (brokenImpact) broken.push(brokenImpact);
         }
       }
     }
@@ -160,6 +273,22 @@ export function analyzeContractImpact(input: {
       ].join("\0"),
       impact
     );
+  }
+  // A diff-driven finding for the same link already carries `freshness:
+  // "broken"`, so the sweep only adds links the diff never touched.
+  const diffDrivenLinks = new Set(
+    [...unique.values()]
+      .filter((impact) => impact.link_scope !== "contract")
+      .map(linkKey)
+  );
+  const brokenUnique = new Map<string, AcceptanceCriterionImpact>();
+  for (const impact of broken) {
+    const key = linkKey(impact);
+    if (diffDrivenLinks.has(key)) continue;
+    brokenUnique.set(key, impact);
+  }
+  for (const [key, impact] of brokenUnique) {
+    unique.set(`${key}\0link_target_broken`, impact);
   }
   return [...unique.values()].sort(
     (left, right) =>
