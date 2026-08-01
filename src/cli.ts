@@ -339,6 +339,7 @@ interface ContractActionOptions {
   output?: string;
   spec?: string;
   expectedPreviousCommit?: string;
+  coverage?: string;
   json?: boolean;
 }
 
@@ -467,6 +468,8 @@ function buildProgram(
             | "review"
             | "compile"
             | "coverage"
+            | "corroborate"
+            | "link-review"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -478,7 +481,24 @@ function buildProgram(
   contractAction("validate", "Validate accepted contract YAML");
   contractAction("review", "Render a browser review page");
   contractAction("compile", "Compile the contract manifest");
-  contractAction("coverage", "Report evidence and mapping coverage");
+  contractAction(
+    "coverage",
+    "Report evidence and mapping coverage with confidence tiers"
+  ).option(
+    "--coverage <path>",
+    "coverage report enabling the execution-corroborated tier"
+  );
+  contractAction(
+    "corroborate",
+    "Hold contract links against observed test execution (reports only)"
+  ).requiredOption(
+    "--coverage <path>",
+    "coverage report produced by the test run"
+  );
+  contractAction(
+    "link-review",
+    "Suggest contract links a human should re-read (advisory only)"
+  );
   contractAction("sync", "Sync the reviewed manifest to the database").option(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"

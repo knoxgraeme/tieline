@@ -102,6 +102,15 @@ capability:
                 repository: corroboration-fixture
                 path: scripts/absent.test.ts
                 framework_hint: custom-script
+        - key: AC-COV-005
+          criterion: Tieline must not corroborate a criterion that links no implementation.
+          links:
+            - relation: tests
+              target:
+                kind: test
+                repository: corroboration-fixture
+                path: scripts/feature.test.ts
+                framework_hint: custom-script
 `
   );
 
@@ -334,14 +343,18 @@ end_of_record
   assert.equal(report.summary.dropped_paths_outside_repository, 2);
   assert.equal(report.summary.attributed_test_runs, 1);
   assert.equal(report.summary.candidate_links_evaluated, true);
-  assert.equal(report.summary.acceptance_criteria_examined, 4);
-  assert.equal(report.summary.acceptance_criteria_with_test_evidence, 2);
+  assert.equal(report.summary.acceptance_criteria_examined, 5);
+  // AC-COV-001, AC-COV-002 and AC-COV-005 have a linked test that ran.
+  assert.equal(report.summary.acceptance_criteria_with_test_evidence, 3);
 
-  // An acceptance criterion whose tests ran but whose implementation link was
-  // never executed has evidence against it, so it must not also be counted as
-  // corroborated. Corroborated is a strict subset of with_test_evidence.
+  // Corroborated is a strict subset of with_test_evidence, for two reasons.
+  // AC-COV-002's tests ran but its implementation link never executed, so it
+  // has evidence against it. AC-COV-005's tests ran but it links no
+  // implementation at all, so execution has nothing to corroborate — running
+  // tests must never be reported as corroborating an absent claim.
+  assert.equal(report.summary.acceptance_criteria_corroborated_by_execution, 1);
   assert.ok(
-    report.summary.acceptance_criteria_corroborated_by_execution <=
+    report.summary.acceptance_criteria_corroborated_by_execution <
       report.summary.acceptance_criteria_with_test_evidence
   );
   const unsupportedCriteria = new Set(
@@ -349,10 +362,21 @@ end_of_record
       .filter((finding) => finding.kind === "unsupported_implementation")
       .map((finding) => finding.acceptance_criterion_stable_id)
   );
-  assert.equal(
-    report.summary.acceptance_criteria_corroborated_by_execution,
-    report.summary.acceptance_criteria_with_test_evidence -
-      unsupportedCriteria.size
+  assert.ok(unsupportedCriteria.has("AC-COV-002"));
+  // A criterion carrying evidence against it is never counted as corroborated.
+  assert.ok(
+    report.summary.acceptance_criteria_corroborated_by_execution <=
+      report.summary.acceptance_criteria_with_test_evidence -
+        unsupportedCriteria.size
+  );
+  // AC-COV-005 links a test but no implementation, so execution reaches no
+  // conclusion about it in either direction. It may still suggest what its
+  // test executed, but it must never emit a verdict-shaped finding.
+  const unimplemented = report.findings.filter(
+    (finding) => finding.acceptance_criterion_stable_id === "AC-COV-005"
+  );
+  assert.ok(
+    unimplemented.every((finding) => finding.kind === "candidate_link")
   );
 
   // Stable sort order, by acceptance criterion then kind then path.
@@ -432,7 +456,9 @@ end_of_record
   }
 
   assert.deepEqual(report.summary.findings_by_kind, {
-    candidate_link: 2,
+    // AC-COV-005 links a test but no code, so everything that test executed is
+    // a candidate link for it.
+    candidate_link: 3,
     uncovered_by_linked_tests: 2,
     unsupported_implementation: 1,
   });

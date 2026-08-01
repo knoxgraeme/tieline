@@ -608,12 +608,14 @@ export function analyzeExecutionCorroboration(
 
         if (evidence.established) {
           withTestEvidence += 1;
+          let implementationLinks = 0;
           for (const link of criterion.links) {
             if (link.relation !== "implements" && link.relation !== "enforces") {
               continue;
             }
             const path = localTargetPath(link, repositoryKey);
             if (!path) continue;
+            implementationLinks += 1;
             const file = files.get(path);
             if (file?.executed) continue;
             partial.push({
@@ -646,7 +648,10 @@ export function analyzeExecutionCorroboration(
               minimumExecutedLines,
             })
           );
+          // A criterion with no local implementation link has nothing for
+          // execution to corroborate, however thoroughly its tests ran.
           if (
+            implementationLinks > 0 &&
             !partial.some(
               (finding) => finding.kind === "unsupported_implementation"
             )
