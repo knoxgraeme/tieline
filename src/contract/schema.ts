@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseSelector } from "./selector.js";
 
 const stableKeySchema = z
   .string()
@@ -8,6 +9,30 @@ const stableKeySchema = z
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "must be a stable identifier");
 
 const nonEmptyText = z.string().trim().min(1);
+
+/**
+ * A link selector, narrowing a file-level link to a named thing inside it.
+ *
+ * This schema enforces SHAPE and produces the CANONICAL form; it deliberately
+ * does not check whether the kind is one this repository allows. Zod schemas are
+ * static values shared by manifest compilation and manifest re-reading, so
+ * baking a repository's configured vocabulary into one of them would mean either
+ * a global mutable schema or a schema factory threaded through every consumer.
+ * Kind membership is instead enforced in `validate.ts`, which is the one place
+ * that has repository configuration in hand. See `selector.ts` for why the
+ * canonical form must stay independent of configuration.
+ */
+const selectorSchema = z
+  .string()
+  .superRefine((value, ctx) => {
+    const parsed = parseSelector(value);
+    if (parsed.ok) return;
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: parsed.error });
+  })
+  .transform((value) => {
+    const parsed = parseSelector(value);
+    return parsed.ok ? parsed.selector.canonical : value.trim();
+  });
 
 export const applicabilitySchema = z
   .record(z.string().trim().min(1), z.array(nonEmptyText).min(1))
@@ -27,7 +52,7 @@ export const codeTargetSchema = z
     kind: z.literal("code"),
     repository: stableKeySchema,
     path: nonEmptyText,
-    selector: nonEmptyText.optional(),
+    selector: selectorSchema.optional(),
   })
   .strict();
 
@@ -36,7 +61,7 @@ export const testTargetSchema = z
     kind: z.literal("test"),
     repository: stableKeySchema,
     path: nonEmptyText,
-    selector: nonEmptyText.optional(),
+    selector: selectorSchema.optional(),
     framework_hint: nonEmptyText.optional(),
   })
   .strict();
