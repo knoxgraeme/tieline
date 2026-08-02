@@ -97,6 +97,44 @@ function ignored(path: string, patterns: string[]): boolean {
   });
 }
 
+export interface SourceFileEligibility {
+  /** Configured `repository.source_roots`, relative to the repository root. */
+  sourceRoots: string[];
+  /** Configured `repository.ignore` patterns. */
+  ignore?: string[];
+}
+
+function withinSourceRoot(path: string, sourceRoot: string): boolean {
+  const root = normalizePath(sourceRoot.trim())
+    .replace(/^\.\//, "")
+    .replace(/\/+$/, "");
+  if (root === "" || root === ".") return true;
+  return path === root || path.startsWith(`${root}/`);
+}
+
+/**
+ * Whether a repository-relative path is one this module would count as
+ * eligible: inside a configured source root and matching no ignore pattern.
+ *
+ * This is the same admission test `computeRepositoryMappingCoverage` applies
+ * while walking, decided from the path alone. Callers holding a diff can ask
+ * about a path without walking the tree, and without the path still existing on
+ * disk — which is what makes it usable for deleted and renamed-away paths.
+ */
+export function isEligibleSourcePath(
+  path: string,
+  options: SourceFileEligibility
+): boolean {
+  const normalized = normalizePath(path)
+    .replace(/^\.\//, "")
+    .replace(/\/+$/, "");
+  if (!normalized) return false;
+  if (!options.sourceRoots.some((root) => withinSourceRoot(normalized, root))) {
+    return false;
+  }
+  return !ignored(normalized, options.ignore ?? []);
+}
+
 function withinRoot(root: string, target: string): boolean {
   const path = relative(root, target);
   return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
