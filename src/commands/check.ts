@@ -20,6 +20,7 @@ export interface CheckCommandOptions {
   repository?: string;
   repo?: string;
   json?: boolean;
+  strict?: boolean;
 }
 
 export async function runCheckCommand(
@@ -68,10 +69,14 @@ export async function runCheckCommand(
     changes,
     specDirectory,
   });
+  const strict = Boolean(options.strict);
+  const strictFailure = strict && !manifestCurrent;
   const result = {
     base,
     repository: repositoryKey,
     manifest_current: manifestCurrent,
+    strict,
+    strict_failure: strictFailure,
     changes,
     impacts,
     warnings: [
@@ -102,7 +107,13 @@ export async function runCheckCommand(
     for (const warning of result.warnings) {
       io.write(`  warn  ${warning}\n`);
     }
+    if (strictFailure) {
+      io.write(
+        "  error  Strict mode: the committed manifest is stale. Run `tieline contract compile` and commit the manifest.\n"
+      );
+    }
   }
-  // Semantic findings are deliberately warn-only in the MVP.
-  return 0;
+  // Semantic findings stay warn-only (CONTRACT-001-AC3). Only manifest currency
+  // — a deterministic recompile comparison — gates `--strict`.
+  return strictFailure ? 1 : 0;
 }

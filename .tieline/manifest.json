@@ -85,7 +85,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "59058a247377fb3428241fd80b53c489adf6270eb3da9162bb8345e17cdf258a",
+                  "reviewed_content_hash": "57e9533a1b6a182bfa1d289f5b46ed8cb609e52f272dc7e2abd0caeae35b46dd",
                   "target": {
                     "kind": "code",
                     "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -94,7 +94,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "3edd50e5faf5ef6edb540692bde84b7cff5d0543b0f37a87c7162d8d9cbfc1cc",
+                  "reviewed_content_hash": "5887a1dd6baba9655bde50a48999281c2e4a68d54e915034e2a3bc7770556f75",
                   "target": {
                     "kind": "code",
                     "path": "src/contract/sync.ts",
@@ -121,7 +121,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "2a945c58248587245717fa875df640a1babca0ab62b70c44cd2906758316d1de",
+                  "reviewed_content_hash": "ee0e74592e60aca7f0c2aa1ab082617ef419a5a7ef5a8c5fad041bbdd1d86410",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -161,7 +161,7 @@
                 },
                 {
                   "relation": "enforces",
-                  "reviewed_content_hash": "50375ac04a62d4c02bf724c3902ccf2ee14b757819c13b29e6fcc837d77a6f02",
+                  "reviewed_content_hash": "8c5db15ee31587c3ef2de4b10fabcea91c166deca9c49ddcc8ddd61ee3921fae",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/migrate.ts",
@@ -220,6 +220,46 @@
               "rationale": null,
               "scenarios": [],
               "stable_id": "AUTHORITY-002-AC2",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "ea86d1fa82ca27d888dbc487bd9d17d3b7a27471369399a89fbabef9a14e3932",
+              "criterion": "Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "57e9533a1b6a182bfa1d289f5b46ed8cb609e52f272dc7e2abd0caeae35b46dd",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/adapters/postgres/contract-sync-repository.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "ee0e74592e60aca7f0c2aa1ab082617ef419a5a7ef5a8c5fad041bbdd1d86410",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/integration-contract-sync.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 2,
+              "rationale": "Postgres is a projection of the repository manifest, so a renamed path or a reworded selector otherwise strands a code asset that holds a frozen content hash and still answers the artifact overlap lookup, and the projection drifts further with every rename until it is rebuilt from scratch.",
+              "scenarios": [
+                {
+                  "given": "a synchronized repository contract whose linked implementation path was renamed",
+                  "position": 0,
+                  "stable_id": "AUTHORITY-002-AC3-S1",
+                  "then": "the code asset for the former path must be removed, while an asset owned by another repository or still linked by another contract record must be retained",
+                  "when": "the repository contract is synchronized again"
+                }
+              ],
+              "stable_id": "AUTHORITY-002-AC3",
               "supersedes": null
             }
           ],
@@ -320,7 +360,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "6b7d8e315658c48279664fb436284d00ccae036c4975ed911a21444681877a6c",
+                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -405,7 +445,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "8658042b5b98b999bd8bcd868ab67dea6b13c7dbb36043501928600c3d05da41",
+                  "reviewed_content_hash": "e7e0d826c539a3fbfc45707b67b19ffc0ef1f8ca294bcfa7d49797385a273de1",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/check.ts",
@@ -423,7 +463,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "64ebf4b9b8310605fecdbdf7cd1faf4ba75be95bd93dbc277789d615e3130183",
+                  "reviewed_content_hash": "9a25bcdf8fcdf2c92fd4e73ca64d14363ea9227279db89dde05a9f3de7f572a6",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -454,7 +494,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "6b7d8e315658c48279664fb436284d00ccae036c4975ed911a21444681877a6c",
+                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -485,6 +525,46 @@
               "rationale": "Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.",
               "scenarios": [],
               "stable_id": "CONTRACT-001-AC4",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "e130c49517c4bb7c59f6b9ecf5233f6060d1ee2280ffa1a78e5199c52928c7f0",
+              "criterion": "Tieline must exit non-zero when the check runs in strict mode and the committed manifest does not match the compiled manifest.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "e7e0d826c539a3fbfc45707b67b19ffc0ef1f8ca294bcfa7d49797385a273de1",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/commands/check.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "9a25bcdf8fcdf2c92fd4e73ca64d14363ea9227279db89dde05a9f3de7f572a6",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-impact.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 4,
+              "rationale": "An agent-managed contract needs a machine-checkable gate because no human verifies the warn-only output, so a stale manifest merges unnoticed unless the command fails.",
+              "scenarios": [
+                {
+                  "given": "the committed manifest does not match the compiled manifest",
+                  "position": 0,
+                  "stable_id": "CONTRACT-001-AC5-S1",
+                  "then": "Tieline must exit non-zero and name the stale manifest",
+                  "when": "the branch is checked against its base in strict mode"
+                }
+              ],
+              "stable_id": "CONTRACT-001-AC5",
               "supersedes": null
             }
           ],
@@ -686,7 +766,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "9169881790a4d521c42f60ab39e8bb387602f57ce08c4fcf47597948bd789422",
+                  "reviewed_content_hash": "ee6149d24121327462dfca0d6620be890989ed2e7f2fd2343669e2fdb41b200f",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/import-help.ts",
@@ -713,7 +793,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "2a945c58248587245717fa875df640a1babca0ab62b70c44cd2906758316d1de",
+                  "reviewed_content_hash": "ee0e74592e60aca7f0c2aa1ab082617ef419a5a7ef5a8c5fad041bbdd1d86410",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -742,6 +822,381 @@
           "stable_id": "EVIDENCE-003",
           "supersedes": null,
           "title": "Connect external help without copying its identity"
+        }
+      ],
+      "supersedes": null
+    },
+    {
+      "aliases": [
+        "evidence grading",
+        "link quality"
+      ],
+      "applies_to": null,
+      "contract_hash": "85a869123f041ad0bcd8f9b7604bcf6eb25a19f7f1dcbcfeefd97c28808b76ca",
+      "description": "Contract links carry judged, fenced evidence instead of an unchecked claim that a path relates to an Acceptance Criterion.",
+      "name": "Graded link evidence",
+      "stable_id": "GRADING",
+      "stories": [
+        {
+          "acceptance_criteria": [
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "d5d232f95fade9b52537ae9d81f8f540e72382240bda3a2bc3b2b1b5b478fe8a",
+              "criterion": "Tieline must emit a grading scope limited to the contract links impacted by the diff against a base ref, and every scope entry must carry its Acceptance Criterion text, relation, artifact path, and extracted symbol vocabulary.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "a5b8edb820ff25581f2b440a0fcddd28b85c0f3c88d8855f0b67f283c04d7188",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/cli.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/commands/contract.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "8d044fe48eb7e72958ae877b5af76bb269ca7efcea36d05c79481d48431d9acc",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/grade.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "7df66726ab9b9df040a149583e79ca23aa02404b9adaa858998da24e7286428b",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-grade.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 0,
+              "rationale": "Grading every link costs far more than the signal is worth, and the diff already identifies which claims changed.",
+              "scenarios": [
+                {
+                  "given": "a branch changes one linked implementation file",
+                  "position": 0,
+                  "stable_id": "GRADING-001-AC1-S1",
+                  "then": "Tieline must emit exactly the Acceptance Criterion and path pair for that file",
+                  "when": "the grading scope is emitted against the base ref"
+                },
+                {
+                  "given": "a branch changes a file that no Acceptance Criterion links",
+                  "position": 1,
+                  "stable_id": "GRADING-001-AC1-S2",
+                  "then": "Tieline must emit an empty scope",
+                  "when": "the grading scope is emitted against the base ref"
+                }
+              ],
+              "stable_id": "GRADING-001-AC1",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "ee9c1aa9f54148d322178d327de95fec0b64bc8421dd9aa54b1f79dd4f26de76",
+              "criterion": "Tieline must build the citable symbol vocabulary of an artifact from its declarations alone, so an identifier that appears only inside a comment or a string literal must not be citable.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "3eca8ba03040661224b169775e6854ed058e691cf8fa3249017b0fbd6bef8f07",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/symbol-vocabulary.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "520e8b787d77d755d212d116166206f48cbaabf8d045b0b5730f813032238eb3",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-symbol-vocabulary.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 1,
+              "rationale": "Substring presence would let a symbol named only in prose satisfy a supported grade, which is the confirmation the fence exists to refuse.",
+              "scenarios": [
+                {
+                  "given": "an artifact names an identifier only inside a comment",
+                  "position": 0,
+                  "stable_id": "GRADING-001-AC2-S1",
+                  "then": "Tieline must exclude that identifier from the vocabulary",
+                  "when": "its symbol vocabulary is extracted"
+                },
+                {
+                  "given": "an artifact is missing, empty, or not a TypeScript source",
+                  "position": 1,
+                  "stable_id": "GRADING-001-AC2-S2",
+                  "then": "Tieline must return an empty vocabulary instead of failing the run",
+                  "when": "its symbol vocabulary is extracted"
+                }
+              ],
+              "stable_id": "GRADING-001-AC2",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "a791184a2904c0c0abd4e754d4e33a36850993d17716dc83026a28d9e265cfa6",
+              "criterion": "Grading must remain a pure function of the compiled manifest, the working tree, and the git diff, so Tieline must never require a database, a network call, or a model credential to grade a link.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/commands/contract.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "8d044fe48eb7e72958ae877b5af76bb269ca7efcea36d05c79481d48431d9acc",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/grade.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "7df66726ab9b9df040a149583e79ca23aa02404b9adaa858998da24e7286428b",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-grade.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 2,
+              "rationale": "Validate, compile, coverage, and check all run with zero infrastructure; a grading command that needed a credential would break the property that makes the offline plane adoptable.",
+              "scenarios": [],
+              "stable_id": "GRADING-001-AC3",
+              "supersedes": null
+            }
+          ],
+          "actor": "authoring agent",
+          "aliases": [
+            "scope grading to the diff"
+          ],
+          "applies_to": null,
+          "benefit": "a link claim can be judged instead of assumed",
+          "contract_hash": "6e36e88cebae698e69398125dc7b10717312daee172374d37c16524759df4876",
+          "goal": "learn which contract links a change touches and which symbols may be cited as evidence for them",
+          "lifecycle": "production",
+          "links": [],
+          "motivated_by": [],
+          "planning_origin": null,
+          "stable_id": "GRADING-001",
+          "supersedes": null,
+          "title": "Grade the links a change touches"
+        },
+        {
+          "acceptance_criteria": [
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "40d2ce226adb0386bb3a252ca00bad0f6b0719077cf633b62dc96c8cd1ace1ed",
+              "criterion": "Tieline must downgrade a supported grade to unsupported and report the downgrade whenever the cited symbol is absent from the extracted vocabulary for that artifact.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "8d044fe48eb7e72958ae877b5af76bb269ca7efcea36d05c79481d48431d9acc",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/grade.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "7df66726ab9b9df040a149583e79ca23aa02404b9adaa858998da24e7286428b",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-grade.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 0,
+              "rationale": "Grade quality varies with whichever host model runs the skill, so the fence has to make a false confirmation structurally unreachable rather than merely unlikely.",
+              "scenarios": [
+                {
+                  "given": "a verdict grades a link supported and cites a symbol the artifact never declares",
+                  "position": 0,
+                  "stable_id": "GRADING-002-AC1-S1",
+                  "then": "Tieline must record the link as unsupported and name the fabricated citation in its report",
+                  "when": "the submitted verdicts are verified"
+                }
+              ],
+              "stable_id": "GRADING-002-AC1",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "731886ffbc10c1f06d835c11ebd0ac48a4490044574ebe1c2a4f462806897061",
+              "criterion": "A scoped link that receives no submitted verdict must be reported as unsupported rather than skipped.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "8d044fe48eb7e72958ae877b5af76bb269ca7efcea36d05c79481d48431d9acc",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/grade.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "7df66726ab9b9df040a149583e79ca23aa02404b9adaa858998da24e7286428b",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-grade.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 1,
+              "rationale": "A skill that dies halfway, or a grader that quietly avoids a hard link, must not read as success; absence is the refusal path, not a gap.",
+              "scenarios": [
+                {
+                  "given": "a grading scope contains a link that no submitted verdict names",
+                  "position": 0,
+                  "stable_id": "GRADING-002-AC2-S1",
+                  "then": "Tieline must report that link as unsupported and state that no verdict was submitted",
+                  "when": "the submitted verdicts are verified"
+                }
+              ],
+              "stable_id": "GRADING-002-AC2",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "c3359b8b401066d2513f715b51507770e0df813d5d10fbf15976406d4171bd2e",
+              "criterion": "Grade verification must exit non-zero only when strict mode is requested while an unsupported grade remains, and must otherwise exit zero while still printing every unsupported grade.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/commands/contract.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "8d044fe48eb7e72958ae877b5af76bb269ca7efcea36d05c79481d48431d9acc",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/grade.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "7df66726ab9b9df040a149583e79ca23aa02404b9adaa858998da24e7286428b",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-grade.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 2,
+              "rationale": "Gating on model-mediated judgment before its false-positive rate is known would poison trust in the tool, so grading stays advisory until that rate is observed.",
+              "scenarios": [
+                {
+                  "given": "verification leaves an unsupported grade and strict mode is not requested",
+                  "position": 0,
+                  "stable_id": "GRADING-002-AC3-S1",
+                  "then": "Tieline must print the unsupported grade and exit zero",
+                  "when": "the command finishes"
+                }
+              ],
+              "stable_id": "GRADING-002-AC3",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "623900c274efadb050f27cb7519ee2ac9c557ffd92dbb8e23a588d7174668875",
+              "criterion": "The grading skill must direct the host agent to cite only symbols from the emitted vocabulary, to print every grade before verification, and to treat unsupported as an expected outcome.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "6d03ad1e7ea4ef2f926acb2ec55051e112209b405942f2f0deede70c80c58613",
+                  "target": {
+                    "kind": "code",
+                    "path": "skills/tieline-grade/references/grading.md",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "b7861a1f5c7824909c91dba90a86d60ce17f22d2a34dcffad19336cdc491581c",
+                  "target": {
+                    "kind": "code",
+                    "path": "skills/tieline-grade/SKILL.md",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "7df66726ab9b9df040a149583e79ca23aa02404b9adaa858998da24e7286428b",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-grade.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 3,
+              "rationale": "The judgment step is the one part of the pipeline Tieline cannot check, so the instructions that constrain it are part of the shipped behavior.",
+              "scenarios": [],
+              "stable_id": "GRADING-002-AC4",
+              "supersedes": null
+            }
+          ],
+          "actor": "reviewing maintainer",
+          "aliases": [
+            "fence fabricated citations"
+          ],
+          "applies_to": null,
+          "benefit": "a false confirmation cannot reach merge unnoticed",
+          "contract_hash": "9f4495c6d0d9b1d875d5f5a32ab73a3ee7637fec45b17fb044fbb5ceb8cd6ff6",
+          "goal": "see every refused and downgraded grade rather than a silent pass",
+          "lifecycle": "production",
+          "links": [],
+          "motivated_by": [],
+          "planning_origin": null,
+          "stable_id": "GRADING-002",
+          "supersedes": null,
+          "title": "Refuse evidence claims that cannot be checked"
         }
       ],
       "supersedes": null
@@ -814,7 +1269,7 @@
               "links": [
                 {
                   "relation": "enforces",
-                  "reviewed_content_hash": "c5306bf0d66e3b3998f2fadda214b8be1e2b7d8e602056957e89dbae4a19ce1e",
+                  "reviewed_content_hash": "9f99c3ac24bd8f87617d85e1ccf8aa8486ca05351a70a38f8f275a6bbb24a7a6",
                   "target": {
                     "kind": "code",
                     "path": "migrations/0001_baseline.sql",
@@ -850,7 +1305,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "06ea56c365cd5877eada9ce04c4bd27f5d937761191d1877e12db3eeb4df23f0",
+                  "reviewed_content_hash": "5ced89ffc9675ef3210532f5cf0d72c768b64abe9f6c9d2b5c6d1a2d0f1f5a64",
                   "target": {
                     "kind": "code",
                     "path": "src/ranking.ts",
@@ -917,7 +1372,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "d9598f35ac9949ba63c23e4d08f21610913fe623e316a622aabadf2c8f10f956",
+                  "reviewed_content_hash": "f73ab70075032befa93734f30d0cbb2834d38752e9ce695436059ad22ddd0f97",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -964,7 +1419,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "a3232c928628b3f599efa5e2d9a9e8d3bbeeeb9aff50e947da957b3a5dca1428",
+                  "reviewed_content_hash": "adf23ebbe927ba6534bae791fd0de53a72a7996b8062a0bc647f00d699425595",
                   "target": {
                     "kind": "code",
                     "path": "src/semantic-matching.ts",
@@ -1003,6 +1458,62 @@
                 }
               ],
               "stable_id": "MATCHING-001-AC3",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "b82f958e58880eb820901e76e205817a8f3a7c2b2d306dd5ca4cf4900582f6e9",
+              "criterion": "Tieline must withhold a semantic candidate whose vector, lexical, and alias signals all fall below an absolute magnitude floor, even when its blended rank-fusion score clears the presentation cutoff.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "5ced89ffc9675ef3210532f5cf0d72c768b64abe9f6c9d2b5c6d1a2d0f1f5a64",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/ranking.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "adf23ebbe927ba6534bae791fd0de53a72a7996b8062a0bc647f00d699425595",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/semantic-matching.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "f73ab70075032befa93734f30d0cbb2834d38752e9ce695436059ad22ddd0f97",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-ranking.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 3,
+              "rationale": "The blended score is mostly reciprocal rank fusion, which measures a candidate's position inside the returned set rather than how well it matches, so the best member of a weak set scores almost exactly what the best member of a strong set scores. Only a floor on the raw comparable signals stops the least wrong available option from reading as a good match to a caller acting without human review.",
+              "scenarios": [
+                {
+                  "given": "the only retrieved candidate carries 0.30 vector similarity and 0.20 lexical similarity",
+                  "position": 0,
+                  "stable_id": "MATCHING-001-AC4-S1",
+                  "then": "the candidate must be withheld even though its blended score clears the presentation cutoff",
+                  "when": "Tieline assembles Observation match candidates or planning-create advice"
+                },
+                {
+                  "given": "a candidate matches a recorded alias exactly but carries low vector and lexical similarity",
+                  "position": 1,
+                  "stable_id": "MATCHING-001-AC4-S2",
+                  "then": "the candidate must be retained because an exact alias match is a deterministic identifier match rather than a fuzzy one",
+                  "when": "Tieline applies the magnitude floor"
+                }
+              ],
+              "stable_id": "MATCHING-001-AC4",
               "supersedes": null
             }
           ],
@@ -1138,7 +1649,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "f8bbad853cd001d369bb872543e50952015546974811745197d69f24ab6365d3",
+                  "reviewed_content_hash": "03156259c3016f0b25c5e066d90cc4a8b4fc8ad4f2c5407c1f07d80d2e797c19",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/profile.ts",
@@ -1225,7 +1736,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "e916a9e0067faf2b3238a133876c048616a5fa8aa97c4dfbeda34ea7b75efe7d",
+                  "reviewed_content_hash": "a5b8edb820ff25581f2b440a0fcddd28b85c0f3c88d8855f0b67f283c04d7188",
                   "target": {
                     "kind": "code",
                     "path": "src/cli.ts",
@@ -1261,7 +1772,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
+                  "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1311,7 +1822,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
+                  "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1334,7 +1845,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "e916a9e0067faf2b3238a133876c048616a5fa8aa97c4dfbeda34ea7b75efe7d",
+                  "reviewed_content_hash": "a5b8edb820ff25581f2b440a0fcddd28b85c0f3c88d8855f0b67f283c04d7188",
                   "target": {
                     "kind": "code",
                     "path": "src/cli.ts",
@@ -1352,7 +1863,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
+                  "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1478,7 +1989,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "82313b0bb9728c6c918a155afe7419697b1f945326d56b36cfe64a59bb992e61",
+                  "reviewed_content_hash": "1f479c20a7c785e83b58440e9fdd4a9c616d9128fa28ab6980dde664a2980c77",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/serve.ts",
@@ -1615,7 +2126,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "57ec05b979d0807a36cdd4d25379e9e726bd65bcc5392833d0c42e04429bf2c7",
+                  "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -1702,19 +2213,23 @@
   "inputs": [
     {
       "path": ".tieline/spec/authority.yaml",
-      "sha256": "fd1f19df50f8d0412250da6bdf46771ac69c03f6becb9e0df43eb95befd8775d"
+      "sha256": "9554b679f02df2d67e5a67a724c43f13adfb97fb388b5ea0dcdd284f0e5fa4fc"
     },
     {
       "path": ".tieline/spec/contract.yaml",
-      "sha256": "4e857f241fc4d97135241acced33d1368bac74fd7297d7ebecacc78699a89a27"
+      "sha256": "493826fe82dbd079066f7298bfee74b6f18451808b9c0001e7d3ff9c2552d850"
     },
     {
       "path": ".tieline/spec/evidence.yaml",
       "sha256": "b7e5d5f1edc8bbbca4f53c2b46bbd8e90f578a0617fab3ddf73d093c9f9a9d2c"
     },
     {
+      "path": ".tieline/spec/grading.yaml",
+      "sha256": "0df49354f5f7941c32607811ae9ce94ceefaa11ca60d3950cfd13132c529e2cc"
+    },
+    {
       "path": ".tieline/spec/matching.yaml",
-      "sha256": "70b8d8159d3aff9ac9aa164bfd03aeb4f32a47ec0a7aa7451cb18007f119a5df"
+      "sha256": "ca88d8f9307dffa5ec09541786bca9923c3f8bf60c4c2163f629df7b3bd2d576"
     },
     {
       "path": ".tieline/spec/retrieval.yaml",
@@ -1726,7 +2241,7 @@
     }
   ],
   "repository": {
-    "commit": "5fc640d13d11aa6d69bf9d39908dc772d83373d6",
+    "commit": "42b630d161ac705b30b0bbe6e6a478da6f602b79",
     "key": "tieline"
   },
   "schema_version": 1

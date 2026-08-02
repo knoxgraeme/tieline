@@ -133,3 +133,22 @@ capability:
                 repository: tieline
                 path: scripts/test-contract-command.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC5
+          criterion: Tieline must exit non-zero when the check runs in strict mode and the committed manifest does not match the compiled manifest.
+          rationale: An agent-managed contract needs a machine-checkable gate because no human verifies the warn-only output, so a stale manifest merges unnoticed unless the command fails.
+          scenarios:
+            - given: the committed manifest does not match the compiled manifest
+              when: the branch is checked against its base in strict mode
+              then: Tieline must exit non-zero and name the stale manifest
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script

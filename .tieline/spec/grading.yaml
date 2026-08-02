@@ -1,0 +1,183 @@
+version: 1
+capability:
+  key: GRADING
+  name: Graded link evidence
+  description: Contract links carry judged, fenced evidence instead of an unchecked claim that a path relates to an Acceptance Criterion.
+  aliases:
+    - evidence grading
+    - link quality
+  stories:
+    - key: GRADING-001
+      title: Grade the links a change touches
+      actor: authoring agent
+      goal: learn which contract links a change touches and which symbols may be cited as evidence for them
+      benefit: a link claim can be judged instead of assumed
+      lifecycle: production
+      aliases:
+        - scope grading to the diff
+      acceptance_criteria:
+        - key: GRADING-001-AC1
+          criterion: Tieline must emit a grading scope limited to the contract links impacted by the diff against a base ref, and every scope entry must carry its Acceptance Criterion text, relation, artifact path, and extracted symbol vocabulary.
+          rationale: Grading every link costs far more than the signal is worth, and the diff already identifies which claims changed.
+          scenarios:
+            - given: a branch changes one linked implementation file
+              when: the grading scope is emitted against the base ref
+              then: Tieline must emit exactly the Acceptance Criterion and path pair for that file
+            - given: a branch changes a file that no Acceptance Criterion links
+              when: the grading scope is emitted against the base ref
+              then: Tieline must emit an empty scope
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-001-AC2
+          criterion: Tieline must build the citable symbol vocabulary of an artifact from its declarations alone, so an identifier that appears only inside a comment or a string literal must not be citable.
+          rationale: Substring presence would let a symbol named only in prose satisfy a supported grade, which is the confirmation the fence exists to refuse.
+          scenarios:
+            - given: an artifact names an identifier only inside a comment
+              when: its symbol vocabulary is extracted
+              then: Tieline must exclude that identifier from the vocabulary
+            - given: an artifact is missing, empty, or not a TypeScript source
+              when: its symbol vocabulary is extracted
+              then: Tieline must return an empty vocabulary instead of failing the run
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/symbol-vocabulary.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-symbol-vocabulary.ts
+                framework_hint: custom-script
+        - key: GRADING-001-AC3
+          criterion: Grading must remain a pure function of the compiled manifest, the working tree, and the git diff, so Tieline must never require a database, a network call, or a model credential to grade a link.
+          rationale: Validate, compile, coverage, and check all run with zero infrastructure; a grading command that needed a credential would break the property that makes the offline plane adoptable.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+    - key: GRADING-002
+      title: Refuse evidence claims that cannot be checked
+      actor: reviewing maintainer
+      goal: see every refused and downgraded grade rather than a silent pass
+      benefit: a false confirmation cannot reach merge unnoticed
+      lifecycle: production
+      aliases:
+        - fence fabricated citations
+      acceptance_criteria:
+        - key: GRADING-002-AC1
+          criterion: Tieline must downgrade a supported grade to unsupported and report the downgrade whenever the cited symbol is absent from the extracted vocabulary for that artifact.
+          rationale: Grade quality varies with whichever host model runs the skill, so the fence has to make a false confirmation structurally unreachable rather than merely unlikely.
+          scenarios:
+            - given: a verdict grades a link supported and cites a symbol the artifact never declares
+              when: the submitted verdicts are verified
+              then: Tieline must record the link as unsupported and name the fabricated citation in its report
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC2
+          criterion: A scoped link that receives no submitted verdict must be reported as unsupported rather than skipped.
+          rationale: A skill that dies halfway, or a grader that quietly avoids a hard link, must not read as success; absence is the refusal path, not a gap.
+          scenarios:
+            - given: a grading scope contains a link that no submitted verdict names
+              when: the submitted verdicts are verified
+              then: Tieline must report that link as unsupported and state that no verdict was submitted
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC3
+          criterion: Grade verification must exit non-zero only when strict mode is requested while an unsupported grade remains, and must otherwise exit zero while still printing every unsupported grade.
+          rationale: Gating on model-mediated judgment before its false-positive rate is known would poison trust in the tool, so grading stays advisory until that rate is observed.
+          scenarios:
+            - given: verification leaves an unsupported grade and strict mode is not requested
+              when: the command finishes
+              then: Tieline must print the unsupported grade and exit zero
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC4
+          criterion: The grading skill must direct the host agent to cite only symbols from the emitted vocabulary, to print every grade before verification, and to treat unsupported as an expected outcome.
+          rationale: The judgment step is the one part of the pipeline Tieline cannot check, so the instructions that constrain it are part of the shipped behavior.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline-grade/SKILL.md
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline-grade/references/grading.md
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script

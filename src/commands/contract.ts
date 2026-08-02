@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
@@ -19,6 +19,14 @@ import {
   loadAcceptedContract,
   loadAcceptedContractWithSources,
 } from "../contract/load.js";
+import { parseNameStatus } from "../contract/impact.js";
+import {
+  buildGradeScope,
+  parseGradeVerdicts,
+  renderGradeReportText,
+  renderGradeScopeText,
+  verifyGradeVerdicts,
+} from "../contract/grade.js";
 import { renderContractReviewPage } from "../contract/review-page.js";
 import { syncContractManifest } from "../contract/sync.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
@@ -35,6 +43,7 @@ export type ContractAction =
   | "review"
   | "compile"
   | "coverage"
+  | "grade"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -45,6 +54,10 @@ export interface ContractCommandOptions {
   spec?: string;
   expectedPreviousCommit?: string;
   json?: boolean;
+  base?: string;
+  emitScope?: boolean;
+  verify?: string;
+  strict?: boolean;
 }
 
 interface ParsedContractCommand {
@@ -53,11 +66,16 @@ interface ParsedContractCommand {
   repositoryKey: string;
   commit?: string;
   outputPath: string;
+  manifestPath: string;
   specDirectory: string;
   sourceRoots: string[];
   ignore: string[];
   expectedPreviousCommit?: string;
   json: boolean;
+  base?: string;
+  emitScope: boolean;
+  verify?: string;
+  strict: boolean;
 }
 
 function gitCommit(repositoryRoot: string): string {
@@ -104,11 +122,17 @@ function resolveContractCommand(
     repositoryKey,
     commit: options.commit,
     outputPath: resolvedOutput,
+    manifestPath:
+      workspace?.manifestPath ?? resolve(repositoryRoot, ".tieline/manifest.json"),
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
     json: options.json === true,
+    base: options.base,
+    emitScope: options.emitScope === true,
+    verify: options.verify,
+    strict: options.strict === true,
   };
 }
 
@@ -134,6 +158,82 @@ function coverage(manifest: ContractManifest): {
       0
     ),
   };
+}
+
+/**
+ * `--emit-scope` and `--verify` are two modes of one action, and everything
+ * semantic happens between them inside `skills/tieline-grade`. Both modes are
+ * pure functions of (manifest + working tree + git diff), so grading stays on
+ * the offline plane and Tieline never calls a model.
+ */
+function runGrade(
+  parsed: ParsedContractCommand,
+  io: ContractCommandIO
+): number {
+  if (parsed.emitScope && parsed.verify !== undefined) {
+    throw new Error(
+      "`--emit-scope` and `--verify` are mutually exclusive modes of `contract grade`; pass exactly one."
+    );
+  }
+  if (!parsed.emitScope && parsed.verify === undefined) {
+    throw new Error(
+      "`contract grade` requires either --emit-scope or --verify <verdicts.json>."
+    );
+  }
+  if (!parsed.base) {
+    throw new Error(
+      "`contract grade` requires --base <ref> so the scope is limited to the links this change touches."
+    );
+  }
+  const manifest = readContractManifest(parsed.manifestPath);
+  const nameStatus = execFileSync(
+    "git",
+    ["diff", "--name-status", "--find-renames", parsed.base],
+    { cwd: parsed.repositoryRoot, encoding: "utf8" }
+  );
+  const scope = buildGradeScope({
+    repositoryRoot: parsed.repositoryRoot,
+    base: parsed.base,
+    manifest,
+    changes: parseNameStatus(nameStatus),
+    specDirectory: parsed.specDirectory,
+  });
+
+  if (parsed.emitScope) {
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(scope, null, 2)}\n`
+        : renderGradeScopeText(scope)
+    );
+    return 0;
+  }
+
+  const verdictsPath = isAbsolute(parsed.verify!)
+    ? parsed.verify!
+    : resolve(parsed.repositoryRoot, parsed.verify!);
+  let submitted: unknown;
+  try {
+    submitted = JSON.parse(readFileSync(verdictsPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Cannot read grade verdicts '${verdictsPath}': ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+  const report = verifyGradeVerdicts({
+    scope,
+    verdicts: parseGradeVerdicts(submitted),
+    strict: parsed.strict,
+  });
+  io.write(
+    parsed.json
+      ? `${JSON.stringify(report, null, 2)}\n`
+      : renderGradeReportText(report)
+  );
+  // Advisory by default: only `--strict` converts a remaining `unsupported`
+  // grade into a non-zero exit.
+  return report.strict_failure ? 1 : 0;
 }
 
 export async function runContractCommand(
@@ -214,6 +314,10 @@ export async function runContractCommand(
     return 0;
   }
 
+  if (parsed.action === "grade") {
+    return runGrade(parsed, io);
+  }
+
   if (parsed.action === "sync") {
     const reviewedManifest = readContractManifest(parsed.outputPath);
     if (reviewedManifest.repository.key !== parsed.repositoryKey) {
@@ -276,7 +380,7 @@ export async function runContractCommand(
               re_embedded: indexing.embedded,
               semantic_index: indexing,
             }, null, 2)}\n`
-          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s); ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n`
+          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s), ${result.reconciled_code_assets} orphaned code asset(s) reconciled; ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n`
       );
       return 0;
     } finally {

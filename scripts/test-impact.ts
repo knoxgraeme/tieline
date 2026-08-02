@@ -119,6 +119,21 @@ capability:
   assert.equal(baselineReport.manifest_current, true);
   assert.equal(baselineReport.impacts.length, 0);
 
+  const strictCurrentOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      { base: "HEAD", repository: root, json: true, strict: true },
+      { write: (message) => strictCurrentOutput.push(message) }
+    ),
+    0
+  );
+  const strictCurrentReport = JSON.parse(strictCurrentOutput.join("")) as {
+    manifest_current: boolean;
+    strict_failure: boolean;
+  };
+  assert.equal(strictCurrentReport.manifest_current, true);
+  assert.equal(strictCurrentReport.strict_failure, false);
+
   writeFileSync(resolve(root, "src/feature.ts"), "export const feature = 2;\n");
   const changed = analyzeContractImpact({
     repositoryRoot: root,
@@ -183,6 +198,31 @@ capability:
   };
   assert.equal(report.manifest_current, false);
   assert.equal(report.impacts.length, 1);
+
+  const strictStaleOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      { base: "HEAD", repository: root, json: true, strict: true },
+      { write: (message) => strictStaleOutput.push(message) }
+    ),
+    1
+  );
+  const strictStaleReport = JSON.parse(strictStaleOutput.join("")) as {
+    manifest_current: boolean;
+    strict_failure: boolean;
+  };
+  assert.equal(strictStaleReport.manifest_current, false);
+  assert.equal(strictStaleReport.strict_failure, true);
+
+  const strictTextOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      { base: "HEAD", repository: root, strict: true },
+      { write: (message) => strictTextOutput.push(message) }
+    ),
+    1
+  );
+  assert.match(strictTextOutput.join(""), /error {2}Strict mode/);
 
   await assert.rejects(
     runCheckCommand(

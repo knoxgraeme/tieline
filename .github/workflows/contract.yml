@@ -1,0 +1,34 @@
+name: Contract
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  contract:
+    name: Validate, compile, and check the living contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # `tieline check` diffs against origin/main, so full history is required.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate contract YAML
+        run: npx tsx src/cli.ts contract validate .
+
+      - name: Compile contract manifest
+        run: npx tsx src/cli.ts contract compile . --output /tmp/manifest-check.json
+
+      - name: Check semantic impact (strict manifest currency)
+        run: npx tsx src/cli.ts check . --base origin/main --strict

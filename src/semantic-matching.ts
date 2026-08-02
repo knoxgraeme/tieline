@@ -21,8 +21,10 @@ import {
   optionalQueryEmbedding,
 } from "./embeddings.js";
 import {
+  clearsSemanticMagnitudeFloor,
   groupSemanticHitsAroundAcceptanceCriteria,
   rankSemanticDocuments,
+  type RankedSemanticDocument,
   type SemanticRankingFeatures,
 } from "./ranking.js";
 
@@ -69,6 +71,35 @@ function candidateStableId(
     : undefined;
 }
 
+/**
+ * Blended-score cutoff. Kept because the blended score is the correct ORDERING
+ * signal — it is what decides which candidate is better than which.
+ */
+export const SEMANTIC_MATCH_SCORE_FLOOR = 0.45;
+
+/**
+ * Both gates must pass before a candidate is shown to a caller.
+ *
+ * The blended score answers "was this the best available?" — it is 65%
+ * reciprocal rank fusion, which measures rank position rather than match
+ * magnitude, so on its own it cannot tell a good match from the least wrong
+ * option in a bad set (see SEMANTIC_MAGNITUDE_FLOOR). The magnitude floor
+ * answers "was this actually good?" by reading the raw 0..1 similarity features,
+ * which mean the same thing regardless of what else was retrieved.
+ *
+ * These candidates increasingly drive agent behavior rather than human review,
+ * so "best of a bad set" must not reach a caller reading as "good". Prefer
+ * returning nothing over returning a plausible wrong answer.
+ */
+export function isPresentableSemanticMatch(
+  hit: RankedSemanticDocument
+): boolean {
+  return (
+    hit.score >= SEMANTIC_MATCH_SCORE_FLOOR &&
+    clearsSemanticMagnitudeFloor(hit.features)
+  );
+}
+
 export class DefaultSemanticMatcher implements SemanticMatcher {
   constructor(
     private readonly repository = new PostgresSemanticRepository(
@@ -91,9 +122,11 @@ export class DefaultSemanticMatcher implements SemanticMatcher {
       filters,
       limit: 10,
     });
+    // Shared by matchObservation and advisePlanningCreate so both paths apply the
+    // same admission rule.
     return groupSemanticHitsAroundAcceptanceCriteria(
       rankSemanticDocuments(rows)
-    ).filter((hit) => hit.score >= 0.45);
+    ).filter(isPresentableSemanticMatch);
   }
 
   async matchObservation(

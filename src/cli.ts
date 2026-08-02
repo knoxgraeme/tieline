@@ -201,6 +201,8 @@ export function workspaceStartForCommand(
           "output",
           "spec",
           "expected-previous-commit",
+          "base",
+          "verify",
         ]),
         1
       ) ?? process.cwd()
@@ -340,6 +342,10 @@ interface ContractActionOptions {
   spec?: string;
   expectedPreviousCommit?: string;
   json?: boolean;
+  base?: string;
+  emitScope?: boolean;
+  verify?: string;
+  strict?: boolean;
 }
 
 function buildProgram(
@@ -467,6 +473,7 @@ function buildProgram(
             | "review"
             | "compile"
             | "coverage"
+            | "grade"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -479,6 +486,21 @@ function buildProgram(
   contractAction("review", "Render a browser review page");
   contractAction("compile", "Compile the contract manifest");
   contractAction("coverage", "Report evidence and mapping coverage");
+  contractAction("grade", "Grade impacted contract links with agent verdicts")
+    .option("--base <ref>", "git base ref to diff against")
+    .addOption(
+      new Option(
+        "--emit-scope",
+        "emit the deterministic grading work list"
+      ).conflicts("verify")
+    )
+    .addOption(
+      new Option(
+        "--verify <verdicts.json>",
+        "verify submitted grade verdicts against the derived scope"
+      ).conflicts("emitScope")
+    )
+    .option("--strict", "exit non-zero when an unsupported grade remains");
   contractAction("sync", "Sync the reviewed manifest to the database").option(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"
@@ -491,6 +513,7 @@ function buildProgram(
     .requiredOption("--base <ref>", "git base ref to diff against")
     .option("--repo <key>", "stable repository key")
     .option("--json", "emit machine-readable JSON")
+    .option("--strict", "exit non-zero when the committed manifest is stale")
     .action(async (repository: string | undefined, opts) => {
       const { runCheckCommand } = await import("./commands/check.js");
       setExit(
@@ -500,6 +523,7 @@ function buildProgram(
             repository,
             repo: opts.repo,
             json: Boolean(opts.json),
+            strict: Boolean(opts.strict),
           },
           io
         )
