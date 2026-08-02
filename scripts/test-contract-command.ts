@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -32,9 +33,7 @@ for (let index = 1; index <= 2; index++) {
     `export const unmapped${index} = true;\n`
   );
 }
-writeFileSync(
-  resolve(root, ".tieline/spec/behavior.yaml"),
-  `version: 1
+const behaviorYaml = `version: 1
 capability:
   key: BEHAVIOR
   name: Accepted behavior
@@ -81,8 +80,8 @@ ${Array.from(
                 source: docs
                 external_id: review-guide
                 url: "javascript:alert(1)"
-`
-);
+`;
+writeFileSync(resolve(root, ".tieline/spec/behavior.yaml"), behaviorYaml);
 
 // A second capability so link review has enough scored links to rank one
 // against the others. Its criteria describe billing behaviour and link files
@@ -449,6 +448,115 @@ try {
   assert.match(output, /Suggestion for human review only/);
   assert.match(output, /distribution  min /);
   assert.doesNotMatch(output, /\b(verdict|invalid|failed)\b/i);
+
+  // contract reconcile: authoring input over a real diff, exits zero.
+  execFileSync("git", ["init"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@example.test"], {
+    cwd: root,
+  });
+  execFileSync("git", ["config", "user.name", "Tieline Test"], { cwd: root });
+  execFileSync("git", ["add", "."], { cwd: root });
+  execFileSync("git", ["commit", "-m", "baseline"], {
+    cwd: root,
+    stdio: "ignore",
+  });
+  writeFileSync(
+    resolve(root, "src/behavior.ts"),
+    "export const behavior = true;\nexport const reconciled = true;\n"
+  );
+  writeFileSync(
+    resolve(root, "src/unmapped-1.ts"),
+    "export const unmapped1 = false;\n"
+  );
+  writeFileSync(
+    resolve(root, ".tieline/spec/behavior.yaml"),
+    `${behaviorYaml}# reconciled\n`
+  );
+
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "reconcile",
+        root,
+        "--repo",
+        "contract-command-test",
+        "--commit",
+        "offline-proof",
+        "--base",
+        "HEAD",
+        "--json",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  const reconcile = JSON.parse(output);
+  assert.equal(reconcile.base, "HEAD");
+  assert.equal(reconcile.advisory, true);
+  assert.equal(reconcile.repository, "contract-command-test");
+  assert.match(reconcile.disclaimer, /not a verdict/i);
+  assert.deepEqual(
+    reconcile.claimed_changes.map((change: { path: string }) => change.path),
+    ["src/behavior.ts"]
+  );
+  assert.ok(
+    reconcile.claimed_changes[0].claimed_by.some(
+      (claim: { acceptance_criterion_stable_id: string; link_scope: string }) =>
+        claim.acceptance_criterion_stable_id === "BEHAVIOR-001-AC1" &&
+        claim.link_scope === "direct"
+    )
+  );
+  assert.deepEqual(
+    reconcile.unclaimed_changes.map((change: { path: string }) => change.path),
+    ["src/unmapped-1.ts"]
+  );
+  assert.deepEqual(
+    reconcile.excluded_changes.map(
+      (change: { path: string; reason: string }) => [change.path, change.reason]
+    ),
+    [[".tieline/spec/behavior.yaml", "contract_definition"]]
+  );
+  assert.deepEqual(reconcile.summary, {
+    changed_paths: 3,
+    claimed: 1,
+    unclaimed: 1,
+    excluded: 1,
+    excluded_by_reason: {
+      contract_definition: 1,
+      outside_source_roots: 0,
+      ignored: 0,
+      deleted: 0,
+    },
+  });
+
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "reconcile",
+        root,
+        "--repo",
+        "contract-command-test",
+        "--commit",
+        "offline-proof",
+        "--base",
+        "HEAD",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  assert.match(output, /Reconciliation against HEAD/);
+  assert.match(output, /1 already claimed by acceptance criteria/);
+  assert.match(output, /BEHAVIOR-001-AC1/);
+  assert.match(output, /src\/unmapped-1\.ts/);
+  assert.match(output, /a refactor needs no new criterion/);
+  assert.match(output, /the contract definition itself/);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

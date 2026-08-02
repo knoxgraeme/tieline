@@ -200,6 +200,7 @@ export function workspaceStartForCommand(
           "commit",
           "output",
           "spec",
+          "base",
           "expected-previous-commit",
         ]),
         1
@@ -339,6 +340,7 @@ interface ContractActionOptions {
   output?: string;
   spec?: string;
   expectedPreviousCommit?: string;
+  base?: string;
   json?: boolean;
 }
 
@@ -468,6 +470,7 @@ function buildProgram(
             | "compile"
             | "coverage"
             | "link-review"
+            | "reconcile"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -487,6 +490,10 @@ function buildProgram(
     "link-review",
     "Suggest contract links a human should re-read (advisory only)"
   );
+  contractAction(
+    "reconcile",
+    "Report which changed paths the contract already claims (authoring input)"
+  ).requiredOption("--base <ref>", "git base ref to diff against");
   contractAction("sync", "Sync the reviewed manifest to the database").option(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"

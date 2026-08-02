@@ -33,6 +33,12 @@ import {
   analyzeLinkPlausibility,
   type LinkPlausibilityReport,
 } from "../contract/link-plausibility.js";
+import { parseNameStatus } from "../contract/impact.js";
+import {
+  analyzeContractReconciliation,
+  type ContractReconciliation,
+  type ExcludedChange,
+} from "../contract/reconciliation.js";
 
 interface ContractCommandIO {
   write(message: string): void;
@@ -44,6 +50,7 @@ export type ContractAction =
   | "compile"
   | "coverage"
   | "link-review"
+  | "reconcile"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -53,6 +60,8 @@ export interface ContractCommandOptions {
   output?: string;
   spec?: string;
   expectedPreviousCommit?: string;
+  /** Git ref the working tree is compared against. Required by `reconcile`. */
+  base?: string;
   json?: boolean;
 }
 
@@ -66,6 +75,7 @@ interface ParsedContractCommand {
   sourceRoots: string[];
   ignore: string[];
   expectedPreviousCommit?: string;
+  base?: string;
   json: boolean;
 }
 
@@ -117,8 +127,19 @@ function resolveContractCommand(
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
+    base: options.base,
     json: options.json === true,
   };
+}
+
+function changesSince(repositoryRoot: string, base: string) {
+  return parseNameStatus(
+    execFileSync(
+      "git",
+      ["diff", "--name-status", "--find-renames", base],
+      { cwd: repositoryRoot, encoding: "utf8" }
+    )
+  );
 }
 
 /**
@@ -208,6 +229,69 @@ function renderLinkReview(
     );
   }
   for (const note of report.notes) io.write(wrap(`note  ${note}`, 88, "  "));
+}
+
+function describeExclusion(change: ExcludedChange): string {
+  switch (change.reason) {
+    case "contract_definition":
+      return "the contract definition itself";
+    case "outside_source_roots":
+      return "outside the configured source roots";
+    case "ignored":
+      return `matched the ignore pattern '${change.matched_ignore_pattern}'`;
+    case "deleted":
+      return "deleted and unclaimed, so no file remains to describe";
+  }
+}
+
+function changeLabel(change: { status: string; old_path?: string }): string {
+  return change.old_path
+    ? `${change.status} (from ${change.old_path})`
+    : change.status;
+}
+
+/**
+ * Reconciliation in prose. The wording stays neutral on purpose: an unclaimed
+ * file is a question for a human, never an accusation that an acceptance
+ * criterion is missing.
+ */
+function renderReconciliation(
+  report: ContractReconciliation,
+  base: string,
+  io: ContractCommandIO
+): void {
+  io.write(
+    `Reconciliation against ${base}: ${report.summary.changed_paths} changed path(s); ${report.summary.claimed} already claimed by acceptance criteria, ${report.summary.unclaimed} unclaimed source file(s), ${report.summary.excluded} set aside.\n`
+  );
+  io.write(wrap(report.disclaimer, 88, "  "));
+  if (report.claimed_changes.length) {
+    io.write("\nClaimed changes (these acceptance criteria may need re-reading):\n");
+    for (const change of report.claimed_changes) {
+      io.write(`\n  ${change.path} (${changeLabel(change)})\n`);
+      for (const claim of change.claimed_by) {
+        io.write(
+          `    ${claim.acceptance_criterion_stable_id}  ${claim.relation} ${claim.linked_path} (${claim.link_scope})\n`
+        );
+        io.write(wrap(claim.acceptance_criterion, 88, "      "));
+      }
+    }
+  }
+  if (report.unclaimed_changes.length) {
+    io.write(
+      "\nUnclaimed changes (consider whether behavior changed; a refactor needs no new criterion):\n"
+    );
+    for (const change of report.unclaimed_changes) {
+      io.write(`  ${change.path} (${changeLabel(change)})\n`);
+    }
+  }
+  if (report.excluded_changes.length) {
+    io.write("\nSet aside (considered, not candidates for authoring):\n");
+    for (const change of report.excluded_changes) {
+      io.write(
+        `  ${change.path} (${changeLabel(change)}) — ${describeExclusion(change)}\n`
+      );
+    }
+  }
 }
 
 function coverage(manifest: ContractManifest): {
@@ -406,6 +490,29 @@ export async function runContractCommand(
       renderLinkReview(report, io);
     }
     // Advisory only. A review candidate is never a verdict and never fails a build.
+    return 0;
+  }
+
+  if (parsed.action === "reconcile") {
+    if (!parsed.base) {
+      throw new Error(
+        "Reconciliation compares the working tree against a base ref. Pass --base <ref>."
+      );
+    }
+    const report = analyzeContractReconciliation({
+      repositoryRoot: parsed.repositoryRoot,
+      manifest,
+      changes: changesSince(parsed.repositoryRoot, parsed.base),
+      sourceRoots: parsed.sourceRoots,
+      ignore: parsed.ignore,
+      specDirectory: parsed.specDirectory,
+    });
+    if (parsed.json) {
+      io.write(`${JSON.stringify({ base: parsed.base, ...report }, null, 2)}\n`);
+    } else {
+      renderReconciliation(report, parsed.base, io);
+    }
+    // Reporting only. Reconciliation informs authoring and never gates a branch.
     return 0;
   }
 
