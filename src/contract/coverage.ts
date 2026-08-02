@@ -10,31 +10,21 @@ import type { ArtifactHashResolver, ContractManifest } from "./manifest.js";
  * None of them is a claim that the acceptance criterion holds:
  *
  * - `asserted` — a link names the path. A human said so; nothing was measured.
- *   This is the floor and the only tier reachable without tiering inputs.
+ *   This is the floor and the only tier reachable without hash comparison.
  * - `hash_current` — the content a reviewer accepted is still the content on
  *   disk. It says the file has not drifted since review, not that the review
  *   was right.
- * - `execution_corroborated` — a supplied execution-corroboration report shows
- *   the path was entered by the tests linked to an acceptance criterion that
- *   links it. Execution is a strong falsifier and a weak confirmer: entering a
- *   file is not satisfying a criterion.
  */
-export type MappingConfidenceTier =
-  | "asserted"
-  | "hash_current"
-  | "execution_corroborated";
+export type MappingConfidenceTier = "asserted" | "hash_current";
 
 export const MAPPING_CONFIDENCE_TIERS: readonly MappingConfidenceTier[] = [
   "asserted",
   "hash_current",
-  "execution_corroborated",
 ];
 
 export interface MappingConfidenceTiers {
   /** False when no hash resolver was reachable, so `hash_current` was unreachable. */
   hash_comparison_available: boolean;
-  /** False when no corroboration input was supplied, so `execution_corroborated` was unreachable. */
-  execution_corroboration_available: boolean;
   /** Mapped files at each tier. Sums to `mapped_files`. */
   counts: Record<MappingConfidenceTier, number>;
   /**
@@ -62,45 +52,16 @@ export interface RepositoryMappingCoverage {
   confidence: MappingConfidenceTiers;
 }
 
-/**
- * Structural subset of `ExecutionCorroborationReport`. Declared here rather than
- * imported so this module never pulls in coverage-report parsing: computing
- * mapping coverage must not depend on a test run having happened.
- */
-export interface ExecutionCorroborationReportLike {
-  findings: ReadonlyArray<{
-    acceptance_criterion_stable_id: string;
-    path: string | null;
-    kind: string;
-    relation: string;
-  }>;
-}
-
-/**
- * Either an already-computed corroboration report, or a lookup answering "was
- * this path executed by the tests linked to a criterion that links it?".
- *
- * Both are injected. This module reads no coverage files.
- */
-export type MappingExecutionCorroborationInput =
-  | ExecutionCorroborationReportLike
-  | ((path: string) => boolean);
-
 export interface RepositoryMappingCoverageOptions {
   repositoryRoot: string;
   sourceRoots: string[];
   ignore?: string[];
   /**
    * Resolver backing the `hash_current` tier. Defaults to one measured over
-   * `repositoryRoot`; pass `null` to disable hash comparison, in which case no
-   * mapped file can rise above `asserted` on hashes alone.
+   * `repositoryRoot`; pass `null` to disable hash comparison, in which case
+   * every mapped file stays at `asserted`.
    */
   hashes?: ArtifactHashResolver | null;
-  /**
-   * Optional input backing the `execution_corroborated` tier. Omitted, no
-   * mapped file reaches that tier.
-   */
-  executionCorroboration?: MappingExecutionCorroborationInput;
   /**
    * Manifest supplying the `reviewed_content_hash` values compared for the
    * `hash_current` tier. Defaults to the manifest being measured.
@@ -175,69 +136,40 @@ function walkFiles(
     );
 }
 
-interface MappedPathLinkage {
-  /** Reviewed content hashes recorded for this path, across every link naming it. */
-  reviewed_hashes: Set<string>;
-  /**
-   * Stable ids of acceptance criteria that link this path directly with
-   * `implements` or `enforces`. Story-level links are excluded on purpose: they
-   * are a claim about the story, not about any one criterion, so no
-   * per-criterion execution statement can be made about them.
-   */
-  criteria: Set<string>;
-}
-
-function mappedPaths(manifest: ContractManifest): Map<string, MappedPathLinkage> {
-  const paths = new Map<string, MappedPathLinkage>();
-  const record = (
-    path: string,
-    reviewedHash: string | null,
-    criterionStableId: string | null
-  ): void => {
+/**
+ * Every repository path a contract link names, mapped to the reviewed content
+ * hashes recorded for it across those links.
+ *
+ * Story-level and criterion-level links are treated alike: a link names a path
+ * whatever its scope, so both make the path mapped and both can carry a
+ * reviewed hash that lifts it to `hash_current`.
+ */
+function mappedPaths(manifest: ContractManifest): Map<string, Set<string>> {
+  const paths = new Map<string, Set<string>>();
+  const record = (path: string, reviewedHash: string | null): void => {
     const normalized = normalizePath(path);
-    const linkage = paths.get(normalized) ?? {
-      reviewed_hashes: new Set<string>(),
-      criteria: new Set<string>(),
-    };
-    if (reviewedHash) linkage.reviewed_hashes.add(reviewedHash);
-    if (criterionStableId) linkage.criteria.add(criterionStableId);
-    paths.set(normalized, linkage);
+    const hashes = paths.get(normalized) ?? new Set<string>();
+    if (reviewedHash) hashes.add(reviewedHash);
+    paths.set(normalized, hashes);
   };
   for (const capability of manifest.capabilities) {
     for (const story of capability.stories) {
-      const scoped = [
-        ...story.links.map((link) => ({ link, criterion: null })),
-        ...story.acceptance_criteria.flatMap((criterion) =>
-          criterion.links.map((link) => ({ link, criterion }))
-        ),
+      const links = [
+        ...story.links,
+        ...story.acceptance_criteria.flatMap((criterion) => criterion.links),
       ];
-      for (const { link, criterion } of scoped) {
+      for (const link of links) {
         if (
           link.target.kind === "help" ||
           link.target.repository !== manifest.repository.key
         ) {
           continue;
         }
-        const claimsCode =
-          link.relation === "implements" || link.relation === "enforces";
-        record(
-          link.target.path,
-          link.reviewed_content_hash,
-          criterion && claimsCode ? criterion.stable_id : null
-        );
+        record(link.target.path, link.reviewed_content_hash);
       }
     }
   }
   return paths;
-}
-
-/** Reviewed content hashes recorded per path, from whichever manifest carries them. */
-function reviewedHashes(manifest: ContractManifest): Map<string, Set<string>> {
-  const hashes = new Map<string, Set<string>>();
-  for (const [path, linkage] of mappedPaths(manifest)) {
-    hashes.set(path, linkage.reviewed_hashes);
-  }
-  return hashes;
 }
 
 /** Resolves the resolver for the `hash_current` tier, or `null` when unreachable. */
@@ -255,57 +187,12 @@ function resolveHashes(
   }
 }
 
-/**
- * Turns a corroboration report into "did the linked tests of this criterion
- * execute this path?".
- *
- * The report only records what execution failed to support, so corroboration is
- * read as the absence of a contrary finding for a criterion whose own linked
- * tests ran. A criterion carrying an `uncovered_by_linked_tests` finding could
- * not be looked at all, so nothing about its paths is corroborated.
- *
- * The report must have been computed from the manifest being measured. A report
- * from a different manifest mentions different criteria, and silence about a
- * criterion would then be read as corroboration of it.
- */
-function executionPredicate(
-  input: MappingExecutionCorroborationInput
-): (path: string, criteria: Set<string>) => boolean {
-  if (typeof input === "function") {
-    return (path, criteria) => criteria.size > 0 && input(path) === true;
-  }
-  const blindCriteria = new Set<string>();
-  const unsupported = new Set<string>();
-  for (const finding of input.findings) {
-    if (finding.kind === "uncovered_by_linked_tests") {
-      blindCriteria.add(finding.acceptance_criterion_stable_id);
-      continue;
-    }
-    if (finding.kind === "unsupported_implementation" && finding.path) {
-      unsupported.add(
-        `${finding.acceptance_criterion_stable_id}\0${normalizePath(finding.path)}`
-      );
-    }
-  }
-  return (path, criteria) =>
-    [...criteria].some(
-      (criterion) =>
-        !blindCriteria.has(criterion) &&
-        !unsupported.has(`${criterion}\0${path}`)
-    );
-}
-
 /** The highest tier a mapped path qualifies for. */
 function tierFor(input: {
   path: string;
-  linkage: MappedPathLinkage;
   reviewed: Set<string> | undefined;
   hashes: ArtifactHashResolver | null;
-  executed: ((path: string, criteria: Set<string>) => boolean) | null;
 }): MappingConfidenceTier {
-  if (input.executed && input.executed(input.path, input.linkage.criteria)) {
-    return "execution_corroborated";
-  }
   if (input.hashes && input.reviewed && input.reviewed.size > 0) {
     const measured = input.hashes.measure(input.path);
     if (measured.status === "hashed" && input.reviewed.has(measured.hash)) {
@@ -322,7 +209,6 @@ function emptyTierRecord<Value>(value: () => Value): Record<
   return {
     asserted: value(),
     hash_current: value(),
-    execution_corroborated: value(),
   };
 }
 
@@ -357,26 +243,20 @@ export function computeRepositoryMappingCoverage(
   const unmappedFiles = sorted.filter((path) => !mapped.has(path));
 
   const hashes = resolveHashes(options.hashes, root);
-  const executed = options.executionCorroboration
-    ? executionPredicate(options.executionCorroboration)
-    : null;
   const share = (count: number): number | null =>
     sorted.length === 0
       ? null
       : Math.round((count / sorted.length) * 10_000) / 100;
   const reviewed = options.reviewedManifest
-    ? reviewedHashes(options.reviewedManifest)
+    ? mappedPaths(options.reviewedManifest)
     : null;
   const paths = emptyTierRecord<string[]>(() => []);
   for (const path of mappedFiles) {
-    const linkage = mapped.get(path)!;
     paths[
       tierFor({
         path,
-        linkage,
-        reviewed: reviewed ? reviewed.get(path) : linkage.reviewed_hashes,
+        reviewed: reviewed ? reviewed.get(path) : mapped.get(path),
         hashes,
-        executed,
       })
     ].push(path);
   }
@@ -396,12 +276,10 @@ export function computeRepositoryMappingCoverage(
         : Math.round((mappedFiles.length / sorted.length) * 10_000) / 100,
     confidence: {
       hash_comparison_available: hashes !== null,
-      execution_corroboration_available: executed !== null,
       counts,
       percentages: {
         asserted: share(counts.asserted),
         hash_current: share(counts.hash_current),
-        execution_corroborated: share(counts.execution_corroborated),
       },
       paths,
     },

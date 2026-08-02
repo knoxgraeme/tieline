@@ -278,17 +278,14 @@ capability:
       percentage: 100,
       confidence: {
         hash_comparison_available: true,
-        execution_corroboration_available: false,
-        counts: { asserted: 0, hash_current: 1, execution_corroborated: 0 },
+        counts: { asserted: 0, hash_current: 1 },
         percentages: {
           asserted: 0,
           hash_current: 100,
-          execution_corroborated: 0,
         },
         paths: {
           asserted: [],
           hash_current: ["src/covered.ts"],
-          execution_corroborated: [],
         },
       },
     });
@@ -325,17 +322,14 @@ await test("does not describe an empty source scope as 100% covered", () => {
       percentage: null,
       confidence: {
         hash_comparison_available: true,
-        execution_corroboration_available: false,
-        counts: { asserted: 0, hash_current: 0, execution_corroborated: 0 },
+        counts: { asserted: 0, hash_current: 0 },
         percentages: {
           asserted: null,
           hash_current: null,
-          execution_corroborated: null,
         },
         paths: {
           asserted: [],
           hash_current: [],
-          execution_corroborated: [],
         },
       },
     });

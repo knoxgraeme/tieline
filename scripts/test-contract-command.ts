@@ -251,6 +251,9 @@ try {
     {}
   );
   assert.equal(coverageExit, 0);
+  // `src/mapped-*.ts` are named by story-level links and `src/behavior*.ts` by
+  // criterion-level ones. Both reach `hash_current`: the tier asks whether the
+  // reviewed content is still on disk, which a link of either scope can answer.
   const mappedPaths = [
     "src/behavior.test.ts",
     "src/behavior.ts",
@@ -273,24 +276,22 @@ try {
       percentage: 81.82,
       confidence: {
         hash_comparison_available: true,
-        execution_corroboration_available: false,
-        counts: { asserted: 0, hash_current: 9, execution_corroborated: 0 },
+        counts: { asserted: 0, hash_current: 9 },
         percentages: {
           asserted: 0,
           hash_current: 81.82,
-          execution_corroborated: 0,
         },
         paths: {
           asserted: [],
           hash_current: mappedPaths,
-          execution_corroborated: [],
         },
       },
     },
   });
 
-  // Backward compatibility: with no tiering input reachable, every mapped file
-  // stays at the floor and the pre-existing fields are byte-for-byte the same.
+  // Backward compatibility: with no hash comparison reachable, every mapped
+  // file stays at the floor and the pre-existing fields are byte-for-byte the
+  // same.
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: "contract-command-test",
@@ -311,17 +312,14 @@ try {
     percentage: 81.82,
     confidence: {
       hash_comparison_available: false,
-      execution_corroboration_available: false,
-      counts: { asserted: 9, hash_current: 0, execution_corroborated: 0 },
+      counts: { asserted: 9, hash_current: 0 },
       percentages: {
         asserted: 81.82,
         hash_current: 0,
-        execution_corroborated: 0,
       },
       paths: {
         asserted: mappedPaths,
         hash_current: [],
-        execution_corroborated: [],
       },
     },
   });
@@ -363,49 +361,6 @@ try {
   assert.equal(drifted.counts.asserted + drifted.counts.hash_current, 9);
   writeFileSync(resolve(root, "src/mapped-1.ts"), "export const mapped1 = true;\n");
 
-  // A coverage report lifts the criterion-level implementation link to
-  // `execution_corroborated`; story-level links stay where they were.
-  const coverageReportPath = resolve(root, "coverage.lcov");
-  writeFileSync(
-    coverageReportPath,
-    `SF:src/behavior.test.ts
-DA:1,1
-DA:2,1
-end_of_record
-
-SF:src/behavior.ts
-DA:1,4
-end_of_record
-`
-  );
-  output = "";
-  assert.equal(
-    await runCli(
-      [
-        "contract",
-        "coverage",
-        root,
-        "--repo",
-        "contract-command-test",
-        "--commit",
-        "offline-proof",
-        "--coverage",
-        coverageReportPath,
-        "--json",
-      ],
-      io,
-      {}
-    ),
-    0
-  );
-  const corroboratedCoverage = JSON.parse(output).mapping_coverage.confidence;
-  assert.equal(corroboratedCoverage.execution_corroboration_available, true);
-  assert.deepEqual(corroboratedCoverage.paths.execution_corroborated, [
-    "src/behavior.ts",
-  ]);
-  assert.equal(corroboratedCoverage.counts.execution_corroborated, 1);
-  assert.equal(corroboratedCoverage.counts.hash_current, 8);
-
   output = "";
   assert.equal(
     await runCli(
@@ -424,118 +379,8 @@ end_of_record
     0
   );
   assert.match(output, /Mapping confidence/);
-  assert.match(output, /execution_corroborated\s+0 \(0% of eligible files\)/);
-  assert.match(output, /no execution corroboration was supplied/);
-
-  // contract corroborate: reports only, exits zero, and never claims a
-  // criterion holds.
-  output = "";
-  assert.equal(
-    await runCli(
-      [
-        "contract",
-        "corroborate",
-        root,
-        "--repo",
-        "contract-command-test",
-        "--commit",
-        "offline-proof",
-        "--coverage",
-        coverageReportPath,
-        "--json",
-      ],
-      io,
-      {}
-    ),
-    0
-  );
-  const corroboration = JSON.parse(output);
-  assert.equal(corroboration.repository.key, "contract-command-test");
-  assert.equal(corroboration.summary.coverage_format, "lcov");
-  assert.equal(corroboration.summary.coverage_usable, true);
-  assert.equal(corroboration.summary.acceptance_criteria_examined, 5);
-  assert.equal(corroboration.summary.acceptance_criteria_with_test_evidence, 1);
-  assert.equal(
-    corroboration.summary.acceptance_criteria_corroborated_by_execution,
-    1
-  );
-  // The criterion whose linked tests ran produces no finding at all. The four
-  // criteria with no linked tests are reported as unexamined, never as
-  // unsupported: "we could not look" is not "we looked and found nothing".
-  assert.deepEqual(
-    corroboration.findings.map(
-      (finding: { acceptance_criterion_stable_id: string; kind: string }) => [
-        finding.acceptance_criterion_stable_id,
-        finding.kind,
-      ]
-    ),
-    reviewCriteria.map((entry) => [entry.key, "uncovered_by_linked_tests"])
-  );
-  assert.equal(
-    corroboration.summary.findings_by_kind.unsupported_implementation,
-    0
-  );
-
-  output = "";
-  assert.equal(
-    await runCli(
-      [
-        "contract",
-        "corroborate",
-        root,
-        "--repo",
-        "contract-command-test",
-        "--commit",
-        "offline-proof",
-        "--coverage",
-        coverageReportPath,
-      ],
-      io,
-      {}
-    ),
-    0
-  );
-  assert.match(output, /Execution corroboration \(lcov\)/);
-  assert.match(output, /5 acceptance criteria examined/);
-  assert.match(output, /never verifies one/);
-
-  // A run that falsifies a link still exits zero: findings do not fail builds.
-  const emptyRunPath = resolve(root, "coverage-empty.lcov");
-  writeFileSync(
-    emptyRunPath,
-    `SF:src/behavior.test.ts
-DA:1,1
-end_of_record
-
-SF:src/behavior.ts
-DA:1,0
-end_of_record
-`
-  );
-  output = "";
-  assert.equal(
-    await runCli(
-      [
-        "contract",
-        "corroborate",
-        root,
-        "--repo",
-        "contract-command-test",
-        "--commit",
-        "offline-proof",
-        "--coverage",
-        emptyRunPath,
-        "--json",
-      ],
-      io,
-      {}
-    ),
-    0
-  );
-  const falsified = JSON.parse(output);
-  assert.equal(falsified.summary.findings_by_kind.unsupported_implementation, 1);
-  assert.equal(falsified.findings[0].path, "src/behavior.ts");
-  assert.equal(falsified.findings[0].kind, "unsupported_implementation");
+  assert.match(output, /asserted\s+0 \(0% of eligible files\)/);
+  assert.match(output, /hash_current\s+9 \(81\.82% of eligible files\)/);
 
   // contract link-review: advisory, exits zero, carries its disclaimer.
   output = "";

@@ -30,12 +30,6 @@ import {
   type RepositoryMappingCoverage,
 } from "../contract/coverage.js";
 import {
-  analyzeExecutionCorroboration,
-  readCoverageReport,
-  type ExecutionCorroborationReport,
-} from "../contract/corroboration.js";
-import {
-  LINK_PLAUSIBILITY_DISCLAIMER,
   analyzeLinkPlausibility,
   type LinkPlausibilityReport,
 } from "../contract/link-plausibility.js";
@@ -49,7 +43,6 @@ export type ContractAction =
   | "review"
   | "compile"
   | "coverage"
-  | "corroborate"
   | "link-review"
   | "sync";
 
@@ -60,8 +53,6 @@ export interface ContractCommandOptions {
   output?: string;
   spec?: string;
   expectedPreviousCommit?: string;
-  /** Path to a coverage report produced by the test run. */
-  coverage?: string;
   json?: boolean;
 }
 
@@ -75,7 +66,6 @@ interface ParsedContractCommand {
   sourceRoots: string[];
   ignore: string[];
   expectedPreviousCommit?: string;
-  coveragePath?: string;
   json: boolean;
 }
 
@@ -127,11 +117,6 @@ function resolveContractCommand(
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
-    coveragePath: options.coverage
-      ? isAbsolute(options.coverage)
-        ? options.coverage
-        : resolve(repositoryRoot, options.coverage)
-      : undefined,
     json: options.json === true,
   };
 }
@@ -184,58 +169,13 @@ function renderConfidenceTiers(
     hash_current: confidence.hash_comparison_available
       ? undefined
       : " (no hash comparison was available)",
-    execution_corroborated: confidence.execution_corroboration_available
-      ? undefined
-      : " (no execution corroboration was supplied)",
   };
   return MAPPING_CONFIDENCE_TIERS.map((tier) => {
     const percentage = confidence.percentages[tier];
-    return `  ${tier.padEnd(23)} ${confidence.counts[tier]}${
+    return `  ${tier.padEnd(13)} ${confidence.counts[tier]}${
       percentage === null ? "" : ` (${percentage}% of eligible files)`
     }${unavailable[tier] ?? ""}\n`;
   }).join("");
-}
-
-/**
- * Execution corroboration in prose. The falsifier/confirmer asymmetry is
- * restated here because the counts alone read like a pass rate, which they are
- * not: nothing in this output says an acceptance criterion holds.
- */
-function renderCorroboration(
-  report: ExecutionCorroborationReport,
-  io: ContractCommandIO
-): void {
-  const { summary } = report;
-  io.write(
-    `Execution corroboration (${summary.coverage_format}): ${summary.reported_files} file(s) reported, ${summary.executed_files} executed, ${summary.dropped_paths_outside_repository} reported path(s) outside the repository.\n`
-  );
-  io.write(
-    `${summary.acceptance_criteria_examined} acceptance criteria examined; ${summary.acceptance_criteria_with_test_evidence} had linked tests that ran; ${summary.acceptance_criteria_corroborated_by_execution} corroborated by execution.\n`
-  );
-  if (!summary.coverage_usable) {
-    io.write(
-      "  note  This run entered no repository file, so it falsifies nothing. Check that the report belongs to this repository.\n"
-    );
-  }
-  if (!summary.candidate_links_evaluated) {
-    io.write(
-      "  note  No per-test-file coverage was supplied, so no candidate links were suggested.\n"
-    );
-  }
-  for (const finding of report.findings) {
-    io.write(
-      `  ${finding.kind} ${finding.acceptance_criterion_stable_id} ${
-        finding.path ?? "(no linked path)"
-      } [${finding.relation}] ${finding.reason}\n`
-    );
-  }
-  io.write(
-    wrap(
-      "Execution corroborates a link; it never verifies one. Code that ran is not code that satisfies the criterion, and a criterion whose linked tests did not run is reported as unexamined rather than as unsupported. Findings here never fail a build.",
-      88,
-      "  "
-    )
-  );
 }
 
 /**
@@ -448,37 +388,6 @@ export async function runContractCommand(
     commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
     specDirectory: parsed.specDirectory,
   });
-  if (parsed.action === "corroborate") {
-    if (!parsed.coveragePath) {
-      throw new Error(
-        "Execution corroboration needs a coverage report. Pass --coverage <path>."
-      );
-    }
-    // A report that cannot be read is a usage failure, not a finding: an
-    // unread report would silently read as "nothing ran anywhere".
-    const executed = readCoverageReport({
-      path: parsed.coveragePath,
-      repositoryRoot: parsed.repositoryRoot,
-    });
-    const report = analyzeExecutionCorroboration({ manifest, coverage: executed });
-    if (parsed.json) {
-      io.write(
-        `${JSON.stringify(
-          {
-            repository: manifest.repository,
-            coverage_report: parsed.coveragePath,
-            ...report,
-          },
-          null,
-          2
-        )}\n`
-      );
-    } else {
-      renderCorroboration(report, io);
-    }
-    // Reporting only. Corroboration never fails a build.
-    return 0;
-  }
 
   if (parsed.action === "link-review") {
     const report = analyzeLinkPlausibility({
@@ -500,15 +409,6 @@ export async function runContractCommand(
     return 0;
   }
 
-  const executionCorroboration = parsed.coveragePath
-    ? analyzeExecutionCorroboration({
-        manifest,
-        coverage: readCoverageReport({
-          path: parsed.coveragePath,
-          repositoryRoot: parsed.repositoryRoot,
-        }),
-      })
-    : undefined;
   // `manifest` was compiled from the working tree, so its reviewed hashes are
   // the hashes it just measured. The committed manifest is the only record of
   // what a reviewer actually accepted, so the `hash_current` tier is compared
@@ -522,7 +422,6 @@ export async function runContractCommand(
     repositoryRoot: parsed.repositoryRoot,
     sourceRoots: parsed.sourceRoots,
     ignore: parsed.ignore,
-    ...(executionCorroboration ? { executionCorroboration } : {}),
     ...(reviewedManifest ? { reviewedManifest } : {}),
   });
 

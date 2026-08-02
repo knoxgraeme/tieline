@@ -235,47 +235,19 @@ once, at the highest tier it reaches:
 | --- | --- | --- |
 | `asserted` | A link names the file. A human said so. | That anything was measured at all |
 | `hash_current` | The file still hashes to the content recorded in the reviewed manifest. | That the review was right, or that the file still does what the criterion says |
-| `execution_corroborated` | A supplied coverage report shows the file was entered by the tests an acceptance criterion links, and that criterion links the file with `implements` or `enforces`. | That the acceptance criterion holds |
 
 The tiers are additive. `eligible_files`, `mapped_files`, `unmapped_files`, and
 `percentage` keep their existing meaning, and the tier percentages use the same
-denominator, so they sum to `percentage`. With neither tiering input available,
+denominator, so they sum to `percentage`. With no hash comparison available,
 every mapped file reports `asserted` and the numbers are unchanged.
 
 `hash_current` compares against `.tieline/manifest.json` when that file is
 readable and belongs to this repository, because the reviewed manifest is the
 only record of the content a reviewer accepted. Without it, coverage compiles
 the manifest from the working tree, where the reviewed hash is the hash it just
-measured and no drift is observable. Story-level links reach `hash_current` but
-never `execution_corroborated`: a story-level link is a claim about the story,
-not about any one criterion.
-
-Pass a coverage report to enable the third tier:
-
-```bash
-tieline contract coverage . --coverage coverage/lcov.info
-```
-
-Hold the links against what the test run actually executed:
-
-```bash
-tieline contract corroborate . --coverage coverage/lcov.info --json
-```
-
-Corroboration reads LCOV, Istanbul JSON, or Istanbul JSON summary reports and
-compares them with each acceptance criterion's links. Execution is a strong
-falsifier and a weak confirmer. If a criterion's linked tests demonstrably ran
-and its linked implementation was never entered, the claim has no execution
-support and the finding is `unsupported_implementation`. If those tests did not
-run, nothing is concluded: the criterion is reported as
-`uncovered_by_linked_tests`, because "we looked and found nothing" and "we could
-not look" call for different responses. A file that ran is corroborated, never
-verified — entering a file is not satisfying a criterion, and no output here
-says a criterion holds.
-
-`corroborate` reports and exits zero; findings never fail a build. An unreadable
-or unrecognized coverage report does fail, because an unread report would read
-as "nothing ran anywhere".
+measured and no drift is observable. Story-level and criterion-level links are
+treated alike here: a link names a file whatever its scope, so either can carry
+the reviewed hash that lifts the file to `hash_current`.
 
 Ask which links a human should re-read:
 
