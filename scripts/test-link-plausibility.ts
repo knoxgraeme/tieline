@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import type {
@@ -10,17 +16,29 @@ import type {
 } from "../src/contract/manifest.js";
 import {
   DEFAULT_ABSOLUTE_SCORE_FLOOR,
+  DEFAULT_MINIMUM_SAMPLE_SIZE,
   LINK_PLAUSIBILITY_METHOD,
+  type LexicalPlausibility,
   acceptanceCriterionTokenSurface,
   analyzeLinkPlausibility,
   buildDocumentFrequencyIndex,
   extractSourceTokenSurface,
   inverseDocumentFrequency,
+  isScorablePlausibility,
   meaningfulTokens,
   scoreLexicalPlausibility,
   splitIdentifier,
   toLinkReviewSuggestion,
 } from "../src/contract/link-plausibility.js";
+
+/** Asserts a measurement was scorable and hands back its number. */
+function scoreOf(measurement: LexicalPlausibility): number {
+  assert.ok(
+    measurement.score !== null,
+    "expected a scorable measurement, got an unscorable one"
+  );
+  return measurement.score;
+}
 
 const REPOSITORY = "plausibility-fixture";
 const EMPTY_HASH = "0".repeat(64);
@@ -334,13 +352,15 @@ try {
     surfaces.get("timezone")!,
     index
   );
+  const relatedScore = scoreOf(related);
+  const unrelatedScore = scoreOf(unrelated);
   assert.ok(
-    related.score > unrelated.score,
-    `related ${related.score} should beat unrelated ${unrelated.score}`
+    relatedScore > unrelatedScore,
+    `related ${relatedScore} should beat unrelated ${unrelatedScore}`
   );
-  assert.ok(related.score >= DEFAULT_ABSOLUTE_SCORE_FLOOR);
-  assert.ok(unrelated.score < DEFAULT_ABSOLUTE_SCORE_FLOOR);
-  assert.ok(unrelated.score > 0, "the unrelated pair still has real overlap");
+  assert.ok(relatedScore >= DEFAULT_ABSOLUTE_SCORE_FLOOR);
+  assert.ok(unrelatedScore < DEFAULT_ABSOLUTE_SCORE_FLOOR);
+  assert.ok(unrelatedScore > 0, "the unrelated pair still has real overlap");
 
   // Shared and absent terms are real, not decorative.
   for (const term of related.shared_terms) {
@@ -394,6 +414,45 @@ try {
   );
   assert.equal(dampedOnly.score, 0);
   assert.deepEqual(dampedOnly.shared_terms, []);
+  assert.ok(
+    isScorablePlausibility(dampedOnly),
+    "one undamped term ('fingerprint') is still a real measurement of 0"
+  );
+
+  // -------------------------------------------------------------------------
+  // No discriminating vocabulary is unscorable, which is NOT a score of zero
+  // -------------------------------------------------------------------------
+
+  // Every one of these tokens sits in every linked file, so every weight is
+  // damped to zero and the denominator vanishes. The timezone file contains all
+  // of them: reporting that as 0 — the lowest score there is — would invert the
+  // finding, so the measurement declines to score at all.
+  const allDamped = scoreLexicalPlausibility(
+    ["tieline", "reconcile", "reviewers"],
+    surfaces.get("timezone")!,
+    index
+  );
+  assert.equal(
+    allDamped.score,
+    null,
+    "a criterion of entirely ubiquitous terms is unscorable, not implausible"
+  );
+  assert.equal(isScorablePlausibility(allDamped), false);
+  assert.deepEqual(allDamped.shared_terms, []);
+  assert.deepEqual(allDamped.absent_terms, []);
+  for (const token of ["tieline", "reconcile", "reviewers"]) {
+    assert.ok(
+      surfaces.get("timezone")!.includes(token),
+      `'${token}' is genuinely present in the file that scored null`
+    );
+  }
+
+  // A criterion with no meaningful tokens at all lands in the same place.
+  assert.equal(
+    scoreLexicalPlausibility([], surfaces.get("timezone")!, index).score,
+    null,
+    "an empty criterion surface is unscorable"
+  );
 
   // -------------------------------------------------------------------------
   // Flagging: only the weakest link, and only below the absolute floor
@@ -436,7 +495,41 @@ try {
 
   assert.match(candidate.rationale, /human review only/i);
   assert.match(candidate.rationale, /does not mean the link is wrong/i);
-  assert.match(candidate.rationale, /Shares signature/);
+  assert.match(candidate.rationale, /shares only signature/);
+
+  // The evidence leads; the number does not appear in the sentence at all.
+  assert.match(candidate.rationale, /^The criterion's /);
+  assert.ok(
+    !candidate.rationale.includes(candidate.score.toFixed(2)),
+    "the raw score does not lead — or appear in — the human sentence"
+  );
+  assert.equal(
+    typeof candidate.score,
+    "number",
+    "the number still travels in the structured output"
+  );
+
+  // Rank is stated as a count, never as a percentage of the distribution: ties
+  // at the percentile cut mean more than that fraction can be flagged.
+  assert.match(
+    candidate.rationale,
+    /the least-related of 11 scored links in this repository/
+  );
+  assert.ok(
+    !candidate.rationale.includes("%"),
+    "the rationale makes no percentage claim about the review window"
+  );
+  assert.ok(
+    !/weakest/i.test(candidate.rationale),
+    "the window is described by rank, not by a 'weakest N%' claim"
+  );
+
+  // It closes with the question `tieline check` asks a reviewer.
+  assert.match(
+    candidate.rationale,
+    /Does this file still carry this criterion\?/
+  );
+
   for (const term of candidate.absent_terms) {
     assert.ok(
       candidate.rationale.includes(term),
@@ -511,6 +604,199 @@ try {
   });
   assert.deepEqual(narrow.review_candidates, []);
   assert.match(narrow.notes[0], /selects\s+no links at all/i);
+
+  // -------------------------------------------------------------------------
+  // A criterion whose every term is in every linked file is unscorable
+  // -------------------------------------------------------------------------
+
+  // The trap: each of these criteria is fully contained in the file it links
+  // to, but its whole vocabulary is ubiquitous, so every IDF weight is zero.
+  // Dividing by that zero total and calling the result 0 would report a set of
+  // perfectly overlapping links as the least plausible in the repository.
+  mkdirSync(resolve(root, "src/shared"), { recursive: true });
+  const sharedPaths: string[] = [];
+  for (let n = 0; n < 12; n += 1) {
+    const path = `src/shared/module-${n}.ts`;
+    sharedPaths.push(path);
+    writeFileSync(
+      resolve(root, path),
+      [
+        `// Reviewers reconcile the Tieline invoice refund; currency and rounding agree.`,
+        `export function applyRounding(refund: string): string {`,
+        `  return "invoice refund currency rounding reconcile agree tieline reviewers";`,
+        `}`,
+        ``,
+      ].join("\n")
+    );
+  }
+
+  const sharedStories = sharedPaths.map((path, n) => {
+    const story = storyOf(TOPICS[0], [codeLink(path)]);
+    return {
+      ...story,
+      stable_id: `US-SHARED-${n}`,
+      acceptance_criteria: [
+        { ...story.acceptance_criteria[0], stable_id: `AC-SHARED-${n}` },
+      ],
+    };
+  });
+
+  // The fixture is honest about the trap: every criterion token really is
+  // present in every linked file.
+  const sharedCriterionTokens = acceptanceCriterionTokenSurface(
+    sharedStories[0],
+    sharedStories[0].acceptance_criteria[0]
+  );
+  assert.ok(sharedCriterionTokens.length > 0);
+  for (const path of sharedPaths) {
+    const surface = extractSourceTokenSurface(
+      readFileSync(resolve(root, path), "utf8")
+    ).tokens;
+    for (const token of sharedCriterionTokens) {
+      assert.ok(
+        surface.includes(token),
+        `'${token}' should be present in ${path}`
+      );
+    }
+  }
+  assert.ok(
+    sharedPaths.length >= DEFAULT_MINIMUM_SAMPLE_SIZE,
+    "enough links that a distribution would exist to flag against"
+  );
+
+  const shared = analyzeLinkPlausibility({
+    repositoryRoot: root,
+    manifest: manifestOf(sharedStories),
+  });
+  assert.deepEqual(
+    shared.review_candidates,
+    [],
+    "fully overlapping links are never review candidates"
+  );
+  assert.equal(
+    shared.scored_links,
+    0,
+    "unscorable links are excluded from scored_links"
+  );
+  assert.equal(shared.distribution, null, "and from the distribution");
+  assert.equal(shared.status, "insufficient_distribution");
+  assert.equal(shared.skipped.length, sharedPaths.length);
+  for (const skip of shared.skipped) {
+    assert.equal(skip.reason, "no_discriminating_terms");
+    assert.equal(skip.repository, REPOSITORY);
+    assert.ok(sharedPaths.includes(skip.path ?? ""));
+  }
+  assert.ok(
+    shared.notes.some((note) => /no_discriminating_terms/.test(note)),
+    "the unscorable links are accounted for in the notes"
+  );
+  assert.ok(
+    shared.notes.some((note) => /An unscorable link is not a weak link/.test(note))
+  );
+
+  // -------------------------------------------------------------------------
+  // A criterion with no meaningful tokens is unscorable the same way
+  // -------------------------------------------------------------------------
+
+  const blankStory: ManifestStory = {
+    ...storyOf(TOPICS[0], []),
+    stable_id: "US-BLANK-001",
+    title: "The same one",
+    actor: "you",
+    goal: "use the same value",
+    benefit: "the value and the one are the same",
+    acceptance_criteria: [
+      {
+        ...criterionOf(TOPICS[0], [
+          codeLink(pathOf(TOPICS[0])),
+          codeLink(pathOf(TOPICS[4])),
+        ]),
+        stable_id: "AC-BLANK-001",
+        criterion: "This one will use the same value as that one.",
+      },
+    ],
+  };
+  assert.deepEqual(
+    acceptanceCriterionTokenSurface(
+      blankStory,
+      blankStory.acceptance_criteria[0]
+    ),
+    [],
+    "the fixture criterion really does yield no meaningful token"
+  );
+
+  // -------------------------------------------------------------------------
+  // Mixed: a genuinely weak link is still flagged beside unscorable ones
+  // -------------------------------------------------------------------------
+
+  const mixed = analyzeLinkPlausibility({
+    repositoryRoot: root,
+    manifest: manifestOf([...stories, blankStory]),
+  });
+  assert.equal(mixed.status, "reviewed");
+  assert.equal(
+    mixed.scored_links,
+    11,
+    "the two unscorable links are not counted as scored"
+  );
+  assert.equal(mixed.distribution?.sample_size, 11);
+  assert.deepEqual(
+    [
+      mixed.distribution?.minimum,
+      mixed.distribution?.median,
+      mixed.distribution?.maximum,
+    ],
+    [
+      report.distribution?.minimum,
+      report.distribution?.median,
+      report.distribution?.maximum,
+    ],
+    "unscorable links do not distort the distribution"
+  );
+  assert.equal(mixed.review_candidates.length, 1);
+  assert.equal(
+    mixed.review_candidates[0].acceptance_criterion_stable_id,
+    "AC-SIGNATURE-001"
+  );
+  assert.equal(mixed.review_candidates[0].path, "src/timezone.ts");
+  assert.equal(mixed.review_candidates[0].rank, 1);
+  assert.equal(mixed.review_candidates[0].score, candidate.score);
+  assert.match(
+    mixed.review_candidates[0].rationale,
+    /of 11 scored links in this repository/,
+    "the rationale counts only the links that were scored"
+  );
+
+  const blankSkips = mixed.skipped.filter(
+    (skip) => skip.acceptance_criterion_stable_id === "AC-BLANK-001"
+  );
+  assert.equal(blankSkips.length, 2);
+  for (const skip of blankSkips) {
+    assert.equal(skip.reason, "no_discriminating_terms");
+    assert.equal(skip.story_stable_id, "US-BLANK-001");
+    assert.equal(skip.relation, "implements");
+  }
+  assert.deepEqual(
+    blankSkips.map((skip) => skip.path).sort(),
+    [pathOf(TOPICS[0]), pathOf(TOPICS[4])].sort()
+  );
+  assert.ok(
+    !mixed.review_candidates.some(
+      (entry) => entry.acceptance_criterion_stable_id === "AC-BLANK-001"
+    ),
+    "an unscorable link is never a review candidate"
+  );
+
+  // Unscorable links cannot pad the sample up to the minimum either.
+  const padded = analyzeLinkPlausibility({
+    repositoryRoot: root,
+    manifest: manifestOf([...stories.slice(0, 3), blankStory]),
+  });
+  assert.equal(padded.status, "insufficient_distribution");
+  assert.equal(padded.scored_links, 3);
+  assert.deepEqual(padded.review_candidates, []);
+  assert.match(padded.notes[0], /distribution was insufficient/i);
+  assert.ok(padded.notes.some((note) => /unscorable/i.test(note)));
 
   // -------------------------------------------------------------------------
   // Shape is compatible with saveAttributionSuggestion, without touching it

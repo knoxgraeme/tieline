@@ -31,6 +31,14 @@
  * Broken links — a link whose file no longer exists — are NOT this module's
  * business. Those are reported in `skipped` and never scored, so this signal
  * cannot duplicate or contradict the mechanism that owns missing artifacts.
+ *
+ * "No signal" is likewise not a low score. A criterion whose every token is
+ * damped to zero weight — because the token appears in every linked file — or
+ * which yields no tokens at all cannot be measured against anything. Such a
+ * link is unscorable: it is reported in `skipped` as `no_discriminating_terms`,
+ * it never enters the score distribution, and it is never a review candidate.
+ * Collapsing it to 0 would report the most ubiquitous vocabulary in the
+ * repository as the least plausible link in it.
  */
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
@@ -115,12 +123,32 @@ export interface DocumentFrequencyIndex {
 }
 
 export interface LexicalPlausibility {
-  /** 0..1. Higher means more of the criterion's distinctive vocabulary appears in the file. */
-  score: number;
+  /**
+   * 0..1. Higher means more of the criterion's distinctive vocabulary appears
+   * in the file.
+   *
+   * `null` means unscorable, which is emphatically NOT 0. A score of 0 says the
+   * file shares none of the criterion's distinctive terms; `null` says the
+   * criterion has no distinctive terms to share, so this comparison carries no
+   * information in either direction. Callers must exclude `null` from any
+   * ranking, distribution, or flagging decision.
+   */
+  score: number | null;
   /** Distinctive terms present in both, strongest first. */
   shared_terms: string[];
   /** Distinctive criterion terms absent from the file, strongest first. */
   absent_terms: string[];
+}
+
+/** A measurement that produced a real score, so it may be ranked and compared. */
+export interface ScorableLexicalPlausibility extends LexicalPlausibility {
+  score: number;
+}
+
+export function isScorablePlausibility(
+  measurement: LexicalPlausibility
+): measurement is ScorableLexicalPlausibility {
+  return measurement.score !== null;
 }
 
 export type LinkPlausibilitySkipReason =
@@ -131,7 +159,9 @@ export type LinkPlausibilitySkipReason =
   | "unreadable"
   | "binary_content"
   | "file_too_large"
-  | "no_extractable_text";
+  | "no_extractable_text"
+  /** The criterion offers no term distinctive enough to measure with. */
+  | "no_discriminating_terms";
 
 export interface LinkPlausibilitySkip {
   repository: string;
@@ -160,6 +190,7 @@ export interface LinkPlausibilityReviewCandidate {
 }
 
 export interface LinkPlausibilityDistribution {
+  /** Scorable links only; unscorable links are excluded, not counted as 0. */
   sample_size: number;
   minimum: number;
   median: number;
@@ -176,6 +207,7 @@ export interface LinkPlausibilityReport {
   advisory: true;
   disclaimer: string;
   status: "reviewed" | "insufficient_distribution";
+  /** Links that yielded a real score. Unscorable links are in `skipped`. */
   scored_links: number;
   distribution: LinkPlausibilityDistribution | null;
   /**
@@ -441,6 +473,14 @@ function strongestTerms(
  * grab-bag file scores generously. That bias produces false negatives rather
  * than false positives, which is the direction this module must err in.
  *
+ * The denominator can legitimately be zero: every criterion token may be damped
+ * to zero weight by appearing in every linked file, or the criterion may yield
+ * no tokens at all. Both cases mean the same thing — there is nothing
+ * discriminating to measure — and both return a `null` score rather than 0. A
+ * criterion whose vocabulary is entirely ubiquitous may well be fully contained
+ * in its file; reporting that as the lowest possible score would invert the
+ * finding.
+ *
  * An embedding-based scorer would slot in behind this same signature, taking
  * the two surfaces and returning a 0..1 score plus explanatory terms; nothing
  * downstream of here depends on the score being lexical.
@@ -466,7 +506,9 @@ export function scoreLexicalPlausibility(
     }
   }
   return {
-    score: totalWeight > 0 ? round(sharedWeight / totalWeight) : 0,
+    // Weights are never negative, so a zero total means every weight was zero:
+    // the criterion is unscorable, not maximally implausible.
+    score: totalWeight > 0 ? round(sharedWeight / totalWeight) : null,
     shared_terms: strongestTerms(shared),
     absent_terms: strongestTerms(absent),
   };
@@ -523,7 +565,7 @@ interface ScoredLink {
   acceptance_criterion_stable_id: string;
   relation: string;
   path: string;
-  measurement: LexicalPlausibility;
+  measurement: ScorableLexicalPlausibility;
 }
 
 function median(sorted: readonly number[]): number {
@@ -533,23 +575,33 @@ function median(sorted: readonly number[]): number {
     : round((sorted[middle - 1] + sorted[middle]) / 2);
 }
 
+/**
+ * Leads with the evidence a reviewer can check by opening the file, states the
+ * link's position as a rank rather than a percentage — ties at the percentile
+ * cut mean more than the configured fraction can be flagged, so a percentage
+ * would overstate the window — and closes with the same question `tieline
+ * check` puts to a reviewer. The numeric score stays in the structured output;
+ * it is not what a human should read first.
+ */
 function reviewRationale(
   candidate: Omit<LinkPlausibilityReviewCandidate, "rationale">,
-  sampleSize: number,
-  reviewPercentile: number
+  sampleSize: number
 ): string {
-  const shared =
-    candidate.shared_terms.length > 0
-      ? `Shares ${candidate.shared_terms.join(", ")}`
-      : "Shares no distinctive term";
   const absent =
     candidate.absent_terms.length > 0
-      ? `; the criterion's ${candidate.absent_terms.join(", ")} appear nowhere in the file`
-      : "";
+      ? `The criterion's ${candidate.absent_terms.join(", ")} appear nowhere in this file`
+      : "None of the criterion's distinctive vocabulary appears in this file";
+  const shared =
+    candidate.shared_terms.length > 0
+      ? `, which shares only ${candidate.shared_terms.join(", ")}`
+      : ", which shares no distinctive term with it";
+  const rank =
+    candidate.rank === 1
+      ? `the least-related of ${sampleSize} scored links in this repository`
+      : `one of the ${candidate.rank} least-related links among ${sampleSize} scored in this repository`;
   return (
-    `Lexical overlap ${candidate.score.toFixed(2)} places this link in the weakest ` +
-    `${Math.round(reviewPercentile * 100)}% of ${sampleSize} scored links in this repository ` +
-    `(rank ${candidate.rank}). ${shared}${absent}. ` +
+    `${absent}${shared}. That makes this link ${rank}. ` +
+    `Does this file still carry this criterion? ` +
     `Suggestion for human review only — it does not mean the link is wrong.`
   );
 }
@@ -637,26 +689,44 @@ export function analyzeLinkPlausibility(
   const index = buildDocumentFrequencyIndex(
     [...surfaces.values()].map((surface) => surface.tokens)
   );
-  const scored: ScoredLink[] = pending
-    .map((entry) => ({
+  const scored: ScoredLink[] = [];
+  let unscorable = 0;
+  for (const entry of pending) {
+    const measurement = scoreLexicalPlausibility(
+      acceptanceCriterionTokenSurface(entry.story, entry.criterion),
+      surfaces.get(entry.path)?.tokens ?? [],
+      index
+    );
+    if (!isScorablePlausibility(measurement)) {
+      // Unscorable is not weak. It leaves the distribution entirely and is
+      // surfaced the same way every other unscored link is.
+      unscorable += 1;
+      skipped.push({
+        repository: repositoryKey,
+        story_stable_id: entry.story.stable_id,
+        acceptance_criterion_stable_id: entry.criterion.stable_id,
+        relation: entry.relation,
+        path: entry.path,
+        reason: "no_discriminating_terms",
+      });
+      continue;
+    }
+    scored.push({
       story_stable_id: entry.story.stable_id,
       acceptance_criterion_stable_id: entry.criterion.stable_id,
       relation: entry.relation,
       path: entry.path,
-      measurement: scoreLexicalPlausibility(
-        acceptanceCriterionTokenSurface(entry.story, entry.criterion),
-        surfaces.get(entry.path)?.tokens ?? [],
-        index
-      ),
-    }))
-    .sort(
-      (left, right) =>
-        left.measurement.score - right.measurement.score ||
-        left.acceptance_criterion_stable_id.localeCompare(
-          right.acceptance_criterion_stable_id
-        ) ||
-        left.path.localeCompare(right.path)
-    );
+      measurement,
+    });
+  }
+  scored.sort(
+    (left, right) =>
+      left.measurement.score - right.measurement.score ||
+      left.acceptance_criterion_stable_id.localeCompare(
+        right.acceptance_criterion_stable_id
+      ) ||
+      left.path.localeCompare(right.path)
+  );
 
   skipped.sort(
     (left, right) =>
@@ -673,12 +743,26 @@ export function analyzeLinkPlausibility(
     skipped,
   };
 
+  // Reported after the notes that explain the flagging outcome, so it reads as
+  // an accounting footnote rather than a finding about any link.
+  const noteUnscorableLinks = (): void => {
+    if (unscorable === 0) return;
+    notes.push(
+      `${unscorable} link(s) could not be scored: their acceptance criterion has no term ` +
+        `distinctive enough to measure against this repository's linked files, so overlap ` +
+        `carries no information in either direction. They are reported in skipped as ` +
+        `'no_discriminating_terms', are excluded from the distribution, and are never review ` +
+        `candidates. An unscorable link is not a weak link.`
+    );
+  };
+
   if (scored.length < minimumSampleSize) {
     notes.push(
       `Scored ${scored.length} link(s); at least ${minimumSampleSize} are needed to place a link ` +
         `in this repository's own score distribution. No review candidates were emitted because ` +
         `the distribution was insufficient, not because the links looked plausible.`
     );
+    noteUnscorableLinks();
     return {
       ...base,
       status: "insufficient_distribution",
@@ -724,7 +808,7 @@ export function analyzeLinkPlausibility(
       };
       return {
         ...candidate,
-        rationale: reviewRationale(candidate, scored.length, reviewPercentile),
+        rationale: reviewRationale(candidate, scored.length),
       };
     });
 
@@ -734,6 +818,7 @@ export function analyzeLinkPlausibility(
         `smell signal, not a statement that the links are correct.`
     );
   }
+  noteUnscorableLinks();
 
   return {
     ...base,

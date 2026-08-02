@@ -212,8 +212,14 @@ function renderLinkReview(
   );
   io.write(wrap(report.disclaimer, 88, "  "));
   if (report.distribution) {
+    // The window is stated as a link count rather than a percentage. Links
+    // tied at the cut score are all included, so more than the configured
+    // fraction can be flagged and a percentage would overstate the window.
+    const window = Math.floor(
+      report.distribution.sample_size * report.distribution.review_percentile
+    );
     io.write(
-      `  distribution  min ${report.distribution.minimum}, median ${report.distribution.median}, max ${report.distribution.maximum} over ${report.distribution.sample_size} link(s); flagged below ${report.distribution.absolute_score_floor} within the weakest ${Math.round(report.distribution.review_percentile * 100)}%.\n`
+      `  distribution  min ${report.distribution.minimum}, median ${report.distribution.median}, max ${report.distribution.maximum} over ${report.distribution.sample_size} scored link(s); flagged below ${report.distribution.absolute_score_floor}, within the ${window} least-related link(s) and any tied with them.\n`
     );
   }
   for (const candidate of report.review_candidates) {
