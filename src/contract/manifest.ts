@@ -98,11 +98,39 @@ export interface ContractManifest {
   capabilities: ManifestCapability[];
 }
 
+/**
+ * What compilation does when a link names an artifact in this repository that
+ * cannot be hashed — it is missing, is not a file, or resolves outside the
+ * repository.
+ *
+ * `throw` refuses to produce a manifest at all. This is the gate: a manifest a
+ * reviewer accepts must never record evidence for content that was not read.
+ *
+ * `omit_hash` records `reviewed_content_hash: null` for that one link and
+ * compiles the rest. It exists so ADVISORY, READ-ONLY commands can describe the
+ * drift instead of dying on it. A manifest compiled this way is a report, not
+ * reviewed evidence: a null reviewed hash already means "not current" to
+ * `linkFreshness`, so such a manifest must never be serialized to disk.
+ */
+export type UnhashableArtifactPolicy = "throw" | "omit_hash";
+
 export interface CompileContractManifestOptions {
   repositoryRoot: string;
   repositoryKey: string;
   commit: string;
   specDirectory?: string;
+  /**
+   * Defaults to `throw`, so every caller that does not opt in keeps refusing to
+   * compile a manifest over evidence it could not read.
+   */
+  onUnhashableArtifact?: UnhashableArtifactPolicy;
+}
+
+/** The per-compilation state every link measurement needs. */
+interface CompileContext {
+  hashes: ArtifactHashResolver;
+  repositoryKey: string;
+  onUnhashableArtifact: UnhashableArtifactPolicy;
 }
 
 type ArtifactHashResult =
@@ -342,15 +370,21 @@ function isWithinRoot(root: string, path: string): boolean {
 }
 
 function reviewedContentHash(
-  hashes: ArtifactHashResolver,
-  repositoryKey: string,
+  context: CompileContext,
   link: ContractLink
 ): string | null {
+  const { repositoryKey } = context;
   if (link.target.kind === "help" || link.target.repository !== repositoryKey) {
     return null;
   }
 
-  const measured = hashes.measure(link.target.path);
+  const measured = context.hashes.measure(link.target.path);
+  if (measured.status === "hashed") return measured.hash;
+  // The artifact could not be read. Under `omit_hash` that is the finding an
+  // advisory command was asked to report, so the link keeps its locator and
+  // records no reviewed content rather than stopping the whole compilation.
+  if (context.onUnhashableArtifact === "omit_hash") return null;
+
   if (measured.status === "missing") {
     throw new ContractManifestError(
       `Linked ${link.target.kind} artifact '${link.target.path}' does not exist in repository '${repositoryKey}'.`
@@ -362,24 +396,20 @@ function reviewedContentHash(
     );
   }
 
-  if (measured.status === "outside_repository") {
-    throw new ContractManifestError(
-      `Linked ${link.target.kind} artifact '${link.target.path}' resolves outside the repository.`
-    );
-  }
-  return measured.hash;
+  throw new ContractManifestError(
+    `Linked ${link.target.kind} artifact '${link.target.path}' resolves outside the repository.`
+  );
 }
 
 function compileLinks(
-  hashes: ArtifactHashResolver,
-  repositoryKey: string,
+  context: CompileContext,
   links: ContractLink[]
 ): ManifestLink[] {
   return links
     .map((link) => ({
       relation: link.relation,
       target: link.target,
-      reviewed_content_hash: reviewedContentHash(hashes, repositoryKey, link),
+      reviewed_content_hash: reviewedContentHash(context, link),
     }))
     .sort((left, right) =>
       stableJson([left.relation, left.target]).localeCompare(
@@ -402,8 +432,7 @@ function criterionSemantics(criterion: AcceptanceCriterion): unknown {
 }
 
 function compileCriterion(
-  hashes: ArtifactHashResolver,
-  repositoryKey: string,
+  context: CompileContext,
   criterion: AcceptanceCriterion,
   position: number
 ): ManifestAcceptanceCriterion {
@@ -420,7 +449,7 @@ function compileCriterion(
       position: scenarioPosition,
       ...scenario,
     })),
-    links: compileLinks(hashes, repositoryKey, criterion.links),
+    links: compileLinks(context, criterion.links),
     contract_hash: contractHash(criterionSemantics(criterion)),
   };
 }
@@ -443,8 +472,7 @@ function storySemantics(story: AcceptedStory): unknown {
 }
 
 function compileStory(
-  hashes: ArtifactHashResolver,
-  repositoryKey: string,
+  context: CompileContext,
   story: AcceptedStory
 ): ManifestStory {
   return {
@@ -459,10 +487,10 @@ function compileStory(
     motivated_by: [...story.motivated_by].sort(),
     supersedes: story.supersedes ?? null,
     planning_origin: story.planning_origin ?? null,
-    links: compileLinks(hashes, repositoryKey, story.links),
+    links: compileLinks(context, story.links),
     acceptance_criteria: story.acceptance_criteria
       .map((criterion, position) =>
-        compileCriterion(hashes, repositoryKey, criterion, position)
+        compileCriterion(context, criterion, position)
       )
       .sort((left, right) => left.stable_id.localeCompare(right.stable_id)),
     contract_hash: contractHash(storySemantics(story)),
@@ -481,8 +509,7 @@ function capabilitySemantics(capability: Capability): unknown {
 }
 
 function compileCapability(
-  hashes: ArtifactHashResolver,
-  repositoryKey: string,
+  context: CompileContext,
   capability: Capability
 ): ManifestCapability {
   return {
@@ -493,7 +520,7 @@ function compileCapability(
     applies_to: capability.applies_to ?? null,
     supersedes: capability.supersedes ?? null,
     stories: capability.stories
-      .map((story) => compileStory(hashes, repositoryKey, story))
+      .map((story) => compileStory(context, story))
       .sort((left, right) => left.stable_id.localeCompare(right.stable_id)),
     contract_hash: contractHash(capabilitySemantics(capability)),
   };
@@ -509,7 +536,11 @@ export function compileContractManifest(
   if (!commit) throw new ContractManifestError("Repository commit cannot be empty.");
 
   const loaded = loadAcceptedContractWithSources(root, options.specDirectory);
-  const hashes = createArtifactHashResolver(root);
+  const context: CompileContext = {
+    hashes: createArtifactHashResolver(root),
+    repositoryKey,
+    onUnhashableArtifact: options.onUnhashableArtifact ?? "throw",
+  };
   return {
     schema_version: CONTRACT_MANIFEST_VERSION,
     repository: { key: repositoryKey, commit },
@@ -517,9 +548,7 @@ export function compileContractManifest(
       .map((source) => ({ path: source.path, sha256: sha256(source.content) }))
       .sort((left, right) => left.path.localeCompare(right.path)),
     capabilities: loaded.documents
-      .map((document) =>
-        compileCapability(hashes, repositoryKey, document.capability)
-      )
+      .map((document) => compileCapability(context, document.capability))
       .sort((left, right) => left.stable_id.localeCompare(right.stable_id)),
   };
 }

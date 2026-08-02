@@ -466,14 +466,31 @@ export async function runContractCommand(
     }
   }
 
-  const manifest = compileContractManifest({
-    repositoryRoot: parsed.repositoryRoot,
-    repositoryKey: parsed.repositoryKey,
-    commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
-    specDirectory: parsed.specDirectory,
-  });
+  /**
+   * Compilation is deferred so each remaining action picks its own strictness,
+   * and every action compiles exactly once.
+   *
+   * `compile` is the gate and stays strict: a manifest written for review must
+   * never record a null reviewed hash for content nobody could read. The
+   * advisory actions are read-only reports about drift, and a branch that
+   * deleted or renamed a linked file is precisely the drift they exist to
+   * describe — so they tolerate an unhashable artifact instead of aborting.
+   * Neither of them serializes the manifest, so a tolerant compilation cannot
+   * reach `.tieline/manifest.json`.
+   */
+  const compileManifest = (
+    onUnhashableArtifact: "throw" | "omit_hash"
+  ): ContractManifest =>
+    compileContractManifest({
+      repositoryRoot: parsed.repositoryRoot,
+      repositoryKey: parsed.repositoryKey,
+      commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
+      specDirectory: parsed.specDirectory,
+      onUnhashableArtifact,
+    });
 
   if (parsed.action === "link-review") {
+    const manifest = compileManifest("omit_hash");
     const report = analyzeLinkPlausibility({
       repositoryRoot: parsed.repositoryRoot,
       manifest,
@@ -499,6 +516,7 @@ export async function runContractCommand(
         "Reconciliation compares the working tree against a base ref. Pass --base <ref>."
       );
     }
+    const manifest = compileManifest("omit_hash");
     const report = analyzeContractReconciliation({
       repositoryRoot: parsed.repositoryRoot,
       manifest,
@@ -515,6 +533,12 @@ export async function runContractCommand(
     // Reporting only. Reconciliation informs authoring and never gates a branch.
     return 0;
   }
+
+  if (parsed.action !== "compile" && parsed.action !== "coverage") {
+    throw new Error(`Unsupported contract action: ${parsed.action}`);
+  }
+
+  const manifest = compileManifest("throw");
 
   // `manifest` was compiled from the working tree, so its reviewed hashes are
   // the hashes it just measured. The committed manifest is the only record of

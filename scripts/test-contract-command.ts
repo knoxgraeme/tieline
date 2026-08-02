@@ -557,6 +557,125 @@ try {
   assert.match(output, /src\/unmapped-1\.ts/);
   assert.match(output, /a refactor needs no new criterion/);
   assert.match(output, /the contract definition itself/);
+
+  // A branch that deletes a linked file without updating its link is drift the
+  // advisory commands exist to report, so neither may die trying to hash the
+  // file that is gone. `contract compile` is the gate and must still refuse.
+  rmSync(resolve(root, "src/mapped-7.ts"));
+
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "reconcile",
+        root,
+        "--repo",
+        "contract-command-test",
+        "--commit",
+        "offline-proof",
+        "--base",
+        "HEAD",
+        "--json",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  const deletedReconcile = JSON.parse(output);
+  const deletedChange = deletedReconcile.claimed_changes.find(
+    (change: { path: string }) => change.path === "src/mapped-7.ts"
+  );
+  assert.ok(
+    deletedChange,
+    "a deleted path a link still names is a claimed change, not an abort"
+  );
+  assert.equal(deletedChange.status, "deleted");
+  assert.ok(
+    deletedChange.claimed_by.some(
+      (claim: { acceptance_criterion_stable_id: string }) =>
+        claim.acceptance_criterion_stable_id === "REVIEW-001-AC4"
+    ),
+    "the acceptance criterion whose evidence was deleted must be named"
+  );
+  assert.equal(deletedReconcile.summary.excluded_by_reason.deleted, 0);
+
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "link-review",
+        root,
+        "--repo",
+        "contract-command-test",
+        "--commit",
+        "offline-proof",
+        "--json",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  const deletedLinkReview = JSON.parse(output);
+  assert.ok(
+    deletedLinkReview.skipped.some(
+      (skip: { path?: string; reason: string }) =>
+        skip.path === "src/mapped-7.ts" && skip.reason === "file_missing"
+    ),
+    "a link whose file is gone is reported as a skip, not as a crash"
+  );
+  // The remaining links are still scored, so one broken link does not silence
+  // the whole report.
+  assert.ok(deletedLinkReview.scored_links > 0);
+
+  // The gate is unchanged: a manifest offered for review must not record a null
+  // reviewed hash for content nobody could read.
+  await assert.rejects(
+    () =>
+      runCli(
+        [
+          "contract",
+          "compile",
+          root,
+          "--repo",
+          "contract-command-test",
+          "--commit",
+          "offline-proof",
+          "--output",
+          manifestPath,
+        ],
+        io,
+        {}
+      ),
+    /src\/mapped-7\.ts.*does not exist/i
+  );
+  // A null reviewed hash already reads as `stale` downstream, so the manifest
+  // on disk must carry one only where it always could: an unresolved help
+  // locator, never a code or test artifact.
+  const persisted = JSON.parse(readFileSync(manifestPath, "utf8"));
+  for (const capability of persisted.capabilities) {
+    for (const story of capability.stories) {
+      for (const link of [
+        ...story.links,
+        ...story.acceptance_criteria.flatMap(
+          (criterion: { links: unknown[] }) => criterion.links
+        ),
+      ] as Array<{
+        reviewed_content_hash: string | null;
+        target: { kind: string };
+      }>) {
+        if (link.target.kind === "help") continue;
+        assert.match(
+          link.reviewed_content_hash ?? "",
+          /^[a-f0-9]{64}$/,
+          "no tolerant compilation reached the manifest on disk"
+        );
+      }
+    }
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
