@@ -96,20 +96,51 @@ export async function runCheckCommand(
   if (options.json) {
     io.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
-    io.write(
-      `Semantic impact: ${impacts.length} AC finding(s); manifest=${manifestCurrent ? "current" : "stale"}.\n`
+    // Impacts are orientation, not defects: they answer "what does this change
+    // touch?", which is the question an agent needs answered before it edits.
+    // Labelling them `warn` trains readers to skip the whole stream, so `warn`
+    // is reserved for findings that need an action.
+    const definitionChanged = impacts.filter(
+      (impact) => impact.reason === "contract_definition_changed"
     );
-    for (const impact of impacts) {
+    const pathImpacts = impacts.filter(
+      (impact) => impact.reason !== "contract_definition_changed"
+    );
+    const affectedCriteria = new Set(
+      pathImpacts.map((impact) => impact.acceptance_criterion_stable_id)
+    );
+    io.write(
+      `Contract impact vs ${base}: ${affectedCriteria.size} acceptance criteria affected across ${pathImpacts.length} linked path(s); manifest=${manifestCurrent ? "current" : "stale"}.\n`
+    );
+    for (const impact of pathImpacts) {
+      // `current` freshness is provably redundant with the manifest gate: a
+      // fresh compile recomputes every local reviewed hash, so a local link
+      // cannot be stale while `manifest_current` holds. Only unmeasurable or
+      // genuinely stale links carry information here.
+      const freshness =
+        impact.freshness === "current" || impact.freshness === "not_applicable"
+          ? ""
+          : ` (${impact.freshness})`;
       io.write(
-        `  warn  ${impact.acceptance_criterion_stable_id} ${impact.reason} ${impact.path} (${impact.freshness})\n`
+        `  affects  ${impact.acceptance_criterion_stable_id} ${impact.reason} ${impact.path}${freshness}\n`
       );
     }
-    for (const warning of result.warnings) {
-      io.write(`  warn  ${warning}\n`);
+    if (definitionChanged.length > 0) {
+      io.write(
+        `  note     the contract definition changed under ${specDirectory}, which nominally affects all ${definitionChanged.length} acceptance criteria\n`
+      );
+    }
+    // Per-link staleness is already marked inline above, and it can only occur
+    // while the manifest itself is stale — one cause, one action, one warning.
+    // The JSON `warnings` array stays complete for machine consumers.
+    if (!manifestCurrent) {
+      io.write(
+        "  warn     The committed manifest does not match current YAML or linked content; compile it before merge.\n"
+      );
     }
     if (strictFailure) {
       io.write(
-        "  error  Strict mode: the committed manifest is stale. Run `tieline contract compile` and commit the manifest.\n"
+        "  error    Strict mode: the committed manifest is stale. Run `tieline contract compile` and commit the manifest.\n"
       );
     }
   }

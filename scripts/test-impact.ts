@@ -222,7 +222,39 @@ capability:
     ),
     1
   );
-  assert.match(strictTextOutput.join(""), /error {2}Strict mode/);
+  assert.match(strictTextOutput.join(""), /error\s+Strict mode/);
+
+  // Impacts are orientation, not defects. The text view labels them `affects`,
+  // collapses the per-AC `contract_definition_changed` fan-out into one note,
+  // and reserves `warn` for findings that need an action.
+  const shapeOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      { base: "HEAD", repository: root },
+      { write: (message) => shapeOutput.push(message) }
+    ),
+    0
+  );
+  const shapeText = shapeOutput.join("");
+  assert.match(shapeText, /^Contract impact vs HEAD: \d+ acceptance criteria/m);
+  assert.match(shapeText, /affects\s+\S+ modified src\/feature\.ts/);
+  assert.doesNotMatch(
+    shapeText,
+    /warn\s+\S+ modified/,
+    "path impacts must not be labelled warn"
+  );
+  // One cause, one action, one warning: per-link staleness is marked inline and
+  // can only occur while the manifest is stale, so it must not be repeated.
+  assert.equal(
+    shapeText.split("\n").filter((line) => line.includes("warn")).length,
+    1,
+    "a stale manifest must produce exactly one warning, not one per stale link"
+  );
+  assert.doesNotMatch(
+    shapeText,
+    /\(current\)/,
+    "current freshness is redundant with the manifest gate and must be suppressed"
+  );
 
   await assert.rejects(
     runCheckCommand(

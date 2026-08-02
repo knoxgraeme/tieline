@@ -360,7 +360,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "reviewed_content_hash": "5b56bcf9b0533c94b8b849d4fa5547c2fee17bb7b4a9930b2600a997e7f32f10",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -369,7 +369,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "59a9695169dcaac4adaac44db5b1f8ad40aed2e8e601651b6cda94d27310490b",
+                  "reviewed_content_hash": "a36ec3869e7df6c1dd69243bfded039fdcbc18e78ed8128d132f3fa275859920",
                   "target": {
                     "kind": "code",
                     "path": "src/contract/coverage.ts",
@@ -445,7 +445,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "e7e0d826c539a3fbfc45707b67b19ffc0ef1f8ca294bcfa7d49797385a273de1",
+                  "reviewed_content_hash": "c0b689511931732315355ab3d2fc1daf78e610efc5f16f2da54dceeca691b21b",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/check.ts",
@@ -463,7 +463,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "9a25bcdf8fcdf2c92fd4e73ca64d14363ea9227279db89dde05a9f3de7f572a6",
+                  "reviewed_content_hash": "e4a7aae59a27a0422ff12d9b0529d5719c1f91348fc9add539500f54541c01fc",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -494,7 +494,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "reviewed_content_hash": "5b56bcf9b0533c94b8b849d4fa5547c2fee17bb7b4a9930b2600a997e7f32f10",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -535,7 +535,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "e7e0d826c539a3fbfc45707b67b19ffc0ef1f8ca294bcfa7d49797385a273de1",
+                  "reviewed_content_hash": "c0b689511931732315355ab3d2fc1daf78e610efc5f16f2da54dceeca691b21b",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/check.ts",
@@ -544,7 +544,7 @@
                 },
                 {
                   "relation": "tests",
-                  "reviewed_content_hash": "9a25bcdf8fcdf2c92fd4e73ca64d14363ea9227279db89dde05a9f3de7f572a6",
+                  "reviewed_content_hash": "e4a7aae59a27a0422ff12d9b0529d5719c1f91348fc9add539500f54541c01fc",
                   "target": {
                     "framework_hint": "custom-script",
                     "kind": "test",
@@ -566,6 +566,46 @@
               ],
               "stable_id": "CONTRACT-001-AC5",
               "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "479efb1627488aaf8daa092c99498b31dbb596699e6becaffd95faae28de2226",
+              "criterion": "The check report must label affected Acceptance Criteria as impact rather than as warnings, and must reserve warnings for findings that require an action.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "c0b689511931732315355ab3d2fc1daf78e610efc5f16f2da54dceeca691b21b",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/commands/check.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "e4a7aae59a27a0422ff12d9b0529d5719c1f91348fc9add539500f54541c01fc",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-impact.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 5,
+              "rationale": "Impacts answer which behavior a change touches, which is orientation rather than a defect. Labelling orientation as a warning trains every reader to skip the stream, so the warnings that do require an action stop being read.",
+              "scenarios": [
+                {
+                  "given": "a change modifies linked paths while the committed manifest is stale",
+                  "position": 0,
+                  "stable_id": "CONTRACT-001-AC6-S1",
+                  "then": "affected Acceptance Criteria must be reported as impact and exactly one warning must name the stale manifest",
+                  "when": "the branch is checked against its base"
+                }
+              ],
+              "stable_id": "CONTRACT-001-AC6",
+              "supersedes": null
             }
           ],
           "actor": "maintainer",
@@ -583,6 +623,163 @@
           "stable_id": "CONTRACT-001",
           "supersedes": null,
           "title": "Review accepted behavior with code"
+        },
+        {
+          "acceptance_criteria": [
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "535d57e5b1a1b13bb4567920ceb7379774edebbecf1684121a386ddfc9c6376c",
+              "criterion": "Tieline must report every acceptance criterion that links a repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must state explicitly when no acceptance criterion governs the path.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "3cc8eaa48b25ca107f8998e69bc4be6a6e4dba492b87193cfa54acbaa14babb7",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/cli.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "5b56bcf9b0533c94b8b849d4fa5547c2fee17bb7b4a9930b2600a997e7f32f10",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/commands/contract.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "b2cd7fe8014d2da5e66f35edf0cd2f2199c61608d5d4eaf911943ff3b49778f8",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/contract/governs.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "f294a5750d0bfa2cc62f24873d5f5527230b72ae19f32c6e2a64c41d047f6c01",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-governs.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 0,
+              "rationale": "Coverage answers for the whole contract and check answers for a diff, so both describe a violation that already exists; the pre-change question is the only one that can prevent it. An empty array reads to an agent like a failed query rather than the finding that the code is ungoverned.",
+              "scenarios": [
+                {
+                  "given": "a path is linked by one acceptance criterion and by the Story that owns it",
+                  "position": 0,
+                  "stable_id": "CONTRACT-002-AC1-S1",
+                  "then": "Tieline must return both records and mark them direct and story_fallback",
+                  "when": "the governing criteria for that path are requested"
+                },
+                {
+                  "given": "a path exists in the repository and no contract link targets it",
+                  "position": 1,
+                  "stable_id": "CONTRACT-002-AC1-S2",
+                  "then": "Tieline must state that no acceptance criterion governs it instead of returning an empty result",
+                  "when": "the governing criteria for that path are requested"
+                },
+                {
+                  "given": "a requested path does not exist in the repository",
+                  "position": 2,
+                  "stable_id": "CONTRACT-002-AC1-S3",
+                  "then": "Tieline must report it distinctly from a path that exists but is ungoverned",
+                  "when": "the governing criteria for that path are requested"
+                }
+              ],
+              "stable_id": "CONTRACT-002-AC1",
+              "supersedes": null
+            },
+            {
+              "aliases": [],
+              "applies_to": null,
+              "contract_hash": "8952c5f5243c393d8f89cdf45bf5e45b4f0ca104092637ac3e4fc080b75cefcf",
+              "criterion": "The governing-criteria lookup must answer from the compiled manifest alone, so Tieline must serve it over MCP with no database connection and must return a named, actionable message when no workspace or no readable manifest is found.",
+              "links": [
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "6b3cf988e40ffa79a35f13c4a711083721c55b17332168b5d1eae11b3c8b1db3",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/schemas.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "c05b58f1fd2112c109b99a21ebd164a3bd2992935e6273daed2669ee9376d99a",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/server.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "implements",
+                  "reviewed_content_hash": "269c2d7d6600a081299e8c1fc64a0911cd9951f97573b1838513864912eb3eb5",
+                  "target": {
+                    "kind": "code",
+                    "path": "src/tools/governing-criteria.ts",
+                    "repository": "tieline"
+                  }
+                },
+                {
+                  "relation": "tests",
+                  "reviewed_content_hash": "f294a5750d0bfa2cc62f24873d5f5527230b72ae19f32c6e2a64c41d047f6c01",
+                  "target": {
+                    "framework_hint": "custom-script",
+                    "kind": "test",
+                    "path": "scripts/test-governs.ts",
+                    "repository": "tieline"
+                  }
+                }
+              ],
+              "position": 1,
+              "rationale": "Every other MCP tool fails at call time without Postgres, so an offline server boots and answers nothing; a manifest-backed lookup is what makes serving without a database worth doing, and an obscure throw would waste the one answer the caller came for.",
+              "scenarios": [
+                {
+                  "given": "no database connection is configured",
+                  "position": 0,
+                  "stable_id": "CONTRACT-002-AC2-S1",
+                  "then": "Tieline must return the governing acceptance criteria and the commit the manifest records",
+                  "when": "the governing criteria for a path are requested over MCP"
+                },
+                {
+                  "given": "the server runs outside any Tieline workspace",
+                  "position": 1,
+                  "stable_id": "CONTRACT-002-AC2-S2",
+                  "then": "Tieline must name the missing workspace and the command that creates one",
+                  "when": "the governing criteria for a path are requested"
+                }
+              ],
+              "stable_id": "CONTRACT-002-AC2",
+              "supersedes": null
+            }
+          ],
+          "actor": "implementing agent",
+          "aliases": [
+            "path to acceptance criterion lookup",
+            "what contract governs this file"
+          ],
+          "applies_to": null,
+          "benefit": "a contradiction with accepted behavior is prevented instead of reported afterwards",
+          "contract_hash": "6dad533763a01c828684752720fd481eae6953071e7af5517b4d66b95564e1cd",
+          "goal": "resolve a repository path to the accepted behavior that already governs it",
+          "lifecycle": "production",
+          "links": [],
+          "motivated_by": [],
+          "planning_origin": null,
+          "stable_id": "CONTRACT-002",
+          "supersedes": null,
+          "title": "Learn which acceptance criteria govern a path before editing it"
         }
       ],
       "supersedes": null
@@ -847,7 +1044,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "a5b8edb820ff25581f2b440a0fcddd28b85c0f3c88d8855f0b67f283c04d7188",
+                  "reviewed_content_hash": "3cc8eaa48b25ca107f8998e69bc4be6a6e4dba492b87193cfa54acbaa14babb7",
                   "target": {
                     "kind": "code",
                     "path": "src/cli.ts",
@@ -856,7 +1053,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "reviewed_content_hash": "5b56bcf9b0533c94b8b849d4fa5547c2fee17bb7b4a9930b2600a997e7f32f10",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -959,7 +1156,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "reviewed_content_hash": "5b56bcf9b0533c94b8b849d4fa5547c2fee17bb7b4a9930b2600a997e7f32f10",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -1099,7 +1296,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "4accf0d836fbc53f74c7a25e860e143f025ee50a4e85b10c17ff4843494b3680",
+                  "reviewed_content_hash": "5b56bcf9b0533c94b8b849d4fa5547c2fee17bb7b4a9930b2600a997e7f32f10",
                   "target": {
                     "kind": "code",
                     "path": "src/commands/contract.ts",
@@ -1573,7 +1770,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "d7182ff744107d5928f55990a4f678988c3946c0f939518a4f865ce86f04478b",
+                  "reviewed_content_hash": "6b3cf988e40ffa79a35f13c4a711083721c55b17332168b5d1eae11b3c8b1db3",
                   "target": {
                     "kind": "code",
                     "path": "src/schemas.ts",
@@ -1736,7 +1933,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "a5b8edb820ff25581f2b440a0fcddd28b85c0f3c88d8855f0b67f283c04d7188",
+                  "reviewed_content_hash": "3cc8eaa48b25ca107f8998e69bc4be6a6e4dba492b87193cfa54acbaa14babb7",
                   "target": {
                     "kind": "code",
                     "path": "src/cli.ts",
@@ -1845,7 +2042,7 @@
               "links": [
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "a5b8edb820ff25581f2b440a0fcddd28b85c0f3c88d8855f0b67f283c04d7188",
+                  "reviewed_content_hash": "3cc8eaa48b25ca107f8998e69bc4be6a6e4dba492b87193cfa54acbaa14babb7",
                   "target": {
                     "kind": "code",
                     "path": "src/cli.ts",
@@ -1939,7 +2136,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "bad9efc78294bf27618ec982da3b940382dae6d29f320c4f734aebf60b2ba118",
+                  "reviewed_content_hash": "c05b58f1fd2112c109b99a21ebd164a3bd2992935e6273daed2669ee9376d99a",
                   "target": {
                     "kind": "code",
                     "path": "src/server.ts",
@@ -2107,7 +2304,7 @@
                 },
                 {
                   "relation": "implements",
-                  "reviewed_content_hash": "bad9efc78294bf27618ec982da3b940382dae6d29f320c4f734aebf60b2ba118",
+                  "reviewed_content_hash": "c05b58f1fd2112c109b99a21ebd164a3bd2992935e6273daed2669ee9376d99a",
                   "target": {
                     "kind": "code",
                     "path": "src/server.ts",
@@ -2217,7 +2414,7 @@
     },
     {
       "path": ".tieline/spec/contract.yaml",
-      "sha256": "493826fe82dbd079066f7298bfee74b6f18451808b9c0001e7d3ff9c2552d850"
+      "sha256": "5e0dcc14e9c5773a209bad9c16e3ceee5ac832a39740297d423e39f54e1c48cb"
     },
     {
       "path": ".tieline/spec/evidence.yaml",
@@ -2241,7 +2438,7 @@
     }
   ],
   "repository": {
-    "commit": "42b630d161ac705b30b0bbe6e6a478da6f602b79",
+    "commit": "4ab67c9fed8c4d3ccd3fca6e5963c96699fb2bc2",
     "key": "tieline"
   },
   "schema_version": 1

@@ -1,5 +1,9 @@
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import {
+  buildGoverningCriteriaIndex,
+  normalizeRepositoryPath as normalizePath,
+} from "./governs.js";
 import type { ContractManifest } from "./manifest.js";
 
 export interface RepositoryMappingCoverage {
@@ -16,10 +20,6 @@ export interface RepositoryMappingCoverageOptions {
   repositoryRoot: string;
   sourceRoots: string[];
   ignore?: string[];
-}
-
-function normalizePath(path: string): string {
-  return path.split(sep).join("/");
 }
 
 function wildcardPattern(pattern: string): RegExp {
@@ -80,26 +80,6 @@ function walkFiles(
     );
 }
 
-function mappedPaths(manifest: ContractManifest): Set<string> {
-  const paths = new Set<string>();
-  for (const capability of manifest.capabilities) {
-    for (const story of capability.stories) {
-      for (const link of [
-        ...story.links,
-        ...story.acceptance_criteria.flatMap((criterion) => criterion.links),
-      ]) {
-        if (
-          link.target.kind !== "help" &&
-          link.target.repository === manifest.repository.key
-        ) {
-          paths.add(normalizePath(link.target.path));
-        }
-      }
-    }
-  }
-  return paths;
-}
-
 export function computeRepositoryMappingCoverage(
   manifest: ContractManifest,
   options: RepositoryMappingCoverageOptions
@@ -126,7 +106,10 @@ export function computeRepositoryMappingCoverage(
   }
 
   const sorted = [...allFiles].sort();
-  const mapped = mappedPaths(manifest);
+  // The governing-criteria index is keyed by the same normalized repository
+  // paths `mappedPaths` used to collect, so coverage reads `.has()` off the
+  // richer structure instead of repeating the traversal.
+  const mapped = buildGoverningCriteriaIndex(manifest);
   const mappedFiles = sorted.filter((path) => mapped.has(path));
   const unmappedFiles = sorted.filter((path) => !mapped.has(path));
 

@@ -45,6 +45,7 @@
     "test:contract-command": "tsx scripts/test-contract-command.ts",
     "test:contract-read": "tsx scripts/test-contract-read.ts",
     "test:impact": "tsx scripts/test-impact.ts",
+    "test:governs": "tsx scripts/test-governs.ts",
     "test:symbol-vocabulary": "tsx scripts/test-symbol-vocabulary.ts",
     "test:grade": "tsx scripts/test-grade.ts",
     "test:evidence": "tsx scripts/test-evidence.ts",

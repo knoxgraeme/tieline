@@ -27,6 +27,10 @@ import {
   renderGradeScopeText,
   verifyGradeVerdicts,
 } from "../contract/grade.js";
+import {
+  lookupGoverningCriteria,
+  renderGoverningCriteriaText,
+} from "../contract/governs.js";
 import { renderContractReviewPage } from "../contract/review-page.js";
 import { syncContractManifest } from "../contract/sync.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
@@ -43,6 +47,7 @@ export type ContractAction =
   | "review"
   | "compile"
   | "coverage"
+  | "governs"
   | "grade"
   | "sync";
 
@@ -58,6 +63,7 @@ export interface ContractCommandOptions {
   emitScope?: boolean;
   verify?: string;
   strict?: boolean;
+  paths?: string[];
 }
 
 interface ParsedContractCommand {
@@ -76,6 +82,7 @@ interface ParsedContractCommand {
   emitScope: boolean;
   verify?: string;
   strict: boolean;
+  paths: string[];
 }
 
 function gitCommit(repositoryRoot: string): string {
@@ -133,6 +140,7 @@ function resolveContractCommand(
     emitScope: options.emitScope === true,
     verify: options.verify,
     strict: options.strict === true,
+    paths: options.paths ?? [],
   };
 }
 
@@ -316,6 +324,37 @@ export async function runContractCommand(
 
   if (parsed.action === "grade") {
     return runGrade(parsed, io);
+  }
+
+  if (parsed.action === "governs") {
+    if (parsed.paths.length === 0) {
+      throw new Error(
+        "`contract governs` requires at least one repository-relative path."
+      );
+    }
+    // Answers come from the reviewed manifest rather than a fresh compile, so
+    // the reported commit names exactly the state that produced the answer.
+    let manifest: ContractManifest;
+    try {
+      manifest = readContractManifest(parsed.manifestPath);
+    } catch (error) {
+      throw new Error(
+        `Cannot report governing acceptance criteria because ${parsed.manifestPath} is unreadable: ${
+          error instanceof Error ? error.message : String(error)
+        } Run \`tieline contract compile\` and commit the manifest.`
+      );
+    }
+    const report = lookupGoverningCriteria({
+      manifest,
+      repositoryRoot: parsed.repositoryRoot,
+      paths: parsed.paths,
+    });
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(report, null, 2)}\n`
+        : renderGoverningCriteriaText(report)
+    );
+    return 0;
   }
 
   if (parsed.action === "sync") {

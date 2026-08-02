@@ -474,7 +474,8 @@ function buildProgram(
             | "compile"
             | "coverage"
             | "grade"
-            | "sync",
+            | "sync"
+            | "governs",
           { repository, ...(opts as ContractActionOptions) },
           io
         )
@@ -505,6 +506,34 @@ function buildProgram(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"
   );
+  // `governs` takes paths where the other actions take a repository, so it is
+  // declared directly instead of through `contractAction`.
+  contract
+    .command("governs")
+    .description(
+      "Report the acceptance criteria that govern repository-relative paths"
+    )
+    .argument("<paths...>", "repository-relative paths")
+    .option("--repository <path>", "repository path")
+    .option("--repo <key>", "stable repository key")
+    .option("--spec <dir>", "spec directory")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (paths: string[], opts) => {
+      const { runContractCommand } = await import("./commands/contract.js");
+      setExit(
+        await runContractCommand(
+          "governs",
+          {
+            paths,
+            repository: opts.repository,
+            repo: opts.repo,
+            spec: opts.spec,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
 
   program
     .command("check")
