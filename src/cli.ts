@@ -200,6 +200,7 @@ export function workspaceStartForCommand(
           "commit",
           "output",
           "spec",
+          "base",
           "expected-previous-commit",
         ]),
         1
@@ -339,6 +340,7 @@ interface ContractActionOptions {
   output?: string;
   spec?: string;
   expectedPreviousCommit?: string;
+  base?: string;
   json?: boolean;
 }
 
@@ -467,6 +469,8 @@ function buildProgram(
             | "review"
             | "compile"
             | "coverage"
+            | "link-review"
+            | "reconcile"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -478,7 +482,18 @@ function buildProgram(
   contractAction("validate", "Validate accepted contract YAML");
   contractAction("review", "Render a browser review page");
   contractAction("compile", "Compile the contract manifest");
-  contractAction("coverage", "Report evidence and mapping coverage");
+  contractAction(
+    "coverage",
+    "Report evidence and mapping coverage with confidence tiers"
+  );
+  contractAction(
+    "link-review",
+    "Suggest contract links a human should re-read (advisory only)"
+  );
+  contractAction(
+    "reconcile",
+    "Report which changed paths the contract already claims (authoring input)"
+  ).requiredOption("--base <ref>", "git base ref to diff against");
   contractAction("sync", "Sync the reviewed manifest to the database").option(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"
@@ -491,6 +506,10 @@ function buildProgram(
     .requiredOption("--base <ref>", "git base ref to diff against")
     .option("--repo <key>", "stable repository key")
     .option("--json", "emit machine-readable JSON")
+    .option(
+      "--no-fail-on-broken",
+      "report broken links as warnings instead of failing"
+    )
     .action(async (repository: string | undefined, opts) => {
       const { runCheckCommand } = await import("./commands/check.js");
       setExit(
@@ -500,6 +519,7 @@ function buildProgram(
             repository,
             repo: opts.repo,
             json: Boolean(opts.json),
+            failOnBroken: opts.failOnBroken !== false,
           },
           io
         )

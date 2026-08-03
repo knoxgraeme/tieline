@@ -1,14 +1,65 @@
-import { isAbsolute } from "node:path";
+import { readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import type { ZodIssue } from "zod";
+import { readSelectorConfig } from "../config.js";
 import {
   acceptedContractDocumentSchema,
   type AcceptedContractDocument,
   type ContractLink,
 } from "./schema.js";
+import {
+  CORE_SELECTOR_VOCABULARY,
+  createSelectorVocabulary,
+  validateSelector,
+  type SelectorVocabulary,
+} from "./selector.js";
 
 export interface ContractDocumentInput {
   path: string;
   document: unknown;
+}
+
+export interface ValidateAcceptedContractOptions {
+  /**
+   * Kinds this repository allows in link selectors. Defaults to the closed core
+   * vocabulary, which is the safe default: an undeclared kind fails loudly
+   * rather than silently creating a second identity namespace.
+   */
+  selectorVocabulary?: SelectorVocabulary;
+  /**
+   * Repository root to read `.tieline/config.json` from when no vocabulary is
+   * supplied. This is how config-declared kinds reach validation: the schema is
+   * a static value shared by manifest compilation and cannot carry per-repository
+   * configuration, so membership is checked here, at the one layer that can
+   * legitimately go and look at the repository.
+   */
+  repositoryRoot?: string;
+}
+
+/**
+ * Builds the selector vocabulary for a checkout. A missing or unreadable config
+ * yields the core vocabulary rather than an error, because the absence of a
+ * `selectors` block is the normal case, not a misconfiguration. A malformed
+ * `selectors` block does throw — a repository that tried to declare kinds and
+ * got it wrong must not silently fall back to a narrower vocabulary.
+ */
+export function selectorVocabularyForRepository(
+  repositoryRoot: string,
+  configPath = ".tieline/config.json"
+): SelectorVocabulary {
+  let raw: string;
+  try {
+    raw = readFileSync(resolve(repositoryRoot, configPath), "utf8");
+  } catch {
+    return CORE_SELECTOR_VOCABULARY;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return CORE_SELECTOR_VOCABULARY;
+  }
+  return createSelectorVocabulary(readSelectorConfig(parsed).kinds);
 }
 
 export interface ValidatedContract {
@@ -59,10 +110,25 @@ function validateRepositoryPath(path: string): string | null {
   return null;
 }
 
-function validateLink(path: string, link: ContractLink, issues: string[]): void {
+function validateLink(
+  path: string,
+  link: ContractLink,
+  vocabulary: SelectorVocabulary,
+  issues: string[]
+): void {
   if (link.target.kind === "help") return;
   const issue = validateRepositoryPath(link.target.path);
   if (issue) issues.push(`${path}: ${issue}`);
+  const selector = link.target.selector;
+  if (selector === undefined) return;
+  // The schema already accepted the shape and canonicalized it; what is left is
+  // whether this repository actually uses that kind. Keeping the check closed is
+  // the whole point: a typo like `func:` must fail here rather than quietly
+  // becoming a second, unreconcilable asset identity.
+  const checked = validateSelector(selector, vocabulary);
+  if (!checked.ok) {
+    issues.push(`${path}: link to '${link.target.path}' has an invalid selector: ${checked.error}`);
+  }
 }
 
 function findSupersessionCycle(
@@ -83,8 +149,14 @@ function findSupersessionCycle(
 }
 
 export function validateAcceptedContractDocuments(
-  inputs: ContractDocumentInput[]
+  inputs: ContractDocumentInput[],
+  options: ValidateAcceptedContractOptions = {}
 ): ValidatedContract {
+  const vocabulary =
+    options.selectorVocabulary ??
+    (options.repositoryRoot
+      ? selectorVocabularyForRepository(options.repositoryRoot)
+      : CORE_SELECTOR_VOCABULARY);
   const issues: string[] = [];
   const parsedInputs: Array<{ path: string; document: AcceptedContractDocument }> = [];
 
@@ -126,7 +198,7 @@ export function validateAcceptedContractDocuments(
         path: sourcePath,
         supersedes: story.supersedes,
       });
-      for (const link of story.links) validateLink(sourcePath, link, issues);
+      for (const link of story.links) validateLink(sourcePath, link, vocabulary, issues);
       for (const criterion of story.acceptance_criteria) {
         addRecord(criterion.key, {
           kind: "criterion",
@@ -134,7 +206,7 @@ export function validateAcceptedContractDocuments(
           supersedes: criterion.supersedes,
           criterion: criterion.criterion,
         });
-        for (const link of criterion.links) validateLink(sourcePath, link, issues);
+        for (const link of criterion.links) validateLink(sourcePath, link, vocabulary, issues);
         const normalized = normalizeSemanticText(criterion.criterion);
         const existing = criteriaByText.get(normalized);
         if (existing && existing.key !== criterion.key) {

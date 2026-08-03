@@ -65,7 +65,10 @@ export function loadAcceptedContractWithSources(
     ]);
   }
   return {
-    ...validateAcceptedContractDocuments(inputs),
+    // Pass the root so selector kinds declared by this repository are part of
+    // the vocabulary. Without it validation would silently fall back to the
+    // core kinds and reject a kind the repository legitimately declared.
+    ...validateAcceptedContractDocuments(inputs, { repositoryRoot: root }),
     sources: inputs,
   };
 }

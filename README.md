@@ -226,6 +226,46 @@ tieline contract compile .
 tieline contract coverage . --json
 ```
 
+Mapping coverage counts a repository file as mapped when any contract link names
+it. That records who claimed the file is evidence, not how much is known about
+the claim, so coverage also reports a confidence tier. Each mapped file counts
+once, at the highest tier it reaches:
+
+| Tier | What is known | What it does not establish |
+| --- | --- | --- |
+| `asserted` | A link names the file. A human said so. | That anything was measured at all |
+| `hash_current` | The file still hashes to the content recorded in the reviewed manifest. | That the review was right, or that the file still does what the criterion says |
+
+The tiers are additive. `eligible_files`, `mapped_files`, `unmapped_files`, and
+`percentage` keep their existing meaning, and the tier percentages use the same
+denominator, so they sum to `percentage`. With no hash comparison available,
+every mapped file reports `asserted` and the numbers are unchanged.
+
+`hash_current` compares against `.tieline/manifest.json` when that file is
+readable and belongs to this repository, because the reviewed manifest is the
+only record of the content a reviewer accepted. Without it, coverage compiles
+the manifest from the working tree, where the reviewed hash is the hash it just
+measured and no drift is observable. Story-level and criterion-level links are
+treated alike here: a link names a file whatever its scope, so either can carry
+the reviewed hash that lifts the file to `hash_current`.
+
+Ask which links a human should re-read:
+
+```bash
+tieline contract link-review .
+```
+
+Link review scores each criterion-level code and test link on lexical overlap
+between the acceptance criterion's prose and the linked file's names, comments,
+and string literals, then reports the weakest links in the repository's own
+distribution. This is inference, never evidence. It never confirms a
+relationship and never refutes one; each candidate carries a rationale naming
+the terms that did and did not overlap so a reviewer can judge the suggestion
+instead of trusting a number. An empty candidate list means the heuristic is not
+asking for attention, not that the links are correct. Missing files are left to
+`tieline check` and are reported as skipped rather than scored. The command is
+advisory and exits zero.
+
 Generate a human-readable browser review of the accepted YAML:
 
 ```bash
@@ -244,9 +284,21 @@ tieline check --base origin/main .
 ```
 
 The check compares changed, renamed, and deleted paths with manifest locators and
-reports each affected AC plus `current` or `stale` freshness. Findings exit zero;
-invalid YAML or an unreadable manifest fails because no trustworthy result can be
-computed. See [the GitHub Actions example](docs/examples/tieline-check.yml).
+reports each affected AC plus its freshness. It also sweeps every link for broken
+targets, whether or not the diff touched them, because a link can rot without the
+change under review going near it. Two kinds of finding are distinguished:
+
+| Finding | Cause | Effect |
+| --- | --- | --- |
+| stale | The linked file changed since it was reviewed, or was never reviewed against a recorded hash. Whether the AC still holds needs a human. | Warning, exit 0 |
+| broken | The linked path is missing, is not a file, or resolves outside the repository. | Error, exit 1 |
+
+Broken links fail the check because deciding they are wrong needs no judgement:
+the manifest points at evidence that is not there. Everything else stays
+warn-only. Pass `--no-fail-on-broken` to downgrade broken links to warnings and
+exit zero. Invalid YAML or an unreadable manifest fails because no trustworthy
+result can be computed. See
+[the GitHub Actions example](docs/examples/tieline-check.yml).
 
 After merge, run:
 

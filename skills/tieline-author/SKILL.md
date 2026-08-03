@@ -76,7 +76,14 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
 
 ## Materialize or reconcile repository behavior
 
-1. Inspect the implementation diff and the most specific existing ACs.
+1. Run `tieline contract reconcile . --base origin/main --json` and work from its
+   output. `claimed_changes` names the ACs whose evidence moved; re-read those
+   definitions first. `unclaimed_changes` names changed source files no link
+   targets; treat each as a question about whether behavior changed, not as a
+   missing AC. Refactors, renames, and internal restructuring belong there and
+   need no new AC. Never author an AC to drive that count to zero.
+   `excluded_changes` records paths the command set aside and why. Inspect the
+   diff itself for anything the output leaves unresolved.
 2. Call `list_handoff_conflicts` for the Story being materialized or
    reconciled. Resolve the later planning definition explicitly rather than
    silently overwriting it.
@@ -93,6 +100,7 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
    tieline contract validate .
    tieline contract compile .
    tieline contract coverage .
+   tieline contract reconcile . --base origin/main
    tieline check --base origin/main
    ```
 

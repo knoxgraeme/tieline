@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
@@ -24,7 +24,21 @@ import { syncContractManifest } from "../contract/sync.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
 import { contractEmbeddingDocuments } from "../derived/embedding-documents.js";
 import { getEmbedder, mapWithConcurrency } from "../embeddings.js";
-import { computeRepositoryMappingCoverage } from "../contract/coverage.js";
+import {
+  MAPPING_CONFIDENCE_TIERS,
+  computeRepositoryMappingCoverage,
+  type RepositoryMappingCoverage,
+} from "../contract/coverage.js";
+import {
+  analyzeLinkPlausibility,
+  type LinkPlausibilityReport,
+} from "../contract/link-plausibility.js";
+import { parseNameStatus } from "../contract/impact.js";
+import {
+  analyzeContractReconciliation,
+  type ContractReconciliation,
+  type ExcludedChange,
+} from "../contract/reconciliation.js";
 
 interface ContractCommandIO {
   write(message: string): void;
@@ -35,6 +49,8 @@ export type ContractAction =
   | "review"
   | "compile"
   | "coverage"
+  | "link-review"
+  | "reconcile"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -44,6 +60,8 @@ export interface ContractCommandOptions {
   output?: string;
   spec?: string;
   expectedPreviousCommit?: string;
+  /** Git ref the working tree is compared against. Required by `reconcile`. */
+  base?: string;
   json?: boolean;
 }
 
@@ -57,6 +75,7 @@ interface ParsedContractCommand {
   sourceRoots: string[];
   ignore: string[];
   expectedPreviousCommit?: string;
+  base?: string;
   json: boolean;
 }
 
@@ -108,8 +127,177 @@ function resolveContractCommand(
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
+    base: options.base,
     json: options.json === true,
   };
+}
+
+function changesSince(repositoryRoot: string, base: string) {
+  return parseNameStatus(
+    execFileSync(
+      "git",
+      ["diff", "--name-status", "--find-renames", base],
+      { cwd: repositoryRoot, encoding: "utf8" }
+    )
+  );
+}
+
+/**
+ * The committed manifest, when one is readable and belongs to this repository.
+ * Its absence is ordinary — a repository may never have compiled one — so it is
+ * never an error here.
+ */
+function readReviewedManifest(
+  path: string,
+  repositoryKey: string
+): ContractManifest | undefined {
+  if (!existsSync(path)) return undefined;
+  try {
+    const reviewed = readContractManifest(path);
+    return reviewed.repository.key === repositoryKey ? reviewed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function wrap(text: string, columns: number, indent: string): string {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.replace(/\s+/g, " ").trim().split(" ")) {
+    if (!line) {
+      line = word;
+    } else if (`${line} ${word}`.length > columns) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = `${line} ${word}`;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.map((entry) => `${indent}${entry}\n`).join("");
+}
+
+/**
+ * One line per confidence tier. Every mapped file appears in exactly one tier,
+ * and a tier whose input was not supplied is reported as unavailable rather
+ * than as zero, so an absent measurement never reads as a failed one.
+ */
+function renderConfidenceTiers(
+  mappingCoverage: RepositoryMappingCoverage
+): string {
+  const { confidence } = mappingCoverage;
+  const unavailable: Partial<Record<string, string>> = {
+    hash_current: confidence.hash_comparison_available
+      ? undefined
+      : " (no hash comparison was available)",
+  };
+  return MAPPING_CONFIDENCE_TIERS.map((tier) => {
+    const percentage = confidence.percentages[tier];
+    return `  ${tier.padEnd(13)} ${confidence.counts[tier]}${
+      percentage === null ? "" : ` (${percentage}% of eligible files)`
+    }${unavailable[tier] ?? ""}\n`;
+  }).join("");
+}
+
+/**
+ * Link review in prose. Candidates are suggestions for a human to re-read, so
+ * the disclaimer travels with the output and the word "verdict" never appears.
+ */
+function renderLinkReview(
+  report: LinkPlausibilityReport,
+  io: ContractCommandIO
+): void {
+  io.write(
+    `Link review (${report.method}): ${report.scored_links} link(s) scored, ${report.review_candidates.length} candidate(s) for human review, ${report.skipped.length} link(s) not scored.\n`
+  );
+  io.write(wrap(report.disclaimer, 88, "  "));
+  if (report.distribution) {
+    // The window is stated as a link count rather than a percentage. Links
+    // tied at the cut score are all included, so more than the configured
+    // fraction can be flagged and a percentage would overstate the window.
+    const window = Math.floor(
+      report.distribution.sample_size * report.distribution.review_percentile
+    );
+    io.write(
+      `  distribution  min ${report.distribution.minimum}, median ${report.distribution.median}, max ${report.distribution.maximum} over ${report.distribution.sample_size} scored link(s); flagged below ${report.distribution.absolute_score_floor}, within the ${window} least-related link(s) and any tied with them.\n`
+    );
+  }
+  for (const candidate of report.review_candidates) {
+    io.write(
+      `\n  ${candidate.acceptance_criterion_stable_id}  ${candidate.relation} ${candidate.path}\n`
+    );
+    io.write(wrap(candidate.rationale, 88, "    "));
+  }
+  if (report.review_candidates.length) io.write("\n");
+  for (const skip of report.skipped) {
+    io.write(
+      `  skipped ${skip.acceptance_criterion_stable_id} ${skip.path ?? "(no path)"} (${skip.reason})\n`
+    );
+  }
+  for (const note of report.notes) io.write(wrap(`note  ${note}`, 88, "  "));
+}
+
+function describeExclusion(change: ExcludedChange): string {
+  switch (change.reason) {
+    case "contract_definition":
+      return "the contract definition itself";
+    case "outside_source_roots":
+      return "outside the configured source roots";
+    case "ignored":
+      return `matched the ignore pattern '${change.matched_ignore_pattern}'`;
+    case "deleted":
+      return "deleted and unclaimed, so no file remains to describe";
+  }
+}
+
+function changeLabel(change: { status: string; old_path?: string }): string {
+  return change.old_path
+    ? `${change.status} (from ${change.old_path})`
+    : change.status;
+}
+
+/**
+ * Reconciliation in prose. The wording stays neutral on purpose: an unclaimed
+ * file is a question for a human, never an accusation that an acceptance
+ * criterion is missing.
+ */
+function renderReconciliation(
+  report: ContractReconciliation,
+  base: string,
+  io: ContractCommandIO
+): void {
+  io.write(
+    `Reconciliation against ${base}: ${report.summary.changed_paths} changed path(s); ${report.summary.claimed} already claimed by acceptance criteria, ${report.summary.unclaimed} unclaimed source file(s), ${report.summary.excluded} set aside.\n`
+  );
+  io.write(wrap(report.disclaimer, 88, "  "));
+  if (report.claimed_changes.length) {
+    io.write("\nClaimed changes (these acceptance criteria may need re-reading):\n");
+    for (const change of report.claimed_changes) {
+      io.write(`\n  ${change.path} (${changeLabel(change)})\n`);
+      for (const claim of change.claimed_by) {
+        io.write(
+          `    ${claim.acceptance_criterion_stable_id}  ${claim.relation} ${claim.linked_path} (${claim.link_scope})\n`
+        );
+        io.write(wrap(claim.acceptance_criterion, 88, "      "));
+      }
+    }
+  }
+  if (report.unclaimed_changes.length) {
+    io.write(
+      "\nUnclaimed changes (consider whether behavior changed; a refactor needs no new criterion):\n"
+    );
+    for (const change of report.unclaimed_changes) {
+      io.write(`  ${change.path} (${changeLabel(change)})\n`);
+    }
+  }
+  if (report.excluded_changes.length) {
+    io.write("\nSet aside (considered, not candidates for authoring):\n");
+    for (const change of report.excluded_changes) {
+      io.write(
+        `  ${change.path} (${changeLabel(change)}) — ${describeExclusion(change)}\n`
+      );
+    }
+  }
 }
 
 function coverage(manifest: ContractManifest): {
@@ -284,16 +472,94 @@ export async function runContractCommand(
     }
   }
 
-  const manifest = compileContractManifest({
-    repositoryRoot: parsed.repositoryRoot,
-    repositoryKey: parsed.repositoryKey,
-    commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
-    specDirectory: parsed.specDirectory,
-  });
+  /**
+   * Compilation is deferred so each remaining action picks its own strictness,
+   * and every action compiles exactly once.
+   *
+   * `compile` is the gate and stays strict: a manifest written for review must
+   * never record a null reviewed hash for content nobody could read. The
+   * advisory actions are read-only reports about drift, and a branch that
+   * deleted or renamed a linked file is precisely the drift they exist to
+   * describe — so they tolerate an unhashable artifact instead of aborting.
+   * Neither of them serializes the manifest, so a tolerant compilation cannot
+   * reach `.tieline/manifest.json`.
+   */
+  const compileManifest = (
+    onUnhashableArtifact: "throw" | "omit_hash"
+  ): ContractManifest =>
+    compileContractManifest({
+      repositoryRoot: parsed.repositoryRoot,
+      repositoryKey: parsed.repositoryKey,
+      commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
+      specDirectory: parsed.specDirectory,
+      onUnhashableArtifact,
+    });
+
+  if (parsed.action === "link-review") {
+    const manifest = compileManifest("omit_hash");
+    const report = analyzeLinkPlausibility({
+      repositoryRoot: parsed.repositoryRoot,
+      manifest,
+    });
+    if (parsed.json) {
+      io.write(
+        `${JSON.stringify(
+          { repository: manifest.repository, ...report },
+          null,
+          2
+        )}\n`
+      );
+    } else {
+      renderLinkReview(report, io);
+    }
+    // Advisory only. A review candidate is never a verdict and never fails a build.
+    return 0;
+  }
+
+  if (parsed.action === "reconcile") {
+    if (!parsed.base) {
+      throw new Error(
+        "Reconciliation compares the working tree against a base ref. Pass --base <ref>."
+      );
+    }
+    const manifest = compileManifest("omit_hash");
+    const report = analyzeContractReconciliation({
+      repositoryRoot: parsed.repositoryRoot,
+      manifest,
+      changes: changesSince(parsed.repositoryRoot, parsed.base),
+      sourceRoots: parsed.sourceRoots,
+      ignore: parsed.ignore,
+      specDirectory: parsed.specDirectory,
+    });
+    if (parsed.json) {
+      io.write(`${JSON.stringify({ base: parsed.base, ...report }, null, 2)}\n`);
+    } else {
+      renderReconciliation(report, parsed.base, io);
+    }
+    // Reporting only. Reconciliation informs authoring and never gates a branch.
+    return 0;
+  }
+
+  if (parsed.action !== "compile" && parsed.action !== "coverage") {
+    throw new Error(`Unsupported contract action: ${parsed.action}`);
+  }
+
+  const manifest = compileManifest("throw");
+
+  // `manifest` was compiled from the working tree, so its reviewed hashes are
+  // the hashes it just measured. The committed manifest is the only record of
+  // what a reviewer actually accepted, so the `hash_current` tier is compared
+  // against it when one is readable; without it, no drift is observable and the
+  // tier reports the compile-time measurement instead.
+  const reviewedManifest =
+    parsed.action === "coverage"
+      ? readReviewedManifest(parsed.outputPath, parsed.repositoryKey)
+      : undefined;
   const mappingCoverage = computeRepositoryMappingCoverage(manifest, {
     repositoryRoot: parsed.repositoryRoot,
     sourceRoots: parsed.sourceRoots,
     ignore: parsed.ignore,
+    ...(reviewedManifest ? { reviewedManifest } : {}),
   });
 
   if (parsed.action === "compile") {
@@ -328,7 +594,13 @@ export async function runContractCommand(
     io.write(
       parsed.json
         ? `${JSON.stringify(response, null, 2)}\n`
-        : `${response.criteria_with_direct_links}/${response.acceptance_criteria} acceptance criteria have direct evidence links; ${repositoryCoverage}.\n${response.mapping_coverage.unmapped_files.length ? `Unmapped: ${response.mapping_coverage.unmapped_files.join(", ")}\n` : ""}`
+        : `${response.criteria_with_direct_links}/${response.acceptance_criteria} acceptance criteria have direct evidence links; ${repositoryCoverage}.\n${
+            response.mapping_coverage.status === "no_eligible_files"
+              ? ""
+              : `Mapping confidence (a mapped file counts once, at the highest tier it reaches):\n${renderConfidenceTiers(
+                  response.mapping_coverage
+                )}`
+          }${response.mapping_coverage.unmapped_files.length ? `Unmapped: ${response.mapping_coverage.unmapped_files.join(", ")}\n` : ""}`
     );
     return 0;
   }

@@ -246,6 +246,75 @@ await test("rejects a missing artifact in the repository being compiled", () => 
   }
 });
 
+await test("omits the reviewed hash of an unhashable artifact when asked to tolerate one", () => {
+  const root = fixture();
+  try {
+    rmSync(resolve(root, "src/contract.ts"));
+    const manifest = compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "tieline",
+      commit: "abc123",
+      onUnhashableArtifact: "omit_hash",
+    });
+
+    const story = manifest.capabilities[0]!.stories[0]!;
+    assert.equal(
+      story.links[0]!.reviewed_content_hash,
+      null,
+      "a link whose artifact is gone keeps its locator and records no content"
+    );
+    assert.deepEqual(
+      story.links[0]!.target,
+      { kind: "code", repository: "tieline", path: "src/contract.ts" },
+      "tolerating an unhashable artifact drops the hash, never the link"
+    );
+
+    // Tolerance is per link: everything still on disk is measured as usual, so
+    // the report distinguishes the one broken link from the rest.
+    const testLink = story.acceptance_criteria[0]!.links.find(
+      (link) => link.target.kind === "test"
+    )!;
+    assert.match(testLink.reviewed_content_hash!, /^[a-f0-9]{64}$/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("tolerates an artifact that is a directory rather than a file", () => {
+  const root = fixture();
+  try {
+    // `not_file` and `outside_repository` reach the same branch as `missing`,
+    // so the tolerant mode must not turn either into a thrown error either.
+    rmSync(resolve(root, "src/contract.ts"));
+    mkdirSync(resolve(root, "src/contract.ts"), { recursive: true });
+    const manifest = compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "tieline",
+      commit: "abc123",
+      onUnhashableArtifact: "omit_hash",
+    });
+    assert.equal(
+      manifest.capabilities[0]!.stories[0]!.links[0]!.reviewed_content_hash,
+      null
+    );
+    assert.throws(
+      () =>
+        compileContractManifest({
+          repositoryRoot: root,
+          repositoryKey: "tieline",
+          commit: "abc123",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /src\/contract\.ts.*is not a file/i);
+        return true;
+      }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 await test("emits stable ordering independent of YAML file discovery order", () => {
   const root = fixture();
   try {

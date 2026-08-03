@@ -1,9 +1,86 @@
+import { z } from "zod";
+
 export type EmbeddingProvider =
   | "local"
   | "openai"
   | "supabase-edge"
   | "hash";
 export const EMBEDDING_DIMENSION = 384;
+
+/**
+ * Repository-declared selector kinds.
+ *
+ * Contract link selectors use a closed core vocabulary (`function`, `method`,
+ * `class`, `type`, `const`) that this codebase can actually resolve to a symbol.
+ * That core is rarely the most natural way to say what an acceptance criterion
+ * is about: a criterion usually lands on a route, a CLI command, or a tool
+ * rather than on a function. A repository therefore declares the extra kinds it
+ * uses here, and validation stays closed against core plus these — an
+ * undeclared kind is an error, so `func:` cannot quietly mint a second identity
+ * namespace beside `function:`.
+ *
+ * `resolvable` defaults to false. A declared kind normally addresses something
+ * the source-scanning regexes cannot see, and claiming otherwise would
+ * manufacture "symbol is missing" findings out of a heuristic's blind spot.
+ *
+ * This block lives in `.tieline/config.json` alongside the repository's other
+ * settings and is read leniently: unrelated keys are ignored, and a config with
+ * no `selectors` block yields an empty declaration list, so every existing
+ * config stays valid.
+ */
+export const selectorKindDeclarationSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(
+        /^[A-Za-z][A-Za-z0-9_-]*$/,
+        "must start with a letter and contain only letters, digits, '_' or '-'"
+      ),
+    resolvable: z.boolean().default(false),
+    description: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export const selectorConfigSchema = z
+  .object({
+    kinds: z.array(selectorKindDeclarationSchema).default([]),
+  })
+  .strict();
+
+export type SelectorKindDeclarationConfig = z.infer<
+  typeof selectorKindDeclarationSchema
+>;
+export type SelectorConfig = z.infer<typeof selectorConfigSchema>;
+
+export const EMPTY_SELECTOR_CONFIG: SelectorConfig = { kinds: [] };
+
+/**
+ * Reads the `selectors` block out of an already-parsed `.tieline/config.json`
+ * value. Takes `unknown` on purpose so it does not couple to the workspace
+ * config schema: the declared-kind vocabulary is additive, and a checkout whose
+ * config predates it must keep loading.
+ */
+export function readSelectorConfig(configValue: unknown): SelectorConfig {
+  if (configValue === null || typeof configValue !== "object") {
+    return EMPTY_SELECTOR_CONFIG;
+  }
+  const block = (configValue as Record<string, unknown>).selectors;
+  if (block === undefined || block === null) return EMPTY_SELECTOR_CONFIG;
+  const parsed = selectorConfigSchema.safeParse(block);
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid 'selectors' block in Tieline configuration: ${parsed.error.issues
+        .map(
+          (issue) =>
+            `${["selectors", ...issue.path].join(".")}: ${issue.message}`
+        )
+        .join("; ")}`
+    );
+  }
+  return parsed.data;
+}
 
 export interface Config {
   dbUrl: string | undefined;
