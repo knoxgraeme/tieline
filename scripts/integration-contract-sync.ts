@@ -33,6 +33,7 @@ function contractYaml(input: {
   originId: string;
   originRevision: number;
   includeSecondCriterion?: boolean;
+  implementationPath?: string;
 }): string {
   return `version: 1
 capability:
@@ -78,6 +79,15 @@ capability:
                 source: intercom
                 external_id: unresolved-help-article
 ${
+  input.implementationPath
+    ? `            - relation: implements
+              target:
+                kind: code
+                repository: sync-integration
+                path: ${input.implementationPath}
+`
+    : ""
+}${
   input.includeSecondCriterion
     ? `        - key: ${input.storyKey}-AC2
           criterion: Tieline must retire a removed acceptance criterion without deleting observations.
@@ -167,7 +177,9 @@ try {
   ) => {
     await sql.unsafe("set role tieline_repository_sync");
     try {
-      return await syncContractManifest(store, manifest, options);
+      // Calls the adapter directly so the reconciliation diagnostic it reports
+      // beyond ContractSyncResult stays typed.
+      return await store.sync(manifest, options);
     } finally {
       await sql.unsafe("reset role");
     }
@@ -590,6 +602,151 @@ try {
     ),
     ContractSyncCheckpointError
   );
+
+  // Postgres is a projection of the repository manifest, so a code asset the
+  // manifest stopped declaring must not survive as an orphan. Seed the rows a
+  // careless delete would take with it: another repository's asset sharing the
+  // renamed path, and two sync-integration assets that only another
+  // repository's Story and Acceptance Criterion still link.
+  const [foreignRepository] = await sql<{ id: string }[]>`
+    insert into repositories (key, display_name)
+    values ('foreign-integration', 'Foreign integration')
+    returning id`;
+  const [foreignPathTwin] = await sql<{ id: string }[]>`
+    insert into code_assets (repository_id, kind, path)
+    values (${foreignRepository.id}, 'code', 'src/before-rename.ts')
+    returning id`;
+  const [foreignStory] = await sql<{ id: string }[]>`
+    insert into user_stories (
+      repository_id, stable_id, title, actor, goal, benefit, lifecycle, authority
+    ) values (
+      ${foreignRepository.id}, 'FOREIGN-001', 'Consume a shared asset',
+      'maintainer', 'link an asset another repository owns',
+      'one file can carry contracts from two repositories',
+      'production', 'repository'
+    )
+    returning id`;
+  const [foreignCriterion] = await sql<{ id: string }[]>`
+    insert into acceptance_criteria (
+      story_id, repository_id, stable_id, criterion, position, authority
+    ) values (
+      ${foreignStory.id}, ${foreignRepository.id}, 'FOREIGN-001-AC1',
+      'Tieline must keep a shared asset another repository still links.',
+      0, 'repository'
+    )
+    returning id`;
+  const [storyLinkedAsset] = await sql<{ id: string }[]>`
+    insert into code_assets (repository_id, kind, path)
+    values (${repository.id}, 'code', 'src/linked-by-foreign-story.ts')
+    returning id`;
+  const [criterionLinkedAsset] = await sql<{ id: string }[]>`
+    insert into code_assets (repository_id, kind, path)
+    values (${repository.id}, 'code', 'src/linked-by-foreign-criterion.ts')
+    returning id`;
+  await sql`
+    insert into story_code_assets (story_id, asset_id, relation)
+    values (${foreignStory.id}, ${storyLinkedAsset.id}, 'implements')`;
+  await sql`
+    insert into criterion_code_assets (criterion_id, asset_id, relation)
+    values (${foreignCriterion.id}, ${criterionLinkedAsset.id}, 'implements')`;
+
+  mkdirSync(resolve(root, "src"), { recursive: true });
+  writeFileSync(
+    resolve(root, "src/before-rename.ts"),
+    "export const projection = 'before';\n"
+  );
+  writeFileSync(
+    resolve(root, ".tieline/spec/sync.yaml"),
+    contractYaml({
+      capabilityKey: "CONFLICT",
+      storyKey: "CONFLICT-001",
+      title: "Reconciled repository title",
+      originId: conflictStory.id,
+      originRevision: 1,
+      implementationPath: "src/before-rename.ts",
+    })
+  );
+  const beforeRename = await syncAsRepositoryRole(
+    compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "sync-integration",
+      commit: "commit-five",
+    }),
+    { expectedPreviousCommit: "commit-four" }
+  );
+  assert.equal(beforeRename.reconciled_code_assets, 0);
+  const [projectedBeforeRename] = await sql<{ id: string }[]>`
+    select id from code_assets
+    where repository_id = ${repository.id} and path = 'src/before-rename.ts'`;
+  assert.ok(projectedBeforeRename);
+
+  rmSync(resolve(root, "src/before-rename.ts"));
+  writeFileSync(
+    resolve(root, "src/after-rename.ts"),
+    "export const projection = 'after';\n"
+  );
+  writeFileSync(
+    resolve(root, ".tieline/spec/sync.yaml"),
+    contractYaml({
+      capabilityKey: "CONFLICT",
+      storyKey: "CONFLICT-001",
+      title: "Reconciled repository title",
+      originId: conflictStory.id,
+      originRevision: 1,
+      implementationPath: "src/after-rename.ts",
+    })
+  );
+  const afterRename = await syncAsRepositoryRole(
+    compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "sync-integration",
+      commit: "commit-six",
+    }),
+    { expectedPreviousCommit: "commit-five" }
+  );
+  assert.equal(afterRename.reconciled_code_assets, 1);
+  const projectedPaths = await sql<{ path: string }[]>`
+    select path from code_assets
+    where repository_id = ${repository.id}
+    order by path`;
+  assert.deepEqual(
+    projectedPaths.map((row) => row.path),
+    [
+      "scripts/sync.test.ts",
+      "src/after-rename.ts",
+      "src/linked-by-foreign-criterion.ts",
+      "src/linked-by-foreign-story.ts",
+    ]
+  );
+  const [foreignPathTwinAfter] = await sql<{ id: string }[]>`
+    select id from code_assets where id = ${foreignPathTwin.id}`;
+  assert.equal(foreignPathTwinAfter?.id, foreignPathTwin.id);
+  const [reconciledAudit] = await sql<{ reconciled: string }[]>`
+    select detail->>'reconciled_code_assets' as reconciled
+    from audit_events
+    where event_kind = 'repository_contract_synced'
+    order by occurred_at desc, id desc
+    limit 1`;
+  assert.equal(reconciledAudit.reconciled, "1");
+
+  // Re-running the same commit repairs a projection that already carries
+  // orphans, so drift never requires rebuilding the database from scratch.
+  const [staleOrphan] = await sql<{ id: string }[]>`
+    insert into code_assets (repository_id, kind, path, selector)
+    values (${repository.id}, 'code', 'src/after-rename.ts', 'reworded selector')
+    returning id`;
+  const repaired = await syncAsRepositoryRole(
+    compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "sync-integration",
+      commit: "commit-six",
+    })
+  );
+  assert.equal(repaired.outcome, "unchanged");
+  assert.equal(repaired.reconciled_code_assets, 1);
+  const [staleOrphanAfter] = await sql<{ id: string }[]>`
+    select id from code_assets where id = ${staleOrphan.id}`;
+  assert.equal(staleOrphanAfter, undefined);
 
   const [helpStub] = await sql<{ title: string | null; markdown: string | null }[]>`
     select title, markdown from help_articles

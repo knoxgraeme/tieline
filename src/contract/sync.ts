@@ -20,6 +20,11 @@ export interface ContractSyncResult {
   retired_stories: number;
   retired_acceptance_criteria: number;
   conflicts: HandoffConflict[];
+  /**
+   * Orphaned `code_assets` rows the projection repaired on this run. Reported
+   * so drift is visible rather than accumulating silently across renames.
+   */
+  reconciled_code_assets: number;
 }
 
 export interface ContractSyncRepository {

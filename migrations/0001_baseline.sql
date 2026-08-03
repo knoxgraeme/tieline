@@ -714,7 +714,8 @@ grant delete on
   story_code_assets,
   criterion_code_assets,
   story_help_articles,
-  criterion_help_articles
+  criterion_help_articles,
+  code_assets
 to tieline_repository_sync;
 grant usage, select on all sequences in schema public to tieline_repository_sync;
 
