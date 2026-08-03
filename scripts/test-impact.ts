@@ -12,8 +12,8 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import {
-  compileContractManifest,
-  serializeContractManifest,
+  compileContractManifestWithSources,
+  writeContractManifest,
   type ContractManifest,
 } from "../src/contract/manifest.js";
 import {
@@ -50,7 +50,7 @@ try {
         },
         files: {
           spec_directory: "contract",
-          manifest: "manifest.json",
+          manifest: "manifest",
           mcp_config: "mcp.json",
         },
         created_at: "2026-07-29T00:00:00.000Z",
@@ -98,16 +98,14 @@ capability:
   execFileSync("git", ["config", "user.name", "Tieline Test"], {
     cwd: root,
   });
-  const manifest = compileContractManifest({
+  const compiled = compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "impact-fixture",
     commit: "HEAD",
     specDirectory: ".tieline/contract",
   });
-  writeFileSync(
-    resolve(root, ".tieline/manifest.json"),
-    serializeContractManifest(manifest)
-  );
+  const manifest = compiled.manifest;
+  writeContractManifest(resolve(root, ".tieline/manifest"), compiled);
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync("git", ["commit", "-m", "baseline"], { cwd: root });
 
@@ -496,10 +494,7 @@ capability:
   mkdirSync(resolve(looseRoot, ".tieline"), { recursive: true });
   mkdirSync(resolve(looseRoot, "src"), { recursive: true });
   mkdirSync(resolve(looseRoot, "scripts"), { recursive: true });
-  writeFileSync(
-    resolve(looseRoot, ".tieline/manifest.json"),
-    serializeContractManifest(manifest)
-  );
+  writeContractManifest(resolve(looseRoot, ".tieline/manifest"), compiled);
   writeFileSync(
     resolve(looseRoot, "src/feature.ts"),
     "export const feature = 1;\n"
@@ -557,6 +552,47 @@ capability:
   const looseHuman = looseHumanOutput.join("");
   assert.match(looseHuman, /no Tieline workspace configuration was found/);
   assert.doesNotMatch(looseHuman, /changes to consider=/);
+
+  // A capability the manifest has never been compiled for has no file in the
+  // manifest directory, so the check must still see the manifest as stale
+  // rather than reading the capabilities that happen to be there as complete.
+  writeFileSync(
+    resolve(root, ".tieline/contract/added.yaml"),
+    `version: 1
+capability:
+  key: ADDED
+  name: Added behavior
+  description: A capability compiled into no manifest file yet.
+  stories:
+    - key: US-ADDED-001
+      title: Notice an uncompiled capability
+      actor: maintainer
+      goal: see that the committed manifest is behind the specification
+      benefit: the manifest is recompiled before merge
+      lifecycle: production
+      acceptance_criteria:
+        - key: AC-ADDED-001
+          criterion: Tieline must report the manifest as stale.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: impact-fixture
+                path: src/feature.ts
+`
+  );
+  const addedOutput: string[] = [];
+  await runCheckCommand(
+    { base: "HEAD", repository: root, json: true },
+    { write: (message) => addedOutput.push(message) }
+  );
+  const addedReport = JSON.parse(addedOutput.join("")) as {
+    manifest_current: boolean;
+    manifest_compile_error: string | null;
+  };
+  assert.equal(addedReport.manifest_current, false);
+  assert.equal(addedReport.manifest_compile_error, null);
+  rmSync(resolve(root, ".tieline/contract/added.yaml"));
 
   await assert.rejects(
     runCheckCommand(

@@ -14,7 +14,7 @@ import {
 import {
   TIELINE_CONFIG_FILE,
   TIELINE_DIRECTORY,
-  TIELINE_MANIFEST_FILE,
+  TIELINE_MANIFEST_DIRECTORY,
   TIELINE_MCP_FILE,
   TIELINE_SPEC_DIRECTORY,
   findTielineWorkspace,
@@ -239,7 +239,7 @@ export function initWorkspace(
     },
     files: {
       spec_directory: TIELINE_SPEC_DIRECTORY,
-      manifest: TIELINE_MANIFEST_FILE,
+      manifest: TIELINE_MANIFEST_DIRECTORY,
       mcp_config: TIELINE_MCP_FILE,
     },
     created_at: now,

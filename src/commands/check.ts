@@ -232,7 +232,7 @@ export async function runCheckCommand(
     workspace?.config.product.repo_name ??
     basename(root);
   const manifestPath =
-    workspace?.manifestPath ?? resolve(root, ".tieline/manifest.json");
+    workspace?.manifestPath ?? resolve(root, ".tieline/manifest");
   const specDirectory = workspace
     ? relative(root, workspace.specDirectoryPath).split(sep).join("/")
     : ".tieline/spec";
@@ -241,7 +241,7 @@ export async function runCheckCommand(
     manifest = readContractManifest(manifestPath);
   } catch (error) {
     throw new Error(
-      `Cannot evaluate semantic impact because ${manifestPath} is unreadable: ${error instanceof Error ? error.message : String(error)}`
+      `Cannot evaluate semantic impact because the contract manifest in ${manifestPath} is unreadable: ${error instanceof Error ? error.message : String(error)}`
     );
   }
   const nameStatus = execFileSync(

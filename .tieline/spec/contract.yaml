@@ -133,3 +133,36 @@ capability:
                 repository: tieline
                 path: scripts/test-contract-command.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC5
+          criterion: Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.
+          rationale: A single generated manifest made every branch that touched any specification file conflict with every other one, even when the capabilities they changed were disjoint, and let a partial line merge produce a manifest that parses but that no compilation would emit.
+          scenarios:
+            - given: a compiled manifest whose capability was removed from the specification
+              when: the contract is compiled again
+              then: Tieline must delete that capability's manifest file and leave every other file in the manifest directory untouched
+            - given: a manifest file whose name does not match the capability it holds
+              when: the manifest is read
+              then: Tieline must refuse the manifest and name both the file and the capability instead of accepting the capability under the wrong identity
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script

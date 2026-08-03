@@ -226,6 +226,24 @@ tieline contract compile .
 tieline contract coverage . --json
 ```
 
+Compilation writes `.tieline/manifest/`, one file per capability plus a small
+index:
+
+```
+.tieline/manifest/
+  index.json        schema version and the repository key and commit
+  CONTRACT.json     one capability, named after its stable ID, with the
+  RETRIEVAL.json    specification file and hash it was compiled from
+  ...
+```
+
+A capability is exactly one specification file, so this is the boundary the
+contract already has. Two branches that change different capabilities now change
+different files and have nothing to conflict over. The index changes on every
+commit because it records one, and `.gitattributes` marks it `-merge` so git
+asks for a recompile instead of stitching two indexes together. Compiling
+deletes the file of any capability the specification no longer declares.
+
 Mapping coverage counts a repository file as mapped when any contract link names
 it. That records who claimed the file is evidence, not how much is known about
 the claim, so coverage also reports a confidence tier. Each mapped file counts
@@ -241,7 +259,7 @@ The tiers are additive. `eligible_files`, `mapped_files`, `unmapped_files`, and
 denominator, so they sum to `percentage`. With no hash comparison available,
 every mapped file reports `asserted` and the numbers are unchanged.
 
-`hash_current` compares against `.tieline/manifest.json` when that file is
+`hash_current` compares against `.tieline/manifest/` when that manifest is
 readable and belongs to this repository, because the reviewed manifest is the
 only record of the content a reviewer accepted. Without it, coverage compiles
 the manifest from the working tree, where the reviewed hash is the hash it just

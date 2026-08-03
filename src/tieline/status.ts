@@ -1,6 +1,8 @@
 import { existsSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import type { EmbeddingProvider } from "../config.js";
 import { loadAcceptedContract } from "../contract/load.js";
+import { CONTRACT_MANIFEST_INDEX_FILE } from "../contract/manifest.js";
 import {
   findTielineWorkspace,
   type TielineWorkspace,
@@ -71,7 +73,11 @@ export function getTielineStatus(
   const acceptanceCriteria = stories.flatMap(
     (story) => story.acceptance_criteria
   );
-  const manifestExists = existsSync(workspace.manifestPath);
+  // The manifest is a directory, so its index is what says a manifest was
+  // actually compiled; an empty directory has nothing in it to read.
+  const manifestExists = existsSync(
+    resolve(workspace.manifestPath, CONTRACT_MANIFEST_INDEX_FILE)
+  );
   const nextAction =
     stories.length === 0
       ? "Connect the MCP template, then invoke the `tieline_author` prompt (or use the bundled /tieline-author skill) to onboard the first Story and AC."

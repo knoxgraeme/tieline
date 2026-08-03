@@ -1,0 +1,339 @@
+{
+  "capability": {
+    "aliases": [
+      "living specification",
+      "semantic contract"
+    ],
+    "applies_to": null,
+    "contract_hash": "d27bcc3541467c3069d44f0e22131c3789bd839dbf532c020e2a3944dde54d36",
+    "description": "Accepted product behavior is strict, reviewable, and measurable beside the implementation.",
+    "name": "Living product contract",
+    "stable_id": "CONTRACT",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0ca5565e8ee4f6a6606f1aa5cb7755c7046c06f5112090aba7cabc262b9ed3f5",
+            "criterion": "Tieline must reject repository contract documents that violate the accepted Story and Acceptance Criterion schema.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "4230230485eb6a0349638ad6219079cf0c0b3738957ecd8477dab399d3b61ca6",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/index.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "9aed2036f597e76209167acdc3ff73d8dceb50842a5acfffd42e30e1feaaee14",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/load.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "3f15cb80178a5d8d463f9eeb0c99a500320c185843588ea35d8b2312741a9efe",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/schema.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "4b22c3ffb795335d3411fefb28adf686805155ef45d8688636cad33a1f8f03f4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/validate.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "19f3d11c2b5b191bf27f0093765c5bba91ce69c68a66a24167e511821d1b32b5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Structural failures make semantic impact and synchronization untrustworthy.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "9f0e330536f2ca5d03d150e05285299d3f07b190e2357dab0443e5a86a1d757a",
+            "criterion": "Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "eff342802cdc98bb68b46fac96354b542d2ba81fecd78a94d1b2d59a98ae0f0f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "fbea3757e99fae29e4c35a29ac13eba324b8967637328ce23b0cd7942f2dab67",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/coverage.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "b8ea337e4bcf6693df2f712fb7bf0abdc848de5b5e18488ea65af16aa7ea21ce",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "90436f6a11e354e21a1dd7225b9e0024a94c8b069d06b026bf82a68c1c8b4cb8",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "19f3d11c2b5b191bf27f0093765c5bba91ce69c68a66a24167e511821d1b32b5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "b353c83d3ee230c86c2bfeb27e33294f0b98058460dd28f9ebc9a56a80775771",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-manifest.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "ten eligible source files and eight mapped paths",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC2-S1",
+                "then": "Tieline must report 80 percent coverage and name both unmapped files",
+                "when": "mapping coverage is calculated"
+              },
+              {
+                "given": "configured source roots contain no eligible files",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC2-S2",
+                "then": "Tieline must report that coverage is not measured instead of reporting 100 percent",
+                "when": "mapping coverage is calculated"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "272f384b168e51dbabb57ecea719773683840496d95e5097968352bbbf495565",
+            "criterion": "Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "69abe1df40f916d17fff307a40202a5fd6ad0b2cb3098a4ce873b4c58c248358",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "b8cf43553b2ab0c49cc91e58db347f22d84c9a5db22fe2a66410558220e26dfd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/impact.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "49c97579766928bb43c0d8ac9d6c772c7efde0242d1ad305277abb1d9e567dc5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-impact.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Drift should be visible during review while the MVP remains warn-only.",
+            "scenarios": [
+              {
+                "given": "a linked implementation path changes without a refreshed manifest",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC3-S1",
+                "then": "Tieline must report the linked criterion as impacted and stale",
+                "when": "the branch is checked against its base"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "b55c561c5a880d82d3dd2ead2d178893228d362fc771208172a1d9d5e47afdef",
+            "criterion": "Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "eff342802cdc98bb68b46fac96354b542d2ba81fecd78a94d1b2d59a98ae0f0f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "bdca2aea1a1014c37d17bf2cdad3e50c408bc8ac1f718b4d2477603fad4df676",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/review-page.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "90436f6a11e354e21a1dd7225b9e0024a94c8b069d06b026bf82a68c1c8b4cb8",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-001-AC4",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "2fe850ad01547e2da553e59328923c0faa98c710b49514317ac83d425a4a8a9c",
+            "criterion": "Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "eff342802cdc98bb68b46fac96354b542d2ba81fecd78a94d1b2d59a98ae0f0f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "b8ea337e4bcf6693df2f712fb7bf0abdc848de5b5e18488ea65af16aa7ea21ce",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "90436f6a11e354e21a1dd7225b9e0024a94c8b069d06b026bf82a68c1c8b4cb8",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "b353c83d3ee230c86c2bfeb27e33294f0b98058460dd28f9ebc9a56a80775771",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-manifest.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 4,
+            "rationale": "A single generated manifest made every branch that touched any specification file conflict with every other one, even when the capabilities they changed were disjoint, and let a partial line merge produce a manifest that parses but that no compilation would emit.",
+            "scenarios": [
+              {
+                "given": "a compiled manifest whose capability was removed from the specification",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC5-S1",
+                "then": "Tieline must delete that capability's manifest file and leave every other file in the manifest directory untouched",
+                "when": "the contract is compiled again"
+              },
+              {
+                "given": "a manifest file whose name does not match the capability it holds",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC5-S2",
+                "then": "Tieline must refuse the manifest and name both the file and the capability instead of accepting the capability under the wrong identity",
+                "when": "the manifest is read"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC5",
+            "supersedes": null
+          }
+        ],
+        "actor": "maintainer",
+        "aliases": [
+          "author accepted behavior"
+        ],
+        "applies_to": null,
+        "benefit": "intent and implementation change through the same review",
+        "contract_hash": "8900f09220101192c88175da8414aa752446016b563e1ba2852348c3038599e3",
+        "goal": "define product behavior in a stable Story and Acceptance Criterion hierarchy",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-001",
+        "supersedes": null,
+        "title": "Review accepted behavior with code"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tieline/spec/contract.yaml",
+    "sha256": "6ccb43429d2d5105c341719d80d2906af8a23d2b0a15756d621f40535e6291e1"
+  }
+}
