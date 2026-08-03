@@ -176,10 +176,16 @@ async function ensureCodeAsset(
   return raced[0].id;
 }
 
-async function refreshCodeAssetHashes(
-  tx: Tx,
+/**
+ * Every code or test locator this manifest declares against its own
+ * repository, keyed by the `code_assets` identity tuple
+ * `(kind, path, selector, framework_hint)`. Locators aimed at another
+ * repository are excluded: this repository does not own those rows and must
+ * never treat their absence from its own manifest as a reason to touch them.
+ */
+function localCodeAssetLinks(
   manifest: ContractManifest
-): Promise<void> {
+): Map<string, ManifestLink> {
   const localLinks = new Map<string, ManifestLink>();
   for (const capability of manifest.capabilities) {
     for (const story of capability.stories) {
@@ -205,9 +211,82 @@ async function refreshCodeAssetHashes(
       }
     }
   }
-  for (const link of localLinks.values()) {
+  return localLinks;
+}
+
+async function refreshCodeAssetHashes(
+  tx: Tx,
+  manifest: ContractManifest
+): Promise<void> {
+  for (const link of localCodeAssetLinks(manifest).values()) {
     await ensureCodeAsset(tx, manifest.repository.key, link);
   }
+}
+
+/**
+ * Removes `code_assets` rows this repository no longer declares.
+ *
+ * Postgres is a projection of the repository manifest, so an asset whose
+ * identity tuple leaves the manifest - a renamed path, a reworded selector,
+ * the same file linked once with and once without a selector - must not
+ * survive as an orphan. Orphans stay reachable: `search-context.ts` joins
+ * `code_assets` by `(repository, kind, path, selector)` with a null request
+ * selector matching any stored selector, so a frozen orphan keeps feeding the
+ * `artifact_overlap` ranking signal and the noise grows with every rename.
+ *
+ * Two guards make the delete safe:
+ *
+ * 1. `repository_id` is pinned to the repository being synced. Links may aim
+ *    at another repository (`ensureCodeAsset` resolves those through
+ *    `link.target.repository`), and a sync of repository X must never delete
+ *    an asset owned by repository Y.
+ * 2. Both junction tables are checked globally rather than per repository, so
+ *    an asset that any Story or Acceptance Criterion still references -
+ *    including a retired one, and including one belonging to a different
+ *    repository - is retained.
+ */
+async function reconcileCodeAssets(
+  tx: Tx,
+  repositoryId: string,
+  manifest: ContractManifest
+): Promise<number> {
+  const kinds: string[] = [];
+  const paths: string[] = [];
+  const selectors: string[] = [];
+  const frameworkHints: string[] = [];
+  for (const link of localCodeAssetLinks(manifest).values()) {
+    if (link.target.kind === "help") continue;
+    kinds.push(link.target.kind);
+    paths.push(link.target.path);
+    selectors.push(link.target.selector ?? "");
+    frameworkHints.push(
+      link.target.kind === "test" ? link.target.framework_hint ?? "" : ""
+    );
+  }
+  const removed = await tx<{ id: string }[]>`
+    delete from code_assets asset
+    where asset.repository_id = ${repositoryId}
+      and not exists (
+        select 1
+        from unnest(
+          ${kinds}::text[],
+          ${paths}::text[],
+          ${selectors}::text[],
+          ${frameworkHints}::text[]
+        ) as declared(kind, path, selector, framework_hint)
+        where declared.kind = asset.kind
+          and declared.path = asset.path
+          and declared.selector = coalesce(asset.selector, '')
+          and declared.framework_hint = coalesce(asset.framework_hint, '')
+      )
+      and not exists (
+        select 1 from story_code_assets link where link.asset_id = asset.id
+      )
+      and not exists (
+        select 1 from criterion_code_assets link where link.asset_id = asset.id
+      )
+    returning asset.id`;
+  return removed.length;
 }
 
 async function ensureHelpArticle(tx: Tx, link: ManifestLink): Promise<string> {
@@ -834,6 +913,14 @@ export class PostgresContractSyncRepository
 
       if (currentCommit === manifest.repository.commit) {
         await refreshCodeAssetHashes(tx, manifest);
+        // Reconcile on the unchanged path too: re-running sync at the same
+        // commit is how a projection carrying orphans from an earlier release
+        // repairs itself, without forcing a rebuild from scratch.
+        const reconciledCodeAssets = await reconcileCodeAssets(
+          tx,
+          repositoryId,
+          manifest
+        );
         return {
           outcome: "unchanged" as const,
           repository: manifest.repository.key,
@@ -842,6 +929,7 @@ export class PostgresContractSyncRepository
           acceptance_criteria: counts.acceptanceCriteria,
           retired_stories: 0,
           retired_acceptance_criteria: 0,
+          reconciled_code_assets: reconciledCodeAssets,
           conflicts: [],
         };
       }
@@ -977,6 +1065,14 @@ export class PostgresContractSyncRepository
 
       await applySupersession(tx, repositoryId, manifest);
 
+      // Runs last so every junction row this manifest declares has already
+      // been rebuilt; anything still unreferenced is genuinely orphaned.
+      const reconciledCodeAssets = await reconcileCodeAssets(
+        tx,
+        repositoryId,
+        manifest
+      );
+
       await tx`
         insert into repository_sync_checkpoints (
           repository_id, commit_sha, synced_at
@@ -996,6 +1092,7 @@ export class PostgresContractSyncRepository
             acceptance_criteria: counts.acceptanceCriteria,
             retired_stories: retiredStories.length,
             retired_acceptance_criteria: retiredCriteria.length,
+            reconciled_code_assets: reconciledCodeAssets,
             handoff_conflicts: conflicts.length,
           })}
         )`;
@@ -1008,6 +1105,7 @@ export class PostgresContractSyncRepository
         acceptance_criteria: counts.acceptanceCriteria,
         retired_stories: retiredStories.length,
         retired_acceptance_criteria: retiredCriteria.length,
+        reconciled_code_assets: reconciledCodeAssets,
         conflicts,
       };
     });

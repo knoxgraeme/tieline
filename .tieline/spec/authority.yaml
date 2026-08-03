@@ -115,3 +115,22 @@ capability:
                 repository: tieline
                 path: scripts/integration-baseline.ts
                 framework_hint: custom-script
+        - key: AUTHORITY-002-AC3
+          criterion: Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.
+          rationale: Postgres is a projection of the repository manifest, so a renamed path or a reworded selector otherwise strands a code asset that holds a frozen content hash and still answers the artifact overlap lookup, and the projection drifts further with every rename until it is rebuilt from scratch.
+          scenarios:
+            - given: a synchronized repository contract whose linked implementation path was renamed
+              when: the repository contract is synchronized again
+              then: the code asset for the former path must be removed, while an asset owned by another repository or still linked by another contract record must be retained
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script
