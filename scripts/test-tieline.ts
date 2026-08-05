@@ -262,6 +262,12 @@ try {
   assert.match(parsedStatus.agent_onboarding_prompt, /tieline-author/);
   assert.match(parsedStatus.agent_onboarding_prompt, /tieline_author/);
   assert.match(parsedStatus.agent_onboarding_prompt, /\.tieline\/config\.json/);
+  assert.match(
+    parsedStatus.agent_onboarding_prompt,
+    /remote-tracking default branch/
+  );
+  assert.match(parsedStatus.agent_onboarding_prompt, /<base-ref>/);
+  assert.doesNotMatch(parsedStatus.agent_onboarding_prompt, /origin\/main/);
   assert.equal(parsedStatus.agent_onboarding_prompt, renderedAgentPrompt);
 
   const humanStatus = io();

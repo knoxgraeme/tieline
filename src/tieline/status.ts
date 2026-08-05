@@ -44,7 +44,8 @@ const TIELINE_AGENT_ONBOARDING_PROMPT = [
   "Run `tieline status --json`; before creating stable IDs, search local YAML and the compiled manifest for IDs, aliases, and related criteria, and disclose when database-backed organization-wide duplicate checking is unavailable.",
   "If `.tieline/spec/` is empty, author strict YAML under `.tieline/spec/` using repository-specific capabilities and Stories with separate actor, goal, and benefit fields; write each acceptance criterion as one observable `<subject> must <outcome>` and put code, test, or help links on the most specific criterion.",
   "Do not add generic starter content.",
-  "Run `tieline contract validate .`, `tieline contract compile .`, `tieline contract coverage .`, `tieline contract reconcile . --base origin/main`, and `tieline check --base origin/main`.",
+  "Determine an available comparison base from repository metadata, preferring the remote-tracking default branch; ask the user only if repository metadata cannot identify a usable base, then replace `<base-ref>` in the commands below.",
+  "Run `tieline contract validate .`, `tieline contract compile .`, `tieline contract coverage .`, `tieline contract reconcile . --base <base-ref>`, and `tieline check --base <base-ref>`.",
   "Summarize the sources used, proposed semantic boundaries, likely duplicates, mapping gaps, and changes for pull-request review.",
 ].join(" ");
 
