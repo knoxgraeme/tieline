@@ -38,3 +38,4 @@ jobs:
           npx tsx scripts/test-manifest.ts
           npx tsx scripts/test-contract-command.ts
           npx tsx scripts/test-impact.ts
+          npx tsx scripts/test-grade.ts

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
@@ -45,6 +45,13 @@ import {
   type ContractReconciliation,
   type ExcludedChange,
 } from "../contract/reconciliation.js";
+import {
+  buildGradeScope,
+  parseGradeVerdicts,
+  renderGradeReportText,
+  renderGradeScopeText,
+  verifyGradeVerdicts,
+} from "../contract/grade.js";
 
 interface ContractCommandIO {
   write(message: string): void;
@@ -58,6 +65,7 @@ export type ContractAction =
   | "link-review"
   | "reconcile"
   | "criteria"
+  | "grade"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -69,6 +77,9 @@ export interface ContractCommandOptions {
   expectedPreviousCommit?: string;
   /** Git ref the working tree is compared against. Required by `reconcile`. */
   base?: string;
+  emitScope?: boolean;
+  verify?: string;
+  strict?: boolean;
   json?: boolean;
   paths?: string[];
 }
@@ -85,6 +96,9 @@ interface ParsedContractCommand {
   ignore: string[];
   expectedPreviousCommit?: string;
   base?: string;
+  emitScope: boolean;
+  verify?: string;
+  strict: boolean;
   json: boolean;
   paths: string[];
 }
@@ -141,9 +155,85 @@ function resolveContractCommand(
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
     base: options.base,
+    emitScope: options.emitScope === true,
+    verify: options.verify,
+    strict: options.strict === true,
     json: options.json === true,
     paths: options.paths ?? [],
   };
+}
+
+function runGrade(
+  parsed: ParsedContractCommand,
+  io: ContractCommandIO
+): number {
+  const selectedModes = Number(parsed.emitScope) + Number(parsed.verify !== undefined);
+  if (selectedModes !== 1) {
+    throw new Error(
+      "`contract grade` requires exactly one of --emit-scope or --verify <verdicts.json>."
+    );
+  }
+  if (!parsed.base) {
+    throw new Error(
+      "`contract grade` requires --base <ref> so its work list comes from an explicit diff."
+    );
+  }
+  if (parsed.emitScope && parsed.strict) {
+    throw new Error("`--strict` applies only with `contract grade --verify`.");
+  }
+
+  let manifest: ContractManifest;
+  try {
+    manifest = readContractManifest(parsed.manifestPath);
+  } catch (error) {
+    throw new Error(
+      `Cannot derive grading scope because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
+        error instanceof Error ? error.message : String(error)
+      } Run \`tieline contract compile .\` and commit the manifest.`
+    );
+  }
+  const scope = buildGradeScope({
+    repositoryRoot: parsed.repositoryRoot,
+    base: parsed.base,
+    manifest,
+    changes: changesSince(parsed.repositoryRoot, parsed.base),
+    sourceRoots: parsed.sourceRoots,
+    ignore: parsed.ignore,
+    specDirectory: parsed.specDirectory,
+  });
+  if (parsed.emitScope) {
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(scope, null, 2)}\n`
+        : renderGradeScopeText(scope)
+    );
+    return 0;
+  }
+
+  const verdictsPath = isAbsolute(parsed.verify!)
+    ? parsed.verify!
+    : resolve(parsed.repositoryRoot, parsed.verify!);
+  let document: unknown;
+  try {
+    document = JSON.parse(readFileSync(verdictsPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Cannot read grade verdicts '${verdictsPath}': ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+  const report = verifyGradeVerdicts({
+    scope,
+    verdicts: parseGradeVerdicts(document),
+    strict: parsed.strict,
+  });
+  io.write(
+    parsed.json
+      ? `${JSON.stringify(report, null, 2)}\n`
+      : renderGradeReportText(report)
+  );
+  return report.strict_failure ? 1 : 0;
 }
 
 function changesSince(repositoryRoot: string, base: string) {
@@ -416,6 +506,10 @@ export async function runContractCommand(
         : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath}.\n`
     );
     return 0;
+  }
+
+  if (parsed.action === "grade") {
+    return runGrade(parsed, io);
   }
 
   if (parsed.action === "criteria") {

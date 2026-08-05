@@ -354,6 +354,9 @@ interface ContractActionOptions {
   spec?: string;
   expectedPreviousCommit?: string;
   base?: string;
+  emitScope?: boolean;
+  verify?: string;
+  strict?: boolean;
   json?: boolean;
   paths?: string[];
 }
@@ -489,6 +492,7 @@ function buildProgram(
             | "link-review"
             | "reconcile"
             | "criteria"
+            | "grade"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -512,6 +516,44 @@ function buildProgram(
     "reconcile",
     "Report which changed paths the contract already claims (authoring input)"
   ).requiredOption("--base <ref>", "git base ref to diff against");
+  contract
+    .command("grade")
+    .description(
+      "Emit changed contract links for agent judgment or verify agent verdicts"
+    )
+    .argument("[repository]", "repository path")
+    .requiredOption("--base <ref>", "git base ref to diff against")
+    .addOption(
+      new Option("--emit-scope", "emit the deterministic grading work list").conflicts(
+        "verify"
+      )
+    )
+    .addOption(
+      new Option("--verify <verdicts.json>", "verify submitted agent verdicts").conflicts(
+        "emitScope"
+      )
+    )
+    .option("--strict", "exit non-zero when unsupported verdicts remain")
+    .option("--repo <key>", "stable repository key")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (repository: string | undefined, opts) => {
+      const { runContractCommand } = await import("./commands/contract.js");
+      setExit(
+        await runContractCommand(
+          "grade",
+          {
+            repository,
+            base: opts.base,
+            emitScope: Boolean(opts.emitScope),
+            verify: opts.verify,
+            strict: Boolean(opts.strict),
+            repo: opts.repo,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
   contractAction("sync", "Sync the reviewed manifest to the database").option(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"
