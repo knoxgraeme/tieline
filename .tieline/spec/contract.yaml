@@ -196,3 +196,85 @@ capability:
                 repository: tieline
                 path: scripts/test-impact.ts
                 framework_hint: custom-script
+    - key: CONTRACT-002
+      title: Learn which acceptance criteria govern a path before editing it
+      actor: implementing agent
+      goal: resolve a repository path to the accepted behavior that already governs it
+      benefit: a contradiction with accepted behavior is prevented instead of reported afterwards
+      lifecycle: production
+      aliases:
+        - what contract governs this file
+        - path to acceptance criterion lookup
+      acceptance_criteria:
+        - key: CONTRACT-002-AC1
+          criterion: Tieline must report every acceptance criterion that links a repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must state explicitly when no acceptance criterion governs the path.
+          rationale: Coverage answers for the whole contract and check answers for a diff, so both describe a violation that already exists; the pre-change question is the only one that can prevent it. An empty array reads to an agent like a failed query rather than the finding that the code is ungoverned.
+          scenarios:
+            - given: a path is linked by one acceptance criterion and by the Story that owns it
+              when: the governing criteria for that path are requested
+              then: Tieline must return both records and mark them direct and story_fallback
+            - given: a path exists in the repository and no contract link targets it
+              when: the governing criteria for that path are requested
+              then: Tieline must state that no acceptance criterion governs it instead of returning an empty result
+            - given: a requested path does not exist in the repository
+              when: the governing criteria for that path are requested
+              then: Tieline must report it distinctly from a path that exists but is ungoverned
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/reconciliation.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/governs.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-governs.ts
+                framework_hint: custom-script
+        - key: CONTRACT-002-AC2
+          criterion: The governing-criteria lookup must answer from the compiled manifest alone, so Tieline must serve it over MCP with no database connection and must return a named, actionable message when no workspace or no readable manifest is found.
+          rationale: Every other MCP tool fails at call time without Postgres, so an offline server boots and answers nothing; a manifest-backed lookup is what makes serving without a database worth doing, and an obscure throw would waste the one answer the caller came for.
+          scenarios:
+            - given: no database connection is configured
+              when: the governing criteria for a path are requested over MCP
+              then: Tieline must return the governing acceptance criteria and the commit the manifest records
+            - given: the server runs outside any Tieline workspace
+              when: the governing criteria for a path are requested
+              then: Tieline must name the missing workspace and the command that creates one
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/governing-criteria.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/server.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/schemas.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-governs.ts
+                framework_hint: custom-script

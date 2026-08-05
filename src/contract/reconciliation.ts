@@ -47,6 +47,10 @@ export const DEFAULT_SPEC_DIRECTORY = ".tieline/spec";
 export type ReconciliationChangeStatus = RepositoryPathChange["status"];
 
 export type ReconciliationLinkScope = "direct" | "story_fallback";
+export type ReconciliationRelation = Exclude<
+  ManifestLink["relation"],
+  "documents"
+>;
 
 interface ChangedPathFields {
   /** The path after the change; for a rename, the path it moved to. */
@@ -58,13 +62,14 @@ interface ChangedPathFields {
 
 /** An acceptance criterion whose link names a changed path. */
 export interface ClaimingCriterion {
+  capability_stable_id: string;
   story_stable_id: string;
   /** Story title, so a reader sees the behavior, not only the identifier. */
   story_title: string;
   acceptance_criterion_stable_id: string;
   /** The acceptance criterion sentence exactly as it was accepted. */
   acceptance_criterion: string;
-  relation: string;
+  relation: ReconciliationRelation;
   /**
    * `direct` when the link sits on the acceptance criterion itself,
    * `story_fallback` when it is inherited from the owning Story.
@@ -73,6 +78,16 @@ export interface ClaimingCriterion {
   /** The path the link names, which for a rename may be the pre-rename path. */
   linked_path: string;
 }
+
+/**
+ * Repository-relative path -> the acceptance criteria whose contract links
+ * name it. This is the shared manifest index behind both diff reconciliation
+ * and deterministic path lookup.
+ */
+export type ContractClaimIndex = ReadonlyMap<
+  string,
+  readonly ClaimingCriterion[]
+>;
 
 /** A changed path at least one link targets. */
 export interface ClaimedChange extends ChangedPathFields {
@@ -145,7 +160,7 @@ const EXCLUSION_REASONS: readonly ExclusionReason[] = [
  * the working tree, which cannot see a path a change deleted. Eligibility here
  * is decided from the path string alone, so a deleted path is still classified.
  */
-function normalizePath(path: string): string {
+export function normalizeContractPath(path: string): string {
   return path
     .split(sep)
     .join("/")
@@ -167,9 +182,9 @@ function matchedIgnorePattern(
   path: string,
   patterns: string[]
 ): string | null {
-  const normalized = normalizePath(path);
+  const normalized = normalizeContractPath(path);
   for (const entry of patterns) {
-    const pattern = normalizePath(entry.trim());
+    const pattern = normalizeContractPath(entry.trim());
     if (pattern.length === 0) continue;
     if (wildcardPattern(pattern).test(normalized)) return entry;
   }
@@ -186,7 +201,9 @@ function normalizeSourceRoots(
   sourceRoots: string[]
 ): string[] {
   return sourceRoots.map((root) =>
-    normalizePath(isAbsolute(root) ? relative(repositoryRoot, root) : root)
+    normalizeContractPath(
+      isAbsolute(root) ? relative(repositoryRoot, root) : root
+    )
   );
 }
 
@@ -242,19 +259,27 @@ function scopedLinks(
  * Every repository path a link names, mapped to the acceptance criteria that
  * name it. A Story-level link is attributed to each of the Story's criteria as a
  * `story_fallback`, matching how impact analysis reads the same links.
+ *
+ * Keep this as the single criterion-bearing manifest traversal. Reconciliation
+ * consumes it for changed paths; `contract governs` consumes the same index for
+ * paths supplied before a change exists.
  */
-function claimsByPath(
+export function buildContractClaimIndex(
   manifest: ContractManifest
-): Map<string, ClaimingCriterion[]> {
+): ContractClaimIndex {
   const claims = new Map<string, ClaimingCriterion[]>();
+  const seen = new Set<string>();
   for (const capability of manifest.capabilities) {
     for (const story of capability.stories) {
       for (const criterion of story.acceptance_criteria) {
         for (const { link, scope } of scopedLinks(story, criterion)) {
-          if (link.target.kind === "help") continue;
+          if (link.relation === "documents" || link.target.kind === "help") {
+            continue;
+          }
           if (link.target.repository !== manifest.repository.key) continue;
-          const path = normalizePath(link.target.path);
+          const path = normalizeContractPath(link.target.path);
           const claim: ClaimingCriterion = {
+            capability_stable_id: capability.stable_id,
             story_stable_id: story.stable_id,
             story_title: story.title,
             acceptance_criterion_stable_id: criterion.stable_id,
@@ -263,6 +288,9 @@ function claimsByPath(
             link_scope: scope,
             linked_path: path,
           };
+          const key = claimKey(claim);
+          if (seen.has(key)) continue;
+          seen.add(key);
           const existing = claims.get(path);
           if (existing) existing.push(claim);
           else claims.set(path, [claim]);
@@ -270,17 +298,18 @@ function claimsByPath(
       }
     }
   }
+  for (const entries of claims.values()) entries.sort(compareClaims);
   return claims;
 }
 
 function changedPathFields(change: RepositoryPathChange): ChangedPathFields {
   return change.status === "renamed"
     ? {
-        path: normalizePath(change.path),
+        path: normalizeContractPath(change.path),
         status: "renamed",
-        old_path: normalizePath(change.old_path),
+        old_path: normalizeContractPath(change.old_path),
       }
-    : { path: normalizePath(change.path), status: change.status };
+    : { path: normalizeContractPath(change.path), status: change.status };
 }
 
 /**
@@ -293,7 +322,7 @@ function candidatePaths(fields: ChangedPathFields): string[] {
 
 function claimsForChange(
   fields: ChangedPathFields,
-  claims: Map<string, ClaimingCriterion[]>
+  claims: ContractClaimIndex
 ): ClaimingCriterion[] {
   const unique = new Map<string, ClaimingCriterion>();
   for (const path of candidatePaths(fields)) {
@@ -356,7 +385,7 @@ function comparePaths(
 export function analyzeContractReconciliation(
   options: ContractReconciliationOptions
 ): ContractReconciliation {
-  const specDirectory = normalizePath(
+  const specDirectory = normalizeContractPath(
     options.specDirectory ?? DEFAULT_SPEC_DIRECTORY
   );
   const sourceRoots = normalizeSourceRoots(
@@ -364,7 +393,7 @@ export function analyzeContractReconciliation(
     options.sourceRoots
   );
   const ignore = options.ignore ?? [];
-  const claims = claimsByPath(options.manifest);
+  const claims = buildContractClaimIndex(options.manifest);
 
   const claimed: ClaimedChange[] = [];
   const unclaimed: UnclaimedChange[] = [];

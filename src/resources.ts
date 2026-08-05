@@ -30,6 +30,9 @@ change and pull request.
 - \`find_related\` is the shorter engineering-oriented semantic entry point and
   still returns the applied profile version.
 - \`query_stories\` is an exact Story/AC lookup with authority and lifecycle filters.
+- \`get_governing_criteria\` answers what the accepted contract says is true for
+  exact repository paths, directly from the compiled manifest and without a
+  database. Use \`search_knowledge\` instead when asking what is related.
 - \`get_backlog_item\` returns a Backlog Item's optimistic revision and complete
   Observation/Story/AC link set before an update replaces state.
 - \`list_handoff_conflicts\` returns the merged repository definition alongside

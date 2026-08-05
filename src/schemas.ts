@@ -230,6 +230,49 @@ export const getHelpArticleOutputShape = {
   note: z.string().optional(),
 };
 
+/**
+ * Deterministic path -> Acceptance Criterion lookup. There is deliberately no
+ * query string, retrieval profile, or ranking control: the path is an exact
+ * manifest key rather than a relevance signal.
+ */
+export const getGoverningCriteriaShape = {
+  paths: z.array(z.string().trim().min(1).max(1_000)).min(1).max(50),
+};
+export const getGoverningCriteriaSchema = z
+  .object(getGoverningCriteriaShape)
+  .strict();
+export type GetGoverningCriteriaInput = z.infer<
+  typeof getGoverningCriteriaSchema
+>;
+export const getGoverningCriteriaOutputShape = {
+  repository: z.object({ key: z.string(), commit: z.string() }),
+  governed_paths: z.number(),
+  ungoverned_paths: z.number(),
+  results: z.array(
+    z.object({
+      requested_path: z.string(),
+      path: z.string(),
+      status: z.enum(["governed", "ungoverned", "not_found"]),
+      exists: z.boolean(),
+      acceptance_criterion_count: z.number(),
+      answer: z.string(),
+      criteria: z.array(
+        z.object({
+          path: z.string(),
+          capability_stable_id: z.string(),
+          story_stable_id: z.string(),
+          story_title: z.string(),
+          acceptance_criterion_stable_id: z.string(),
+          criterion: z.string(),
+          relation: z.enum(["implements", "enforces", "tests"]),
+          link_scope: z.enum(["direct", "story_fallback"]),
+        })
+      ),
+    })
+  ),
+  note: z.string().optional(),
+};
+
 const contractFilterShape = {
   repository: nonEmptyArray(z.string().min(1)).optional(),
   capability: nonEmptyArray(z.string().min(1)).optional(),

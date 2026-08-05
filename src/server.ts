@@ -9,6 +9,7 @@ import { registerFindRelated } from "./tools/find_related.js";
 import { registerQueryStories } from "./tools/query_stories.js";
 import { registerFindHelp } from "./tools/find_help.js";
 import { registerGetHelpArticle } from "./tools/get_help_article.js";
+import { registerGetGoverningCriteria } from "./tools/governing-criteria.js";
 import { registerObservationTools } from "./tools/observations.js";
 import { registerBacklogItemTools } from "./tools/backlog-items.js";
 import { registerResources } from "./resources.js";
@@ -30,6 +31,7 @@ export function createServer(): McpServer {
       instructions:
         "Tieline is a lifecycle-aware semantic contract grounded in repository YAML. " +
         "Use search_knowledge with an explicit profile for cross-type search, find_related for engineering-oriented discovery, and query_stories for exact Story/AC reads. " +
+        "Use get_governing_criteria before editing a repository path to learn what the accepted contract says is true; it reads the compiled manifest and needs no database. " +
         "Use the tieline_author prompt to onboard or reconcile repository behavior. " +
         "Planning writes can shape backlog Stories/ACs, append Observations, and manage " +
         "Backlog Items. Repository-owned behavior changes only through YAML and normal PR review.",
@@ -41,6 +43,7 @@ export function createServer(): McpServer {
   registerQueryStories(server);
   registerFindHelp(server);
   registerGetHelpArticle(server);
+  registerGetGoverningCriteria(server);
   registerObservationTools(server);
   registerBacklogItemTools(server);
   registerPlanningStoryTools(server);
