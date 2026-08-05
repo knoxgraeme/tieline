@@ -219,7 +219,10 @@ planning writes are configured. Tool calls remain the operational check.
 
 Before creating planning work, machine matching searches existing Stories, ACs,
 Backlog Items, and similar Observations. It presents candidates and requires an
-explicit reuse-or-continue choice. Similarity never confirms a relationship.
+explicit reuse-or-continue choice. Each candidate reports its raw ranking
+features and the `admitted_by` signals that cleared the absolute magnitude
+floor; the blended score only orders admitted candidates. Similarity never
+confirms a relationship.
 Raw Observations remain append-only even when duplicate language is consolidated.
 In offline mode, authoring searches local YAML and the compiled manifest and
 explicitly reports that organization-wide duplicate checking was unavailable.
@@ -465,7 +468,10 @@ paths, selectors, and external help identifiers that stemming handles poorly.
 Vector similarity is added when an embedding provider is available. Reciprocal
 rank fusion combines the available lexical and vector rankings with exact alias,
 artifact-overlap, and confirmed graph-proximity signals, so a missing embedding
-backend does not turn search into an error.
+backend does not turn search into an error. Absolute vector, lexical, or exact
+alias magnitude determines whether a candidate is credible enough to present;
+the blended rank-fusion score orders those admitted candidates but does not
+filter them through a second fixed cutoff.
 
 Graph proximity traverses structural links, repository-declared relationships,
 and confirmed attributions up to three hops. The graph feature decays from

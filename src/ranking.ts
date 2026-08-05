@@ -172,6 +172,25 @@ export const SEMANTIC_MAGNITUDE_FLOOR = {
   lexical: 0.5,
 } as const;
 
+export type SemanticAdmissionSignal =
+  | "exact_alias"
+  | "vector"
+  | "lexical";
+
+export function semanticAdmissionSignals(
+  features: Pick<SemanticRankingFeatures, "vector" | "lexical" | "alias">
+): SemanticAdmissionSignal[] {
+  const signals: SemanticAdmissionSignal[] = [];
+  if (features.alias === 1) signals.push("exact_alias");
+  if (features.vector >= SEMANTIC_MAGNITUDE_FLOOR.vector) {
+    signals.push("vector");
+  }
+  if (features.lexical >= SEMANTIC_MAGNITUDE_FLOOR.lexical) {
+    signals.push("lexical");
+  }
+  return signals;
+}
+
 /**
  * True when a ranked candidate is strong enough on its own terms, independent of
  * how the rest of the result set happened to score.
@@ -184,14 +203,7 @@ export const SEMANTIC_MAGNITUDE_FLOOR = {
 export function clearsSemanticMagnitudeFloor(
   features: Pick<SemanticRankingFeatures, "vector" | "lexical" | "alias">
 ): boolean {
-  // An exact alias match is a deterministic identifier match, not a fuzzy one.
-  // Someone recorded that phrasing as naming this record, so it always survives
-  // however weak the similarity signals happen to be.
-  if (features.alias === 1) return true;
-  return (
-    features.vector >= SEMANTIC_MAGNITUDE_FLOOR.vector ||
-    features.lexical >= SEMANTIC_MAGNITUDE_FLOOR.lexical
-  );
+  return semanticAdmissionSignals(features).length > 0;
 }
 
 export function groupSemanticHitsAroundAcceptanceCriteria(

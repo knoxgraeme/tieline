@@ -163,12 +163,15 @@ capability:
                 path: scripts/integration-evidence.ts
                 framework_hint: custom-script
         - key: MATCHING-001-AC4
-          criterion: Tieline must withhold a semantic candidate whose vector, lexical, and alias signals all fall below an absolute magnitude floor, even when its blended rank-fusion score clears the presentation cutoff.
-          rationale: The blended score is mostly reciprocal rank fusion, which measures a candidate's position inside the returned set rather than how well it matches, so the best member of a weak set scores almost exactly what the best member of a strong set scores. Only a floor on the raw comparable signals stops the least wrong available option from reading as a good match to a caller acting without human review.
+          criterion: Tieline must use absolute vector, lexical, or exact-alias magnitude to decide whether a semantic candidate is admitted, and must use the blended rank-fusion score only to order admitted candidates.
+          rationale: The blended score is mostly reciprocal rank fusion, which measures a candidate's position inside the returned set rather than how well it matches. A fixed blended-score cutoff both suppresses credible lexical-only candidates when embeddings are unavailable and can admit the least wrong member of a weak set. Raw comparable signals answer whether a candidate is credible; rank fusion answers which credible candidate should appear first.
           scenarios:
             - given: the only retrieved candidate carries 0.30 vector similarity and 0.20 lexical similarity
               when: Tieline assembles Observation match candidates or planning-create advice
-              then: the candidate must be withheld even though its blended score clears the presentation cutoff
+              then: the candidate must be withheld even when its blended score ranks first
+            - given: no embedding is available and a candidate carries lexical similarity above the absolute magnitude floor
+              when: Tieline assembles Observation match candidates or planning-create advice
+              then: the candidate must be retained and its blended score must affect only its order among other admitted candidates
             - given: a candidate matches a recorded alias exactly but carries low vector and lexical similarity
               when: Tieline applies the magnitude floor
               then: the candidate must be retained because an exact alias match is a deterministic identifier match rather than a fuzzy one
