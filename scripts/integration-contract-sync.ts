@@ -56,7 +56,14 @@ capability:
         record_id: ${input.originId}
         revision: ${input.originRevision}
       links:
+        - relation: implements
+          provenance: materialized
+          target:
+            kind: code
+            repository: sync-integration
+            path: src/story.ts
         - relation: documents
+          provenance: materialized
           target:
             kind: help
             source: intercom
@@ -68,12 +75,14 @@ capability:
             roles: [admin]
           links:
             - relation: tests
+              provenance: materialized
               target:
                 kind: test
                 repository: sync-integration
                 path: scripts/sync.test.ts
                 framework_hint: custom
             - relation: documents
+              provenance: materialized
               target:
                 kind: help
                 source: intercom
@@ -81,6 +90,7 @@ capability:
 ${
   input.implementationPath
     ? `            - relation: implements
+              provenance: materialized
               target:
                 kind: code
                 repository: sync-integration
@@ -106,7 +116,9 @@ const sql = postgres(adminUrl, { max: 1, prepare: false });
 const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-sync-"));
 mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
 mkdirSync(resolve(root, "scripts"), { recursive: true });
+mkdirSync(resolve(root, "src"), { recursive: true });
 writeFileSync(resolve(root, "scripts/sync.test.ts"), "assert(contractSync);\n");
+writeFileSync(resolve(root, "src/story.ts"), "export const story = true;\n");
 
 try {
   const [repository] = await sql<{ id: string }[]>`
@@ -344,12 +356,39 @@ try {
     readStory.acceptance_criteria[0]!.fallback_story_links[0]!.scope,
     "story_fallback"
   );
+  assert.equal(
+    readStory.acceptance_criteria[0]!.fallback_story_links[0]!.provenance,
+    "materialized"
+  );
+  assert.deepEqual(
+    readStory.acceptance_criteria[0]!.fallback_story_links.map(
+      (link) => [link.relation, link.provenance]
+    ),
+    [
+      ["implements", "materialized"],
+      ["documents", "materialized"],
+    ]
+  );
+  assert.ok(
+    readStory.acceptance_criteria[0]!.direct_links.every(
+      (link) => link.provenance === "materialized"
+    )
+  );
   assert.equal(criterionRead?.criterion.direct_links.length, 2);
   assert.ok(
     repositoryGraph.edges.some(
       (edge) =>
+        edge.source === "story:sync-integration:SYNC-001" &&
+        edge.relation === "implements" &&
+        edge.provenance === "materialized"
+    )
+  );
+  assert.ok(
+    repositoryGraph.edges.some(
+      (edge) =>
         edge.source === "ac:sync-integration:SYNC-001-AC1" &&
-        edge.relation === "tests"
+        edge.relation === "tests" &&
+        edge.provenance === "materialized"
     )
   );
   assert.ok(
@@ -357,7 +396,8 @@ try {
       (edge) =>
         edge.source === "ac:sync-integration:SYNC-001-AC1" &&
         edge.target === "ac:sync-integration:SYNC-001-AC2" &&
-        edge.relation === "superseded_by"
+        edge.relation === "superseded_by" &&
+        edge.provenance === undefined
     )
   );
 
@@ -644,11 +684,16 @@ try {
     values (${repository.id}, 'code', 'src/linked-by-foreign-criterion.ts')
     returning id`;
   await sql`
-    insert into story_code_assets (story_id, asset_id, relation)
-    values (${foreignStory.id}, ${storyLinkedAsset.id}, 'implements')`;
+    insert into story_code_assets (story_id, asset_id, relation, provenance)
+    values (
+      ${foreignStory.id}, ${storyLinkedAsset.id}, 'implements', 'authored'
+    )`;
   await sql`
-    insert into criterion_code_assets (criterion_id, asset_id, relation)
-    values (${foreignCriterion.id}, ${criterionLinkedAsset.id}, 'implements')`;
+    insert into criterion_code_assets (
+      criterion_id, asset_id, relation, provenance
+    ) values (
+      ${foreignCriterion.id}, ${criterionLinkedAsset.id}, 'implements', 'authored'
+    )`;
 
   mkdirSync(resolve(root, "src"), { recursive: true });
   writeFileSync(
@@ -716,6 +761,7 @@ try {
       "src/after-rename.ts",
       "src/linked-by-foreign-criterion.ts",
       "src/linked-by-foreign-story.ts",
+      "src/story.ts",
     ]
   );
   const [foreignPathTwinAfter] = await sql<{ id: string }[]>`

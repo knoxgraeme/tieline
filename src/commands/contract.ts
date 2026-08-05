@@ -330,14 +330,14 @@ function renderLinkReview(
   }
   for (const candidate of report.review_candidates) {
     io.write(
-      `\n  ${candidate.acceptance_criterion_stable_id}  ${candidate.relation} ${candidate.path}\n`
+      `\n  ${candidate.acceptance_criterion_stable_id}  ${candidate.relation} · ${candidate.provenance} ${candidate.path}\n`
     );
     io.write(wrap(candidate.rationale, 88, "    "));
   }
   if (report.review_candidates.length) io.write("\n");
   for (const skip of report.skipped) {
     io.write(
-      `  skipped ${skip.acceptance_criterion_stable_id} ${skip.path ?? "(no path)"} (${skip.reason})\n`
+      `  skipped ${skip.acceptance_criterion_stable_id} ${skip.path ?? "(no path)"} (${skip.provenance}, ${skip.reason})\n`
     );
   }
   for (const note of report.notes) io.write(wrap(`note  ${note}`, 88, "  "));
@@ -382,7 +382,7 @@ function renderReconciliation(
       io.write(`\n  ${change.path} (${changeLabel(change)})\n`);
       for (const claim of change.claimed_by) {
         io.write(
-          `    ${claim.acceptance_criterion_stable_id}  ${claim.relation} ${claim.linked_path} (${claim.link_scope})\n`
+          `    ${claim.acceptance_criterion_stable_id}  ${claim.relation} ${claim.linked_path} (${claim.provenance}, ${claim.link_scope})\n`
         );
         io.write(wrap(claim.acceptance_criterion, 88, "      "));
       }

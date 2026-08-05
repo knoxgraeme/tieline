@@ -86,11 +86,13 @@ capability:
       lifecycle: production
       links:
         - relation: implements
+          provenance: authored
           target:
             kind: code
             repository: path-criteria-fixture
             path: src/story-only.ts
         - relation: implements
+          provenance: authored
           target:
             kind: code
             repository: path-criteria-fixture
@@ -100,21 +102,25 @@ capability:
           criterion: Tieline must return the acceptance criterion that links a path.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: path-criteria-fixture
                 path: src/direct.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: path-criteria-fixture
                 path: src/shared.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: other-repository
                 path: src/elsewhere.ts
             - relation: documents
+              provenance: authored
               target:
                 kind: help
                 source: docs
@@ -123,6 +129,7 @@ capability:
           criterion: Tieline must return every acceptance criterion that links a path.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: path-criteria-fixture
@@ -192,6 +199,7 @@ try {
   assert.equal(first?.capability_stable_id, "PATH-CRITERIA");
   assert.equal(first?.story_stable_id, "PATH-CRITERIA-001");
   assert.equal(first?.story_title, "Look up path criteria");
+  assert.equal(first?.provenance, "authored");
 
   const report = lookupPathCriteria({
     manifest,

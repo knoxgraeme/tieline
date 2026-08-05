@@ -75,22 +75,32 @@ export const helpTargetSchema = z
   })
   .strict();
 
+export const LINK_PROVENANCES = [
+  "authored",
+  "inferred",
+  "materialized",
+] as const;
+export const linkProvenanceSchema = z.enum(LINK_PROVENANCES);
+
 export const contractLinkSchema = z.union([
   z
     .object({
       relation: z.enum(["implements", "enforces"]),
+      provenance: linkProvenanceSchema,
       target: codeTargetSchema,
     })
     .strict(),
   z
     .object({
       relation: z.literal("tests"),
+      provenance: linkProvenanceSchema,
       target: testTargetSchema,
     })
     .strict(),
   z
     .object({
       relation: z.literal("documents"),
+      provenance: linkProvenanceSchema,
       target: helpTargetSchema,
     })
     .strict(),
@@ -191,6 +201,7 @@ export const acceptedContractDocumentSchema = z
 
 export type Applicability = z.infer<typeof applicabilitySchema>;
 export type ContractScenario = z.infer<typeof scenarioSchema>;
+export type LinkProvenance = z.infer<typeof linkProvenanceSchema>;
 export type ContractLink = z.infer<typeof contractLinkSchema>;
 export type ContractTarget = ContractLink["target"];
 export type AcceptanceCriterion = z.infer<typeof acceptanceCriterionSchema>;

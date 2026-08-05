@@ -29,18 +29,21 @@ capability:
               then: Tieline must emit distinct entries whose linked_path values preserve both contract targets
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/reconciliation.ts
                 selector: function:buildContractClaimIndex
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
                 selector: function:buildGradeScope
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -58,18 +61,21 @@ capability:
               then: Tieline must emit an empty citation allow-list without failing the scope
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/selector.ts
                 selector: function:indexSourceSymbols
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
                 selector: function:citableSymbolsForPath
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -80,18 +86,21 @@ capability:
           rationale: The semantic judgment belongs to the host agent, while both Tieline phases remain deterministic and usable in the same offline pull-request loop as contract validation.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
                 selector: function:runGrade
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/cli.ts
                 selector: function:buildProgram
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -112,18 +121,21 @@ capability:
               then: Tieline must report unsupported with fabricated_citation
           links:
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
                 selector: function:parseGradeVerdicts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
                 selector: function:verifyGradeVerdicts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -141,12 +153,14 @@ capability:
               then: Tieline must reject the submission instead of choosing or ignoring a verdict
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
                 selector: function:verifyGradeVerdicts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -164,18 +178,21 @@ capability:
               then: Tieline must print the unsupported result and exit non-zero
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
                 selector: function:verifyGradeVerdicts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
                 selector: function:runGrade
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -186,6 +203,7 @@ capability:
           rationale: The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline

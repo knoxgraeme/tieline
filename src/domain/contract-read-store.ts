@@ -1,4 +1,7 @@
-import type { Applicability } from "../contract/schema.js";
+import type {
+  Applicability,
+  LinkProvenance,
+} from "../contract/schema.js";
 import type {
   ContractAuthority,
   StoryLifecycle,
@@ -33,6 +36,7 @@ export interface ContractHelpTarget {
 
 export interface ContractEvidenceLink {
   relation: "implements" | "enforces" | "tests" | "documents";
+  provenance: LinkProvenance;
   scope: "direct" | "story_fallback";
   target: ContractCodeTarget | ContractHelpTarget;
   reviewed_content_hash: string | null;
@@ -171,6 +175,8 @@ export interface ContractGraphEdge {
     | "documents"
     | "superseded_by";
   scope: "hierarchy" | "direct" | "story_fallback" | "lifecycle";
+  /** Present only for evidence edges backed by an accepted contract link. */
+  provenance?: LinkProvenance;
 }
 
 export interface ContractGraph {
@@ -325,6 +331,7 @@ export function buildContractGraph(
       target: id,
       relation: link.relation,
       scope: link.scope,
+      provenance: link.provenance,
     });
   }
 

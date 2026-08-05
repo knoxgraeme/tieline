@@ -18,7 +18,10 @@ import {
   type HandoffConflictRecord,
   type QueryContractStoriesResult,
 } from "../../domain/contract-read-store.js";
-import type { Applicability } from "../../contract/schema.js";
+import type {
+  Applicability,
+  LinkProvenance,
+} from "../../contract/schema.js";
 import type {
   ContractAuthority,
   StoryLifecycle,
@@ -76,6 +79,7 @@ interface ScenarioRow {
 interface CodeLinkRow {
   owner_id: string;
   relation: "implements" | "enforces" | "tests";
+  provenance: LinkProvenance;
   reviewed_content_hash: string | null;
   current_content_hash: string | null;
   kind: "code" | "test";
@@ -87,6 +91,7 @@ interface CodeLinkRow {
 
 interface HelpLinkRow {
   owner_id: string;
+  provenance: LinkProvenance;
   source: string;
   external_id: string;
   title: string | null;
@@ -121,6 +126,7 @@ function codeEvidenceLink(
 ): ContractEvidenceLink {
   return {
     relation: row.relation,
+    provenance: row.provenance,
     scope,
     target: {
       kind: row.kind,
@@ -140,6 +146,7 @@ function helpEvidenceLink(
 ): ContractEvidenceLink {
   return {
     relation: "documents",
+    provenance: row.provenance,
     scope,
     target: {
       kind: "help",
@@ -325,6 +332,7 @@ async function fetchStoryCodeLinks(
     select
       sca.story_id as owner_id,
       sca.relation,
+      sca.provenance,
       sca.reviewed_content_hash,
       ca.content_hash as current_content_hash,
       ca.kind,
@@ -348,6 +356,7 @@ async function fetchCriterionCodeLinks(
     select
       cca.criterion_id as owner_id,
       cca.relation,
+      cca.provenance,
       cca.reviewed_content_hash,
       ca.content_hash as current_content_hash,
       ca.kind,
@@ -370,6 +379,7 @@ async function fetchStoryHelpLinks(
   return sql<HelpLinkRow[]>`
     select
       sha.story_id as owner_id,
+      sha.provenance,
       ha.source,
       ha.external_id,
       ha.title,
@@ -388,6 +398,7 @@ async function fetchCriterionHelpLinks(
   return sql<HelpLinkRow[]>`
     select
       cha.criterion_id as owner_id,
+      cha.provenance,
       ha.source,
       ha.external_id,
       ha.title,

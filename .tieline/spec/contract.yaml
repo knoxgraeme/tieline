@@ -21,26 +21,31 @@ capability:
           rationale: Structural failures make semantic impact and synchronization untrustworthy.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/schema.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/load.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/validate.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/index.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -57,33 +62,39 @@ capability:
               then: Tieline must report that coverage is not measured instead of reporting 100 percent
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/manifest.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/coverage.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-contract.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-manifest.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -98,16 +109,19 @@ capability:
               then: Tieline must report the linked criterion as impacted and stale
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/impact.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/check.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -118,16 +132,19 @@ capability:
           rationale: Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/review-page.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -145,22 +162,26 @@ capability:
               then: Tieline must refuse the manifest and name both the file and the capability instead of accepting the capability under the wrong identity
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/manifest.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-manifest.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -181,20 +202,94 @@ capability:
               then: Tieline must report the compilation failure once rather than also reporting it as a stale manifest
           links:
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/check.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/cli.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-impact.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC7
+          criterion: Tieline must require every contract link to state whether its claim was authored, inferred, or materialized, and must preserve that provenance through compiled manifests, repository synchronization, and every exact claim read.
+          rationale: Relation and target describe what a link claims, while provenance records how that claim entered its current authority surface. Keeping this low-cardinality origin distinct from freshness and grade lets agents interpret a claim without turning mutable review facts into contract identity.
+          scenarios:
+            - given: a contract link has no provenance
+              when: the repository contract is validated
+              then: Tieline must reject the link instead of guessing where its claim came from
+            - given: only a contract link's provenance changes
+              when: the contract manifest is compiled
+              then: Tieline must change the owning contract hash without creating a second link identity
+            - given: an accepted repository link was copied during planning-to-repository authority transfer
+              when: the repository contract is synchronized and read
+              then: Tieline must preserve materialized as the origin of that exact claim
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/schema.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-read-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/link-plausibility.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0001_baseline.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
                 framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
@@ -221,26 +316,31 @@ capability:
               then: Tieline must return not_found distinctly from an existing path with no criteria
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/reconciliation.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/path-criteria.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/cli.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -258,21 +358,25 @@ capability:
               then: Tieline must name the missing workspace and the command that creates one
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/path-criteria.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/server.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/schemas.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline

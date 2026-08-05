@@ -12,10 +12,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "252dc68e90bd5e4b191b932299c4478f9f3005b4359a8aaa19dc4824a3bfcadc",
+            "contract_hash": "f8b4307a86adfe06bcb39930547dd3191e5db1587b78931afc6c3afa41a092b4",
             "criterion": "Tieline must derive separate semantic documents for Stories, Acceptance Criteria, Scenarios, Backlog Items, and sanitized Observations.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "enforces",
                 "reviewed_content_hash": "d95a7d4fa16a2bb3c0338f0bf2ef2a488b24a293436f07c33e33eb5500884996",
                 "target": {
@@ -25,6 +26,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "b0d31a33fb78baca4843965305f51b2f4ef33e9cbaa8311d2a9e305e87a373a6",
                 "target": {
@@ -34,6 +36,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "266ddb411c0d793bd65f0d5b37f86c63f01d570491de6d4051878ee9f92e7a0e",
                 "target": {
@@ -43,6 +46,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "ef95b8f1115a2fe335c81f73aca5025e9f8e77d91cd4bab0d5f099c97f8ab0d5",
                 "target": {
@@ -62,12 +66,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "6e5b4ac47ad981ab84dc3f047bfaa0f325c2149e645f85899962b064276c286d",
+            "contract_hash": "d95eb9a78b478aa142f95c863673f56c13627f724f867929d43f5af6b4b42b53",
             "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "9f99c3ac24bd8f87617d85e1ccf8aa8486ca05351a70a38f8f275a6bbb24a7a6",
+                "reviewed_content_hash": "a8fee643ee68cdb20a6c6920d77e83185e3d660747d6bd9daf252be866e98205",
                 "target": {
                   "kind": "code",
                   "path": "migrations/0001_baseline.sql",
@@ -75,6 +80,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "64640888aa510a254bee13e878c88709b5b6897ef232e86b532dc5f07a560ff6",
                 "target": {
@@ -84,6 +90,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "0add224b4610126cbc9018e7c98b9c69fd94f49567f33e44b8ca63ed44f6410d",
                 "target": {
@@ -93,6 +100,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "46335b97ce3859cea4d71d4b8503055a17a6c3f2c0e64625f4fe3b4bca824ade",
                 "target": {
@@ -102,6 +110,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "5ced89ffc9675ef3210532f5cf0d72c768b64abe9f6c9d2b5c6d1a2d0f1f5a64",
                 "target": {
@@ -111,6 +120,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "4945ef4e73ce620eaed6afe073d023f9cf3aa6e4ba998b890c36f6cf7476af86",
                 "target": {
@@ -120,6 +130,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "5a2a0f53379ae8e323fe3fc5d8f218ba35812f8151ccb135a27fc2a10acbbf2a",
                 "target": {
@@ -129,6 +140,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "ad6f14683c96f6cc208fe7d66bc65b15995f7876a6c8b77cb7ee7fb65f4384e5",
                 "target": {
@@ -139,6 +151,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "7a8667501e1cce7be148e33939b7e34e462a326ebe727b183286dcfc685d8238",
                 "target": {
@@ -149,8 +162,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -159,6 +173,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "c9590556f14e3417b74497161c5547a25375c0e1a4b01a3e34ae2fc744b896df",
                 "target": {
@@ -169,6 +184,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "f73ab70075032befa93734f30d0cbb2834d38752e9ce695436059ad22ddd0f97",
                 "target": {
@@ -203,10 +219,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "a2ff57f20560439eb3330c52325f2f80b6817ef465952100f59138b02d2718a3",
+            "contract_hash": "da806abe99a3ba7f1453cd632c8503ef9e6e838e3c27d10bd461bc4c056fba62",
             "criterion": "Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "286a32fce01b3ed27e560044ba75254decf897a2174ceeafcb5d72c89f263a31",
                 "target": {
@@ -216,6 +233,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "adf23ebbe927ba6534bae791fd0de53a72a7996b8062a0bc647f00d699425595",
                 "target": {
@@ -225,6 +243,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "71ad6de042cc2478a586ebebab37efc7c7d279d0353c9488be3741982fd920ba",
                 "target": {
@@ -234,8 +253,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -261,10 +281,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b82f958e58880eb820901e76e205817a8f3a7c2b2d306dd5ca4cf4900582f6e9",
+            "contract_hash": "530c08f62c7123434e60b7d4d00f263a57c51a8bc1d24c82ecba53ab7b8d742f",
             "criterion": "Tieline must withhold a semantic candidate whose vector, lexical, and alias signals all fall below an absolute magnitude floor, even when its blended rank-fusion score clears the presentation cutoff.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "5ced89ffc9675ef3210532f5cf0d72c768b64abe9f6c9d2b5c6d1a2d0f1f5a64",
                 "target": {
@@ -274,6 +295,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "adf23ebbe927ba6534bae791fd0de53a72a7996b8062a0bc647f00d699425595",
                 "target": {
@@ -283,6 +305,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "f73ab70075032befa93734f30d0cbb2834d38752e9ce695436059ad22ddd0f97",
                 "target": {
@@ -337,6 +360,6 @@
   },
   "input": {
     "path": ".tieline/spec/matching.yaml",
-    "sha256": "ca88d8f9307dffa5ec09541786bca9923c3f8bf60c4c2163f629df7b3bd2d576"
+    "sha256": "84fcb2866f1fdfa8d93bed0850332f6f1583ea15e69e97bcd2aa9c2393d3436d"
   }
 }

@@ -72,7 +72,7 @@ function renderLinks(links: ContractLink[]): string {
           const target = externalUrl
             ? `<a href="${escapeHtml(externalUrl)}" target="_blank" rel="noreferrer">${label}</a>`
             : `<span>${label}</span>`;
-          return `<li><small>${escapeHtml(link.relation)}</small>${target}</li>`;
+          return `<li><small>${escapeHtml(link.relation)} · ${escapeHtml(link.provenance)}</small>${target}</li>`;
         })
         .join("")}
     </ul>
@@ -617,7 +617,7 @@ export function renderContractReviewPage(
       text-align: center;
     }
     .references ul { display: grid; gap: .35rem; margin: .6rem 0 0 1.25rem; padding: 0; list-style: none; }
-    .references li { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: .5rem; font: .66rem/1.45 var(--mono); }
+    .references li { display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: .5rem; font: .66rem/1.45 var(--mono); }
     .references small { color: var(--muted); }
     .issue-details {
       position: sticky;

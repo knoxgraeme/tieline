@@ -6,6 +6,7 @@ import {
 import {
   codeTargetSchema,
   helpTargetSchema,
+  linkProvenanceSchema,
   testTargetSchema,
 } from "./contract/schema.js";
 
@@ -264,6 +265,7 @@ export const getPathCriteriaOutputShape = {
           acceptance_criterion_stable_id: z.string(),
           criterion: z.string(),
           relation: z.enum(["implements", "enforces", "tests"]),
+          provenance: linkProvenanceSchema,
           link_scope: z.enum(["direct", "story_fallback"]),
         })
       ),

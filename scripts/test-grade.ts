@@ -73,6 +73,7 @@ capability:
       lifecycle: production
       links:
         - relation: implements
+          provenance: authored
           target:
             kind: code
             repository: ${REPOSITORY}
@@ -82,21 +83,25 @@ capability:
           criterion: Tieline must emit every changed link without relevance filtering.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: ${REPOSITORY}
                 path: src/feature.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: ${REPOSITORY}
                 path: src/renamed.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: ${REPOSITORY}
                 path: src/shared.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: another-repository
@@ -105,11 +110,13 @@ capability:
           criterion: Tieline must retain changed evidence that has no readable symbols.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: ${REPOSITORY}
                 path: src/deleted.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: ${REPOSITORY}
@@ -143,6 +150,7 @@ capability:
   assert.equal(feature.entries[0]?.acceptance_criterion_stable_id, "FEATURE-001-AC1");
   assert.equal(feature.entries[0]?.acceptance_criterion, "Tieline must emit every changed link without relevance filtering.");
   assert.equal(feature.entries[0]?.relation, "implements");
+  assert.equal(feature.entries[0]?.provenance, "authored");
   assert.equal(feature.entries[0]?.link_scope, "direct");
   assert.equal(feature.entries[0]?.path, "src/feature.ts");
   assert.equal(feature.entries[0]?.previous_path, null);

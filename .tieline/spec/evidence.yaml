@@ -19,27 +19,32 @@ capability:
               then: Tieline must return the stored record for a later matching retry
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/domain/evidence-write-store.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/observation-repository.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/observations.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-evidence.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -56,16 +61,19 @@ capability:
           criterion: Tieline must let a Backlog Item target zero or more Stories and Acceptance Criteria without becoming their lifecycle container.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/backlog-repository.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/backlog-items.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -82,31 +90,37 @@ capability:
           criterion: Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/authoring/help-schema.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/help-repository.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/import-help.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/find_help.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/get_help_article.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline

@@ -79,11 +79,13 @@ capability:
           criterion: Tieline must report a changed implementation path.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: impact-fixture
                 path: src/feature.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: impact-fixture
@@ -158,6 +160,7 @@ capability:
   });
   assert.equal(contractChanged.length, 1);
   assert.equal(contractChanged[0].reason, "contract_definition_changed");
+  assert.equal(contractChanged[0].provenance, null);
   assert.equal(contractChanged[0].path, ".tieline/contract");
   assert.equal(
     contractChanged[0].acceptance_criterion,
@@ -192,6 +195,7 @@ capability:
   assert.equal(brokenOutsideDiff.length, 1);
   assert.equal(brokenOutsideDiff[0].path, "scripts/feature.test.ts");
   assert.equal(brokenOutsideDiff[0].reason, "link_target_broken");
+  assert.equal(brokenOutsideDiff[0].provenance, "authored");
   assert.equal(brokenOutsideDiff[0].freshness, "broken");
   assert.equal(brokenOutsideDiff[0].broken_cause, "missing");
   assert.equal(
@@ -589,6 +593,7 @@ capability:
           criterion: Tieline must report the manifest as stale.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: impact-fixture

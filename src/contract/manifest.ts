@@ -14,6 +14,7 @@ import {
   applicabilitySchema,
   codeTargetSchema,
   helpTargetSchema,
+  linkProvenanceSchema,
   planningOriginSchema,
   scenarioSchema,
   testTargetSchema,
@@ -37,6 +38,7 @@ export interface ManifestInput {
 
 export interface ManifestLink {
   relation: ContractLink["relation"];
+  provenance: ContractLink["provenance"];
   target: ContractLink["target"];
   reviewed_content_hash: string | null;
   /**
@@ -315,6 +317,7 @@ const manifestLinkSchema = z.union([
   z
     .object({
       relation: z.enum(["implements", "enforces"]),
+      provenance: linkProvenanceSchema,
       target: codeTargetSchema,
       reviewed_content_hash: hashSchema.nullable(),
     })
@@ -322,6 +325,7 @@ const manifestLinkSchema = z.union([
   z
     .object({
       relation: z.literal("tests"),
+      provenance: linkProvenanceSchema,
       target: testTargetSchema,
       reviewed_content_hash: hashSchema.nullable(),
     })
@@ -329,6 +333,7 @@ const manifestLinkSchema = z.union([
   z
     .object({
       relation: z.literal("documents"),
+      provenance: linkProvenanceSchema,
       target: helpTargetSchema,
       reviewed_content_hash: z.null(),
     })
@@ -707,6 +712,7 @@ function compileLinks(
   return links
     .map((link) => ({
       relation: link.relation,
+      provenance: link.provenance,
       target: link.target,
       reviewed_content_hash: reviewedContentHash(context, link),
     }))

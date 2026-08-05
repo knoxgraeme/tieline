@@ -19,21 +19,25 @@ capability:
           rationale: Focused documents preserve specificity and avoid re-embedding unrelated criteria.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/derived/embedding-documents.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/embeddings.ts
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/vector.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -50,65 +54,77 @@ capability:
               then: Tieline must return full-text or identifier matches with explicit signal features and match reasons
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/domain/semantic-search-store.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/semantic-repository.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/search-context.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/ranking.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/find_related.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/search-knowledge.ts
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: migrations/0001_baseline.sql
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-ranking.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/evaluate-retrieval.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/integration-evidence.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/smoke.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -122,21 +138,25 @@ capability:
               then: its state must remain suggested
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/semantic-matching.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/backlog-advisor.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/attributions.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -154,16 +174,19 @@ capability:
               then: the candidate must be retained because an exact alias match is a deterministic identifier match rather than a fuzzy one
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/ranking.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/semantic-matching.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline

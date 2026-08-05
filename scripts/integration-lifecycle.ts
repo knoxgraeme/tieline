@@ -95,11 +95,13 @@ capability:
               then: ${storyDefinition.scenario.then}
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: ${repositoryKey}
                 path: src/lifecycle.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: ${repositoryKey}

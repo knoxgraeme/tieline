@@ -17,6 +17,7 @@ function codeLink(
 ): ContractEvidenceLink {
   return {
     relation,
+    provenance: "authored",
     scope,
     target: {
       kind: relation === "tests" ? "test" : "code",
@@ -35,6 +36,7 @@ function helpLink(
 ): ContractEvidenceLink {
   return {
     relation: "documents",
+    provenance: "materialized",
     scope,
     target: {
       kind: "help",
@@ -189,14 +191,16 @@ assert.ok(
   graph.edges.some(
     (edge) =>
       edge.source === "ac:tieline:STORY-001-AC1" &&
-      edge.relation === "tests"
+      edge.relation === "tests" &&
+      edge.provenance === "authored"
   )
 );
 assert.ok(
   graph.edges.some(
     (edge) =>
       edge.source === "ac:tieline:STORY-001-AC1" &&
-      edge.relation === "documents"
+      edge.relation === "documents" &&
+      edge.provenance === "materialized"
   )
 );
 assert.ok(
@@ -204,7 +208,8 @@ assert.ok(
     (edge) =>
       edge.source === "ac:tieline:STORY-001-AC1" &&
       edge.target === "ac:tieline:STORY-001-AC2" &&
-      edge.relation === "superseded_by"
+      edge.relation === "superseded_by" &&
+      edge.provenance === undefined
   )
 );
 

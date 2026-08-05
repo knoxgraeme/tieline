@@ -132,9 +132,9 @@ try {
     )`;
   await sql`
     insert into criterion_code_assets (
-      criterion_id, asset_id, relation
+      criterion_id, asset_id, relation, provenance
     ) values (
-      ${repositoryCriterion.id}, ${searchAsset.id}, 'implements'
+      ${repositoryCriterion.id}, ${searchAsset.id}, 'implements', 'authored'
     )`;
   const [inactiveAsset] = await sql<{ id: string }[]>`
     insert into code_assets (
@@ -145,9 +145,9 @@ try {
     returning id`;
   await sql`
     insert into criterion_code_assets (
-      criterion_id, asset_id, relation
+      criterion_id, asset_id, relation, provenance
     ) values (
-      ${inactiveCriterion.id}, ${inactiveAsset.id}, 'implements'
+      ${inactiveCriterion.id}, ${inactiveAsset.id}, 'implements', 'authored'
     )`;
   const regionalCriteria = await sql<{ id: string; stable_id: string }[]>`
     insert into acceptance_criteria (

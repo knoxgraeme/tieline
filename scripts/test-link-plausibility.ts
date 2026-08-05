@@ -178,6 +178,7 @@ function pathOf(topic: Topic): string {
 function codeLink(path: string, relation = "implements"): ManifestLink {
   return {
     relation: relation as ManifestLink["relation"],
+    provenance: "authored",
     target: { kind: "code", repository: REPOSITORY, path },
     reviewed_content_hash: null,
   };
@@ -286,6 +287,7 @@ try {
           codeLink("assets/blob.bin"),
           {
             relation: "documents",
+            provenance: "authored",
             target: {
               kind: "help",
               source: "helpcenter",
@@ -295,6 +297,7 @@ try {
           },
           {
             relation: "implements",
+            provenance: "authored",
             target: {
               kind: "code",
               repository: "another-repository",
@@ -468,6 +471,7 @@ try {
   assert.equal(candidate.path, "src/timezone.ts");
   assert.equal(candidate.repository, REPOSITORY);
   assert.equal(candidate.relation, "implements");
+  assert.equal(candidate.provenance, "authored");
   assert.equal(candidate.rank, 1);
   assert.ok(candidate.score < DEFAULT_ABSOLUTE_SCORE_FLOOR);
   assert.ok(candidate.percentile > 0 && candidate.percentile < 0.2);
@@ -559,6 +563,7 @@ try {
   assert.equal(skipReasons.get("src/elsewhere.ts"), "other_repository");
   assert.equal(report.skipped.length, 6);
   for (const skipped of report.skipped) {
+    assert.equal(skipped.provenance, "authored");
     assert.ok(
       !report.review_candidates.some((entry) => entry.path === skipped.path),
       `${skipped.path} was skipped and must produce no finding`

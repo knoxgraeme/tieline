@@ -14,6 +14,7 @@ import type { RepositoryPathChange } from "./impact.js";
 import type { ContractManifest } from "./manifest.js";
 import {
   analyzeContractReconciliation,
+  type ClaimingCriterion,
   type ReconciliationChangeStatus,
   type ReconciliationLinkScope,
   type ReconciliationRelation,
@@ -36,6 +37,7 @@ export interface GradeScopeEntry {
   acceptance_criterion_stable_id: string;
   acceptance_criterion: string;
   relation: ReconciliationRelation;
+  provenance: ClaimingCriterion["provenance"];
   link_scope: ReconciliationLinkScope;
   /** Repository path named by this contract link. */
   linked_path: string;
@@ -185,6 +187,7 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
           claim.acceptance_criterion_stable_id,
         acceptance_criterion: claim.acceptance_criterion,
         relation: claim.relation,
+        provenance: claim.provenance,
         link_scope: claim.link_scope,
         linked_path: claim.linked_path,
         path: change.path,
@@ -218,7 +221,7 @@ export function renderGradeScopeText(scope: GradeScope): string {
         ? ""
         : `, contract target ${entry.linked_path}`;
     lines.push(
-      `\n  ${entry.id}  ${entry.acceptance_criterion_stable_id} ${entry.relation} ${entry.path} (${entry.link_scope}, ${entry.reason}${target})\n`
+      `\n  ${entry.id}  ${entry.acceptance_criterion_stable_id} ${entry.relation} ${entry.path} (${entry.provenance}, ${entry.link_scope}, ${entry.reason}${target})\n`
     );
     lines.push(`    ${entry.acceptance_criterion}\n`);
     lines.push(

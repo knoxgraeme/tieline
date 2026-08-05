@@ -131,6 +131,36 @@ function validateLink(
   }
 }
 
+function linkIdentity(link: ContractLink): string {
+  return JSON.stringify([link.relation, link.target]);
+}
+
+function validateLinks(
+  path: string,
+  owner: string,
+  links: ContractLink[],
+  vocabulary: SelectorVocabulary,
+  issues: string[]
+): void {
+  const seen = new Map<string, ContractLink>();
+  for (const link of links) {
+    validateLink(path, link, vocabulary, issues);
+    const identity = linkIdentity(link);
+    const existing = seen.get(identity);
+    if (!existing) {
+      seen.set(identity, link);
+      continue;
+    }
+    const detail =
+      existing.provenance === link.provenance
+        ? `with provenance '${link.provenance}' more than once`
+        : `with conflicting provenance '${existing.provenance}' and '${link.provenance}'`;
+    issues.push(
+      `${path}: '${owner}' declares the same '${link.relation}' link target ${detail}`
+    );
+  }
+}
+
 function findSupersessionCycle(
   start: string,
   records: Map<string, StableRecord>
@@ -198,7 +228,7 @@ export function validateAcceptedContractDocuments(
         path: sourcePath,
         supersedes: story.supersedes,
       });
-      for (const link of story.links) validateLink(sourcePath, link, vocabulary, issues);
+      validateLinks(sourcePath, story.key, story.links, vocabulary, issues);
       for (const criterion of story.acceptance_criteria) {
         addRecord(criterion.key, {
           kind: "criterion",
@@ -206,7 +236,13 @@ export function validateAcceptedContractDocuments(
           supersedes: criterion.supersedes,
           criterion: criterion.criterion,
         });
-        for (const link of criterion.links) validateLink(sourcePath, link, vocabulary, issues);
+        validateLinks(
+          sourcePath,
+          criterion.key,
+          criterion.links,
+          vocabulary,
+          issues
+        );
         const normalized = normalizeSemanticText(criterion.criterion);
         const existing = criteriaByText.get(normalized);
         if (existing && existing.key !== criterion.key) {
