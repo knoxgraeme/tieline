@@ -37,9 +37,9 @@ import {
 } from "../contract/link-plausibility.js";
 import { parseNameStatus } from "../contract/impact.js";
 import {
-  lookupGoverningCriteria,
-  renderGoverningCriteriaText,
-} from "../contract/governs.js";
+  lookupPathCriteria,
+  renderPathCriteriaText,
+} from "../contract/path-criteria.js";
 import {
   analyzeContractReconciliation,
   type ContractReconciliation,
@@ -57,7 +57,7 @@ export type ContractAction =
   | "coverage"
   | "link-review"
   | "reconcile"
-  | "governs"
+  | "criteria"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -418,10 +418,10 @@ export async function runContractCommand(
     return 0;
   }
 
-  if (parsed.action === "governs") {
+  if (parsed.action === "criteria") {
     if (parsed.paths.length === 0) {
       throw new Error(
-        "`contract governs` requires at least one repository-relative path."
+        "`contract criteria` requires at least one repository-relative path."
       );
     }
     let manifest: ContractManifest;
@@ -429,12 +429,12 @@ export async function runContractCommand(
       manifest = readContractManifest(parsed.manifestPath);
     } catch (error) {
       throw new Error(
-        `Cannot report governing acceptance criteria because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
+        `Cannot report acceptance criteria for paths because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
           error instanceof Error ? error.message : String(error)
         } Run \`tieline contract compile .\` and commit the manifest.`
       );
     }
-    const report = lookupGoverningCriteria({
+    const report = lookupPathCriteria({
       manifest,
       repositoryRoot: parsed.repositoryRoot,
       paths: parsed.paths,
@@ -442,7 +442,7 @@ export async function runContractCommand(
     io.write(
       parsed.json
         ? `${JSON.stringify(report, null, 2)}\n`
-        : renderGoverningCriteriaText(report)
+        : renderPathCriteriaText(report)
     );
     return 0;
   }

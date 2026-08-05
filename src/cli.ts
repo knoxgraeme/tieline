@@ -202,7 +202,7 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "contract") {
-    if (args[0] === "governs") {
+    if (args[0] === "criteria") {
       return optionValue(args, "repository") ?? process.cwd();
     }
     return (
@@ -488,7 +488,7 @@ function buildProgram(
             | "coverage"
             | "link-review"
             | "reconcile"
-            | "governs"
+            | "criteria"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -516,13 +516,11 @@ function buildProgram(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"
   );
-  // `governs` takes paths where the other actions take a repository, so it is
+  // `criteria` takes paths where the other actions take a repository, so it is
   // declared directly instead of through `contractAction`.
   contract
-    .command("governs")
-    .description(
-      "Report the acceptance criteria that govern repository-relative paths"
-    )
+    .command("criteria")
+    .description("Report the acceptance criteria for repository-relative paths")
     .argument("<paths...>", "repository-relative paths")
     .option("--repository <path>", "repository path")
     .option("--repo <key>", "stable repository key")
@@ -531,7 +529,7 @@ function buildProgram(
       const { runContractCommand } = await import("./commands/contract.js");
       setExit(
         await runContractCommand(
-          "governs",
+          "criteria",
           {
             paths,
             repository: opts.repository,

@@ -17,50 +17,47 @@ import {
 } from "./reconciliation.js";
 import type { ContractManifest } from "./manifest.js";
 
-export type GoverningRelation = ReconciliationRelation;
-export type GoverningLinkScope = ReconciliationLinkScope;
-
-export interface GoverningCriterion {
+export interface PathCriterion {
   path: string;
   capability_stable_id: string;
   story_stable_id: string;
   story_title: string;
   acceptance_criterion_stable_id: string;
   criterion: string;
-  relation: GoverningRelation;
-  link_scope: GoverningLinkScope;
+  relation: ReconciliationRelation;
+  link_scope: ReconciliationLinkScope;
 }
 
-export type GoverningCriteriaIndex = ReadonlyMap<
+export type PathCriteriaIndex = ReadonlyMap<
   string,
-  readonly GoverningCriterion[]
+  readonly PathCriterion[]
 >;
 
-export type PathGovernanceStatus = "governed" | "ungoverned" | "not_found";
+export type PathCriteriaStatus = "has_criteria" | "no_criteria" | "not_found";
 
-export interface PathGovernance {
+export interface PathCriteriaResult {
   /** Exactly what the caller asked for, so a typo remains visible. */
   requested_path: string;
   /** Normalized repository-relative lookup key. */
   path: string;
-  status: PathGovernanceStatus;
+  status: PathCriteriaStatus;
   exists: boolean;
   acceptance_criterion_count: number;
   /** A stated result, including for the actionable negative outcomes. */
   answer: string;
-  criteria: GoverningCriterion[];
+  criteria: PathCriterion[];
 }
 
-export interface GoverningCriteriaReport {
+export interface PathCriteriaReport {
   /** The manifest state that answered the query. */
   repository: ContractManifest["repository"];
-  governed_paths: number;
-  /** Includes existing ungoverned paths and requested paths not found. */
-  ungoverned_paths: number;
-  results: PathGovernance[];
+  has_criteria_paths: number;
+  no_criteria_paths: number;
+  not_found_paths: number;
+  results: PathCriteriaResult[];
 }
 
-function governingCriterion(claim: ClaimingCriterion): GoverningCriterion {
+function pathCriterion(claim: ClaimingCriterion): PathCriterion {
   return {
     path: claim.linked_path,
     capability_stable_id: claim.capability_stable_id,
@@ -76,13 +73,13 @@ function governingCriterion(claim: ClaimingCriterion): GoverningCriterion {
 /**
  * Public path index derived from reconciliation's shared contract-claim index.
  */
-export function buildGoverningCriteriaIndex(
+export function buildPathCriteriaIndex(
   manifest: ContractManifest
-): GoverningCriteriaIndex {
+): PathCriteriaIndex {
   return new Map(
     [...buildContractClaimIndex(manifest)].map(([path, claims]) => [
       path,
-      claims.map(governingCriterion),
+      claims.map(pathCriterion),
     ])
   );
 }
@@ -106,8 +103,8 @@ function withinRepository(root: string, target: string): boolean {
 /**
  * Match the exact repository spelling used by the contract index. On a
  * case-insensitive filesystem, `existsSync("src/Foo.ts")` also succeeds for an
- * actual `src/foo.ts`; treating that alias as an existing, ungoverned path would
- * hide the criterion that governs the real file.
+ * actual `src/foo.ts`; treating that alias as an existing path with no criteria
+ * would hide the criteria that apply to the real file.
  */
 function repositoryPathExistsExactly(root: string, target: string): boolean {
   if (!withinRepository(root, target) || !existsSync(target)) return false;
@@ -133,27 +130,27 @@ function answerFor(
 ): string {
   if (criterionCount === 0) {
     return exists
-      ? `No acceptance criterion governs '${path}'. The path exists in the repository but no contract link targets it.`
-      : `No acceptance criterion governs '${path}', and the path does not exist in the repository.`;
+      ? `No acceptance criteria apply to '${path}'. The path exists in the repository but no contract link targets it.`
+      : `No acceptance criteria apply to '${path}', and the path does not exist in the repository.`;
   }
   const subject =
     criterionCount === 1
-      ? "1 acceptance criterion governs"
-      : `${criterionCount} acceptance criteria govern`;
+      ? "1 acceptance criterion applies to"
+      : `${criterionCount} acceptance criteria apply to`;
   return exists
     ? `${subject} '${path}'.`
-    : `${subject} '${path}', but the path does not exist in the repository working tree.`;
+    : `${subject} '${path}' according to the manifest, but the path does not exist in the repository working tree.`;
 }
 
-export function lookupGoverningCriteria(input: {
+export function lookupPathCriteria(input: {
   manifest: ContractManifest;
   repositoryRoot: string;
   paths: string[];
-  index?: GoverningCriteriaIndex;
-}): GoverningCriteriaReport {
-  const index = input.index ?? buildGoverningCriteriaIndex(input.manifest);
+  index?: PathCriteriaIndex;
+}): PathCriteriaReport {
+  const index = input.index ?? buildPathCriteriaIndex(input.manifest);
   const root = resolve(input.repositoryRoot);
-  const results = input.paths.map((requested): PathGovernance => {
+  const results = input.paths.map((requested): PathCriteriaResult => {
     const path = repositoryRelativePath(root, requested);
     const criteria = [...(index.get(path) ?? [])];
     const target = resolve(root, path);
@@ -165,7 +162,11 @@ export function lookupGoverningCriteria(input: {
       requested_path: requested,
       path,
       status:
-        criteria.length > 0 ? "governed" : exists ? "ungoverned" : "not_found",
+        criteria.length > 0
+          ? "has_criteria"
+          : exists
+            ? "no_criteria"
+            : "not_found",
       exists,
       acceptance_criterion_count: acceptanceCriterionCount,
       answer: answerFor(path, acceptanceCriterionCount, exists),
@@ -174,25 +175,27 @@ export function lookupGoverningCriteria(input: {
   });
   return {
     repository: { ...input.manifest.repository },
-    governed_paths: results.filter((result) => result.status === "governed")
-      .length,
-    ungoverned_paths: results.filter((result) => result.status !== "governed")
+    has_criteria_paths: results.filter(
+      (result) => result.status === "has_criteria"
+    ).length,
+    no_criteria_paths: results.filter(
+      (result) => result.status === "no_criteria"
+    ).length,
+    not_found_paths: results.filter((result) => result.status === "not_found")
       .length,
     results,
   };
 }
 
-export function renderGoverningCriteriaText(
-  report: GoverningCriteriaReport
-): string {
+export function renderPathCriteriaText(report: PathCriteriaReport): string {
   const lines = [
-    `Contract governance in repository '${report.repository.key}' at manifest commit ${report.repository.commit}: ${report.governed_paths} governed, ${report.ungoverned_paths} ungoverned of ${report.results.length} path(s).\n`,
+    `Contract criteria in repository '${report.repository.key}' at manifest commit ${report.repository.commit}: ${report.has_criteria_paths} with criteria, ${report.no_criteria_paths} with no criteria, ${report.not_found_paths} not found of ${report.results.length} path(s).\n`,
   ];
   for (const result of report.results) {
     lines.push(`  ${result.status}  ${result.answer}\n`);
     for (const criterion of result.criteria) {
       lines.push(
-        `    governs  ${criterion.acceptance_criterion_stable_id} ${criterion.link_scope} ${criterion.relation} (${criterion.story_stable_id} ${criterion.story_title})\n`
+        `    applies  ${criterion.acceptance_criterion_stable_id} ${criterion.link_scope} ${criterion.relation} (${criterion.story_stable_id} ${criterion.story_title})\n`
       );
       lines.push(`             ${criterion.criterion}\n`);
     }
