@@ -226,6 +226,17 @@ tieline contract compile .
 tieline contract coverage . --json
 ```
 
+Before editing code, ask the reviewed manifest what already governs it:
+
+```bash
+tieline contract governs src/commands/check.ts src/server.ts
+```
+
+This is an exact path lookup, not semantic search. Each path is reported as
+`governed`, `ungoverned`, or `not_found`; governed results preserve whether the
+link is `direct` on an acceptance criterion or a `story_fallback`. JSON output
+also carries the manifest commit that answered.
+
 Compilation writes `.tieline/manifest/`, one file per capability plus a small
 index:
 
@@ -338,6 +349,7 @@ Reads:
 | `search_knowledge` | Cross-type semantic search with a required retrieval profile and optional typed context |
 | `find_related` | Engineering-oriented semantic discovery with applied profile metadata |
 | `query_stories` | Exact Story/AC lookup by authority, lifecycle, IDs, or locators |
+| `get_governing_criteria` | Exact path-to-AC lookup from the compiled manifest; no database required |
 | `get_backlog_item` | Read a Backlog Item revision and its complete Observation/Story/AC link set |
 | `list_handoff_conflicts` | Read unresolved or historical planning-to-repository conflicts |
 | `find_help` | Search ingested external help content |
@@ -399,7 +411,9 @@ Use `search_knowledge` when a caller needs heterogeneous results, explicit
 profile selection, narrowing filters, or graph/artifact context. Use
 `find_related` for a shorter engineering-oriented semantic lookup, and
 `query_stories` for exact IDs, lifecycle, authority, capability, or artifact
-locators without semantic ranking.
+locators without semantic ranking. Use `get_governing_criteria` when the
+question is what the accepted contract says is true about an exact path; use
+`search_knowledge` when the question is what context is related to that path.
 
 An MCP `search_knowledge` input can carry a reusable Story/AC anchor and
 artifacts from the caller's current task:

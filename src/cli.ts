@@ -166,6 +166,16 @@ function firstPositional(
   return undefined;
 }
 
+function optionValue(args: string[], option: string): string | undefined {
+  const prefix = `--${option}=`;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (arg.startsWith(prefix)) return arg.slice(prefix.length);
+    if (arg === `--${option}`) return args[index + 1];
+  }
+  return undefined;
+}
+
 export function workspaceStartForCommand(
   command: string,
   args: string[],
@@ -192,6 +202,9 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "contract") {
+    if (args[0] === "governs") {
+      return optionValue(args, "repository") ?? process.cwd();
+    }
     return (
       firstPositional(
         args,
@@ -342,6 +355,7 @@ interface ContractActionOptions {
   expectedPreviousCommit?: string;
   base?: string;
   json?: boolean;
+  paths?: string[];
 }
 
 function buildProgram(
@@ -446,7 +460,7 @@ function buildProgram(
 
   const contract = program
     .command("contract")
-    .description("Validate, review, compile, and sync the living contract");
+    .description("Validate, review, compile, query, and sync the living contract");
   const contractAction = (
     name: string,
     description: string
@@ -474,6 +488,7 @@ function buildProgram(
             | "coverage"
             | "link-review"
             | "reconcile"
+            | "governs"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
           io
@@ -501,6 +516,32 @@ function buildProgram(
     "--expected-previous-commit <sha>",
     "guard against concurrent syncs"
   );
+  // `governs` takes paths where the other actions take a repository, so it is
+  // declared directly instead of through `contractAction`.
+  contract
+    .command("governs")
+    .description(
+      "Report the acceptance criteria that govern repository-relative paths"
+    )
+    .argument("<paths...>", "repository-relative paths")
+    .option("--repository <path>", "repository path")
+    .option("--repo <key>", "stable repository key")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (paths: string[], opts) => {
+      const { runContractCommand } = await import("./commands/contract.js");
+      setExit(
+        await runContractCommand(
+          "governs",
+          {
+            paths,
+            repository: opts.repository,
+            repo: opts.repo,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
 
   program
     .command("check")

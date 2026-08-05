@@ -37,6 +37,10 @@ import {
 } from "../contract/link-plausibility.js";
 import { parseNameStatus } from "../contract/impact.js";
 import {
+  lookupGoverningCriteria,
+  renderGoverningCriteriaText,
+} from "../contract/governs.js";
+import {
   analyzeContractReconciliation,
   type ContractReconciliation,
   type ExcludedChange,
@@ -53,6 +57,7 @@ export type ContractAction =
   | "coverage"
   | "link-review"
   | "reconcile"
+  | "governs"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -65,6 +70,7 @@ export interface ContractCommandOptions {
   /** Git ref the working tree is compared against. Required by `reconcile`. */
   base?: string;
   json?: boolean;
+  paths?: string[];
 }
 
 interface ParsedContractCommand {
@@ -73,12 +79,14 @@ interface ParsedContractCommand {
   repositoryKey: string;
   commit?: string;
   outputPath: string;
+  manifestPath: string;
   specDirectory: string;
   sourceRoots: string[];
   ignore: string[];
   expectedPreviousCommit?: string;
   base?: string;
   json: boolean;
+  paths: string[];
 }
 
 function gitCommit(repositoryRoot: string): string {
@@ -127,12 +135,14 @@ function resolveContractCommand(
     repositoryKey,
     commit: options.commit,
     outputPath: resolvedOutput,
+    manifestPath: workspace?.manifestPath ?? resolvedOutput,
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
     base: options.base,
     json: options.json === true,
+    paths: options.paths ?? [],
   };
 }
 
@@ -404,6 +414,35 @@ export async function runContractCommand(
       parsed.json
         ? `${JSON.stringify(response, null, 2)}\n`
         : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath}.\n`
+    );
+    return 0;
+  }
+
+  if (parsed.action === "governs") {
+    if (parsed.paths.length === 0) {
+      throw new Error(
+        "`contract governs` requires at least one repository-relative path."
+      );
+    }
+    let manifest: ContractManifest;
+    try {
+      manifest = readContractManifest(parsed.manifestPath);
+    } catch (error) {
+      throw new Error(
+        `Cannot report governing acceptance criteria because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
+          error instanceof Error ? error.message : String(error)
+        } Run \`tieline contract compile .\` and commit the manifest.`
+      );
+    }
+    const report = lookupGoverningCriteria({
+      manifest,
+      repositoryRoot: parsed.repositoryRoot,
+      paths: parsed.paths,
+    });
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(report, null, 2)}\n`
+        : renderGoverningCriteriaText(report)
     );
     return 0;
   }
