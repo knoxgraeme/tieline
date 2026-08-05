@@ -420,7 +420,7 @@
               },
               {
                 "relation": "implements",
-                "reviewed_content_hash": "7668db383a7788968c8180f4e3e2dbe81ca31960e7de92a1decd8fc2f5be9fb9",
+                "reviewed_content_hash": "7be108acb1127daa15053d7b7fbf09cb4c0ac113c58be1d7a7c7dcdc18ff411a",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/governs.ts",
@@ -438,7 +438,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "affbd6bca17bd0269600cd28f462553aede276bd3d9f18c04bb62516b4199760",
+                "reviewed_content_hash": "54d4ba1f2b19809b51456c26bfa8c834f7fc3cd42242967f8843a858a7019365",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -510,7 +510,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "affbd6bca17bd0269600cd28f462553aede276bd3d9f18c04bb62516b4199760",
+                "reviewed_content_hash": "54d4ba1f2b19809b51456c26bfa8c834f7fc3cd42242967f8843a858a7019365",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
