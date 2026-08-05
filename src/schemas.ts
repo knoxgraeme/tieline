@@ -235,24 +235,23 @@ export const getHelpArticleOutputShape = {
  * query string, retrieval profile, or ranking control: the path is an exact
  * manifest key rather than a relevance signal.
  */
-export const getGoverningCriteriaShape = {
+export const getPathCriteriaShape = {
   paths: z.array(z.string().trim().min(1).max(1_000)).min(1).max(50),
 };
-export const getGoverningCriteriaSchema = z
-  .object(getGoverningCriteriaShape)
+export const getPathCriteriaSchema = z
+  .object(getPathCriteriaShape)
   .strict();
-export type GetGoverningCriteriaInput = z.infer<
-  typeof getGoverningCriteriaSchema
->;
-export const getGoverningCriteriaOutputShape = {
+export type GetPathCriteriaInput = z.infer<typeof getPathCriteriaSchema>;
+export const getPathCriteriaOutputShape = {
   repository: z.object({ key: z.string(), commit: z.string() }),
-  governed_paths: z.number(),
-  ungoverned_paths: z.number(),
+  has_criteria_paths: z.number(),
+  no_criteria_paths: z.number(),
+  not_found_paths: z.number(),
   results: z.array(
     z.object({
       requested_path: z.string(),
       path: z.string(),
-      status: z.enum(["governed", "ungoverned", "not_found"]),
+      status: z.enum(["has_criteria", "no_criteria", "not_found"]),
       exists: z.boolean(),
       acceptance_criterion_count: z.number(),
       answer: z.string(),

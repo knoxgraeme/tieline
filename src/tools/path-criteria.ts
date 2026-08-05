@@ -1,18 +1,18 @@
 /**
- * Manifest-backed governing-criteria lookup. Workspace resolution happens only
+ * Manifest-backed path-criteria lookup. Workspace resolution happens only
  * inside the handler, so an MCP server can still start outside a workspace.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  lookupGoverningCriteria,
-  type GoverningCriteriaReport,
-} from "../contract/governs.js";
+  lookupPathCriteria,
+  type PathCriteriaReport,
+} from "../contract/path-criteria.js";
 import { readContractManifest } from "../contract/manifest.js";
 import {
-  getGoverningCriteriaOutputShape,
-  getGoverningCriteriaShape,
-  type GetGoverningCriteriaInput,
+  getPathCriteriaOutputShape,
+  getPathCriteriaShape,
+  type GetPathCriteriaInput,
 } from "../schemas.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
 import {
@@ -22,21 +22,21 @@ import {
   type ToolResult,
 } from "./shared.js";
 
-const DESCRIPTION = `Deterministically list every Acceptance Criterion that governs one or more repository-relative paths, read straight from the compiled contract manifest. No database, network, or embedding is required.
+const DESCRIPTION = `Deterministically list every Acceptance Criterion recorded for one or more exact repository-relative paths, read straight from the compiled contract manifest. No database, network, or embedding is required.
 
 This answers "what is true": the accepted contract records that link these exact paths. Each result carries link_scope "direct" when the link is on the Acceptance Criterion itself and "story_fallback" when it is only on the owning Story. Use search_knowledge instead to answer "what is related": that tool ranks semantically related records and treats a path as a relevance signal, not an exact lookup key.
 
-Ask this before editing a file. An existing path with no contract link returns an explicit ungoverned answer, while a path that does not exist returns not_found. The manifest commit is returned so the caller knows which repository state answered.`;
+Ask this before editing a file. A path with criteria returns has_criteria, an existing path with no contract link returns no_criteria, and a path that does not exist returns not_found. The manifest commit is returned so the caller knows which repository state answered.`;
 
-export type GoverningCriteriaResolution =
-  | { status: "resolved"; report: GoverningCriteriaReport }
+export type PathCriteriaResolution =
+  | { status: "resolved"; report: PathCriteriaReport }
   | { status: "no_workspace" | "no_manifest"; message: string };
 
 /** Testable seam around the handler's lazy workspace resolution. */
-export function resolveGoverningCriteria(input: {
+export function resolvePathCriteria(input: {
   paths: string[];
   cwd: string;
-}): GoverningCriteriaResolution {
+}): PathCriteriaResolution {
   const workspace = findTielineWorkspace(input.cwd);
   if (!workspace) {
     return {
@@ -48,7 +48,7 @@ export function resolveGoverningCriteria(input: {
     const manifest = readContractManifest(workspace.manifestPath);
     return {
       status: "resolved",
-      report: lookupGoverningCriteria({
+      report: lookupPathCriteria({
         manifest,
         repositoryRoot: workspace.root,
         paths: input.paths,
@@ -62,14 +62,33 @@ export function resolveGoverningCriteria(input: {
   }
 }
 
-export function registerGetGoverningCriteria(server: McpServer): void {
+function negativeResultNote(report: PathCriteriaReport): string | undefined {
+  const notes: string[] = [];
+  if (report.no_criteria_paths > 0) {
+    const subject =
+      report.no_criteria_paths === 1
+        ? "1 existing path has"
+        : `${report.no_criteria_paths} existing paths have`;
+    notes.push(`${subject} no acceptance criteria.`);
+  }
+  if (report.not_found_paths > 0) {
+    const subject =
+      report.not_found_paths === 1
+        ? "1 requested path was"
+        : `${report.not_found_paths} requested paths were`;
+    notes.push(`${subject} not found.`);
+  }
+  return notes.length > 0 ? notes.join(" ") : undefined;
+}
+
+export function registerGetPathCriteria(server: McpServer): void {
   server.registerTool(
-    "get_governing_criteria",
+    "get_path_criteria",
     {
-      title: "Get the acceptance criteria governing a path",
+      title: "Get the acceptance criteria for a path",
       description: DESCRIPTION,
-      inputSchema: getGoverningCriteriaShape,
-      outputSchema: getGoverningCriteriaOutputShape,
+      inputSchema: getPathCriteriaShape,
+      outputSchema: getPathCriteriaOutputShape,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -77,9 +96,9 @@ export function registerGetGoverningCriteria(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async (input: GetGoverningCriteriaInput): Promise<ToolResult> => {
+    async (input: GetPathCriteriaInput): Promise<ToolResult> => {
       try {
-        const resolved = resolveGoverningCriteria({
+        const resolved = resolvePathCriteria({
           paths: input.paths,
           cwd: process.env.TIELINE_WORKSPACE ?? process.cwd(),
         });
@@ -87,16 +106,14 @@ export function registerGetGoverningCriteria(server: McpServer): void {
           return errorResult(resolved.message);
         }
         const { report } = resolved;
+        const note = negativeResultNote(report);
         return jsonResult({
           repository: report.repository,
-          governed_paths: report.governed_paths,
-          ungoverned_paths: report.ungoverned_paths,
+          has_criteria_paths: report.has_criteria_paths,
+          no_criteria_paths: report.no_criteria_paths,
+          not_found_paths: report.not_found_paths,
           results: report.results,
-          ...(report.ungoverned_paths > 0
-            ? {
-                note: `${report.ungoverned_paths} of ${report.results.length} requested path(s) are governed by no acceptance criterion; see each result's status and answer.`,
-              }
-            : {}),
+          ...(note ? { note } : {}),
         });
       } catch (error) {
         return errorResult(formatError(error));

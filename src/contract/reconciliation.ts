@@ -261,7 +261,7 @@ function scopedLinks(
  * `story_fallback`, matching how impact analysis reads the same links.
  *
  * Keep this as the single criterion-bearing manifest traversal. Reconciliation
- * consumes it for changed paths; `contract governs` consumes the same index for
+ * consumes it for changed paths; `contract criteria` consumes the same index for
  * paths supplied before a change exists.
  */
 export function buildContractClaimIndex(

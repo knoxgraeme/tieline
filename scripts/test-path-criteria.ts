@@ -12,10 +12,10 @@ import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runCli, type TielineCliIO } from "../src/cli.js";
 import {
-  buildGoverningCriteriaIndex,
-  lookupGoverningCriteria,
-  type GoverningCriterion,
-} from "../src/contract/governs.js";
+  buildPathCriteriaIndex,
+  lookupPathCriteria,
+  type PathCriterion,
+} from "../src/contract/path-criteria.js";
 import {
   compileContractManifestWithSources,
   writeContractManifest,
@@ -23,9 +23,9 @@ import {
 } from "../src/contract/manifest.js";
 import { setStore, type KnowledgeStore } from "../src/store.js";
 import {
-  registerGetGoverningCriteria,
-  resolveGoverningCriteria,
-} from "../src/tools/governing-criteria.js";
+  registerGetPathCriteria,
+  resolvePathCriteria,
+} from "../src/tools/path-criteria.js";
 import type { ToolResult } from "../src/tools/shared.js";
 
 for (const key of [
@@ -45,7 +45,10 @@ function workspaceConfig(): string {
   return `${JSON.stringify(
     {
       version: 1,
-      product: { name: "Governs fixture", repo_name: "governs-fixture" },
+      product: {
+        name: "Path criteria fixture",
+        repo_name: "path-criteria-fixture",
+      },
       repository: {
         root: "..",
         source_roots: ["src"],
@@ -71,40 +74,40 @@ function workspaceConfig(): string {
 
 const SPEC = `version: 1
 capability:
-  key: GOVERNS
-  name: Governing criteria lookup
-  description: A repository path resolves to the accepted behavior that governs it.
+  key: PATH-CRITERIA
+  name: Path criteria lookup
+  description: A repository path resolves to the acceptance criteria that apply to it.
   stories:
-    - key: GOVERNS-001
-      title: Look up governing criteria
+    - key: PATH-CRITERIA-001
+      title: Look up path criteria
       actor: implementing agent
-      goal: know which criteria govern a path before editing it
+      goal: know which criteria apply to a path before editing it
       benefit: a contradiction is prevented instead of reported afterwards
       lifecycle: production
       links:
         - relation: implements
           target:
             kind: code
-            repository: governs-fixture
+            repository: path-criteria-fixture
             path: src/story-only.ts
         - relation: implements
           target:
             kind: code
-            repository: governs-fixture
+            repository: path-criteria-fixture
             path: src/shared.ts
       acceptance_criteria:
-        - key: GOVERNS-001-AC1
+        - key: PATH-CRITERIA-001-AC1
           criterion: Tieline must return the acceptance criterion that links a path.
           links:
             - relation: implements
               target:
                 kind: code
-                repository: governs-fixture
+                repository: path-criteria-fixture
                 path: src/direct.ts
             - relation: implements
               target:
                 kind: code
-                repository: governs-fixture
+                repository: path-criteria-fixture
                 path: src/shared.ts
             - relation: implements
               target:
@@ -115,14 +118,14 @@ capability:
               target:
                 kind: help
                 source: docs
-                external_id: governs-guide
-        - key: GOVERNS-001-AC2
+                external_id: path-criteria-guide
+        - key: PATH-CRITERIA-001-AC2
           criterion: Tieline must return every acceptance criterion that links a path.
           links:
             - relation: implements
               target:
                 kind: code
-                repository: governs-fixture
+                repository: path-criteria-fixture
                 path: src/direct.ts
 `;
 
@@ -130,22 +133,25 @@ function createFixture(withManifest: boolean): {
   root: string;
   manifest: ContractManifest;
 } {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-governs-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-path-criteria-"));
   mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   writeFileSync(resolve(root, ".tieline/config.json"), workspaceConfig());
-  writeFileSync(resolve(root, ".tieline/spec/governs.yaml"), SPEC);
+  writeFileSync(resolve(root, ".tieline/spec/path-criteria.yaml"), SPEC);
   writeFileSync(resolve(root, "src/direct.ts"), "export const direct = 1;\n");
   writeFileSync(resolve(root, "src/shared.ts"), "export const shared = 1;\n");
   writeFileSync(
     resolve(root, "src/story-only.ts"),
     "export const storyOnly = 1;\n"
   );
-  writeFileSync(resolve(root, "src/unlinked.ts"), "export const unlinked = 1;\n");
+  writeFileSync(
+    resolve(root, "src/no-criteria.ts"),
+    "export const noCriteria = 1;\n"
+  );
   const compiled = compileContractManifestWithSources({
     repositoryRoot: root,
-    repositoryKey: "governs-fixture",
-    commit: "governs-fixture-commit",
+    repositoryKey: "path-criteria-fixture",
+    commit: "path-criteria-fixture-commit",
     specDirectory: ".tieline/spec",
   });
   if (withManifest) {
@@ -154,7 +160,7 @@ function createFixture(withManifest: boolean): {
   return { root, manifest: compiled.manifest };
 }
 
-function scopes(criteria: readonly GoverningCriterion[]): string[] {
+function scopes(criteria: readonly PathCriterion[]): string[] {
   return criteria.map(
     (entry) =>
       `${entry.acceptance_criterion_stable_id} ${entry.link_scope} ${entry.relation}`
@@ -166,60 +172,64 @@ try {
   const { root, manifest } = createFixture(true);
   cleanup.push(root);
 
-  const index = buildGoverningCriteriaIndex(manifest);
+  const index = buildPathCriteriaIndex(manifest);
   assert.deepEqual(scopes(index.get("src/direct.ts") ?? []), [
-    "GOVERNS-001-AC1 direct implements",
-    "GOVERNS-001-AC2 direct implements",
+    "PATH-CRITERIA-001-AC1 direct implements",
+    "PATH-CRITERIA-001-AC2 direct implements",
   ]);
   assert.deepEqual(scopes(index.get("src/story-only.ts") ?? []), [
-    "GOVERNS-001-AC1 story_fallback implements",
-    "GOVERNS-001-AC2 story_fallback implements",
+    "PATH-CRITERIA-001-AC1 story_fallback implements",
+    "PATH-CRITERIA-001-AC2 story_fallback implements",
   ]);
   assert.deepEqual(scopes(index.get("src/shared.ts") ?? []), [
-    "GOVERNS-001-AC1 direct implements",
-    "GOVERNS-001-AC1 story_fallback implements",
-    "GOVERNS-001-AC2 story_fallback implements",
+    "PATH-CRITERIA-001-AC1 direct implements",
+    "PATH-CRITERIA-001-AC1 story_fallback implements",
+    "PATH-CRITERIA-001-AC2 story_fallback implements",
   ]);
   assert.equal(index.has("src/elsewhere.ts"), false);
 
   const first = index.get("src/shared.ts")?.[0];
-  assert.equal(first?.capability_stable_id, "GOVERNS");
-  assert.equal(first?.story_stable_id, "GOVERNS-001");
-  assert.equal(first?.story_title, "Look up governing criteria");
+  assert.equal(first?.capability_stable_id, "PATH-CRITERIA");
+  assert.equal(first?.story_stable_id, "PATH-CRITERIA-001");
+  assert.equal(first?.story_title, "Look up path criteria");
 
-  const report = lookupGoverningCriteria({
+  const report = lookupPathCriteria({
     manifest,
     repositoryRoot: root,
     paths: [
       "src/direct.ts",
-      "src/unlinked.ts",
+      "src/no-criteria.ts",
       "src/missing.ts",
       resolve(root, "src/story-only.ts"),
       "src/DIRECT.ts",
     ],
   });
   assert.deepEqual(report.repository, {
-    key: "governs-fixture",
-    commit: "governs-fixture-commit",
+    key: "path-criteria-fixture",
+    commit: "path-criteria-fixture-commit",
   });
-  assert.equal(report.governed_paths, 2);
-  assert.equal(report.ungoverned_paths, 3);
-  assert.equal(report.results[0]?.status, "governed");
+  assert.equal(report.has_criteria_paths, 2);
+  assert.equal(report.no_criteria_paths, 1);
+  assert.equal(report.not_found_paths, 2);
+  assert.equal(report.results[0]?.status, "has_criteria");
   assert.equal(report.results[0]?.acceptance_criterion_count, 2);
   assert.equal(
     report.results[0]?.answer,
-    "2 acceptance criteria govern 'src/direct.ts'."
+    "2 acceptance criteria apply to 'src/direct.ts'."
   );
-  assert.equal(report.results[1]?.status, "ungoverned");
+  assert.equal(report.results[1]?.status, "no_criteria");
   assert.equal(report.results[1]?.exists, true);
-  assert.match(report.results[1]?.answer ?? "", /No acceptance criterion governs/);
+  assert.match(
+    report.results[1]?.answer ?? "",
+    /No acceptance criteria apply/
+  );
   assert.equal(report.results[2]?.status, "not_found");
   assert.equal(report.results[2]?.exists, false);
   assert.match(report.results[2]?.answer ?? "", /does not exist/);
   assert.equal(report.results[3]?.path, "src/story-only.ts");
-  assert.equal(report.results[3]?.status, "governed");
-  // A case-insensitive filesystem must not turn a misspelled governed path
-  // into an existing-but-ungoverned answer.
+  assert.equal(report.results[3]?.status, "has_criteria");
+  // A case-insensitive filesystem must not turn a misspelled path with criteria
+  // into an existing path with no criteria.
   assert.equal(report.results[4]?.status, "not_found");
   assert.equal(report.results[4]?.exists, false);
 
@@ -232,31 +242,31 @@ try {
       throw new Error(message);
     },
     async question() {
-      throw new Error("contract governs must not prompt");
+      throw new Error("contract criteria must not prompt");
     },
   };
 
   assert.equal(
     await runCli(
-      ["contract", "governs", "--repository", root, "src/shared.ts"],
+      ["contract", "criteria", "--repository", root, "src/shared.ts"],
       io,
       {}
     ),
     0
   );
-  assert.match(output, /manifest commit governs-fixture-commit/);
-  assert.match(output, /GOVERNS-001-AC1 direct implements/);
-  assert.match(output, /GOVERNS-001-AC1 story_fallback implements/);
+  assert.match(output, /manifest commit path-criteria-fixture-commit/);
+  assert.match(output, /PATH-CRITERIA-001-AC1 direct implements/);
+  assert.match(output, /PATH-CRITERIA-001-AC1 story_fallback implements/);
 
   output = "";
   assert.equal(
     await runCli(
       [
         "contract",
-        "governs",
+        "criteria",
         "--repository",
         root,
-        "src/unlinked.ts",
+        "src/no-criteria.ts",
         "src/missing.ts",
         "--json",
       ],
@@ -268,12 +278,12 @@ try {
   const cliReport = JSON.parse(output);
   assert.deepEqual(
     cliReport.results.map((entry: { status: string }) => entry.status),
-    ["ungoverned", "not_found"]
+    ["no_criteria", "not_found"]
   );
-  assert.equal(cliReport.repository.commit, "governs-fixture-commit");
+  assert.equal(cliReport.repository.commit, "path-criteria-fixture-commit");
 
   const toolSource = readFileSync(
-    resolve(projectRoot, "src/tools/governing-criteria.ts"),
+    resolve(projectRoot, "src/tools/path-criteria.ts"),
     "utf8"
   );
   assert.doesNotMatch(toolSource, /get(Read|Evidence|Planning)?Store\s*\(/);
@@ -283,7 +293,7 @@ try {
       {
         get(_target, property) {
           throw new Error(
-            `get_governing_criteria must not use the knowledge store (accessed '${String(property)}')`
+            `get_path_criteria must not use the knowledge store (accessed '${String(property)}')`
           );
         },
       }
@@ -305,9 +315,9 @@ try {
     },
   } as unknown as McpServer;
 
-  registerGetGoverningCriteria(fakeServer);
+  registerGetPathCriteria(fakeServer);
   const tool = registered[0];
-  assert.equal(tool?.name, "get_governing_criteria");
+  assert.equal(tool?.name, "get_path_criteria");
   assert.equal(tool?.config.annotations?.readOnlyHint, true);
   assert.match(tool?.config.description ?? "", /what is true/i);
   assert.match(tool?.config.description ?? "", /search_knowledge/);
@@ -319,7 +329,7 @@ try {
   try {
     process.chdir(resolve(root, "src"));
     handlerResult = await tool!.handler({
-      paths: ["src/shared.ts", "src/unlinked.ts"],
+      paths: ["src/shared.ts", "src/no-criteria.ts", "src/missing.ts"],
     });
   } finally {
     process.chdir(previousCwd);
@@ -327,23 +337,31 @@ try {
   assert.notEqual(handlerResult.isError, true);
   const structured = handlerResult.structuredContent as {
     repository: { commit: string };
-    results: Array<{ status: string; criteria: GoverningCriterion[] }>;
+    has_criteria_paths: number;
+    no_criteria_paths: number;
+    not_found_paths: number;
+    results: Array<{ status: string; criteria: PathCriterion[] }>;
     note?: string;
   };
-  assert.equal(structured.repository.commit, "governs-fixture-commit");
-  assert.equal(structured.results[0]?.status, "governed");
-  assert.equal(structured.results[1]?.status, "ungoverned");
-  assert.match(structured.note ?? "", /governed by no acceptance criterion/);
+  assert.equal(structured.repository.commit, "path-criteria-fixture-commit");
+  assert.equal(structured.has_criteria_paths, 1);
+  assert.equal(structured.no_criteria_paths, 1);
+  assert.equal(structured.not_found_paths, 1);
+  assert.equal(structured.results[0]?.status, "has_criteria");
+  assert.equal(structured.results[1]?.status, "no_criteria");
+  assert.equal(structured.results[2]?.status, "not_found");
+  assert.match(structured.note ?? "", /1 existing path has no acceptance criteria/);
+  assert.match(structured.note ?? "", /1 requested path was not found/);
 
-  const resolved = resolveGoverningCriteria({
+  const resolved = resolvePathCriteria({
     paths: ["src/direct.ts"],
     cwd: root,
   });
   assert.equal(resolved.status, "resolved");
 
-  const stray = mkdtempSync(resolve(tmpdir(), "tieline-governs-nowork-"));
+  const stray = mkdtempSync(resolve(tmpdir(), "tieline-path-criteria-nowork-"));
   cleanup.push(stray);
-  const withoutWorkspace = resolveGoverningCriteria({
+  const withoutWorkspace = resolvePathCriteria({
     paths: ["src/direct.ts"],
     cwd: stray,
   });
@@ -357,7 +375,7 @@ try {
 
   const { root: withoutManifest } = createFixture(false);
   cleanup.push(withoutManifest);
-  const unreadable = resolveGoverningCriteria({
+  const unreadable = resolvePathCriteria({
     paths: ["src/direct.ts"],
     cwd: withoutManifest,
   });
@@ -392,7 +410,7 @@ try {
     (configuredWorkspaceResult.structuredContent as {
       repository: { commit: string };
     }).repository.commit,
-    "governs-fixture-commit"
+    "path-criteria-fixture-commit"
   );
 } finally {
   if (originalTielineWorkspace === undefined) {
@@ -405,4 +423,4 @@ try {
   }
 }
 
-console.log("governs tests passed");
+console.log("path criteria tests passed");
