@@ -75,7 +75,8 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC3
-          criterion: Tieline must surface detected source roots and preflight warnings while leaving the specification empty until repository-specific semantic onboarding.
+          criterion: Tieline must surface detected source roots and preflight warnings, leave the specification empty until repository-specific semantic onboarding, and end initialization with a copyable, self-contained prompt that hands that onboarding to an agent.
+          rationale: Deterministic setup belongs in the CLI, while interpreting repository context and proposing semantic boundaries belongs with an agent and normal pull-request review.
           links:
             - relation: implements
               provenance: authored
@@ -89,6 +90,18 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tieline/init.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/status.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline-author/SKILL.md
             - relation: tests
               provenance: authored
               target:

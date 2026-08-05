@@ -64,6 +64,10 @@ Invoke the MCP \`tieline_author\` prompt (or use the bundled
 \`/tieline-author\` skill) to onboard repository behavior, materialize planning
 definitions, reconcile branch changes, validate/compile YAML, and review the
 semantic diff. Normal pull-request merge is the semantic approval event.
+After deterministic setup, \`tieline init\` prints a copyable agent handoff for
+this workflow; while the spec has no Stories, \`tieline status --json\` exposes
+the same text as \`agent_onboarding_prompt\`. The handoff includes a direct
+fallback for hosts that expose neither package skills nor MCP prompts.
 
 Coverage describes whether every AC has direct implementation, test, or help
 links. Freshness separately describes whether linked repository content still

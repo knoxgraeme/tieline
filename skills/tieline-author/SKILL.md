@@ -1,6 +1,6 @@
 ---
 name: tieline-author
-description: Author, plan, implement, or reconcile Tieline User Stories and Acceptance Criteria. Use for requests to create or refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
+description: Semantically onboard an initialized Tieline repository, or author, plan, implement, and reconcile Tieline User Stories and Acceptance Criteria. Use after `tieline init` to inspect configured context and create the first repository-specific capabilities, Stories, and ACs; also use to refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
 ---
 
 # Tieline author
@@ -9,6 +9,11 @@ Treat the pull request as the proposal and merge as approval. Never create a
 separate draft, proposal, or semantic-approval record.
 
 Read [contract.md](references/contract.md) before editing contract YAML.
+
+When invoked from the agent handoff printed by `tieline init`, start with
+semantic onboarding below. The CLI has already captured deterministic setup;
+do not ask the user to repeat product, repository, source-root, or context
+answers that are present in `.tieline/config.json`.
 
 ## Orient to this repository
 

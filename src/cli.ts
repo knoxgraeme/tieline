@@ -99,10 +99,19 @@ function withoutDatabaseEnvironment(
   return isolated;
 }
 
+function renderAgentHandoff(
+  status: TielineStatus,
+  ui: Palette
+): string | null {
+  return status.agent_onboarding_prompt
+    ? `${ui.cyan("Agent handoff prompt:")}\n${status.agent_onboarding_prompt}`
+    : null;
+}
+
 function renderStatus(status: TielineStatus, ui: Palette): string {
   const state = (ok: boolean, good: string, bad: string): string =>
     ok ? ui.green(good) : ui.yellow(bad);
-  return [
+  const lines = [
     ui.bold(`Tieline: ${status.product} (${status.repo})`),
     `  root: ${status.root}`,
     `  runtime: profile=${state(status.runtime.profile_present, "present", "missing")}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${state(status.runtime.setup_complete, "complete", "incomplete")}`,
@@ -110,7 +119,10 @@ function renderStatus(status: TielineStatus, ui: Palette): string {
     `  integration: mcp_template=${state(status.integration.mcp_template_present, "present", "missing")}`,
     `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${state(status.contract.manifest_exists, "present", "missing")}`,
     `${ui.cyan("Next:")} ${status.next_action}`,
-  ].join("\n");
+  ];
+  const handoff = renderAgentHandoff(status, ui);
+  if (handoff) lines.push("", handoff);
+  return lines.join("\n");
 }
 
 function renderInitSummary(
@@ -147,9 +159,9 @@ function renderInitSummary(
   io.write(
     "MCP template: register `.tieline/mcp.json` with your host and ensure its `tieline` command resolves this package.\n"
   );
-  io.write(
-    `${ui.cyan("Next:")} invoke MCP prompt \`tieline_author\` (or the bundled /tieline-author skill) to onboard or reconcile behavior.\n`
-  );
+  io.write(`${ui.cyan("Next:")} ${status.next_action}\n`);
+  const handoff = renderAgentHandoff(status, ui);
+  if (handoff) io.write(`\n${handoff}\n`);
 }
 
 function firstPositional(
@@ -379,7 +391,7 @@ function buildProgram(
     .addHelpText("before", () => `${renderBanner(paletteFor(io))}\n\n`)
     .addHelpText(
       "after",
-      "\nUse /tieline-author for planning Story/AC writes, implementation, and branch reconciliation."
+      "\nRun `tieline init` for deterministic setup and a copyable agent handoff. Use /tieline-author for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
     );
 
   program

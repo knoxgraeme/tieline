@@ -22,6 +22,7 @@ import {
   readWorkspaceProfile,
 } from "../src/tieline/profile.js";
 import { configureWorkspaceRuntime } from "../src/tieline/setup.js";
+import type { TielineStatus } from "../src/tieline/status.js";
 import {
   findTielineWorkspace,
   type TielineWorkspace,
@@ -139,10 +140,24 @@ try {
       },
     }
   );
-  assert.match(first.output.join(""), /source scope: src/i);
-  assert.match(first.output.join(""), /warning.*duplicate checks/i);
-  assert.match(first.output.join(""), /MCP prompt `tieline_author`/);
-  assert.match(first.output.join(""), /semantic onboarding has not started/i);
+  const firstOutput = first.output.join("");
+  assert.match(firstOutput, /source scope: src/i);
+  assert.match(firstOutput, /warning.*duplicate checks/i);
+  assert.match(firstOutput, /MCP prompt `tieline_author`/);
+  assert.match(firstOutput, /semantic onboarding has not started/i);
+  assert.match(firstOutput, /Agent handoff prompt:/);
+  assert.match(firstOutput, /bundled `tieline-author` skill/);
+  assert.match(firstOutput, /otherwise continue directly from this brief/i);
+  assert.match(firstOutput, /read `.tieline\/config\.json`/i);
+  assert.match(firstOutput, /do not add generic starter content/i);
+  assert.match(firstOutput, /strict YAML under `.tieline\/spec\/`/i);
+  assert.match(firstOutput, /tieline contract validate \./);
+  const handoffMarker = "Agent handoff prompt:\n";
+  const handoffStart = firstOutput.lastIndexOf(handoffMarker);
+  assert.notEqual(handoffStart, -1);
+  const renderedAgentPrompt = firstOutput
+    .slice(handoffStart + handoffMarker.length)
+    .trimEnd();
 
   const stored = readWorkspaceProfile(workspace, {
     TIELINE_CONFIG_HOME: configHome,
@@ -230,15 +245,9 @@ try {
     }),
     0
   );
-  const parsedStatus = JSON.parse(status.output.join("")) as {
-    runtime: { profile_present: boolean; setup_complete: boolean };
-    capabilities: {
-      semantic_matching_configured: boolean;
-      planning_writes_configured: boolean;
-    };
-    contract: { stories: number; acceptance_criteria: number };
-    next_action: string;
-  };
+  const parsedStatus = JSON.parse(
+    status.output.join("")
+  ) as TielineStatus;
   assert.equal(parsedStatus.runtime.profile_present, true);
   assert.equal(parsedStatus.runtime.setup_complete, true);
   assert.equal(
@@ -248,7 +257,27 @@ try {
   assert.equal(parsedStatus.capabilities.planning_writes_configured, false);
   assert.equal(parsedStatus.contract.stories, 0);
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
-  assert.match(parsedStatus.next_action, /tieline_author/);
+  assert.match(parsedStatus.next_action, /agent_onboarding_prompt/);
+  assert.ok(parsedStatus.agent_onboarding_prompt);
+  assert.match(parsedStatus.agent_onboarding_prompt, /tieline-author/);
+  assert.match(parsedStatus.agent_onboarding_prompt, /tieline_author/);
+  assert.match(parsedStatus.agent_onboarding_prompt, /\.tieline\/config\.json/);
+  assert.equal(parsedStatus.agent_onboarding_prompt, renderedAgentPrompt);
+
+  const humanStatus = io();
+  assert.equal(
+    await runCli(["status", target], humanStatus.adapter, {
+      TIELINE_CONFIG_HOME: configHome,
+    }),
+    0
+  );
+  assert.match(humanStatus.output.join(""), /Agent handoff prompt:/);
+  assert.ok(
+    humanStatus.output
+      .join("")
+      .trimEnd()
+      .endsWith(renderedAgentPrompt)
+  );
 
   writeFileSync(
     resolve(workspace.specDirectoryPath, "status.yaml"),
@@ -292,16 +321,26 @@ capability:
   );
   const parsedLegacyManifestStatus = JSON.parse(
     legacyManifestStatus.output.join("")
-  ) as {
-    contract: { manifest_exists: boolean };
-    next_action: string;
-  };
+  ) as TielineStatus;
   assert.equal(parsedLegacyManifestStatus.contract.manifest_exists, false);
+  assert.equal(parsedLegacyManifestStatus.agent_onboarding_prompt, null);
   assert.match(
     parsedLegacyManifestStatus.next_action,
     /tieline contract compile \./
   );
   assert.equal(readFileSync(legacyIndexPath, "utf8"), legacyIndex);
+
+  const onboardedHumanStatus = io();
+  assert.equal(
+    await runCli(["status", target], onboardedHumanStatus.adapter, {
+      TIELINE_CONFIG_HOME: configHome,
+    }),
+    0
+  );
+  assert.doesNotMatch(
+    onboardedHumanStatus.output.join(""),
+    /Agent handoff prompt:/
+  );
 
   const environmentStatus = io();
   assert.equal(
@@ -449,6 +488,8 @@ capability:
   assert.match(authorSkill, /allow_external_fetch/);
   assert.match(authorSkill, /local YAML.*manifest/i);
   assert.match(authorSkill, /semantic matching.*unavailable/i);
+  assert.match(authorSkill, /after `tieline init`/i);
+  assert.match(authorSkill, /semantic onboarding/i);
 
   for (const removed of ["merge", "review", "import", "context"]) {
     await assert.rejects(

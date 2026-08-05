@@ -18,7 +18,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7f4c267a3f6f579c0f58039402379667446dd9c80248e24a2cd3f122e2f15e79",
+                "reviewed_content_hash": "28232652dc138bbfdc4536db5453eec08c7842bdf3b50ca2b15b1f84ffeb46ce",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1b762f556bad084ab381140f935c7ea06ead122d4881fca21c3d516c491f9882",
+                "reviewed_content_hash": "f211e32e32f7418500e42526c18c732590d739998a48933c0657f9c0406b9907",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/status.ts",
@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "bc1161a68f6d969f1228e0bdb4770a36566ed83cebffee7f7bcf56a81f60a4c6",
+                "reviewed_content_hash": "477686c481a5a8b7bbf2181da2ca8b63157cfb9e14624ca1a4e5681756010159",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -102,7 +102,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1b762f556bad084ab381140f935c7ea06ead122d4881fca21c3d516c491f9882",
+                "reviewed_content_hash": "f211e32e32f7418500e42526c18c732590d739998a48933c0657f9c0406b9907",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/status.ts",
@@ -112,7 +112,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "bc1161a68f6d969f1228e0bdb4770a36566ed83cebffee7f7bcf56a81f60a4c6",
+                "reviewed_content_hash": "477686c481a5a8b7bbf2181da2ca8b63157cfb9e14624ca1a4e5681756010159",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -130,13 +130,23 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "7a48cb595945ad2f25ff5740b143f657877eb11de5154e2ad39d123932c53c72",
-            "criterion": "Tieline must surface detected source roots and preflight warnings while leaving the specification empty until repository-specific semantic onboarding.",
+            "contract_hash": "507e92cdc113aa316bb916b586e4ac150c3b51482feaf1ba9967af59953207f2",
+            "criterion": "Tieline must surface detected source roots and preflight warnings, leave the specification empty until repository-specific semantic onboarding, and end initialization with a copyable, self-contained prompt that hands that onboarding to an agent.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7f4c267a3f6f579c0f58039402379667446dd9c80248e24a2cd3f122e2f15e79",
+                "reviewed_content_hash": "7965b76ff44651cad97f0d2ad685382fe5944ae81736069f941e6960988881ff",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline-author/SKILL.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "28232652dc138bbfdc4536db5453eec08c7842bdf3b50ca2b15b1f84ffeb46ce",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -155,8 +165,18 @@
               },
               {
                 "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "f211e32e32f7418500e42526c18c732590d739998a48933c0657f9c0406b9907",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/status.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "bc1161a68f6d969f1228e0bdb4770a36566ed83cebffee7f7bcf56a81f60a4c6",
+                "reviewed_content_hash": "477686c481a5a8b7bbf2181da2ca8b63157cfb9e14624ca1a4e5681756010159",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -166,7 +186,7 @@
               }
             ],
             "position": 2,
-            "rationale": null,
+            "rationale": "Deterministic setup belongs in the CLI, while interpreting repository context and proposing semantic boundaries belongs with an agent and normal pull-request review.",
             "scenarios": [],
             "stable_id": "RUNTIME-001-AC3",
             "supersedes": null
@@ -399,7 +419,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "84b74d5650baad503a10fb6d223e1186a015daf6af9ccb9a4e7a707043c7dfeb",
+                "reviewed_content_hash": "7965b76ff44651cad97f0d2ad685382fe5944ae81736069f941e6960988881ff",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline-author/SKILL.md",
@@ -440,7 +460,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "bc1161a68f6d969f1228e0bdb4770a36566ed83cebffee7f7bcf56a81f60a4c6",
+                "reviewed_content_hash": "477686c481a5a8b7bbf2181da2ca8b63157cfb9e14624ca1a4e5681756010159",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -527,6 +547,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "e3fd93045805b511324228a7fccd8bae26a1c63f1f06f8737b3570adabb5f53d"
+    "sha256": "6e3d178d2cd7b512c455cb9d3c5cf3930c11be8c6683c95ad1f3c906284286bb"
   }
 }
