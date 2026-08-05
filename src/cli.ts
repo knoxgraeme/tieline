@@ -513,6 +513,10 @@ function buildProgram(
       "--no-fail-on-broken",
       "report broken links as warnings instead of failing"
     )
+    .option(
+      "--no-fail-on-stale-manifest",
+      "report a stale manifest as a warning instead of failing"
+    )
     .action(async (repository: string | undefined, opts) => {
       const { runCheckCommand } = await import("./commands/check.js");
       setExit(
@@ -523,6 +527,7 @@ function buildProgram(
             repo: opts.repo,
             json: Boolean(opts.json),
             failOnBroken: opts.failOnBroken !== false,
+            failOnStaleManifest: opts.failOnStaleManifest !== false,
           },
           io
         )

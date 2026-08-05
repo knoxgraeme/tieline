@@ -298,10 +298,18 @@ capability:
     ]
   );
 
+  // This fixture is stale by construction — `src/feature.ts` changed after the
+  // manifest was compiled — so the stale gate is downgraded here to keep these
+  // assertions about impact reporting. The gate itself is covered below.
   const output: string[] = [];
   assert.equal(
     await runCheckCommand(
-      { base: "HEAD", repository: root, json: true },
+      {
+        base: "HEAD",
+        repository: root,
+        json: true,
+        failOnStaleManifest: false,
+      },
       { write: (message) => output.push(message) }
     ),
     0
@@ -327,12 +335,12 @@ capability:
   assert.equal(report.impacts[0].story_title, "Review semantic impact");
   assert.equal(report.broken_links.length, 0);
   assert.equal(report.exit_code, 0);
-  assert.equal(report.exit_reason, "ok");
+  assert.equal(report.exit_reason, "stale_manifest_warn_only");
 
   const humanOutput: string[] = [];
   assert.equal(
     await runCheckCommand(
-      { base: "HEAD", repository: root },
+      { base: "HEAD", repository: root, failOnStaleManifest: false },
       { write: (message) => humanOutput.push(message) }
     ),
     0
@@ -382,7 +390,12 @@ capability:
   const completenessOutput: string[] = [];
   assert.equal(
     await runCheckCommand(
-      { base: "HEAD", repository: root, json: true },
+      {
+        base: "HEAD",
+        repository: root,
+        json: true,
+        failOnStaleManifest: false,
+      },
       { write: (message) => completenessOutput.push(message) }
     ),
     0
@@ -409,9 +422,10 @@ capability:
   );
   assert.equal(completenessReport.unclaimed_changes[0].status, "added");
   assert.equal(completenessReport.unclaimed_change_count, 1);
-  // Unclaimed changes alone never fail the check.
+  // Unclaimed changes alone never fail the check. The reason reflects this
+  // fixture's downgraded stale manifest, not anything unclaimed changes did.
   assert.equal(completenessReport.exit_code, 0);
-  assert.equal(completenessReport.exit_reason, "ok");
+  assert.equal(completenessReport.exit_reason, "stale_manifest_warn_only");
   assert.equal(completenessReport.broken_links.length, 0);
   assert.ok(
     completenessReport.warnings.some((warning) =>
@@ -467,7 +481,7 @@ capability:
   const completenessHumanOutput: string[] = [];
   assert.equal(
     await runCheckCommand(
-      { base: "HEAD", repository: root },
+      { base: "HEAD", repository: root, failOnStaleManifest: false },
       { write: (message) => completenessHumanOutput.push(message) }
     ),
     0
@@ -592,7 +606,96 @@ capability:
   };
   assert.equal(addedReport.manifest_current, false);
   assert.equal(addedReport.manifest_compile_error, null);
+
+  // A manifest that does not match its own recompilation gates by default: the
+  // comparison is a byte diff of a deterministic function, so nothing is judged.
+  const staleGateOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      { base: "HEAD", repository: root, json: true },
+      { write: (message) => staleGateOutput.push(message) }
+    ),
+    1
+  );
+  const staleGateReport = JSON.parse(staleGateOutput.join("")) as {
+    exit_code: number;
+    exit_reason: string;
+    fail_on_stale_manifest: boolean;
+    errors: string[];
+    warnings: string[];
+  };
+  assert.equal(staleGateReport.exit_code, 1);
+  assert.equal(staleGateReport.exit_reason, "stale_manifest");
+  assert.equal(staleGateReport.fail_on_stale_manifest, true);
+  assert.ok(
+    staleGateReport.errors.some((entry) => /does not match/i.test(entry)),
+    "a gating stale manifest belongs in errors"
+  );
+  assert.ok(
+    !staleGateReport.warnings.some((entry) => /does not match/i.test(entry)),
+    "a gating stale manifest must not also be listed as a warning"
+  );
+
+  const staleDowngradeOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      {
+        base: "HEAD",
+        repository: root,
+        json: true,
+        failOnStaleManifest: false,
+      },
+      { write: (message) => staleDowngradeOutput.push(message) }
+    ),
+    0
+  );
+  const staleDowngradeReport = JSON.parse(staleDowngradeOutput.join("")) as {
+    exit_code: number;
+    exit_reason: string;
+    errors: string[];
+    warnings: string[];
+  };
+  assert.equal(staleDowngradeReport.exit_code, 0);
+  assert.equal(staleDowngradeReport.exit_reason, "stale_manifest_warn_only");
+  assert.ok(
+    staleDowngradeReport.warnings.some((entry) => /does not match/i.test(entry))
+  );
+  assert.ok(
+    !staleDowngradeReport.errors.some((entry) => /does not match/i.test(entry))
+  );
+
+  const staleTextOutput: string[] = [];
+  await runCheckCommand(
+    { base: "HEAD", repository: root },
+    { write: (message) => staleTextOutput.push(message) }
+  );
+  assert.match(staleTextOutput.join(""), /--no-fail-on-stale-manifest/);
   rmSync(resolve(root, ".tieline/contract/added.yaml"));
+
+  // A manifest that cannot be recompiled at all is one fault, reported once.
+  // Counting it as staleness too would name the same problem twice and let the
+  // stale gate fire for a reason the operator cannot act on as staleness.
+  writeFileSync(
+    resolve(root, ".tieline/contract/broken.yaml"),
+    "version: 1\ncapability: [this is not a capability]\n"
+  );
+  const compileErrorOutput: string[] = [];
+  assert.equal(
+    await runCheckCommand(
+      { base: "HEAD", repository: root, json: true },
+      { write: (message) => compileErrorOutput.push(message) }
+    ),
+    0
+  );
+  const compileErrorReport = JSON.parse(compileErrorOutput.join("")) as {
+    manifest_current: boolean;
+    manifest_compile_error: string | null;
+    exit_reason: string;
+  };
+  assert.equal(compileErrorReport.manifest_current, false);
+  assert.ok(compileErrorReport.manifest_compile_error);
+  assert.equal(compileErrorReport.exit_reason, "ok");
+  rmSync(resolve(root, ".tieline/contract/broken.yaml"));
 
   await assert.rejects(
     runCheckCommand(
