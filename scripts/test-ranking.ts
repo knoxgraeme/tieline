@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import {
+  SEMANTIC_MAGNITUDE_FLOOR,
+  clearsSemanticMagnitudeFloor,
   groupSemanticHitsAroundAcceptanceCriteria,
   rankSemanticDocuments,
 } from "../src/ranking.js";
+import {
+  SEMANTIC_MATCH_SCORE_FLOOR,
+  isPresentableSemanticMatch,
+} from "../src/semantic-matching.js";
 import { narrowSemanticFilters } from "../src/adapters/postgres/semantic-repository.js";
 import { parseRetrievalProfileDefinition } from "../src/adapters/postgres/profile-repository.js";
 import {
@@ -160,6 +166,186 @@ test("Scenario and AC hits collapse around the same AC", () => {
   );
   assert.equal(grouped.length, 1);
   assert.equal(grouped[0]?.matched_level, "scenario");
+});
+
+test("a weak candidate alone is withheld despite clearing the blended cutoff", () => {
+  const [weak] = rankSemanticDocuments([
+    {
+      document_id: "weak",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-weak",
+      canonical_text: "loosely related behavior",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-weak",
+      vector_score: 0.3,
+      lexical_score: 0.2,
+      metadata: {},
+    },
+  ]);
+  // Rank fusion cannot see that this is the only, and a poor, option.
+  assert.ok((weak?.score ?? 0) >= SEMANTIC_MATCH_SCORE_FLOOR);
+  assert.equal(clearsSemanticMagnitudeFloor(weak!.features), false);
+  assert.equal(isPresentableSemanticMatch(weak!), false);
+});
+
+test("a weak candidate stays withheld when ranked behind stronger ones", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "strong-a",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-strong-a",
+      canonical_text: "clearly the same behavior",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-strong-a",
+      vector_score: 0.92,
+      lexical_score: 0.9,
+      metadata: {},
+    },
+    {
+      document_id: "strong-b",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-strong-b",
+      canonical_text: "nearly the same behavior",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-strong-b",
+      vector_score: 0.88,
+      lexical_score: 0.85,
+      metadata: {},
+    },
+    {
+      document_id: "weak",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-weak",
+      canonical_text: "loosely related behavior",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-weak",
+      vector_score: 0.3,
+      lexical_score: 0.2,
+      metadata: {},
+    },
+  ]);
+  const presentable = ranked.filter(isPresentableSemanticMatch);
+  // The blended score barely moves between "only option" and "clearly worst".
+  assert.deepEqual(
+    presentable.map((hit) => hit.document_id),
+    ["strong-a", "strong-b"]
+  );
+  assert.ok(
+    ranked.find((hit) => hit.document_id === "weak")!.score >=
+      SEMANTIC_MATCH_SCORE_FLOOR
+  );
+});
+
+test("a strong candidate clears both admission gates", () => {
+  const [strong] = rankSemanticDocuments([
+    {
+      document_id: "strong",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-strong",
+      canonical_text: "the same behavior in other words",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-strong",
+      vector_score: 0.85,
+      lexical_score: 0.7,
+      metadata: {},
+    },
+  ]);
+  assert.ok(strong!.features.vector >= SEMANTIC_MAGNITUDE_FLOOR.vector);
+  assert.equal(isPresentableSemanticMatch(strong!), true);
+});
+
+test("an exact alias match survives a low similarity score", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "strong",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-strong",
+      canonical_text: "the same behavior in other words",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-strong",
+      vector_score: 0.9,
+      lexical_score: 0.85,
+      metadata: {},
+    },
+    {
+      document_id: "alias",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-alias",
+      canonical_text: "recorded under an alternate name",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-alias",
+      vector_score: 0.2,
+      lexical_score: 0.1,
+      alias_match: true,
+      metadata: {},
+    },
+  ]);
+  const alias = ranked.find((hit) => hit.document_id === "alias")!;
+  // Deterministic identifier match, so magnitude never disqualifies it.
+  assert.ok(alias.features.vector < SEMANTIC_MAGNITUDE_FLOOR.vector);
+  assert.ok(alias.features.lexical < SEMANTIC_MAGNITUDE_FLOOR.lexical);
+  assert.equal(isPresentableSemanticMatch(alias), true);
+  assert.match(alias.why.join(" "), /alias/i);
+});
+
+test("the magnitude floor removes candidates without reordering survivors", () => {
+  const ranked = rankSemanticDocuments([
+    {
+      document_id: "weak",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-weak",
+      canonical_text: "loosely related behavior",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-weak",
+      vector_score: 0.3,
+      lexical_score: 0.2,
+      metadata: {},
+    },
+    {
+      document_id: "mid",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-mid",
+      canonical_text: "related behavior",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-mid",
+      vector_score: 0.62,
+      lexical_score: 0.4,
+      metadata: {},
+    },
+    {
+      document_id: "strong",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-strong",
+      canonical_text: "the same behavior in other words",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-strong",
+      vector_score: 0.9,
+      lexical_score: 0.85,
+      metadata: {},
+    },
+    {
+      document_id: "alias",
+      entity_kind: "acceptance_criterion",
+      entity_id: "ac-alias",
+      canonical_text: "recorded under an alternate name",
+      matched_level: "acceptance_criterion",
+      acceptance_criterion_id: "ac-alias",
+      vector_score: 0.2,
+      lexical_score: 0.1,
+      alias_match: true,
+      metadata: {},
+    },
+  ]);
+  const order = ranked.map((hit) => hit.document_id);
+  const presentable = ranked
+    .filter(isPresentableSemanticMatch)
+    .map((hit) => hit.document_id);
+  assert.deepEqual(presentable, ["strong", "mid", "alias"]);
+  // Filtering is a subsequence of the ranked order: nothing is re-sorted.
+  assert.deepEqual(
+    order.filter((id) => presentable.includes(id)),
+    presentable
+  );
 });
 
 test("caller filters can narrow but not broaden a profile", () => {

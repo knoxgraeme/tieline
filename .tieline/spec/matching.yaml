@@ -142,3 +142,30 @@ capability:
                 repository: tieline
                 path: scripts/integration-evidence.ts
                 framework_hint: custom-script
+        - key: MATCHING-001-AC4
+          criterion: Tieline must withhold a semantic candidate whose vector, lexical, and alias signals all fall below an absolute magnitude floor, even when its blended rank-fusion score clears the presentation cutoff.
+          rationale: The blended score is mostly reciprocal rank fusion, which measures a candidate's position inside the returned set rather than how well it matches, so the best member of a weak set scores almost exactly what the best member of a strong set scores. Only a floor on the raw comparable signals stops the least wrong available option from reading as a good match to a caller acting without human review.
+          scenarios:
+            - given: the only retrieved candidate carries 0.30 vector similarity and 0.20 lexical similarity
+              when: Tieline assembles Observation match candidates or planning-create advice
+              then: the candidate must be withheld even though its blended score clears the presentation cutoff
+            - given: a candidate matches a recorded alias exactly but carries low vector and lexical similarity
+              when: Tieline applies the magnitude floor
+              then: the candidate must be retained because an exact alias match is a deterministic identifier match rather than a fuzzy one
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/ranking.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/semantic-matching.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-ranking.ts
+                framework_hint: custom-script

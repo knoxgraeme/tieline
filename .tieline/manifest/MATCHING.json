@@ -103,7 +103,7 @@
               },
               {
                 "relation": "implements",
-                "reviewed_content_hash": "06ea56c365cd5877eada9ce04c4bd27f5d937761191d1877e12db3eeb4df23f0",
+                "reviewed_content_hash": "5ced89ffc9675ef3210532f5cf0d72c768b64abe9f6c9d2b5c6d1a2d0f1f5a64",
                 "target": {
                   "kind": "code",
                   "path": "src/ranking.ts",
@@ -170,7 +170,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "d9598f35ac9949ba63c23e4d08f21610913fe623e316a622aabadf2c8f10f956",
+                "reviewed_content_hash": "f73ab70075032befa93734f30d0cbb2834d38752e9ce695436059ad22ddd0f97",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -217,7 +217,7 @@
               },
               {
                 "relation": "implements",
-                "reviewed_content_hash": "a3232c928628b3f599efa5e2d9a9e8d3bbeeeb9aff50e947da957b3a5dca1428",
+                "reviewed_content_hash": "adf23ebbe927ba6534bae791fd0de53a72a7996b8062a0bc647f00d699425595",
                 "target": {
                   "kind": "code",
                   "path": "src/semantic-matching.ts",
@@ -257,6 +257,62 @@
             ],
             "stable_id": "MATCHING-001-AC3",
             "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "b82f958e58880eb820901e76e205817a8f3a7c2b2d306dd5ca4cf4900582f6e9",
+            "criterion": "Tieline must withhold a semantic candidate whose vector, lexical, and alias signals all fall below an absolute magnitude floor, even when its blended rank-fusion score clears the presentation cutoff.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "5ced89ffc9675ef3210532f5cf0d72c768b64abe9f6c9d2b5c6d1a2d0f1f5a64",
+                "target": {
+                  "kind": "code",
+                  "path": "src/ranking.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "adf23ebbe927ba6534bae791fd0de53a72a7996b8062a0bc647f00d699425595",
+                "target": {
+                  "kind": "code",
+                  "path": "src/semantic-matching.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "f73ab70075032befa93734f30d0cbb2834d38752e9ce695436059ad22ddd0f97",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-ranking.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "The blended score is mostly reciprocal rank fusion, which measures a candidate's position inside the returned set rather than how well it matches, so the best member of a weak set scores almost exactly what the best member of a strong set scores. Only a floor on the raw comparable signals stops the least wrong available option from reading as a good match to a caller acting without human review.",
+            "scenarios": [
+              {
+                "given": "the only retrieved candidate carries 0.30 vector similarity and 0.20 lexical similarity",
+                "position": 0,
+                "stable_id": "MATCHING-001-AC4-S1",
+                "then": "the candidate must be withheld even though its blended score clears the presentation cutoff",
+                "when": "Tieline assembles Observation match candidates or planning-create advice"
+              },
+              {
+                "given": "a candidate matches a recorded alias exactly but carries low vector and lexical similarity",
+                "position": 1,
+                "stable_id": "MATCHING-001-AC4-S2",
+                "then": "the candidate must be retained because an exact alias match is a deterministic identifier match rather than a fuzzy one",
+                "when": "Tieline applies the magnitude floor"
+              }
+            ],
+            "stable_id": "MATCHING-001-AC4",
+            "supersedes": null
           }
         ],
         "actor": "author",
@@ -281,6 +337,6 @@
   },
   "input": {
     "path": ".tieline/spec/matching.yaml",
-    "sha256": "70b8d8159d3aff9ac9aa164bfd03aeb4f32a47ec0a7aa7451cb18007f119a5df"
+    "sha256": "ca88d8f9307dffa5ec09541786bca9923c3f8bf60c4c2163f629df7b3bd2d576"
   }
 }

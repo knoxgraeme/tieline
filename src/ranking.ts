@@ -143,6 +143,57 @@ export function rankSemanticDocuments(
     );
 }
 
+/**
+ * Minimum RAW signal strength a candidate must reach before it can be presented
+ * as a match.
+ *
+ * `rankSemanticDocuments` blends reciprocal rank fusion (0.65) with the weighted
+ * absolute signals (0.35). RRF is the right tool for FUSING signals whose scales
+ * are not comparable, and the blended score is correct for ORDERING. It is not a
+ * quality measure: RRF awards `weight / (k + rank + 1)`, so it reports where a
+ * candidate sits inside the returned set, not how well it actually matches. The
+ * top of a uniformly terrible set scores nearly what the top of an excellent set
+ * scores, and the gap between rank 1 and rank 4 is a rounding error.
+ *
+ * Measured against this implementation, a candidate with 0.30 vector and 0.20
+ * lexical similarity blends to 0.582 alone and 0.558 when it is plainly the
+ * fourth-best option — 0.024 apart, both comfortably above any cutoff tuned to
+ * admit real matches. So no threshold on the blended score can distinguish "this
+ * is good" from "this was the least wrong thing available".
+ *
+ * These features are absolute similarities on a fixed 0..1 scale, so unlike the
+ * blended score they mean the same thing in every result set. Gating on them is
+ * what keeps a weak candidate from reaching a caller as a suggestion.
+ */
+export const SEMANTIC_MAGNITUDE_FLOOR = {
+  /** Embedding similarity that reads as "the same behavior", not "same topic". */
+  vector: 0.5,
+  /** ts_rank_cd or identifier word-similarity strong enough to stand alone. */
+  lexical: 0.5,
+} as const;
+
+/**
+ * True when a ranked candidate is strong enough on its own terms, independent of
+ * how the rest of the result set happened to score.
+ *
+ * Deliberately conservative: today this filter is the only thing between a weak
+ * match and an agent acting on it, and one strong signal is required rather than
+ * an average, because averaging lets two mediocre signals impersonate one good
+ * one.
+ */
+export function clearsSemanticMagnitudeFloor(
+  features: Pick<SemanticRankingFeatures, "vector" | "lexical" | "alias">
+): boolean {
+  // An exact alias match is a deterministic identifier match, not a fuzzy one.
+  // Someone recorded that phrasing as naming this record, so it always survives
+  // however weak the similarity signals happen to be.
+  if (features.alias === 1) return true;
+  return (
+    features.vector >= SEMANTIC_MAGNITUDE_FLOOR.vector ||
+    features.lexical >= SEMANTIC_MAGNITUDE_FLOOR.lexical
+  );
+}
+
 export function groupSemanticHitsAroundAcceptanceCriteria(
   ranked: RankedSemanticDocument[]
 ): RankedSemanticDocument[] {
