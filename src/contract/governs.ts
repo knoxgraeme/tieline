@@ -6,7 +6,7 @@
  * rather than walking capabilities, Stories, and criteria a third time.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import {
   buildContractClaimIndex,
@@ -103,6 +103,29 @@ function withinRepository(root: string, target: string): boolean {
   return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 }
 
+/**
+ * Match the exact repository spelling used by the contract index. On a
+ * case-insensitive filesystem, `existsSync("src/Foo.ts")` also succeeds for an
+ * actual `src/foo.ts`; treating that alias as an existing, ungoverned path would
+ * hide the criterion that governs the real file.
+ */
+function repositoryPathExistsExactly(root: string, target: string): boolean {
+  if (!withinRepository(root, target) || !existsSync(target)) return false;
+  const path = relative(root, target);
+  if (path.length === 0) return true;
+
+  let directory = root;
+  for (const segment of path.split(sep)) {
+    try {
+      if (!readdirSync(directory).includes(segment)) return false;
+    } catch {
+      return false;
+    }
+    directory = resolve(directory, segment);
+  }
+  return true;
+}
+
 function answerFor(
   path: string,
   criterionCount: number,
@@ -134,7 +157,7 @@ export function lookupGoverningCriteria(input: {
     const path = repositoryRelativePath(root, requested);
     const criteria = [...(index.get(path) ?? [])];
     const target = resolve(root, path);
-    const exists = withinRepository(root, target) && existsSync(target);
+    const exists = repositoryPathExistsExactly(root, target);
     const acceptanceCriterionCount = new Set(
       criteria.map((entry) => entry.acceptance_criterion_stable_id)
     ).size;

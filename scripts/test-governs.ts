@@ -193,6 +193,7 @@ try {
       "src/unlinked.ts",
       "src/missing.ts",
       resolve(root, "src/story-only.ts"),
+      "src/DIRECT.ts",
     ],
   });
   assert.deepEqual(report.repository, {
@@ -200,7 +201,7 @@ try {
     commit: "governs-fixture-commit",
   });
   assert.equal(report.governed_paths, 2);
-  assert.equal(report.ungoverned_paths, 2);
+  assert.equal(report.ungoverned_paths, 3);
   assert.equal(report.results[0]?.status, "governed");
   assert.equal(report.results[0]?.acceptance_criterion_count, 2);
   assert.equal(
@@ -215,6 +216,10 @@ try {
   assert.match(report.results[2]?.answer ?? "", /does not exist/);
   assert.equal(report.results[3]?.path, "src/story-only.ts");
   assert.equal(report.results[3]?.status, "governed");
+  // A case-insensitive filesystem must not turn a misspelled governed path
+  // into an existing-but-ungoverned answer.
+  assert.equal(report.results[4]?.status, "not_found");
+  assert.equal(report.results[4]?.exists, false);
 
   let output = "";
   const io: TielineCliIO = {
