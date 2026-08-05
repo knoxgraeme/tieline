@@ -160,7 +160,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
+                "reviewed_content_hash": "fc1880d493f2c52b628471c571ae4b6951d292c5b915358e398ebbfd00e78215",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
