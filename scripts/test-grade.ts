@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -9,9 +10,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { runCli, type TielineCliIO } from "../src/cli.js";
 import type { RepositoryPathChange } from "../src/contract/impact.js";
 import { buildGradeScope } from "../src/contract/grade.js";
-import { compileContractManifest } from "../src/contract/manifest.js";
+import {
+  compileContractManifest,
+  compileContractManifestWithSources,
+  writeContractManifest,
+} from "../src/contract/manifest.js";
 
 const REPOSITORY = "grade-fixture";
 const root = mkdtempSync(resolve(tmpdir(), "tieline-grade-"));
@@ -201,8 +207,173 @@ capability:
     ]).entries,
     []
   );
+
+  // Exercise the complete CLI chain over an actual Git diff and sharded
+  // manifest. Restore files changed by the focused domain scenarios first.
+  renameSync(resolve(root, "src/renamed.ts"), resolve(root, "src/feature.ts"));
+  writeFileSync(
+    resolve(root, "src/deleted.ts"),
+    "export const deletedFeature = true;\n"
+  );
+  writeFileSync(
+    resolve(root, ".tieline/config.json"),
+    `${JSON.stringify(
+      {
+        version: 1,
+        product: { name: "Grade fixture", repo_name: REPOSITORY },
+        repository: {
+          root: "..",
+          source_roots: ["src"],
+          ignore: [".git", ".tieline"],
+        },
+        context: { sources: [] },
+        runtime: {
+          default_embedding_provider: "hash",
+          default_database_mode: "offline",
+        },
+        files: {
+          spec_directory: "spec",
+          manifest: "manifest",
+          mcp_config: "mcp.json",
+        },
+        created_at: "2026-08-04T00:00:00.000Z",
+        updated_at: "2026-08-04T00:00:00.000Z",
+      },
+      null,
+      2
+    )}\n`
+  );
+  writeContractManifest(
+    resolve(root, ".tieline/manifest"),
+    compileContractManifestWithSources({
+      repositoryRoot: root,
+      repositoryKey: REPOSITORY,
+      commit: "HEAD",
+      specDirectory: ".tieline/spec",
+    })
+  );
+  execFileSync("git", ["init"], { cwd: root, stdio: "ignore" });
+  execFileSync("git", ["config", "user.email", "test@example.test"], {
+    cwd: root,
+  });
+  execFileSync("git", ["config", "user.name", "Tieline Test"], {
+    cwd: root,
+  });
+  execFileSync("git", ["add", "."], { cwd: root });
+  execFileSync("git", ["commit", "-m", "baseline"], {
+    cwd: root,
+    stdio: "ignore",
+  });
+
+  let output = "";
+  const io: TielineCliIO = {
+    write(message) {
+      output += message;
+    },
+    error(message) {
+      throw new Error(message);
+    },
+    async question() {
+      throw new Error("contract grade must not prompt");
+    },
+  };
+
+  // An empty diff is an explicit successful scope, not an error or omission.
+  assert.equal(
+    await runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--emit-scope", "--json"],
+      io,
+      {}
+    ),
+    0
+  );
+  assert.deepEqual(JSON.parse(output).entries, []);
+  assert.equal(JSON.parse(output).scoped_links, 0);
+
+  writeFileSync(
+    resolve(root, "src/feature.ts"),
+    `${readFeatureSource()}export const changedFeature = true;\n`
+  );
+
+  output = "";
+  assert.equal(
+    await runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--emit-scope", "--json"],
+      io,
+      {}
+    ),
+    0
+  );
+  const emitted = JSON.parse(output);
+  assert.equal(emitted.base, "HEAD");
+  assert.equal(emitted.repository, REPOSITORY);
+  assert.equal(emitted.scoped_links, 1);
+  assert.equal(emitted.entries[0].path, "src/feature.ts");
+  assert.deepEqual(emitted.entries[0].symbols, [
+    "const:changedFeature",
+    "const:featureLocal",
+    "function:computeFeature",
+  ]);
+
+  output = "";
+  assert.equal(
+    await runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--emit-scope"],
+      io,
+      {}
+    ),
+    0
+  );
+  assert.match(output, /Grading scope: 1 changed contract link/);
+  assert.match(output, /FEATURE-001-AC1/);
+  assert.match(output, /src\/feature\.ts/);
+  assert.match(output, /function:computeFeature/);
+
+  await assert.rejects(
+    runCli(["contract", "grade", root, "--base", "HEAD"], io, {}),
+    /requires exactly one of --emit-scope or --verify/
+  );
+  await assert.rejects(
+    runCli(
+      [
+        "contract",
+        "grade",
+        root,
+        "--base",
+        "HEAD",
+        "--emit-scope",
+        "--verify",
+        "verdicts.json",
+      ],
+      io,
+      {}
+    ),
+    /cannot be used with option '--verify(?: <verdicts\.json>)?'/
+  );
+
+  rmSync(resolve(root, ".tieline/manifest"), {
+    recursive: true,
+    force: true,
+  });
+  await assert.rejects(
+    runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--emit-scope"],
+      io,
+      {}
+    ),
+    /Cannot derive grading scope.*contract compile/s
+  );
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
 
 console.log("grade tests passed");
+
+function readFeatureSource(): string {
+  return `// commentOnlyFeature is prose, not a legal citation.
+export function computeFeature(): number {
+  const featureLocal = 1;
+  return featureLocal;
+}
+`;
+}

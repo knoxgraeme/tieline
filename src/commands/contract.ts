@@ -45,6 +45,10 @@ import {
   type ContractReconciliation,
   type ExcludedChange,
 } from "../contract/reconciliation.js";
+import {
+  buildGradeScope,
+  renderGradeScopeText,
+} from "../contract/grade.js";
 
 interface ContractCommandIO {
   write(message: string): void;
@@ -58,6 +62,7 @@ export type ContractAction =
   | "link-review"
   | "reconcile"
   | "criteria"
+  | "grade"
   | "sync";
 
 export interface ContractCommandOptions {
@@ -69,6 +74,9 @@ export interface ContractCommandOptions {
   expectedPreviousCommit?: string;
   /** Git ref the working tree is compared against. Required by `reconcile`. */
   base?: string;
+  emitScope?: boolean;
+  verify?: string;
+  strict?: boolean;
   json?: boolean;
   paths?: string[];
 }
@@ -85,6 +93,9 @@ interface ParsedContractCommand {
   ignore: string[];
   expectedPreviousCommit?: string;
   base?: string;
+  emitScope: boolean;
+  verify?: string;
+  strict: boolean;
   json: boolean;
   paths: string[];
 }
@@ -141,9 +152,61 @@ function resolveContractCommand(
     ignore: workspace?.config.repository.ignore ?? [],
     expectedPreviousCommit: options.expectedPreviousCommit,
     base: options.base,
+    emitScope: options.emitScope === true,
+    verify: options.verify,
+    strict: options.strict === true,
     json: options.json === true,
     paths: options.paths ?? [],
   };
+}
+
+function runGrade(
+  parsed: ParsedContractCommand,
+  io: ContractCommandIO
+): number {
+  const selectedModes = Number(parsed.emitScope) + Number(parsed.verify !== undefined);
+  if (selectedModes !== 1) {
+    throw new Error(
+      "`contract grade` requires exactly one of --emit-scope or --verify <verdicts.json>."
+    );
+  }
+  if (!parsed.base) {
+    throw new Error(
+      "`contract grade` requires --base <ref> so its work list comes from an explicit diff."
+    );
+  }
+  if (parsed.verify !== undefined) {
+    throw new Error("`contract grade --verify` is not available yet.");
+  }
+  if (parsed.strict) {
+    throw new Error("`--strict` applies only with `contract grade --verify`.");
+  }
+
+  let manifest: ContractManifest;
+  try {
+    manifest = readContractManifest(parsed.manifestPath);
+  } catch (error) {
+    throw new Error(
+      `Cannot derive grading scope because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
+        error instanceof Error ? error.message : String(error)
+      } Run \`tieline contract compile .\` and commit the manifest.`
+    );
+  }
+  const scope = buildGradeScope({
+    repositoryRoot: parsed.repositoryRoot,
+    base: parsed.base,
+    manifest,
+    changes: changesSince(parsed.repositoryRoot, parsed.base),
+    sourceRoots: parsed.sourceRoots,
+    ignore: parsed.ignore,
+    specDirectory: parsed.specDirectory,
+  });
+  io.write(
+    parsed.json
+      ? `${JSON.stringify(scope, null, 2)}\n`
+      : renderGradeScopeText(scope)
+  );
+  return 0;
 }
 
 function changesSince(repositoryRoot: string, base: string) {
@@ -416,6 +479,10 @@ export async function runContractCommand(
         : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath}.\n`
     );
     return 0;
+  }
+
+  if (parsed.action === "grade") {
+    return runGrade(parsed, io);
   }
 
   if (parsed.action === "criteria") {

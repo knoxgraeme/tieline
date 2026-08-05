@@ -185,3 +185,25 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
     entries: ordered,
   };
 }
+
+export function renderGradeScopeText(scope: GradeScope): string {
+  const lines = [
+    `Grading scope: ${scope.scoped_links} changed contract link(s) against ${scope.base}.\n`,
+  ];
+  if (scope.entries.length === 0) {
+    lines.push("  No changed path is claimed by a contract evidence link.\n");
+    return lines.join("");
+  }
+  for (const entry of scope.entries) {
+    lines.push(
+      `\n  ${entry.id}  ${entry.acceptance_criterion_stable_id} ${entry.relation} ${entry.path} (${entry.link_scope}, ${entry.reason})\n`
+    );
+    lines.push(`    ${entry.acceptance_criterion}\n`);
+    lines.push(
+      entry.symbols.length > 0
+        ? `    Legal citations: ${entry.symbols.join(", ")}\n`
+        : "    Legal citations: none extracted; this link cannot be graded supported.\n"
+    );
+  }
+  return lines.join("");
+}
