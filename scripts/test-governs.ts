@@ -36,6 +36,8 @@ for (const key of [
 ]) {
   delete process.env[key];
 }
+const originalTielineWorkspace = process.env.TIELINE_WORKSPACE;
+delete process.env.TIELINE_WORKSPACE;
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -374,7 +376,30 @@ try {
   }
   assert.equal(strayResult.isError, true);
   assert.match(strayResult.content[0]?.text ?? "", /No Tieline workspace/);
+
+  let configuredWorkspaceResult: ToolResult;
+  process.env.TIELINE_WORKSPACE = root;
+  try {
+    process.chdir(stray);
+    configuredWorkspaceResult = await tool!.handler({
+      paths: ["src/direct.ts"],
+    });
+  } finally {
+    process.chdir(previousCwd);
+  }
+  assert.notEqual(configuredWorkspaceResult.isError, true);
+  assert.equal(
+    (configuredWorkspaceResult.structuredContent as {
+      repository: { commit: string };
+    }).repository.commit,
+    "governs-fixture-commit"
+  );
 } finally {
+  if (originalTielineWorkspace === undefined) {
+    delete process.env.TIELINE_WORKSPACE;
+  } else {
+    process.env.TIELINE_WORKSPACE = originalTielineWorkspace;
+  }
   for (const path of cleanup) {
     rmSync(path, { recursive: true, force: true });
   }

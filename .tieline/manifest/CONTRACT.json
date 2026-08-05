@@ -438,7 +438,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "54d4ba1f2b19809b51456c26bfa8c834f7fc3cd42242967f8843a858a7019365",
+                "reviewed_content_hash": "10f21292aadbecdb5eed676e78c71d19fdc57c56cff2ad587add51eb0f97f359",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -501,7 +501,7 @@
               },
               {
                 "relation": "implements",
-                "reviewed_content_hash": "60da7e11fdad7f1888c1c3520e4940c73b1d2b4650b46a15d8ec4668e197ad30",
+                "reviewed_content_hash": "c0a68f5bab33d19efa67e8a44417a1f78acf8f4fad8580fd5000f71bd04a0864",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/governing-criteria.ts",
@@ -510,7 +510,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "54d4ba1f2b19809b51456c26bfa8c834f7fc3cd42242967f8843a858a7019365",
+                "reviewed_content_hash": "10f21292aadbecdb5eed676e78c71d19fdc57c56cff2ad587add51eb0f97f359",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

@@ -81,7 +81,7 @@ export function registerGetGoverningCriteria(server: McpServer): void {
       try {
         const resolved = resolveGoverningCriteria({
           paths: input.paths,
-          cwd: process.cwd(),
+          cwd: process.env.TIELINE_WORKSPACE ?? process.cwd(),
         });
         if (resolved.status !== "resolved") {
           return errorResult(resolved.message);
