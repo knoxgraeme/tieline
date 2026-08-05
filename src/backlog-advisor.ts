@@ -1,3 +1,8 @@
+import type {
+  SemanticAdmissionSignal,
+  SemanticRankingFeatures,
+} from "./ranking.js";
+
 export interface BacklogCandidate {
   suggestion_id: string;
   target_kind:
@@ -8,6 +13,8 @@ export interface BacklogCandidate {
   target_stable_id: string;
   repository?: string;
   score: number;
+  features: SemanticRankingFeatures;
+  admitted_by: SemanticAdmissionSignal[];
   reason: string;
 }
 

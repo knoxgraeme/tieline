@@ -6,9 +6,17 @@ import {
   rankSemanticDocuments,
 } from "../src/ranking.js";
 import {
-  SEMANTIC_MATCH_SCORE_FLOOR,
+  DefaultSemanticMatcher,
+  installSemanticAdvisors,
   isPresentableSemanticMatch,
+  setSemanticMatcher,
+  type SemanticMatcherRepository,
 } from "../src/semantic-matching.js";
+import {
+  adviseBacklogCreate,
+  setBacklogCreateAdvisor,
+} from "../src/backlog-advisor.js";
+import { getEmbedder, setEmbedder } from "../src/embeddings.js";
 import { narrowSemanticFilters } from "../src/adapters/postgres/semantic-repository.js";
 import { parseRetrievalProfileDefinition } from "../src/adapters/postgres/profile-repository.js";
 import {
@@ -20,6 +28,15 @@ import {
 let passed = 0;
 function test(name: string, run: () => void): void {
   run();
+  passed += 1;
+  console.log(`  ok  - ${name}`);
+}
+
+async function asyncTest(
+  name: string,
+  run: () => Promise<void>
+): Promise<void> {
+  await run();
   passed += 1;
   console.log(`  ok  - ${name}`);
 }
@@ -137,6 +154,179 @@ test("lexical-only candidates remain useful without an embedding", () => {
   assert.match(ranked[0]?.why.join(" ") ?? "", /lexical/i);
 });
 
+await asyncTest(
+  "planning advice admits a strong lexical-only candidate without an embedding",
+  async () => {
+    const previousEmbedder = getEmbedder();
+    try {
+      setEmbedder({
+        provider: "hash",
+        dim: 384,
+        async embed() {
+          throw new Error("embedding unavailable");
+        },
+      });
+      const repository: SemanticMatcherRepository = {
+        async resolveRetrievalProfile() {
+          return { key: "discovery", version: 1, definition: {} };
+        },
+        async searchSemantic(input) {
+          assert.equal(input.embedding, undefined);
+          return [
+            {
+              document_id: "lexical",
+              entity_kind: "acceptance_criterion",
+              entity_id: "ac-lexical",
+              canonical_text: "identifier-only match",
+              matched_level: "acceptance_criterion",
+              acceptance_criterion_id: "ac-lexical",
+              vector_score: 0,
+              lexical_score: 0.8,
+              alias_match: false,
+              artifact_overlap: 0,
+              graph_proximity: 0,
+              applicable: true,
+              metadata: {},
+            },
+          ];
+        },
+        async upsertEmbeddingDocument() {
+          throw new Error("not used by planning advice");
+        },
+        async saveAttributionSuggestion() {
+          throw new Error("not used by planning advice");
+        },
+      };
+      const matcher = new DefaultSemanticMatcher(repository);
+
+      const candidates = await matcher.advisePlanningCreate({
+        title: "Identifier-only match",
+        summary: "Find the acceptance criterion through full-text search.",
+      });
+
+      assert.equal(candidates.length, 1);
+      assert.equal(candidates[0]?.target_id, "ac-lexical");
+      assert.equal(candidates[0]?.features.vector, 0);
+      assert.deepEqual(candidates[0]?.admitted_by, ["lexical"]);
+
+      setSemanticMatcher(matcher);
+      installSemanticAdvisors();
+      const advice = await adviseBacklogCreate({
+        title: "Identifier-only match",
+        summary: "Find the acceptance criterion through full-text search.",
+      });
+      assert.deepEqual(advice?.candidates[0]?.admitted_by, ["lexical"]);
+      assert.equal(advice?.candidates[0]?.features.lexical, 0.8);
+      assert.match(advice?.candidates[0]?.reason ?? "", /admitted by lexical/);
+    } finally {
+      setBacklogCreateAdvisor(null);
+      setSemanticMatcher(null);
+      setEmbedder(previousEmbedder);
+    }
+  }
+);
+
+await asyncTest(
+  "an admissible lexical sibling survives same-criterion grouping",
+  async () => {
+    const previousEmbedder = getEmbedder();
+    try {
+      setEmbedder({
+        provider: "hash",
+        dim: 384,
+        async embed() {
+          return new Array<number>(384).fill(0);
+        },
+      });
+      const repository: SemanticMatcherRepository = {
+        async resolveRetrievalProfile() {
+          return { key: "discovery", version: 1, definition: {} };
+        },
+        async searchSemantic(input) {
+          assert.equal(input.embedding?.length, 384);
+          return [
+            {
+              document_id: "weak-scenario",
+              entity_kind: "scenario",
+              entity_id: "scenario-weak",
+              canonical_text: "two weak ranking signals",
+              matched_level: "scenario",
+              acceptance_criterion_id: "ac-shared",
+              acceptance_criterion_stable_id: "MATCHING-001-AC4",
+              vector_score: 0.49,
+              lexical_score: 0.49,
+              alias_match: false,
+              artifact_overlap: 0,
+              graph_proximity: 0,
+              applicable: true,
+              metadata: {},
+            },
+            {
+              document_id: "strong-criterion",
+              entity_kind: "acceptance_criterion",
+              entity_id: "ac-shared",
+              canonical_text: "strong full-text match",
+              matched_level: "acceptance_criterion",
+              acceptance_criterion_id: "ac-shared",
+              acceptance_criterion_stable_id: "MATCHING-001-AC4",
+              vector_score: 0,
+              lexical_score: 0.8,
+              alias_match: false,
+              artifact_overlap: 0,
+              graph_proximity: 0,
+              applicable: true,
+              metadata: {},
+            },
+          ];
+        },
+        async upsertEmbeddingDocument(document) {
+          return {
+            embedded: false,
+            document_id: `${document.entity_kind}:${document.entity_id}`,
+            embedding_status: "unavailable",
+          };
+        },
+        async saveAttributionSuggestion(input) {
+          return {
+            id: `suggestion:${input.target_id}`,
+            source_kind: input.source_kind,
+            source_id: input.source_id,
+            target_kind: input.target_kind,
+            target_id: input.target_id,
+            state: input.state,
+            method: input.method,
+            score: input.score ?? null,
+            rationale: input.rationale ?? {},
+          };
+        },
+      };
+      const matcher = new DefaultSemanticMatcher(repository);
+
+      const matches = await matcher.matchObservation({
+        id: "observation-1",
+        kind: "request",
+        schema_key: "request",
+        schema_version: 1,
+        summary: "Find the acceptance criterion through full-text search.",
+        source: "test",
+        external_id: null,
+        external_url: null,
+        observed_at: "2026-08-05T00:00:00.000Z",
+        recorded_at: "2026-08-05T00:00:00.000Z",
+        search_text: "strong full-text match",
+        supersedes_observation_id: null,
+        outcome: "created",
+      });
+
+      assert.equal(matches.length, 1);
+      assert.equal(matches[0]?.target_id, "ac-shared");
+      assert.equal(matches[0]?.features.lexical, 0.8);
+    } finally {
+      setEmbedder(previousEmbedder);
+    }
+  }
+);
+
 test("Scenario and AC hits collapse around the same AC", () => {
   const grouped = groupSemanticHitsAroundAcceptanceCriteria(
     rankSemanticDocuments([
@@ -168,7 +358,7 @@ test("Scenario and AC hits collapse around the same AC", () => {
   assert.equal(grouped[0]?.matched_level, "scenario");
 });
 
-test("a weak candidate alone is withheld despite clearing the blended cutoff", () => {
+test("a weak top-ranked candidate is withheld by raw magnitude", () => {
   const [weak] = rankSemanticDocuments([
     {
       document_id: "weak",
@@ -182,8 +372,6 @@ test("a weak candidate alone is withheld despite clearing the blended cutoff", (
       metadata: {},
     },
   ]);
-  // Rank fusion cannot see that this is the only, and a poor, option.
-  assert.ok((weak?.score ?? 0) >= SEMANTIC_MATCH_SCORE_FLOOR);
   assert.equal(clearsSemanticMagnitudeFloor(weak!.features), false);
   assert.equal(isPresentableSemanticMatch(weak!), false);
 });
@@ -230,13 +418,9 @@ test("a weak candidate stays withheld when ranked behind stronger ones", () => {
     presentable.map((hit) => hit.document_id),
     ["strong-a", "strong-b"]
   );
-  assert.ok(
-    ranked.find((hit) => hit.document_id === "weak")!.score >=
-      SEMANTIC_MATCH_SCORE_FLOOR
-  );
 });
 
-test("a strong candidate clears both admission gates", () => {
+test("a strong candidate clears raw-magnitude admission", () => {
   const [strong] = rankSemanticDocuments([
     {
       document_id: "strong",
