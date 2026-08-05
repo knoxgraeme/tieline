@@ -1,7 +1,6 @@
 {
   "repository": {
-    "commit": "96bb59a6cb06148b9beb4ca855de63fb560c8728",
     "key": "tieline"
   },
-  "schema_version": 1
+  "schema_version": 2
 }

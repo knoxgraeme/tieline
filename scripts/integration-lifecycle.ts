@@ -250,7 +250,6 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey,
-      commit: "accepted-lifecycle-contract",
     }),
     root
   );
@@ -258,7 +257,9 @@ try {
   assert.equal(materializedStory.planning_origin?.record_id, planningStory.id);
 
   const syncResult = await withRole("tieline_repository_sync", () =>
-    syncContractManifest(sync, manifest)
+    syncContractManifest(sync, manifest, {
+      commit: "accepted-lifecycle-contract",
+    })
   );
   assert.equal(syncResult.outcome, "synced");
   assert.deepEqual(syncResult.conflicts, []);

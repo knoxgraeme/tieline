@@ -103,7 +103,6 @@ capability:
   const compiled = compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "impact-fixture",
-    commit: "HEAD",
     specDirectory: ".tieline/contract",
   });
   const manifest = compiled.manifest;

@@ -473,7 +473,6 @@ function buildProgram(
       .description(description)
       .argument("[repository]", "repository path")
       .option("--repo <key>", "stable repository key")
-      .option("--commit <sha>", "commit recorded in the manifest")
       .option(
         "--output <path>",
         "review page file, or manifest directory for every other action"
@@ -554,10 +553,12 @@ function buildProgram(
         )
       );
     });
-  contractAction("sync", "Sync the reviewed manifest to the database").option(
-    "--expected-previous-commit <sha>",
-    "guard against concurrent syncs"
-  );
+  contractAction("sync", "Sync the reviewed manifest to the database")
+    .option("--commit <sha>", "repository commit recorded by this sync")
+    .option(
+      "--expected-previous-commit <sha>",
+      "guard against concurrent syncs"
+    );
   // `criteria` takes paths where the other actions take a repository, so it is
   // declared directly instead of through `contractAction`.
   contract

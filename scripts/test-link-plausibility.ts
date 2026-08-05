@@ -225,8 +225,8 @@ function storyOf(topic: Topic, links: ManifestLink[]): ManifestStory {
 
 function manifestOf(stories: ManifestStory[]): ContractManifest {
   return {
-    schema_version: 1,
-    repository: { key: REPOSITORY, commit: "fixture" },
+    schema_version: 2,
+    repository: { key: REPOSITORY },
     inputs: [],
     capabilities: [
       {

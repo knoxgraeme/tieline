@@ -1,7 +1,2 @@
 # Auto detect text files and perform LF normalization
 * text=auto
-
-# The manifest index carries the compiled commit, so every branch changes it.
-# Line-merging it would produce an index neither branch compiled; refusing the
-# merge makes the recompile explicit.
-.tieline/manifest/index.json -merge

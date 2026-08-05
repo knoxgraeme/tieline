@@ -119,7 +119,6 @@ capability:
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: "reconciliation-fixture",
-    commit: "HEAD",
     specDirectory: ".tieline/contract",
   });
 

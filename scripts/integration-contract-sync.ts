@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import postgres from "postgres";
 import { PostgresContractReadRepository } from "../src/adapters/postgres/contract-read-repository.js";
 import { PostgresContractSyncRepository } from "../src/adapters/postgres/contract-sync-repository.js";
+import { runCli, type TielineCliIO } from "../src/cli.js";
 import { migrateDatabase } from "../src/commands/migrate.js";
 import {
   attachCurrentArtifactHashes,
   compileContractManifest,
+  compileContractManifestWithSources,
+  writeContractManifest,
 } from "../src/contract/manifest.js";
 import {
   ContractSyncCheckpointError,
@@ -185,7 +189,7 @@ try {
   const reads = new PostgresContractReadRepository(() => sql);
   const syncAsRepositoryRole = async (
     manifest: ContractManifest,
-    options?: ContractSyncOptions
+    options: ContractSyncOptions
   ) => {
     await sql.unsafe("set role tieline_repository_sync");
     try {
@@ -199,8 +203,15 @@ try {
   const reviewedFirstManifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: "sync-integration",
-    commit: "commit-one",
   });
+  await assert.rejects(
+    store.sync(reviewedFirstManifest, { commit: "  " }),
+    /Repository sync commit cannot be empty/
+  );
+  await assert.rejects(
+    syncContractManifest(store, reviewedFirstManifest, { commit: "  " }),
+    /Repository sync commit cannot be empty/
+  );
   writeFileSync(
     resolve(root, "scripts/sync.test.ts"),
     "assert(contractSync && changedAfterReview);\n"
@@ -215,7 +226,8 @@ try {
       await syncSql.unsafe("set role tieline_repository_sync");
       return await syncContractManifest(
         new PostgresContractSyncRepository(syncSql),
-        firstManifest
+        firstManifest,
+        { commit: "commit-one" }
       );
     } finally {
       await syncSql.unsafe("reset role");
@@ -232,7 +244,35 @@ try {
   );
   const first = initialSyncs.find((result) => result.outcome === "synced")!;
   assert.equal(first.outcome, "synced");
+  assert.equal(first.commit, "commit-one");
   assert.deepEqual(first.conflicts, []);
+  const [runtimeCommitProjection] = await sql<{
+    capability_commit: string;
+    story_commit: string;
+    criterion_commit: string;
+    checkpoint_commit: string;
+    audit_commit: string;
+  }[]>`
+    select
+      (select repository_commit from capabilities
+       where repository_id = ${repository.id} and stable_id = 'SYNC') as capability_commit,
+      (select repository_commit from user_stories
+       where repository_id = ${repository.id} and stable_id = 'SYNC-001') as story_commit,
+      (select repository_commit from acceptance_criteria
+       where repository_id = ${repository.id} and stable_id = 'SYNC-001-AC1') as criterion_commit,
+      (select commit_sha from repository_sync_checkpoints
+       where repository_id = ${repository.id}) as checkpoint_commit,
+      (select detail->>'commit' from audit_events
+       where event_kind = 'repository_contract_synced'
+         and detail->>'repository' = 'sync-integration'
+       order by occurred_at desc, id desc limit 1) as audit_commit`;
+  assert.deepEqual(runtimeCommitProjection, {
+    capability_commit: "commit-one",
+    story_commit: "commit-one",
+    criterion_commit: "commit-one",
+    checkpoint_commit: "commit-one",
+    audit_commit: "commit-one",
+  });
   const reviewedTestLink =
     firstManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links.find(
       (link) => link.target.kind === "test"
@@ -403,7 +443,9 @@ try {
 
   const [auditBeforeRepeat] = await sql<{ count: string }[]>`
     select count(*) from audit_events where event_kind = 'repository_contract_synced'`;
-  const repeated = await syncAsRepositoryRole(firstManifest);
+  const repeated = await syncAsRepositoryRole(firstManifest, {
+    commit: "commit-one",
+  });
   const [auditAfterRepeat] = await sql<{ count: string }[]>`
     select count(*) from audit_events where event_kind = 'repository_contract_synced'`;
   assert.equal(repeated.outcome, "unchanged");
@@ -438,14 +480,19 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "sync-integration",
-      commit: "commit-two",
     }),
-    { expectedPreviousCommit: "commit-one" }
+    { commit: "commit-two", expectedPreviousCommit: "commit-one" }
   );
+  assert.equal(second.commit, "commit-two");
   assert.equal(second.retired_acceptance_criteria, 1);
-  const [retiredCriterion] = await sql<{ active: boolean }[]>`
-    select active from acceptance_criteria where id = ${ac2Id}`;
+  const [retiredCriterion] = await sql<{
+    active: boolean;
+    repository_commit: string;
+  }[]>`
+    select active, repository_commit
+    from acceptance_criteria where id = ${ac2Id}`;
   assert.equal(retiredCriterion.active, false);
+  assert.equal(retiredCriterion.repository_commit, "commit-two");
   const [activeRetiredScenarios] = await sql<{ count: string }[]>`
     select count(*) from scenarios where criterion_id = ${ac2Id} and active`;
   assert.equal(Number(activeRetiredScenarios.count), 0);
@@ -496,9 +543,8 @@ try {
       compileContractManifest({
         repositoryRoot: root,
         repositoryKey: "sync-integration",
-        commit: "collision-commit",
       }),
-      { expectedPreviousCommit: "commit-two" }
+      { commit: "collision-commit", expectedPreviousCommit: "commit-two" }
     ),
     ContractSyncCollisionError
   );
@@ -559,9 +605,8 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "sync-integration",
-      commit: "commit-three",
     }),
-    { expectedPreviousCommit: "commit-two" }
+    { commit: "commit-three", expectedPreviousCommit: "commit-two" }
   );
   assert.deepEqual(conflictResult.conflicts, [
     {
@@ -614,9 +659,8 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "sync-integration",
-      commit: "commit-four",
     }),
-    { expectedPreviousCommit: "commit-three" }
+    { commit: "commit-four", expectedPreviousCommit: "commit-three" }
   );
   assert.deepEqual(reconciled.conflicts, []);
   await sql.unsafe("set role tieline_reader");
@@ -636,9 +680,8 @@ try {
       compileContractManifest({
         repositoryRoot: root,
         repositoryKey: "sync-integration",
-        commit: "delayed-old-commit",
       }),
-      { expectedPreviousCommit: "commit-one" }
+      { commit: "delayed-old-commit", expectedPreviousCommit: "commit-one" }
     ),
     ContractSyncCheckpointError
   );
@@ -715,9 +758,8 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "sync-integration",
-      commit: "commit-five",
     }),
-    { expectedPreviousCommit: "commit-four" }
+    { commit: "commit-five", expectedPreviousCommit: "commit-four" }
   );
   assert.equal(beforeRename.reconciled_code_assets, 0);
   const [projectedBeforeRename] = await sql<{ id: string }[]>`
@@ -745,9 +787,8 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "sync-integration",
-      commit: "commit-six",
     }),
-    { expectedPreviousCommit: "commit-five" }
+    { commit: "commit-six", expectedPreviousCommit: "commit-five" }
   );
   assert.equal(afterRename.reconciled_code_assets, 1);
   const projectedPaths = await sql<{ path: string }[]>`
@@ -785,8 +826,8 @@ try {
     compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "sync-integration",
-      commit: "commit-six",
-    })
+    }),
+    { commit: "commit-six" }
   );
   assert.equal(repaired.outcome, "unchanged");
   assert.equal(repaired.reconciled_code_assets, 1);
@@ -799,6 +840,101 @@ try {
     where source = 'intercom' and external_id = 'unresolved-help-article'`;
   assert.equal(helpStub.title, null);
   assert.equal(helpStub.markdown, null);
+
+  const manifestDirectory = resolve(root, ".tieline/manifest");
+  writeContractManifest(
+    manifestDirectory,
+    compileContractManifestWithSources({
+      repositoryRoot: root,
+      repositoryKey: "sync-integration",
+    })
+  );
+  const cliEnv = {
+    ...process.env,
+    DATABASE_URL_SYNC: adminUrl,
+    EMBEDDING_PROVIDER: "hash",
+  };
+  let cliOutput = "";
+  const cliIo: TielineCliIO = {
+    write(message) {
+      cliOutput += message;
+    },
+    error(message) {
+      throw new Error(message);
+    },
+    async question() {
+      throw new Error("contract sync integration must not prompt");
+    },
+  };
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "sync",
+        root,
+        "--repo",
+        "sync-integration",
+        "--output",
+        manifestDirectory,
+        "--commit",
+        "cli-explicit-commit",
+        "--json",
+      ],
+      cliIo,
+      cliEnv
+    ),
+    0
+  );
+  assert.equal(JSON.parse(cliOutput).commit, "cli-explicit-commit");
+
+  execFileSync("git", ["init", "--quiet"], { cwd: root });
+  execFileSync("git", ["config", "user.email", "integration@tieline.test"], {
+    cwd: root,
+  });
+  execFileSync("git", ["config", "user.name", "Tieline Integration"], {
+    cwd: root,
+  });
+  execFileSync("git", ["add", "."], { cwd: root });
+  execFileSync("git", ["commit", "--quiet", "-m", "integration fixture"], {
+    cwd: root,
+  });
+  const fixtureCommit = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
+  cliOutput = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "sync",
+        root,
+        "--repo",
+        "sync-integration",
+        "--output",
+        manifestDirectory,
+        "--json",
+      ],
+      cliIo,
+      cliEnv
+    ),
+    0
+  );
+  assert.equal(JSON.parse(cliOutput).commit, fixtureCommit);
+  const [cliCommitProjection] = await sql<{
+    checkpoint_commit: string;
+    audit_commit: string;
+  }[]>`
+    select
+      (select commit_sha from repository_sync_checkpoints
+       where repository_id = ${repository.id}) as checkpoint_commit,
+      (select detail->>'commit' from audit_events
+       where event_kind = 'repository_contract_synced'
+       order by occurred_at desc, id desc limit 1) as audit_commit`;
+  assert.deepEqual(cliCommitProjection, {
+    checkpoint_commit: fixtureCommit,
+    audit_commit: fixtureCommit,
+  });
 } finally {
   await sql.end({ timeout: 5 });
   rmSync(root, { recursive: true, force: true });

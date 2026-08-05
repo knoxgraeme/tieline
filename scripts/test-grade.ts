@@ -127,7 +127,6 @@ capability:
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: REPOSITORY,
-    commit: "grade-fixture",
     specDirectory: ".tieline/spec",
   });
   const scopeFor = (changes: RepositoryPathChange[]) =>
@@ -316,7 +315,6 @@ capability:
     compileContractManifestWithSources({
       repositoryRoot: root,
       repositoryKey: REPOSITORY,
-      commit: "HEAD",
       specDirectory: ".tieline/spec",
     })
   );

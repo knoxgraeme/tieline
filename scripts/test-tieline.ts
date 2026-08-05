@@ -250,6 +250,59 @@ try {
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
   assert.match(parsedStatus.next_action, /tieline_author/);
 
+  writeFileSync(
+    resolve(workspace.specDirectoryPath, "status.yaml"),
+    `version: 1
+capability:
+  key: STATUS
+  name: Workspace status
+  description: Workspace readiness reflects readable contract state.
+  stories:
+    - key: STATUS-001
+      title: Recover an unreadable manifest
+      actor: maintainer
+      goal: see when the compiled manifest must be regenerated
+      benefit: manifest-backed commands are usable after an upgrade
+      lifecycle: production
+      acceptance_criteria:
+        - key: STATUS-001-AC1
+          criterion: Tieline must direct maintainers to compile an unreadable manifest.
+`
+  );
+  mkdirSync(workspace.manifestPath, { recursive: true });
+  const legacyIndex = `${JSON.stringify(
+    {
+      schema_version: 1,
+      repository: { key: "example-repository", commit: "legacy-commit" },
+    },
+    null,
+    2
+  )}\n`;
+  const legacyIndexPath = resolve(workspace.manifestPath, "index.json");
+  writeFileSync(legacyIndexPath, legacyIndex);
+
+  const legacyManifestStatus = io();
+  assert.equal(
+    await runCli(
+      ["status", target, "--json"],
+      legacyManifestStatus.adapter,
+      { TIELINE_CONFIG_HOME: configHome }
+    ),
+    0
+  );
+  const parsedLegacyManifestStatus = JSON.parse(
+    legacyManifestStatus.output.join("")
+  ) as {
+    contract: { manifest_exists: boolean };
+    next_action: string;
+  };
+  assert.equal(parsedLegacyManifestStatus.contract.manifest_exists, false);
+  assert.match(
+    parsedLegacyManifestStatus.next_action,
+    /tieline contract compile \./
+  );
+  assert.equal(readFileSync(legacyIndexPath, "utf8"), legacyIndex);
+
   const environmentStatus = io();
   assert.equal(
     await runCli(["status", target, "--json"], environmentStatus.adapter, {

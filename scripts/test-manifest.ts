@@ -16,6 +16,7 @@ import {
   compileContractManifest,
   compileContractManifestWithSources,
   ContractManifestError,
+  manifestDigest,
   readContractManifest,
   serializeContractManifest,
   writeContractManifest,
@@ -119,7 +120,6 @@ function compile(root: string): CompiledContractManifest {
   return compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "tieline",
-    commit: "abc123",
   });
 }
 
@@ -135,7 +135,6 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
     const options = {
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
     };
     const first = compileContractManifest(options);
     const second = compileContractManifest(options);
@@ -166,13 +165,26 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
   }
 });
 
+await test("keeps the shared manifest index free of runtime revisions", () => {
+  const root = fixture();
+  try {
+    const directory = resolve(root, ".tieline/manifest");
+    writeContractManifest(directory, compile(root));
+    assert.deepEqual(
+      JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
+      { schema_version: 2, repository: { key: "tieline" } }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 await test("changes contract semantics when only link provenance changes", () => {
   const root = fixture();
   try {
     const before = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
     });
     const specPath = resolve(root, ".tieline/spec/contract.yaml");
     const authored = readFileSync(specPath, "utf8");
@@ -186,7 +198,6 @@ await test("changes contract semantics when only link provenance changes", () =>
     const after = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
     });
     const beforeStory = before.capabilities[0]!.stories[0]!;
     const afterStory = after.capabilities[0]!.stories[0]!;
@@ -210,7 +221,6 @@ await test("changes only the linked artifact basis when repository content chang
     const options = {
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
     };
     const before = compileContractManifest(options);
     writeFileSync(resolve(root, "scripts/contract.test.ts"), "assert(contract && current);\n");
@@ -226,6 +236,11 @@ await test("changes only the linked artifact basis when repository content chang
       (link) => link.target.kind === "test"
     );
     assert.notEqual(beforeTestLink!.reviewed_content_hash, afterTestLink!.reviewed_content_hash);
+    assert.notEqual(
+      manifestDigest(before),
+      manifestDigest(after),
+      "the assembled manifest digest changes with reviewed content"
+    );
     assert.deepEqual(
       beforeCriterion.links.map((link) => [link.relation, link.target]),
       afterCriterion.links.map((link) => [link.relation, link.target]),
@@ -243,7 +258,6 @@ await test("keeps reviewed hashes while measuring current artifact content for s
     const reviewed = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "reviewed-commit",
     });
     const criterion =
       reviewed.capabilities[0]!.stories[0]!.acceptance_criteria[0]!;
@@ -268,6 +282,11 @@ await test("keeps reviewed hashes while measuring current artifact content for s
       serializeContractManifest(measured),
       /current_content_hash/,
       "runtime freshness measurements do not alter the reviewed manifest"
+    );
+    assert.equal(
+      manifestDigest(measured),
+      manifestDigest(reviewed),
+      "runtime-only current hashes do not change reviewed manifest identity"
     );
 
     rmSync(resolve(root, "scripts/contract.test.ts"));
@@ -356,8 +375,8 @@ await test("round-trips a compiled manifest through the directory it writes", ()
     assert.deepEqual(
       JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
       {
-        schema_version: 1,
-        repository: { key: "tieline", commit: "abc123" },
+        schema_version: 2,
+        repository: { key: "tieline" },
       }
     );
 
@@ -472,6 +491,35 @@ await test("reports a missing manifest directory or index instead of reading a p
   }
 });
 
+await test("rejects the legacy manifest index shape", () => {
+  const root = fixture();
+  try {
+    const directory = manifestDirectory(root);
+    writeContractManifest(directory, compile(root));
+    writeFileSync(
+      resolve(directory, "index.json"),
+      `${JSON.stringify(
+        {
+          schema_version: 1,
+          repository: { key: "tieline", commit: "legacy-commit" },
+        },
+        null,
+        2
+      )}\n`
+    );
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /schema_version/);
+        return true;
+      }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 await test("rejects a manifest file whose name disagrees with the capability it holds", () => {
   const root = fixture();
   try {
@@ -537,7 +585,6 @@ await test("rejects a missing artifact in the repository being compiled", () => 
         compileContractManifest({
           repositoryRoot: root,
           repositoryKey: "tieline",
-          commit: "abc123",
         }),
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
@@ -557,7 +604,6 @@ await test("omits the reviewed hash of an unhashable artifact when asked to tole
     const manifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
       onUnhashableArtifact: "omit_hash",
     });
 
@@ -594,7 +640,6 @@ await test("tolerates an artifact that is a directory rather than a file", () =>
     const manifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
       onUnhashableArtifact: "omit_hash",
     });
     assert.equal(
@@ -606,7 +651,6 @@ await test("tolerates an artifact that is a directory rather than a file", () =>
         compileContractManifest({
           repositoryRoot: root,
           repositoryKey: "tieline",
-          commit: "abc123",
         }),
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
@@ -626,7 +670,6 @@ await test("emits stable ordering independent of YAML file discovery order", () 
     const manifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",
-      commit: "abc123",
     });
     assert.deepEqual(
       manifest.capabilities.map((capability) => capability.stable_id),

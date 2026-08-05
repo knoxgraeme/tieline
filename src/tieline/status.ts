@@ -1,8 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
 import type { EmbeddingProvider } from "../config.js";
 import { loadAcceptedContract } from "../contract/load.js";
-import { CONTRACT_MANIFEST_INDEX_FILE } from "../contract/manifest.js";
+import { readContractManifest } from "../contract/manifest.js";
 import {
   findTielineWorkspace,
   type TielineWorkspace,
@@ -41,6 +40,15 @@ function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());
 }
 
+function readableManifest(directory: string): boolean {
+  try {
+    readContractManifest(directory);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getTielineStatus(
   workspace: TielineWorkspace,
   env: NodeJS.ProcessEnv = process.env
@@ -73,11 +81,11 @@ export function getTielineStatus(
   const acceptanceCriteria = stories.flatMap(
     (story) => story.acceptance_criteria
   );
-  // The manifest is a directory, so its index is what says a manifest was
-  // actually compiled; an empty directory has nothing in it to read.
-  const manifestExists = existsSync(
-    resolve(workspace.manifestPath, CONTRACT_MANIFEST_INDEX_FILE)
-  );
+  // Presence alone is not availability: an interrupted compile, malformed
+  // shard, or legacy schema cannot answer manifest-backed reads. Status stays
+  // recoverable and sends each of those states through the existing compile
+  // action instead of throwing.
+  const manifestExists = readableManifest(workspace.manifestPath);
   const nextAction =
     stories.length === 0
       ? "Connect the MCP template, then invoke the `tieline_author` prompt (or use the bundled /tieline-author skill) to onboard the first Story and AC."

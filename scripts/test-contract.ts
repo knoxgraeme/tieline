@@ -322,7 +322,6 @@ capability:
       compileContractManifest({
         repositoryRoot: root,
         repositoryKey: "tieline",
-        commit: "coverage-test",
       }),
       {
         repositoryRoot: root,
@@ -364,8 +363,8 @@ await test("does not describe an empty source scope as 100% covered", () => {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const coverage = computeRepositoryMappingCoverage(
       {
-        schema_version: 1,
-        repository: { key: "tieline", commit: "empty" },
+        schema_version: 2,
+        repository: { key: "tieline" },
         inputs: [],
         capabilities: [],
       },

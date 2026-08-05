@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a2a3924107310dcc18bb7f9fe9f59d0c1322418105104a45610a695d7cb2d755",
+                "reviewed_content_hash": "43316d7cf3e3fe7dc5f72be0a19b5ac4800d3a21134f40e833a752481157fe32",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
