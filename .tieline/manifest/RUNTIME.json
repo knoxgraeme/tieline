@@ -1,0 +1,497 @@
+{
+  "capability": {
+    "aliases": [],
+    "applies_to": null,
+    "contract_hash": "fb915b8899c3c57209607be631ea00a5765a8a7f5b58c7e7295fbd0b891f7e56",
+    "description": "Tieline initializes, serves, and composes its contract capabilities without leaking privileged writers into read paths.",
+    "name": "Portable and safe operation",
+    "stable_id": "RUNTIME",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "5099992110380ea506cd6cee93f5974344603ef186292e7102dad4a605183add",
+            "criterion": "Tieline must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "9f2abc973c16b6028c603ae32bd01e0e33e7333022ab8df4ce5af811ce8cb05d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "9cb0dd77df7ecbc802670a5143206b94d3a1db8f3f3f054f0aabe7e6f80576aa",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/init.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "8c3113f8ac4d302ae35edc88a662127cf2aa42c20cdb196385c269c20533cd3a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/status.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "c3c8153279cbf890b9487d8d549cc783313dc8bef3685fca9014701b3e0731b3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/workspace.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "e9b7b7f85519ebd06ac00c994e9378aaa445085a8fdd4a341eb366b3356c38f1",
+            "criterion": "Tieline must report workspace initialization, clone-local setup, and database-backed capability configuration as separate states.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "6453abe79100aad8774a580b49d3684b890a9e03d14851e0e7814458bd6d5b9f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/profile.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "8124daf81c62a307a05f0b381795e92d8493fe4f637848192aaab37f8b377cc3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/setup.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "8c3113f8ac4d302ae35edc88a662127cf2aa42c20cdb196385c269c20533cd3a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/status.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "A tracked config cannot prove that another clone has credentials or semantic matching available.",
+            "scenarios": [],
+            "stable_id": "RUNTIME-001-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "ff24de9f97f85b3adef0e5cfb207cd736ee501b218896fa841044e1fd41d705a",
+            "criterion": "Tieline must surface detected source roots and preflight warnings while leaving the specification empty until repository-specific semantic onboarding.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "9f2abc973c16b6028c603ae32bd01e0e33e7333022ab8df4ce5af811ce8cb05d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "9cb0dd77df7ecbc802670a5143206b94d3a1db8f3f3f054f0aabe7e6f80576aa",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/init.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-001-AC3",
+            "supersedes": null
+          }
+        ],
+        "actor": "maintainer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "the repository remains shareable without committing secrets",
+        "contract_hash": "29bf3c3d5c23cd07a9150ff2314a3181805b838d6eb5cd55c3ca43a1d1707cd4",
+        "goal": "configure contract roots and private runtime credentials",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "RUNTIME-001",
+        "supersedes": null,
+        "title": "Initialize a portable Tieline workspace"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "51b8ba56c3717a544f018fa4110ddfea39dbb904d1af6e2f996408ab2820b822",
+            "criterion": "Tieline must compose read, evidence-write, and planning-write capabilities without exposing repository synchronization through MCP tools.",
+            "links": [
+              {
+                "relation": "enforces",
+                "reviewed_content_hash": "c6182fb317a886f75fd3f68c54f7d8ba8276cfb9c8be6382f83510cd8929e34a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/postgres-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "enforces",
+                "reviewed_content_hash": "b0eb2f3b599e78aed08bf888a4c077cf874fd2b2510ba55faab7345f2da7fbba",
+                "target": {
+                  "kind": "code",
+                  "path": "src/default-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "enforces",
+                "reviewed_content_hash": "fd605375737ec2aa2387403ec392230bc9246092535c77c7e5897ecdc77215db",
+                "target": {
+                  "kind": "code",
+                  "path": "src/domain/knowledge-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "enforces",
+                "reviewed_content_hash": "41cba159faded83d20a635574f94e099767be29b70059f3c9ef4e1b0f24ba7dc",
+                "target": {
+                  "kind": "code",
+                  "path": "src/store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "bad9efc78294bf27618ec982da3b940382dae6d29f320c4f734aebf60b2ba118",
+                "target": {
+                  "kind": "code",
+                  "path": "src/server.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "1466752fe7326878746de366c6de4e7d70a7a2209a37b8b38858c5b9138befff",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/shared.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/smoke.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-002-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "96db593fe00db001785d183336e14c7e24cff9b1a944e39ac0f1cfc4ff0c30a8",
+            "criterion": "Tieline must serve stdio by default and require explicit gateway configuration for non-loopback HTTP.",
+            "links": [
+              {
+                "relation": "enforces",
+                "reviewed_content_hash": "f8071433f0755226afdf3ad8ef2ad0aa2831cb7a32bc583f778c09bd0269a7c0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/config.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "1f479c20a7c785e83b58440e9fdd4a9c616d9128fa28ab6980dde664a2980c77",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/serve.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "6ff8930f8bce5c9621a558bb89a160f408228b7912c741038dd2615a57217e76",
+                "target": {
+                  "kind": "code",
+                  "path": "src/http.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "f47ad8b3b82aefd57beaf218e8274ba27f592d513d391b541f709e6807164531",
+                "target": {
+                  "kind": "code",
+                  "path": "src/index.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "153cac6da711d91437b62f1a6d12db8ef2c64f9ea41086341cf3ac0bddbb1f41",
+                "target": {
+                  "kind": "code",
+                  "path": "src/loadEnv.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "469c89ce5d7f97d333ac69396e60c20630d54d362b20a9bf6b7b41c4bc1e3cce",
+                "target": {
+                  "kind": "code",
+                  "path": "src/stdio.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "0451f7da677c969573d5e0b444190b00807d1794ae3126123a3f5f9f79bea1e1",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-http.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-002-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "81c3603e5c5fdd89ac8ce3f5bf51d4085a60756eb3b1290394e460502e842274",
+            "criterion": "Tieline must provide a loud in-memory test seam for contract and tool verification without weakening production adapters.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "0aecc59b02491316c83f90a82da9358a6969464d4b0386d08676ee0251e660da",
+                "target": {
+                  "kind": "code",
+                  "path": "src/domain/testing/fake-knowledge-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "b871959e64279007e2fac1ebe5a603c978f1f6361128d6c880f7e3e7f204efd2",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-read.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-002-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "568094a6297e4c82d0081dbeca76bb8d8b2b21a6f4dd062282b75bdb7fd4f709",
+            "criterion": "Tieline must expose a semantic-authoring prompt that uses configured repository context and falls back to disclosed local duplicate checks when database-backed matching is unavailable.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "84b74d5650baad503a10fb6d223e1186a015daf6af9ccb9a4e7a707043c7dfeb",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline-author/SKILL.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "579c7e6f6496dcc5317b1c2a1f5c24124bf3c9352753241051334cbcc08534c7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/prompts.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "bad9efc78294bf27618ec982da3b940382dae6d29f320c4f734aebf60b2ba118",
+                "target": {
+                  "kind": "code",
+                  "path": "src/server.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "6885fab7921a42fac7fc96371518065f12fff674d30af6488a5d0858225d2328",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/smoke.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-002-AC4",
+            "supersedes": null
+          }
+        ],
+        "actor": "agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "tool capabilities match their database authority",
+        "contract_hash": "e7a31a4b0e8f2e96b21b273e63111b8fce0148f8e54488a94d33b8bede953c73",
+        "goal": "use a focused contract, search, evidence, and planning interface",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "RUNTIME-002",
+        "supersedes": null,
+        "title": "Serve lifecycle-aware tools through MCP"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "bc03344cdc305074401567d58ffeaa3c06326c0b971274ea2e6fb9a9ccb76e1c",
+            "criterion": "Tieline must run the clean lifecycle integration suite against a disposable baseline database.",
+            "links": [
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "6e5f17dc0c9072307dda57cf1cdb696ee351383b0ccfa9f13ec86c6a651630ed",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-lifecycle.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "9133932de363ec718bccc57763811a7e812fff735de1a1d8c1f17d8797e885af",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-003-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "maintainer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "clean installations prove the shared contract end to end",
+        "contract_hash": "e61580ac04372af70f79c67df0e40603727b5d651470209beabed15f40741b54",
+        "goal": "exercise evidence, planning, authority transfer, profiles, and the baseline together",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "RUNTIME-003",
+        "supersedes": null,
+        "title": "Verify the lifecycle as one system"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tieline/spec/runtime.yaml",
+    "sha256": "ed095b34bcc16b61abe096f04105fdace46954edd2daf6a620ab77424ad4b7eb"
+  }
+}

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -11,9 +14,12 @@ import { resolve } from "node:path";
 import {
   attachCurrentArtifactHashes,
   compileContractManifest,
+  compileContractManifestWithSources,
   ContractManifestError,
   readContractManifest,
   serializeContractManifest,
+  writeContractManifest,
+  type CompiledContractManifest,
 } from "../src/contract/manifest.js";
 
 let passed = 0;
@@ -81,6 +87,41 @@ capability:
 `
   );
   return root;
+}
+
+/**
+ * A second capability in its own spec file, which is the only way a capability
+ * is ever declared. Sharding is per capability, so most of these tests need
+ * more than one.
+ */
+function addSearchCapability(root: string): void {
+  const original = readFileSync(resolve(root, ".tieline/spec/contract.yaml"), "utf8");
+  writeFileSync(
+    resolve(root, ".tieline/spec/another.yaml"),
+    original
+      .replace("key: CONTRACT\n", "key: SEARCH\n")
+      .replace("key: CONTRACT-001\n", "key: SEARCH-001\n")
+      .replace("key: CONTRACT-001-AC1\n", "key: SEARCH-001-AC1\n")
+      .replace(
+        `      planning_origin:
+        record_id: 00000000-0000-4000-8000-000000000001
+        revision: 2
+`,
+        ""
+      )
+  );
+}
+
+function compile(root: string): CompiledContractManifest {
+  return compileContractManifestWithSources({
+    repositoryRoot: root,
+    repositoryKey: "tieline",
+    commit: "abc123",
+  });
+}
+
+function manifestDirectory(root: string): string {
+  return resolve(root, ".tieline/manifest");
 }
 
 console.log("deterministic contract manifest");
@@ -202,23 +243,221 @@ await test("keeps reviewed hashes while measuring current artifact content for s
 await test("rejects malformed nested content in a reviewed manifest", () => {
   const root = fixture();
   try {
-    const manifest = compileContractManifest({
-      repositoryRoot: root,
-      repositoryKey: "tieline",
-      commit: "reviewed-commit",
-    });
-    manifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links[0]!
-      .reviewed_content_hash = "not-a-content-hash";
-    const path = resolve(root, ".tieline/manifest.json");
-    writeFileSync(path, serializeContractManifest(manifest));
+    const compiled = compile(root);
+    compiled.manifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!
+      .links[0]!.reviewed_content_hash = "not-a-content-hash";
+    const directory = manifestDirectory(root);
+    writeContractManifest(directory, compiled);
     assert.throws(
-      () => readContractManifest(path),
+      () => readContractManifest(directory),
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
-        assert.match(error.message, /reviewed_content_hash|invalid_string/i);
+        assert.match(error.message, /reviewed_content_hash/i);
+        assert.match(error.message, /CONTRACT\.json/);
         return true;
       }
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("round-trips a compiled manifest through the directory it writes", () => {
+  const root = fixture();
+  try {
+    addSearchCapability(root);
+    const compiled = compile(root);
+    const directory = manifestDirectory(root);
+    const written = writeContractManifest(directory, compiled);
+
+    assert.deepEqual(written.files, [
+      "CONTRACT.json",
+      "index.json",
+      "SEARCH.json",
+    ]);
+    assert.deepEqual(written.removed, []);
+
+    // Reading reassembles the same in-memory object, so everything downstream
+    // of the manifest — impact, coverage, sync — cannot tell it was sharded.
+    const read = readContractManifest(directory);
+    assert.deepEqual(read, compiled.manifest);
+    assert.equal(
+      serializeContractManifest(read),
+      serializeContractManifest(compiled.manifest),
+      "sharding does not change what `manifest_current` compares"
+    );
+
+    // The index holds only what belongs to the repository as a whole.
+    assert.deepEqual(
+      JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
+      {
+        schema_version: 1,
+        repository: { key: "tieline", commit: "abc123" },
+      }
+    );
+
+    // Provenance travels with the capability instead of a central input list.
+    const shard = JSON.parse(
+      readFileSync(resolve(directory, "SEARCH.json"), "utf8")
+    );
+    assert.deepEqual(Object.keys(shard).sort(), ["capability", "input"]);
+    assert.equal(shard.input.path, ".tieline/spec/another.yaml");
+    assert.match(shard.input.sha256, /^[a-f0-9]{64}$/);
+    assert.equal(shard.capability.stable_id, "SEARCH");
+    assert.deepEqual(
+      read.inputs.map((input) => input.path),
+      [".tieline/spec/another.yaml", ".tieline/spec/contract.yaml"],
+      "inputs are reassembled from the shards in a stable order"
+    );
+
+    // Writing again produces byte-identical files, which is the property CI
+    // asserts on a branch that changed nothing.
+    const before = readdirSync(directory).map((name) => [
+      name,
+      readFileSync(resolve(directory, name), "utf8"),
+    ]);
+    writeContractManifest(directory, compile(root));
+    assert.deepEqual(
+      readdirSync(directory).map((name) => [
+        name,
+        readFileSync(resolve(directory, name), "utf8"),
+      ]),
+      before
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("removes the file of a capability the contract no longer declares", () => {
+  const root = fixture();
+  try {
+    addSearchCapability(root);
+    const directory = manifestDirectory(root);
+    writeContractManifest(directory, compile(root));
+
+    // Nothing else in the directory is the manifest's to delete.
+    writeFileSync(resolve(directory, "notes.txt"), "kept\n");
+    mkdirSync(resolve(directory, "nested"), { recursive: true });
+    writeFileSync(resolve(directory, "nested/SEARCH.json"), "{}\n");
+
+    rmSync(resolve(root, ".tieline/spec/another.yaml"));
+    const rewritten = writeContractManifest(directory, compile(root));
+
+    assert.deepEqual(rewritten.removed, ["SEARCH.json"]);
+    assert.deepEqual(readdirSync(directory).sort(), [
+      "CONTRACT.json",
+      "index.json",
+      "nested",
+      "notes.txt",
+    ]);
+    assert.ok(existsSync(resolve(directory, "nested/SEARCH.json")));
+    assert.deepEqual(
+      readContractManifest(directory).capabilities.map(
+        (capability) => capability.stable_id
+      ),
+      ["CONTRACT"],
+      "a deleted capability leaves nothing behind to read"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("reports a missing manifest directory or index instead of reading a partial contract", () => {
+  const root = fixture();
+  try {
+    const directory = manifestDirectory(root);
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /manifest directory does not exist/);
+        assert.match(error.message, /contract compile/);
+        return true;
+      }
+    );
+
+    writeContractManifest(directory, compile(root));
+    rmSync(resolve(directory, "index.json"));
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /index\.json' does not exist/);
+        assert.match(error.message, /contract compile/);
+        return true;
+      }
+    );
+
+    // An index with nothing beside it is a half-deleted directory, never an
+    // empty contract: a spec directory with no YAML cannot compile at all.
+    writeContractManifest(directory, compile(root));
+    rmSync(resolve(directory, "CONTRACT.json"));
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /index but no capabilities/);
+        return true;
+      }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("rejects a manifest file whose name disagrees with the capability it holds", () => {
+  const root = fixture();
+  try {
+    const directory = manifestDirectory(root);
+    writeContractManifest(directory, compile(root));
+    renameSync(
+      resolve(directory, "CONTRACT.json"),
+      resolve(directory, "RENAMED.json")
+    );
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /RENAMED\.json/);
+        assert.match(error.message, /'CONTRACT'/);
+        assert.match(error.message, /CONTRACT\.json/);
+        return true;
+      }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("refuses to build a manifest file name that escapes the manifest directory", () => {
+  const root = fixture();
+  try {
+    // The document schema already restricts stable IDs to characters that name
+    // a file safely. This is the second lock: a manifest handed a stable ID
+    // that would escape must fail rather than write outside the directory.
+    const compiled = compile(root);
+    const capability = compiled.manifest.capabilities[0]!;
+    const escaping: CompiledContractManifest = {
+      manifest: {
+        ...compiled.manifest,
+        capabilities: [{ ...capability, stable_id: "../escaped" }],
+      },
+      sources: new Map([
+        ["../escaped", compiled.sources.get(capability.stable_id)!],
+      ]),
+    };
+    const directory = manifestDirectory(root);
+    assert.throws(
+      () => writeContractManifest(directory, escaping),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /cannot name a manifest file/);
+        return true;
+      }
+    );
+    assert.equal(existsSync(resolve(root, ".tieline/escaped.json")), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -318,21 +557,7 @@ await test("tolerates an artifact that is a directory rather than a file", () =>
 await test("emits stable ordering independent of YAML file discovery order", () => {
   const root = fixture();
   try {
-    const original = readFileSync(resolve(root, ".tieline/spec/contract.yaml"), "utf8");
-    writeFileSync(
-      resolve(root, ".tieline/spec/another.yaml"),
-      original
-        .replace("key: CONTRACT\n", "key: SEARCH\n")
-        .replace("key: CONTRACT-001\n", "key: SEARCH-001\n")
-        .replace("key: CONTRACT-001-AC1\n", "key: SEARCH-001-AC1\n")
-        .replace(
-          `      planning_origin:
-        record_id: 00000000-0000-4000-8000-000000000001
-        revision: 2
-`,
-          ""
-        )
-    );
+    addSearchCapability(root);
     const manifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey: "tieline",

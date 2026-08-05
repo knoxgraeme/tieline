@@ -10,9 +10,11 @@ import {
 } from "../adapters/postgres/connections.js";
 import {
   attachCurrentArtifactHashes,
-  compileContractManifest,
+  compileContractManifestWithSources,
   readContractManifest,
-  serializeContractManifest,
+  writeContractManifest,
+  CONTRACT_MANIFEST_INDEX_FILE,
+  type CompiledContractManifest,
   type ContractManifest,
 } from "../contract/manifest.js";
 import {
@@ -115,7 +117,9 @@ function resolveContractCommand(
       : resolve(repositoryRoot, options.output)
     : resolve(
         repositoryRoot,
-        action === "review" ? ".tieline/review.html" : ".tieline/manifest.json"
+        // `review` writes one HTML page; everything else reads or writes the
+        // manifest, which is a directory of per-capability files.
+        action === "review" ? ".tieline/review.html" : ".tieline/manifest"
       );
   return {
     action,
@@ -148,12 +152,14 @@ function changesSince(repositoryRoot: string, base: string) {
  * never an error here.
  */
 function readReviewedManifest(
-  path: string,
+  directory: string,
   repositoryKey: string
 ): ContractManifest | undefined {
-  if (!existsSync(path)) return undefined;
+  if (!existsSync(resolve(directory, CONTRACT_MANIFEST_INDEX_FILE))) {
+    return undefined;
+  }
   try {
-    const reviewed = readContractManifest(path);
+    const reviewed = readContractManifest(directory);
     return reviewed.repository.key === repositoryKey ? reviewed : undefined;
   } catch {
     return undefined;
@@ -481,13 +487,13 @@ export async function runContractCommand(
    * advisory actions are read-only reports about drift, and a branch that
    * deleted or renamed a linked file is precisely the drift they exist to
    * describe — so they tolerate an unhashable artifact instead of aborting.
-   * Neither of them serializes the manifest, so a tolerant compilation cannot
-   * reach `.tieline/manifest.json`.
+   * Neither of them writes the manifest, so a tolerant compilation cannot
+   * reach `.tieline/manifest/`.
    */
   const compileManifest = (
     onUnhashableArtifact: "throw" | "omit_hash"
-  ): ContractManifest =>
-    compileContractManifest({
+  ): CompiledContractManifest =>
+    compileContractManifestWithSources({
       repositoryRoot: parsed.repositoryRoot,
       repositoryKey: parsed.repositoryKey,
       commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
@@ -496,7 +502,7 @@ export async function runContractCommand(
     });
 
   if (parsed.action === "link-review") {
-    const manifest = compileManifest("omit_hash");
+    const { manifest } = compileManifest("omit_hash");
     const report = analyzeLinkPlausibility({
       repositoryRoot: parsed.repositoryRoot,
       manifest,
@@ -522,7 +528,7 @@ export async function runContractCommand(
         "Reconciliation compares the working tree against a base ref. Pass --base <ref>."
       );
     }
-    const manifest = compileManifest("omit_hash");
+    const { manifest } = compileManifest("omit_hash");
     const report = analyzeContractReconciliation({
       repositoryRoot: parsed.repositoryRoot,
       manifest,
@@ -544,7 +550,8 @@ export async function runContractCommand(
     throw new Error(`Unsupported contract action: ${parsed.action}`);
   }
 
-  const manifest = compileManifest("throw");
+  const compiled = compileManifest("throw");
+  const manifest = compiled.manifest;
 
   // `manifest` was compiled from the working tree, so its reviewed hashes are
   // the hashes it just measured. The committed manifest is the only record of
@@ -563,12 +570,15 @@ export async function runContractCommand(
   });
 
   if (parsed.action === "compile") {
-    mkdirSync(dirname(parsed.outputPath), { recursive: true });
-    const serialized = serializeContractManifest(manifest);
-    writeFileSync(parsed.outputPath, serialized);
+    const written = writeContractManifest(parsed.outputPath, compiled);
     const response = {
       output: parsed.outputPath,
-      bytes: Buffer.byteLength(serialized),
+      files: written.files,
+      // Files of capabilities the contract no longer declares. Reported because
+      // deleting is the one thing compilation does that a maintainer cannot see
+      // by reading the output.
+      removed_files: written.removed,
+      bytes: written.bytes,
       repository: manifest.repository,
       ...coverage(manifest),
       mapping_coverage: mappingCoverage,
@@ -576,7 +586,11 @@ export async function runContractCommand(
     io.write(
       parsed.json
         ? `${JSON.stringify(response, null, 2)}\n`
-        : `Compiled ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath} (${response.bytes} bytes).\n`
+        : `Compiled ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath} (${response.files.length} files, ${response.bytes} bytes)${
+            written.removed.length
+              ? `; removed ${written.removed.length} file(s) for capabilities the contract no longer declares: ${written.removed.join(", ")}`
+              : ""
+          }.\n`
     );
     return 0;
   }

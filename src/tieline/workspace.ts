@@ -6,7 +6,11 @@ import { selectorConfigSchema } from "../config.js";
 export const TIELINE_DIRECTORY = ".tieline";
 export const TIELINE_CONFIG_FILE = "config.json";
 export const TIELINE_SPEC_DIRECTORY = "spec";
-export const TIELINE_MANIFEST_FILE = "manifest.json";
+/**
+ * The compiled manifest is a directory, not a file: an index for the
+ * repository-level fields and one file per capability.
+ */
+export const TIELINE_MANIFEST_DIRECTORY = "manifest";
 export const TIELINE_MCP_FILE = "mcp.json";
 
 const contextSourceSchema = z
@@ -76,6 +80,7 @@ export interface TielineWorkspace {
   configPath: string;
   config: TielineConfig;
   specDirectoryPath: string;
+  /** Directory holding the compiled manifest, not a single file. */
   manifestPath: string;
   mcpConfigPath: string;
 }

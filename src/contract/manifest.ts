@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
 import {
+  mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   statSync,
+  unlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
@@ -96,6 +100,66 @@ export interface ContractManifest {
   };
   inputs: ManifestInput[];
   capabilities: ManifestCapability[];
+}
+
+/**
+ * The manifest is stored as a directory, not a file: `index.json` for the
+ * fields that belong to the repository as a whole, and one file per capability
+ * named after its stable ID.
+ *
+ * The boundary is the one the specification already has — the accepted document
+ * schema takes a single `capability`, so a capability is exactly one spec file —
+ * and it is the boundary along which branches actually diverge. A single
+ * generated file made two branches that touched unrelated capabilities conflict
+ * with each other, and worse, let git line-merge two disjoint edits into a
+ * manifest that parses but is not what the compiler would emit.
+ */
+export const CONTRACT_MANIFEST_INDEX_FILE = "index.json";
+
+const SHARD_EXTENSION = ".json";
+
+/**
+ * Capability stable IDs that can name a file. `stableKeySchema` in the document
+ * schema is already this narrow, so this rejects nothing a valid contract
+ * contains; it is here so a manifest file name can never be built from a value
+ * that escapes the manifest directory.
+ */
+const SHARD_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/**
+ * One capability plus the spec file it was compiled from.
+ *
+ * Provenance travels with the capability rather than in the index, so adding or
+ * removing a capability touches only its own file.
+ */
+export interface ContractManifestShard {
+  input: ManifestInput;
+  capability: ManifestCapability;
+}
+
+/**
+ * A compiled manifest together with the spec file behind each capability.
+ *
+ * `ContractManifest` sorts `inputs` by path and `capabilities` by stable ID
+ * independently, so the pairing between them does not survive in the manifest
+ * itself. Writing needs it — every shard records its own source file — so
+ * compilation hands it out here instead of widening the manifest type that
+ * `check`, `sync`, and the coverage reports all consume.
+ */
+export interface CompiledContractManifest {
+  manifest: ContractManifest;
+  /** Spec file each capability came from, keyed by capability stable ID. */
+  sources: ReadonlyMap<string, ManifestInput>;
+}
+
+/** What a write did to the manifest directory. */
+export interface WrittenContractManifest {
+  directory: string;
+  /** File names written, relative to the manifest directory. */
+  files: string[];
+  /** Shard file names deleted because the contract no longer declares them. */
+  removed: string[];
+  bytes: number;
 }
 
 /**
@@ -308,7 +372,25 @@ const manifestStorySchema = z
     contract_hash: hashSchema,
   })
   .strict();
-const contractManifestSchema = z
+const manifestCapabilitySchema = z
+  .object({
+    stable_id: stableIdSchema,
+    name: nonEmptyTextSchema,
+    description: nonEmptyTextSchema,
+    aliases: z.array(nonEmptyTextSchema),
+    applies_to: applicabilitySchema.nullable(),
+    supersedes: stableIdSchema.nullable(),
+    stories: z.array(manifestStorySchema),
+    contract_hash: hashSchema,
+  })
+  .strict();
+const manifestInputSchema = z
+  .object({
+    path: nonEmptyTextSchema,
+    sha256: hashSchema,
+  })
+  .strict();
+const contractManifestIndexSchema = z
   .object({
     schema_version: z.literal(CONTRACT_MANIFEST_VERSION),
     repository: z
@@ -317,43 +399,260 @@ const contractManifestSchema = z
         commit: nonEmptyTextSchema,
       })
       .strict(),
-    inputs: z.array(
-      z
-        .object({
-          path: nonEmptyTextSchema,
-          sha256: hashSchema,
-        })
-        .strict()
-    ),
-    capabilities: z.array(
-      z
-        .object({
-          stable_id: stableIdSchema,
-          name: nonEmptyTextSchema,
-          description: nonEmptyTextSchema,
-          aliases: z.array(nonEmptyTextSchema),
-          applies_to: applicabilitySchema.nullable(),
-          supersedes: stableIdSchema.nullable(),
-          stories: z.array(manifestStorySchema),
-          contract_hash: hashSchema,
-        })
-        .strict()
-    ),
+  })
+  .strict();
+const contractManifestShardSchema = z
+  .object({
+    input: manifestInputSchema,
+    capability: manifestCapabilitySchema,
   })
   .strict();
 
-export function readContractManifest(path: string): ContractManifest {
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function errorCode(error: unknown): string | undefined {
+  return error instanceof Error && "code" in error
+    ? String((error as NodeJS.ErrnoException).code)
+    : undefined;
+}
+
+function parseManifestJson(path: string, description: string): unknown {
+  let raw: string;
   try {
-    return contractManifestSchema.parse(
-      JSON.parse(readFileSync(path, "utf8"))
-    ) as ContractManifest;
+    raw = readFileSync(path, "utf8");
   } catch (error) {
+    if (errorCode(error) === "ENOENT") {
+      throw new ContractManifestError(
+        `The contract manifest is incomplete: ${description} '${path}' does not exist. Run 'tieline contract compile .' to regenerate it.`
+      );
+    }
     throw new ContractManifestError(
-      `Cannot read reviewed contract manifest '${path}': ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `Cannot read ${description} '${path}': ${describeError(error)}`
     );
   }
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new ContractManifestError(
+      `Cannot parse ${description} '${path}': ${describeError(error)}. Run 'tieline contract compile .' to regenerate it.`
+    );
+  }
+}
+
+const REPORTED_ISSUES = 8;
+
+/**
+ * Every failing field, one per entry.
+ *
+ * Link targets are a union, and a union reports nothing but "Invalid input" at
+ * the top: the field that actually failed is inside the branch errors. Those
+ * are flattened in, because "links.0 is invalid" does not tell a maintainer
+ * which value to go and fix.
+ */
+function describeIssues(issues: z.ZodIssue[]): string[] {
+  return issues.flatMap((issue) => {
+    if (issue.code === z.ZodIssueCode.invalid_union) {
+      return issue.unionErrors.flatMap((error) => describeIssues(error.issues));
+    }
+    return [`${issue.path.join(".") || "(root)"}: ${issue.message}`];
+  });
+}
+
+function parseManifestPart<T>(
+  schema: z.ZodType<T>,
+  value: unknown,
+  description: string,
+  path: string
+): T {
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  const reported = [...new Set(describeIssues(result.error.issues))];
+  const issues = [
+    ...reported.slice(0, REPORTED_ISSUES),
+    ...(reported.length > REPORTED_ISSUES
+      ? [`(and ${reported.length - REPORTED_ISSUES} more)`]
+      : []),
+  ].join("; ");
+  throw new ContractManifestError(
+    `${description} '${path}' is not a valid contract manifest part: ${issues}`
+  );
+}
+
+/** The file a capability belongs in, or a refusal to name one at all. */
+function shardFileName(stableId: string): string {
+  if (!SHARD_NAME_PATTERN.test(stableId)) {
+    throw new ContractManifestError(
+      `Capability stable ID '${stableId}' cannot name a manifest file. Stable IDs must start with a letter or digit and contain only letters, digits, '.', '_', and '-'.`
+    );
+  }
+  const name = `${stableId}${SHARD_EXTENSION}`;
+  if (name === CONTRACT_MANIFEST_INDEX_FILE) {
+    throw new ContractManifestError(
+      `Capability stable ID '${stableId}' collides with the manifest index file '${CONTRACT_MANIFEST_INDEX_FILE}'. Rename the capability.`
+    );
+  }
+  return name;
+}
+
+function manifestDirectoryEntries(directory: string): string[] {
+  try {
+    return readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(SHARD_EXTENSION))
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right));
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === "ENOENT") {
+      throw new ContractManifestError(
+        `No compiled contract manifest at '${directory}': the manifest directory does not exist. Run 'tieline contract compile .' to generate it.`
+      );
+    }
+    if (code === "ENOTDIR") {
+      throw new ContractManifestError(
+        `Contract manifest path '${directory}' is a file. Tieline stores the manifest as a directory holding '${CONTRACT_MANIFEST_INDEX_FILE}' and one file per capability. Remove the file and run 'tieline contract compile .'.`
+      );
+    }
+    throw new ContractManifestError(
+      `Cannot read the contract manifest directory '${directory}': ${describeError(error)}`
+    );
+  }
+}
+
+/**
+ * Reassembles the manifest a compilation wrote. The result is the same object
+ * `compileContractManifest` produces for the same inputs — capabilities sorted
+ * by stable ID, inputs sorted by path — so serializing it stays deterministic
+ * and `manifest_current` keeps comparing like with like.
+ */
+export function readContractManifest(directory: string): ContractManifest {
+  const root = resolve(directory);
+  const names = manifestDirectoryEntries(root);
+  const indexPath = resolve(root, CONTRACT_MANIFEST_INDEX_FILE);
+  const index = parseManifestPart(
+    contractManifestIndexSchema,
+    parseManifestJson(indexPath, "the contract manifest index"),
+    "The contract manifest index",
+    indexPath
+  );
+
+  const inputs: ManifestInput[] = [];
+  const capabilities: ManifestCapability[] = [];
+  const claimedInputs = new Map<string, string>();
+  for (const name of names) {
+    if (name === CONTRACT_MANIFEST_INDEX_FILE) continue;
+    const path = resolve(root, name);
+    const shard = parseManifestPart(
+      contractManifestShardSchema,
+      parseManifestJson(path, "a contract manifest capability"),
+      "The contract manifest capability",
+      path
+    ) as ContractManifestShard;
+    // A file named after something other than the capability it holds means the
+    // directory no longer says what it appears to say — a hand edit, a bad
+    // merge, or a rename. Reading it would silently accept a capability under
+    // the wrong identity.
+    const expected = shardFileName(shard.capability.stable_id);
+    if (name !== expected) {
+      throw new ContractManifestError(
+        `Contract manifest file '${path}' holds capability '${shard.capability.stable_id}', which belongs in '${expected}'. Run 'tieline contract compile .' to regenerate the manifest.`
+      );
+    }
+    const claimedBy = claimedInputs.get(shard.input.path);
+    if (claimedBy) {
+      throw new ContractManifestError(
+        `Contract manifest capabilities '${claimedBy}' and '${shard.capability.stable_id}' both record spec file '${shard.input.path}'. Each spec file declares exactly one capability. Run 'tieline contract compile .' to regenerate the manifest.`
+      );
+    }
+    claimedInputs.set(shard.input.path, shard.capability.stable_id);
+    inputs.push(shard.input);
+    capabilities.push(shard.capability);
+  }
+  // A compilation always writes at least one capability, because a spec
+  // directory with no YAML files fails to load. An index with no capabilities
+  // beside it is therefore a half-deleted directory, and reading it as an empty
+  // contract would quietly tell every caller the repository accepts nothing.
+  if (capabilities.length === 0) {
+    throw new ContractManifestError(
+      `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`
+    );
+  }
+  return {
+    schema_version: index.schema_version,
+    repository: index.repository,
+    inputs: inputs.sort((left, right) => left.path.localeCompare(right.path)),
+    capabilities: capabilities.sort((left, right) =>
+      left.stable_id.localeCompare(right.stable_id)
+    ),
+  };
+}
+
+/**
+ * Writes the manifest directory and returns what it did.
+ *
+ * Compilation stays pure; this is the only place manifest files are created,
+ * so the one destructive step — removing the file of a capability the contract
+ * no longer declares — happens where the full new file set is known.
+ */
+export function writeContractManifest(
+  directory: string,
+  compiled: CompiledContractManifest
+): WrittenContractManifest {
+  const root = resolve(directory);
+  const { manifest, sources } = compiled;
+  const contents = new Map<string, string>([
+    [CONTRACT_MANIFEST_INDEX_FILE, serializeManifestIndex(manifest)],
+  ]);
+  for (const capability of manifest.capabilities) {
+    const input = sources.get(capability.stable_id);
+    if (!input) {
+      throw new ContractManifestError(
+        `Capability '${capability.stable_id}' has no source spec file, so its manifest file cannot record where it came from.`
+      );
+    }
+    contents.set(
+      shardFileName(capability.stable_id),
+      serializeManifestShard({ input, capability })
+    );
+  }
+
+  mkdirSync(root, { recursive: true });
+  let bytes = 0;
+  for (const [name, content] of contents) {
+    writeFileSync(resolve(root, name), content);
+    bytes += Buffer.byteLength(content);
+  }
+  return {
+    directory: root,
+    files: [...contents.keys()].sort((left, right) => left.localeCompare(right)),
+    removed: removeStaleShards(root, new Set(contents.keys())),
+    bytes,
+  };
+}
+
+/**
+ * Deletes the files of capabilities this write did not produce.
+ *
+ * Deliberately narrow: only regular files, only directly inside the manifest
+ * directory, only names ending in `.json`, and only names this write did not
+ * just create. Directories are never descended into and never removed, symlinks
+ * are left alone because `isFile` is false for them, and anything with another
+ * extension is not ours to delete.
+ */
+function removeStaleShards(
+  directory: string,
+  written: ReadonlySet<string>
+): string[] {
+  const removed: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (!entry.name.endsWith(SHARD_EXTENSION)) continue;
+    if (written.has(entry.name)) continue;
+    unlinkSync(resolve(directory, entry.name));
+    removed.push(entry.name);
+  }
+  return removed.sort((left, right) => left.localeCompare(right));
 }
 
 export function stableJson(value: unknown): string {
@@ -526,9 +825,14 @@ function compileCapability(
   };
 }
 
-export function compileContractManifest(
+/**
+ * Compiles the manifest and keeps hold of which spec file produced which
+ * capability. Callers that only consume the contract want
+ * `compileContractManifest`; writing the manifest needs this.
+ */
+export function compileContractManifestWithSources(
   options: CompileContractManifestOptions
-): ContractManifest {
+): CompiledContractManifest {
   const root = resolve(options.repositoryRoot);
   const repositoryKey = options.repositoryKey.trim();
   const commit = options.commit.trim();
@@ -536,39 +840,106 @@ export function compileContractManifest(
   if (!commit) throw new ContractManifestError("Repository commit cannot be empty.");
 
   const loaded = loadAcceptedContractWithSources(root, options.specDirectory);
+  // One document per source file, one capability per document: the accepted
+  // document schema takes a single `capability`, and validation rejects the
+  // whole load if any file fails to parse. The manifest layout depends on that
+  // pairing, so a load that ever broke it must say so rather than mislabel
+  // provenance.
+  if (loaded.documents.length !== loaded.sources.length) {
+    throw new ContractManifestError(
+      `Contract loading returned ${loaded.documents.length} capability document(s) for ${loaded.sources.length} spec file(s). The manifest records one capability per spec file and cannot tell which file produced which capability.`
+    );
+  }
   const context: CompileContext = {
     hashes: createArtifactHashResolver(root),
     repositoryKey,
     onUnhashableArtifact: options.onUnhashableArtifact ?? "throw",
   };
+  const sources = new Map<string, ManifestInput>();
+  const capabilities = loaded.documents.map((document, index) => {
+    const capability = compileCapability(context, document.capability);
+    const source = loaded.sources[index]!;
+    const existing = sources.get(capability.stable_id);
+    if (existing) {
+      throw new ContractManifestError(
+        `Capability '${capability.stable_id}' is declared by both '${existing.path}' and '${source.path}'. A capability stable ID identifies exactly one spec file.`
+      );
+    }
+    sources.set(capability.stable_id, {
+      path: source.path,
+      sha256: sha256(source.content),
+    });
+    return capability;
+  });
   return {
-    schema_version: CONTRACT_MANIFEST_VERSION,
-    repository: { key: repositoryKey, commit },
-    inputs: loaded.sources
-      .map((source) => ({ path: source.path, sha256: sha256(source.content) }))
-      .sort((left, right) => left.path.localeCompare(right.path)),
-    capabilities: loaded.documents
-      .map((document) => compileCapability(context, document.capability))
-      .sort((left, right) => left.stable_id.localeCompare(right.stable_id)),
+    manifest: {
+      schema_version: CONTRACT_MANIFEST_VERSION,
+      repository: { key: repositoryKey, commit },
+      inputs: [...sources.values()].sort((left, right) =>
+        left.path.localeCompare(right.path)
+      ),
+      capabilities: capabilities.sort((left, right) =>
+        left.stable_id.localeCompare(right.stable_id)
+      ),
+    },
+    sources,
   };
 }
 
+export function compileContractManifest(
+  options: CompileContractManifestOptions
+): ContractManifest {
+  return compileContractManifestWithSources(options).manifest;
+}
+
+/**
+ * The whole manifest as one JSON document.
+ *
+ * This is not the on-disk form — the manifest is stored per capability — but it
+ * is the canonical rendering of the in-memory object, and `check` compares two
+ * of these to decide whether the committed manifest is current.
+ */
 export function serializeContractManifest(manifest: ContractManifest): string {
-  const reviewedManifest = {
+  return serializeManifestJson({
     ...manifest,
-    capabilities: manifest.capabilities.map((capability) => ({
-      ...capability,
-      stories: capability.stories.map((story) => ({
-        ...story,
-        links: story.links.map(withoutCurrentContentHash),
-        acceptance_criteria: story.acceptance_criteria.map((criterion) => ({
-          ...criterion,
-          links: criterion.links.map(withoutCurrentContentHash),
-        })),
+    capabilities: manifest.capabilities.map(reviewedCapability),
+  });
+}
+
+function serializeManifestIndex(manifest: ContractManifest): string {
+  return serializeManifestJson({
+    schema_version: manifest.schema_version,
+    repository: manifest.repository,
+  });
+}
+
+function serializeManifestShard(shard: ContractManifestShard): string {
+  return serializeManifestJson({
+    input: shard.input,
+    capability: reviewedCapability(shard.capability),
+  });
+}
+
+function serializeManifestJson(value: unknown): string {
+  return `${JSON.stringify(normalizedJson(value), null, 2)}\n`;
+}
+
+/**
+ * A capability without the runtime freshness measurements `sync` attaches, so
+ * reviewed evidence is the only thing that ever reaches disk.
+ */
+function reviewedCapability(capability: ManifestCapability): ManifestCapability {
+  return {
+    ...capability,
+    stories: capability.stories.map((story) => ({
+      ...story,
+      links: story.links.map(withoutCurrentContentHash),
+      acceptance_criteria: story.acceptance_criteria.map((criterion) => ({
+        ...criterion,
+        links: criterion.links.map(withoutCurrentContentHash),
       })),
     })),
   };
-  return `${JSON.stringify(normalizedJson(reviewedManifest), null, 2)}\n`;
 }
 
 function withoutCurrentContentHash(link: ManifestLink): ManifestLink {

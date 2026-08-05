@@ -1,0 +1,245 @@
+{
+  "capability": {
+    "aliases": [],
+    "applies_to": null,
+    "contract_hash": "6ea4d34e2bae8bc623a2977c0655ae61c93b4c95a98639250906b447b7a940c7",
+    "description": "Requests, bugs, questions, optional work, and help content remain distinct from accepted behavior.",
+    "name": "Evidence and planning intake",
+    "stable_id": "EVIDENCE",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "a4d958937c92134b9fdec955276cf5cabaf96359ee146f093b8fc7142a57f7d0",
+            "criterion": "Tieline must append an Observation before semantic matching and allow it to remain unattributed.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "4cef226cccd7a9a79c00bb3ba04dc22edfa3117149b4b7f49220d7d33fe080b9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/observation-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "ce4738531f00a323c5371fa0632f6dc0c334bb75eb6e16f905ea20ca60c9e08d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/domain/evidence-write-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "603c8337d00a8c6aa828979f50c5fcc4397d17b58c2bae2e646bed94fa1b4190",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/observations.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-evidence.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "d2a61b2e35316b1540673dedea1b04455463e28f31bb1b11e38a612e5e80ef37",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-evidence.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "semantic matching fails after intake",
+                "position": 0,
+                "stable_id": "EVIDENCE-001-AC1-S1",
+                "then": "Tieline must return the stored record for a later matching retry",
+                "when": "an Observation has already been stored"
+              }
+            ],
+            "stable_id": "EVIDENCE-001-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "support or product teammate",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "source evidence is never lost or forced into an incorrect feature",
+        "contract_hash": "4ba63fc10eb84621021c6c6c3751ead74f096fe1df1b78aadf2089e52435f41a",
+        "goal": "record a request, bug, or question without first finding a product definition",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "EVIDENCE-001",
+        "supersedes": null,
+        "title": "Preserve source observations before attribution"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3efad825a4f51e4db508f750385e2812fad6257b78dd19d114072f24cf843ba6",
+            "criterion": "Tieline must let a Backlog Item target zero or more Stories and Acceptance Criteria without becoming their lifecycle container.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "c4a1432a19c2f9e886e73d886c86176de1bb70444b25a0e7a1ea4bff79bff636",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/backlog-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "c3587cb3b916f279a83dd150cf25c4485a42fedb386e78b9b10c0a0e8b6ca724",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/backlog-items.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-evidence.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "EVIDENCE-002-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "product teammate",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "planning work remains separate from the product contract",
+        "contract_hash": "ac7003bd41850887c0a9f77330646f6874ac147997602c2ea539968b209de721",
+        "goal": "group evidence and target existing or future behavior",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "EVIDENCE-002",
+        "supersedes": null,
+        "title": "Consolidate optional work without duplicating behavior"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "93b50772a2cac5cdc2879cc14122765cfb4df537955e58871a288323d2958c84",
+            "criterion": "Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.",
+            "links": [
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "4ad017180e7b563fd83184b5a52e13100fc0cafaea2775fc49627aaf7722c2e2",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/help-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "ba6d3573cd111f4a59d462cb78b2a0627f3c96aa5ce5ee5f130da404f64aa7e9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/authoring/help-schema.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "ee6149d24121327462dfca0d6620be890989ed2e7f2fd2343669e2fdb41b200f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/import-help.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "7a1704bdea68bdda8ee5749630fdf3d423a752a749157bf74633ece4837bb18a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/find_help.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "741227ce2f0875a4fcce49899819335e7aa48684d02aabbad298b7fe1ac9f280",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/get_help_article.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "ee0e74592e60aca7f0c2aa1ab082617ef419a5a7ef5a8c5fad041bbdd1d86410",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-contract-sync.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "EVIDENCE-003-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "knowledge maintainer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "accepted behavior can point to documentation maintained elsewhere",
+        "contract_hash": "2e727934f72d2d18b00713cfc66c3656d83c112e69da3147f4e95b62165bc948",
+        "goal": "ingest and retrieve help content by its source identity",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "EVIDENCE-003",
+        "supersedes": null,
+        "title": "Connect external help without copying its identity"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tieline/spec/evidence.yaml",
+    "sha256": "b7e5d5f1edc8bbbca4f53c2b46bbd8e90f578a0617fab3ddf73d093c9f9a9d2c"
+  }
+}

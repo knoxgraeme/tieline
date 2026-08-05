@@ -457,7 +457,10 @@ function buildProgram(
       .argument("[repository]", "repository path")
       .option("--repo <key>", "stable repository key")
       .option("--commit <sha>", "commit recorded in the manifest")
-      .option("--output <path>", "output path")
+      .option(
+        "--output <path>",
+        "review page file, or manifest directory for every other action"
+      )
       .option("--spec <dir>", "spec directory")
       .option("--json", "emit machine-readable JSON");
     sub.action(async (repository: string | undefined, opts) => {

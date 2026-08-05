@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -11,7 +12,10 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runCli, type TielineCliIO } from "../src/cli.js";
 import { computeRepositoryMappingCoverage } from "../src/contract/coverage.js";
-import { compileContractManifest } from "../src/contract/manifest.js";
+import {
+  compileContractManifest,
+  readContractManifest,
+} from "../src/contract/manifest.js";
 
 const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-command-"));
 mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
@@ -197,7 +201,11 @@ try {
   assert.match(reviewPage, /window\.print/);
   assert.doesNotMatch(reviewPage, /href="javascript:/);
 
-  const manifestPath = resolve(root, ".tieline/manifest.json");
+  const manifestPath = resolve(root, ".tieline/manifest");
+  const manifestFiles = (): Array<[string, string]> =>
+    readdirSync(manifestPath)
+      .sort()
+      .map((name) => [name, readFileSync(resolve(manifestPath, name), "utf8")]);
   output = "";
   const compileExit = await runCli(
     [
@@ -216,8 +224,29 @@ try {
     {}
   );
   assert.equal(compileExit, 0);
-  const firstManifest = readFileSync(manifestPath, "utf8");
-  assert.equal(JSON.parse(firstManifest).repository.commit, "offline-proof");
+  const compileResult = JSON.parse(output);
+  assert.deepEqual(compileResult.files, [
+    "BEHAVIOR.json",
+    "index.json",
+    "REVIEW.json",
+  ]);
+  assert.deepEqual(compileResult.removed_files, []);
+  // The index carries only what belongs to the repository as a whole; each
+  // capability is its own file, so branches that touch different capabilities
+  // have nothing in common to conflict over.
+  assert.deepEqual(
+    JSON.parse(readFileSync(resolve(manifestPath, "index.json"), "utf8")),
+    {
+      schema_version: 1,
+      repository: { key: "contract-command-test", commit: "offline-proof" },
+    }
+  );
+  const behaviorShard = JSON.parse(
+    readFileSync(resolve(manifestPath, "BEHAVIOR.json"), "utf8")
+  );
+  assert.equal(behaviorShard.capability.stable_id, "BEHAVIOR");
+  assert.equal(behaviorShard.input.path, ".tieline/spec/behavior.yaml");
+  const firstManifest = manifestFiles();
 
   output = "";
   await runCli(
@@ -232,7 +261,27 @@ try {
     io,
     {}
   );
-  assert.equal(readFileSync(manifestPath, "utf8"), firstManifest);
+  assert.deepEqual(manifestFiles(), firstManifest);
+
+  // A capability removed from the specification must not survive in the
+  // manifest, and removing it must leave every other file untouched.
+  writeFileSync(resolve(manifestPath, "GONE.json"), "{}\n");
+  output = "";
+  await runCli(
+    [
+      "contract",
+      "compile",
+      root,
+      "--repo=contract-command-test",
+      "--commit=offline-proof",
+      `--output=${manifestPath}`,
+      "--json",
+    ],
+    io,
+    {}
+  );
+  assert.deepEqual(JSON.parse(output).removed_files, ["GONE.json"]);
+  assert.deepEqual(manifestFiles(), firstManifest);
 
   output = "";
   const coverageExit = await runCli(
@@ -652,10 +701,13 @@ try {
       ),
     /src\/mapped-7\.ts.*does not exist/i
   );
+  // The refused compilation left the manifest exactly as the last successful
+  // one wrote it, files and bytes alike.
+  assert.deepEqual(manifestFiles(), firstManifest);
   // A null reviewed hash already reads as `stale` downstream, so the manifest
   // on disk must carry one only where it always could: an unresolved help
   // locator, never a code or test artifact.
-  const persisted = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const persisted = readContractManifest(manifestPath);
   for (const capability of persisted.capabilities) {
     for (const story of capability.stories) {
       for (const link of [

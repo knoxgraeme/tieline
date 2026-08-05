@@ -112,6 +112,6 @@ branch and let normal PR review accept or reject it.
 
 ## Completion
 
-Leave the branch with valid YAML and a byte-current `.tieline/manifest.json`.
+Leave the branch with valid YAML and a byte-current `.tieline/manifest/`.
 Warnings are review input, not a second gate. Do not claim that linked tests ran;
 test links are framework-agnostic evidence locators only.
