@@ -196,11 +196,22 @@ defaults to `.tieline/config.json`. Clone-local setup state and credentials live
 in a private profile outside the repository, so a new clone completes its own
 runtime setup instead of inheriting another machine's "ready" state.
 
+On a new repository, the only Tieline command a user needs to begin onboarding
+is `tieline init`. It captures the deterministic product, repository, context,
+source-root, and runtime setup, then ends with an **Agent handoff prompt**. Paste
+that prompt into a coding agent working in the repository; the agent takes over
+the semantic work of discovering and authoring the first repository-specific
+contract. Tieline does not auto-run an agent or invent generic starter content.
+
 The generated `.tieline/mcp.json` is a portable, repository-relative template.
-Register it with your MCP host and ensure the `tieline` command resolves this
-package, then invoke the `tieline_author` MCP prompt. The bundled
-`/tieline-author` skill provides the same workflow in hosts that load package
-skills directly:
+Register it with your MCP host when the host does not load repository MCP
+configuration automatically, and ensure the `tieline` command resolves this
+package. The handoff tells the agent to use the bundled `tieline-author` skill
+or load the equivalent `tieline_author` MCP prompt when either surface is
+available. The printed brief is also self-contained enough for an agent to
+continue directly: it includes the authoring shape, duplicate-search fallback,
+and exact validation commands. Those commands are agent instructions; the user
+still starts with only `tieline init`. That workflow can:
 
 - shape a planning Story/AC or Backlog Item in Postgres;
 - semantically onboard an empty spec from configured descriptions, local
@@ -213,9 +224,12 @@ skills directly:
 
 An empty `.tieline/spec/` immediately after init is intentional: init does not
 invent generic capabilities. Review the detected `repository.source_roots`
-before onboarding or claiming coverage. `tieline status --json` reports whether
-the local profile is ready and whether database-backed semantic matching and
-planning writes are configured. Tool calls remain the operational check.
+before onboarding or claiming coverage. While the spec has no Stories,
+`tieline status --json` exposes the same copyable handoff as
+`agent_onboarding_prompt`; after onboarding it becomes `null`. Status also
+reports whether the local profile is ready and whether database-backed semantic
+matching and planning writes are configured. Tool calls remain the operational
+check.
 
 Before creating planning work, machine matching searches existing Stories, ACs,
 Backlog Items, and similar Observations. It presents candidates and requires an

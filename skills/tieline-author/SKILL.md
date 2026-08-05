@@ -1,6 +1,6 @@
 ---
 name: tieline-author
-description: Author, plan, implement, or reconcile Tieline User Stories and Acceptance Criteria. Use for requests to create or refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
+description: Semantically onboard an initialized Tieline repository, or author, plan, implement, and reconcile Tieline User Stories and Acceptance Criteria. Use after `tieline init` to inspect configured context and create the first repository-specific capabilities, Stories, and ACs; also use to refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
 ---
 
 # Tieline author
@@ -9,6 +9,11 @@ Treat the pull request as the proposal and merge as approval. Never create a
 separate draft, proposal, or semantic-approval record.
 
 Read [contract.md](references/contract.md) before editing contract YAML.
+
+When invoked from the agent handoff printed by `tieline init`, start with
+semantic onboarding below. The CLI has already captured deterministic setup;
+do not ask the user to repeat product, repository, source-root, or context
+answers that are present in `.tieline/config.json`.
 
 ## Orient to this repository
 
@@ -76,7 +81,11 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
 
 ## Materialize or reconcile repository behavior
 
-1. Run `tieline contract reconcile . --base origin/main --json` and work from its
+1. Determine an available comparison base from repository metadata, preferring
+   the remote-tracking default branch. Ask the user only if repository metadata
+   cannot identify a usable base. Replace `<base-ref>` below with the selected
+   reference.
+2. Run `tieline contract reconcile . --base <base-ref> --json` and work from its
    output. `claimed_changes` names the ACs whose evidence moved; re-read those
    definitions first. `unclaimed_changes` names changed source files no link
    targets; treat each as a question about whether behavior changed, not as a
@@ -84,27 +93,27 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
    need no new AC. Never author an AC to drive that count to zero.
    `excluded_changes` records paths the command set aside and why. Inspect the
    diff itself for anything the output leaves unresolved.
-2. Call `list_handoff_conflicts` for the Story being materialized or
+3. Call `list_handoff_conflicts` for the Story being materialized or
    reconciled. Resolve the later planning definition explicitly rather than
    silently overwriting it.
-3. When materializing a planning Story, preserve its Story and AC stable IDs
+4. When materializing a planning Story, preserve its Story and AC stable IDs
    and add `planning_origin.record_id` plus its current `revision`.
-4. Put implementation, test, and help locators on the most specific AC. Use a
+5. Put implementation, test, and help locators on the most specific AC. Use a
    Story-level link only as a shared or coarse fallback.
-5. Preserve Backlog Item and Observation IDs only as `motivated_by` pointers;
+6. Preserve Backlog Item and Observation IDs only as `motivated_by` pointers;
    never copy their payloads into YAML.
-6. Write strict YAML under `.tieline/spec/`.
-7. Run:
+7. Write strict YAML under `.tieline/spec/`.
+8. Run:
 
    ```sh
    tieline contract validate .
    tieline contract compile .
    tieline contract coverage .
-   tieline contract reconcile . --base origin/main
-   tieline check --base origin/main
+   tieline contract reconcile . --base <base-ref>
+   tieline check --base <base-ref>
    ```
 
-8. Summarize the semantic diff, impacted ACs, freshness warnings, coverage
+9. Summarize the semantic diff, impacted ACs, freshness warnings, coverage
    delta, likely duplicates, unresolved conflicts, and unmapped source files.
 
 Do not mutate a repository-owned Story through MCP. Change its YAML on the

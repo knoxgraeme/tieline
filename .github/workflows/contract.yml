@@ -40,3 +40,6 @@ jobs:
           npx tsx scripts/test-impact.ts
           npx tsx scripts/test-grade.ts
           npx tsx scripts/test-ranking.ts
+
+      - name: Workspace onboarding tests
+        run: npm run test:tieline
