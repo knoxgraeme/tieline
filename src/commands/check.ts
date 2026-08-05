@@ -30,12 +30,21 @@ export interface CheckCommandOptions {
    * needs no human judgement. Set to `false` to downgrade them to warnings.
    */
   failOnBroken?: boolean;
+  /**
+   * A committed manifest that differs from the one compilation produces fails
+   * for the same reason broken links do: the comparison is a byte diff of a
+   * deterministic function's output, so nothing is being judged. Set to `false`
+   * to downgrade it to a warning.
+   */
+  failOnStaleManifest?: boolean;
 }
 
 export type CheckExitReason =
   | "ok"
   | "broken_links"
-  | "broken_links_warn_only";
+  | "broken_links_warn_only"
+  | "stale_manifest"
+  | "stale_manifest_warn_only";
 
 /**
  * A changed source file that no manifest link names.
@@ -224,6 +233,7 @@ export async function runCheckCommand(
 ): Promise<number> {
   const base = options.base;
   const failOnBroken = options.failOnBroken !== false;
+  const failOnStaleManifest = options.failOnStaleManifest !== false;
   const requestedRoot = resolve(options.repository ?? process.cwd());
   const workspace = findTielineWorkspace(requestedRoot);
   const root = workspace?.root ?? requestedRoot;
@@ -275,12 +285,22 @@ export async function runCheckCommand(
     specDirectory,
   });
   const brokenLinks = impacts.filter(isBrokenImpact);
-  const errors = brokenLinks.map(
-    (impact) =>
-      `${impact.acceptance_criterion_stable_id} links to ${impact.path}, but ${describeBrokenCause(
-        impact.broken_cause ?? "missing"
-      )}.`
-  );
+  // A manifest that does not match its own recompilation is drift, not a
+  // judgement call, so it gates alongside broken links. A compile failure is
+  // deliberately excluded: it is already reported on its own, and counting it
+  // as staleness would report one fault twice.
+  const staleManifest = !manifestCurrent && manifestCompileError === null;
+  const staleManifestMessage =
+    "The committed manifest does not match current YAML or linked content; compile it before merge.";
+  const errors = [
+    ...brokenLinks.map(
+      (impact) =>
+        `${impact.acceptance_criterion_stable_id} links to ${impact.path}, but ${describeBrokenCause(
+          impact.broken_cause ?? "missing"
+        )}.`
+    ),
+    ...(staleManifest && failOnStaleManifest ? [staleManifestMessage] : []),
+  ];
   // Without a workspace there is no configured `source_roots`, and guessing at
   // eligibility would report doc, fixture, and lockfile changes as source work.
   // A missing workspace already falls back elsewhere in this command, so the
@@ -297,13 +317,22 @@ export async function runCheckCommand(
         specDirectory,
       })
     : [];
-  const exitCode = brokenLinks.length > 0 && failOnBroken ? 1 : 0;
+  const brokenLinksFail = brokenLinks.length > 0 && failOnBroken;
+  const staleManifestFails = staleManifest && failOnStaleManifest;
+  const exitCode = brokenLinksFail || staleManifestFails ? 1 : 0;
+  // Broken links outrank a stale manifest when both hold: recorded evidence
+  // that no longer exists is the more severe fault, and the full picture stays
+  // available in `errors`, `warnings`, and `manifest_current`.
   const exitReason: CheckExitReason =
-    brokenLinks.length === 0
-      ? "ok"
-      : failOnBroken
+    brokenLinks.length > 0
+      ? failOnBroken
         ? "broken_links"
-        : "broken_links_warn_only";
+        : "broken_links_warn_only"
+      : staleManifest
+        ? failOnStaleManifest
+          ? "stale_manifest"
+          : "stale_manifest_warn_only"
+        : "ok";
   const result = {
     base,
     repository: repositoryKey,
@@ -316,15 +345,14 @@ export async function runCheckCommand(
     unclaimed_change_count: unclaimed.length,
     unclaimed_changes_status: unclaimedStatus,
     fail_on_broken: failOnBroken,
+    fail_on_stale_manifest: failOnStaleManifest,
     exit_code: exitCode,
     exit_reason: exitReason,
     errors,
     warnings: [
-      ...(!manifestCurrent
-        ? [
-            "The committed manifest does not match current YAML or linked content; compile it before merge.",
-          ]
-        : []),
+      // Reported here only when it is not already an error, so a gating stale
+      // manifest is named once rather than in both lists.
+      ...(staleManifest && !failOnStaleManifest ? [staleManifestMessage] : []),
       ...(manifestCompileError
         ? [`The manifest could not be recompiled: ${manifestCompileError}`]
         : []),
@@ -362,16 +390,23 @@ export async function runCheckCommand(
     for (const warning of result.warnings) {
       io.write(`  warn  ${warning}\n`);
     }
-    if (exitCode !== 0) {
+    if (brokenLinksFail) {
       io.write(
         "  Broken links fail this check. Re-run with --no-fail-on-broken to downgrade them to warnings.\n"
       );
     }
+    if (staleManifestFails) {
+      io.write(
+        "  A stale manifest fails this check. Run `tieline contract compile` and commit the result, or re-run with --no-fail-on-stale-manifest to downgrade it to a warning.\n"
+      );
+    }
   }
-  // Findings that require human judgement (stale, modified, contract
-  // definition changes, changed files no criterion names) stay warn-only:
-  // whether a change is a behavior change or a refactor is exactly the kind of
-  // call a build must not make. Broken links do not: nothing needs to be judged
-  // to know the manifest points at evidence that is not there.
+  // Findings that require human judgement (stale links, modified paths,
+  // contract definition changes, changed files no criterion names) stay
+  // warn-only: whether a change is a behavior change or a refactor is exactly
+  // the kind of call a build must not make. Broken links and a stale manifest
+  // do not. Nothing needs to be judged to know the manifest points at evidence
+  // that is not there, or that the committed manifest is not the one this
+  // contract compiles to.
   return exitCode;
 }

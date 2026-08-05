@@ -164,7 +164,7 @@
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "69abe1df40f916d17fff307a40202a5fd6ad0b2cb3098a4ce873b4c58c248358",
+                "reviewed_content_hash": "ca6eca419f5addb10098798e458d685c46c03455cb861d3203814afd68206985",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -182,7 +182,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "49c97579766928bb43c0d8ac9d6c772c7efde0242d1ad305277abb1d9e567dc5",
+                "reviewed_content_hash": "94654903b247afd26da09a78dd05eee0a549eeea91cb2b922e41bbf447d6061c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -311,6 +311,69 @@
             ],
             "stable_id": "CONTRACT-001-AC5",
             "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "4d47026f26b951001e602d934f3a8e6075170bda6e25e4f65e5fc1610a75adea",
+            "criterion": "Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.",
+            "links": [
+              {
+                "relation": "enforces",
+                "reviewed_content_hash": "ca6eca419f5addb10098798e458d685c46c03455cb861d3203814afd68206985",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "implements",
+                "reviewed_content_hash": "7fd7cf15c1c11708912cd73e607bbfdf4cec92cbe233060cbe66c8f557632ccf",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "relation": "tests",
+                "reviewed_content_hash": "94654903b247afd26da09a78dd05eee0a549eeea91cb2b922e41bbf447d6061c",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-impact.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 5,
+            "rationale": "A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.",
+            "scenarios": [
+              {
+                "given": "a specification file changed without the manifest being recompiled",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC6-S1",
+                "then": "Tieline must report the stale manifest as an error and exit non-zero",
+                "when": "the branch is checked against its base"
+              },
+              {
+                "given": "the same stale manifest and an explicit request to downgrade the gate",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC6-S2",
+                "then": "Tieline must report the stale manifest as a warning and exit zero",
+                "when": "the branch is checked against its base"
+              },
+              {
+                "given": "a manifest that cannot be recompiled at all",
+                "position": 2,
+                "stable_id": "CONTRACT-001-AC6-S3",
+                "then": "Tieline must report the compilation failure once rather than also reporting it as a stale manifest",
+                "when": "the branch is checked against its base"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC6",
+            "supersedes": null
           }
         ],
         "actor": "maintainer",
@@ -334,6 +397,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "6ccb43429d2d5105c341719d80d2906af8a23d2b0a15756d621f40535e6291e1"
+    "sha256": "ce6294eccfd5da8a8c0efb477b6394191f7582a6116685d0002f4c110bdbac91"
   }
 }

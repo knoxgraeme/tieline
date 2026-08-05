@@ -1,0 +1,40 @@
+name: Contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      # `check` diffs against origin/main, so it needs more than a shallow clone.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Every step below runs fully offline: no database, no network, no
+      # credentials. The contract plane is a pure function of the working tree.
+      - name: Validate contract YAML
+        run: npx tsx src/cli.ts contract validate .
+
+      - name: Compile the manifest
+        run: npx tsx src/cli.ts contract compile . --output /tmp/manifest-check
+
+      - name: Evaluate semantic impact
+        run: npx tsx src/cli.ts check . --base origin/main
+
+      - name: Contract tests
+        run: |
+          npx tsx scripts/test-contract.ts
+          npx tsx scripts/test-manifest.ts
+          npx tsx scripts/test-contract-command.ts
+          npx tsx scripts/test-impact.ts

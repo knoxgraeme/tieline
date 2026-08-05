@@ -166,3 +166,33 @@ capability:
                 repository: tieline
                 path: scripts/test-contract-command.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC6
+          criterion: Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
+          rationale: A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.
+          scenarios:
+            - given: a specification file changed without the manifest being recompiled
+              when: the branch is checked against its base
+              then: Tieline must report the stale manifest as an error and exit non-zero
+            - given: the same stale manifest and an explicit request to downgrade the gate
+              when: the branch is checked against its base
+              then: Tieline must report the stale manifest as a warning and exit zero
+            - given: a manifest that cannot be recompiled at all
+              when: the branch is checked against its base
+              then: Tieline must report the compilation failure once rather than also reporting it as a stale manifest
+          links:
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script
