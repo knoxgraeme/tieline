@@ -53,6 +53,7 @@ capability:
 ${Array.from(
   { length: 7 },
   (_, index) => `        - relation: implements
+          provenance: authored
           target:
             kind: code
             repository: contract-command-test
@@ -69,16 +70,19 @@ ${Array.from(
               then: the accepted stories and criteria must be readable in a browser
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: contract-command-test
                 path: src/behavior.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: contract-command-test
                 path: src/behavior.test.ts
             - relation: documents
+              provenance: authored
               target:
                 kind: help
                 source: docs
@@ -140,6 +144,7 @@ ${reviewCriteria
 ${entry.paths
   .map(
     (path) => `            - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: contract-command-test
@@ -198,6 +203,7 @@ try {
   assert.match(reviewPage, /id="story-content"/);
   assert.match(reviewPage, /data-story-link/);
   assert.match(reviewPage, /Acceptance criteria/);
+  assert.match(reviewPage, /implements · authored/);
   assert.match(reviewPage, /window\.print/);
   assert.doesNotMatch(reviewPage, /href="javascript:/);
 

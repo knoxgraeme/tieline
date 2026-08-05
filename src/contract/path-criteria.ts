@@ -25,6 +25,7 @@ export interface PathCriterion {
   acceptance_criterion_stable_id: string;
   criterion: string;
   relation: ReconciliationRelation;
+  provenance: ClaimingCriterion["provenance"];
   link_scope: ReconciliationLinkScope;
 }
 
@@ -66,6 +67,7 @@ function pathCriterion(claim: ClaimingCriterion): PathCriterion {
     acceptance_criterion_stable_id: claim.acceptance_criterion_stable_id,
     criterion: claim.acceptance_criterion,
     relation: claim.relation,
+    provenance: claim.provenance,
     link_scope: claim.link_scope,
   };
 }
@@ -195,7 +197,7 @@ export function renderPathCriteriaText(report: PathCriteriaReport): string {
     lines.push(`  ${result.status}  ${result.answer}\n`);
     for (const criterion of result.criteria) {
       lines.push(
-        `    applies  ${criterion.acceptance_criterion_stable_id} ${criterion.link_scope} ${criterion.relation} (${criterion.story_stable_id} ${criterion.story_title})\n`
+        `    applies  ${criterion.acceptance_criterion_stable_id} ${criterion.link_scope} ${criterion.relation} · ${criterion.provenance} (${criterion.story_stable_id} ${criterion.story_title})\n`
       );
       lines.push(`             ${criterion.criterion}\n`);
     }

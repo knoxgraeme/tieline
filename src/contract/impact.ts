@@ -8,6 +8,7 @@ import {
   createArtifactHashResolver,
   type ArtifactHashResolver,
 } from "./manifest.js";
+import type { LinkProvenance } from "./schema.js";
 
 export type RepositoryPathChange =
   | { status: "modified" | "added" | "deleted"; path: string }
@@ -31,6 +32,8 @@ export interface AcceptanceCriterionImpact {
   /** The acceptance criterion sentence exactly as it was accepted. */
   acceptance_criterion: string;
   relation: string;
+  /** Null only for a synthetic contract-definition impact with no link. */
+  provenance: LinkProvenance | null;
   link_scope: "direct" | "story_fallback" | "contract";
   path: string;
   reason:
@@ -136,6 +139,7 @@ function linkedImpact(input: {
     acceptance_criterion_stable_id: input.criterion.stable_id,
     acceptance_criterion: input.criterion.criterion,
     relation: input.link.relation,
+    provenance: input.link.provenance,
     link_scope: input.scope,
     path: input.link.target.path,
     reason: reason(change),
@@ -174,6 +178,7 @@ function brokenLinkImpact(input: {
     acceptance_criterion_stable_id: input.criterion.stable_id,
     acceptance_criterion: input.criterion.criterion,
     relation: input.link.relation,
+    provenance: input.link.provenance,
     link_scope: input.scope,
     path: input.link.target.path,
     reason: "link_target_broken",
@@ -219,6 +224,7 @@ export function analyzeContractImpact(input: {
             acceptance_criterion_stable_id: criterion.stable_id,
             acceptance_criterion: criterion.criterion,
             relation: "defines",
+            provenance: null,
             link_scope: "contract",
             path: input.specDirectory ?? ".tieline/spec",
             reason: "contract_definition_changed",

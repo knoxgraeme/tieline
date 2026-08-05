@@ -12,10 +12,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "a4d958937c92134b9fdec955276cf5cabaf96359ee146f093b8fc7142a57f7d0",
+            "contract_hash": "11cffd41797117a7c4854c738d005f2bfc45e7dbeb4d1cb5e66453e51d91a726",
             "criterion": "Tieline must append an Observation before semantic matching and allow it to remain unattributed.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "4cef226cccd7a9a79c00bb3ba04dc22edfa3117149b4b7f49220d7d33fe080b9",
                 "target": {
@@ -25,6 +26,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "ce4738531f00a323c5371fa0632f6dc0c334bb75eb6e16f905ea20ca60c9e08d",
                 "target": {
@@ -34,6 +36,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "603c8337d00a8c6aa828979f50c5fcc4397d17b58c2bae2e646bed94fa1b4190",
                 "target": {
@@ -43,8 +46,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -53,6 +57,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "d2a61b2e35316b1540673dedea1b04455463e28f31bb1b11e38a612e5e80ef37",
                 "target": {
@@ -97,10 +102,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3efad825a4f51e4db508f750385e2812fad6257b78dd19d114072f24cf843ba6",
+            "contract_hash": "46135db99819b3fe3966b1d579848bd6f95e335aa6e14add625b631300801ff0",
             "criterion": "Tieline must let a Backlog Item target zero or more Stories and Acceptance Criteria without becoming their lifecycle container.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "c4a1432a19c2f9e886e73d886c86176de1bb70444b25a0e7a1ea4bff79bff636",
                 "target": {
@@ -110,6 +116,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "c3587cb3b916f279a83dd150cf25c4485a42fedb386e78b9b10c0a0e8b6ca724",
                 "target": {
@@ -119,8 +126,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -155,10 +163,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "93b50772a2cac5cdc2879cc14122765cfb4df537955e58871a288323d2958c84",
+            "contract_hash": "8bc2245658060e07b74bb0abf722b8491c1f3af4edf7f896b256bb7cca2b56a8",
             "criterion": "Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "4ad017180e7b563fd83184b5a52e13100fc0cafaea2775fc49627aaf7722c2e2",
                 "target": {
@@ -168,6 +177,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "ba6d3573cd111f4a59d462cb78b2a0627f3c96aa5ce5ee5f130da404f64aa7e9",
                 "target": {
@@ -177,6 +187,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "ee6149d24121327462dfca0d6620be890989ed2e7f2fd2343669e2fdb41b200f",
                 "target": {
@@ -186,6 +197,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "7a1704bdea68bdda8ee5749630fdf3d423a752a749157bf74633ece4837bb18a",
                 "target": {
@@ -195,6 +207,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "741227ce2f0875a4fcce49899819335e7aa48684d02aabbad298b7fe1ac9f280",
                 "target": {
@@ -204,8 +217,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ee0e74592e60aca7f0c2aa1ab082617ef419a5a7ef5a8c5fad041bbdd1d86410",
+                "reviewed_content_hash": "5e36b65da676de069e31bc8f60fd3a94e58dc63a559152c26ee1e0a904a0d65a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -240,6 +254,6 @@
   },
   "input": {
     "path": ".tieline/spec/evidence.yaml",
-    "sha256": "b7e5d5f1edc8bbbca4f53c2b46bbd8e90f578a0617fab3ddf73d093c9f9a9d2c"
+    "sha256": "1d36522a8c0c45233cf4d4042fe033499d917cb7b198034b5ed282ebe5746f92"
   }
 }

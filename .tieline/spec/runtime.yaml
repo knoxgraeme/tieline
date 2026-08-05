@@ -15,26 +15,31 @@ capability:
           criterion: Tieline must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/cli.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/init.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/status.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/workspace.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -45,21 +50,25 @@ capability:
           rationale: A tracked config cannot prove that another clone has credentials or semantic matching available.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/profile.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/setup.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/status.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -69,16 +78,19 @@ capability:
           criterion: Tieline must surface detected source roots and preflight warnings while leaving the specification empty until repository-specific semantic onboarding.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/cli.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/init.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -95,36 +107,43 @@ capability:
           criterion: Tieline must compose read, evidence-write, and planning-write capabilities without exposing repository synchronization through MCP tools.
           links:
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/domain/knowledge-store.ts
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/postgres-store.ts
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/default-store.ts
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/store.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/server.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/shared.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -134,36 +153,43 @@ capability:
           criterion: Tieline must serve stdio by default and require explicit gateway configuration for non-loopback HTTP.
           links:
             - relation: enforces
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/config.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/http.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/index.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/loadEnv.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/serve.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/stdio.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -173,11 +199,13 @@ capability:
           criterion: Tieline must provide a loud in-memory test seam for contract and tool verification without weakening production adapters.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/domain/testing/fake-knowledge-store.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -187,27 +215,32 @@ capability:
           criterion: Tieline must expose a semantic-authoring prompt that uses configured repository context and falls back to disclosed local duplicate checks when database-backed matching is unavailable.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/prompts.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/server.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: skills/tieline-author/SKILL.md
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/smoke.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -224,12 +257,14 @@ capability:
           criterion: Tieline must run the clean lifecycle integration suite against a disposable baseline database.
           links:
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/integration.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline

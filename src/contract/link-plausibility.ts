@@ -168,6 +168,7 @@ export interface LinkPlausibilitySkip {
   story_stable_id: string;
   acceptance_criterion_stable_id: string;
   relation: string;
+  provenance: ManifestLink["provenance"];
   path: string | null;
   reason: LinkPlausibilitySkipReason;
 }
@@ -177,6 +178,7 @@ export interface LinkPlausibilityReviewCandidate {
   story_stable_id: string;
   acceptance_criterion_stable_id: string;
   relation: string;
+  provenance: ManifestLink["provenance"];
   path: string;
   score: number;
   /** 1 is the weakest link in the repository's own distribution. */
@@ -564,6 +566,7 @@ interface ScoredLink {
   story_stable_id: string;
   acceptance_criterion_stable_id: string;
   relation: string;
+  provenance: ManifestLink["provenance"];
   path: string;
   measurement: ScorableLexicalPlausibility;
 }
@@ -633,6 +636,7 @@ export function analyzeLinkPlausibility(
     story: ManifestStory;
     criterion: ManifestAcceptanceCriterion;
     relation: string;
+    provenance: ManifestLink["provenance"];
     path: string;
   }> = [];
 
@@ -647,6 +651,7 @@ export function analyzeLinkPlausibility(
               story_stable_id: story.stable_id,
               acceptance_criterion_stable_id: criterion.stable_id,
               relation: link.relation,
+              provenance: link.provenance,
               path: link.target.kind === "help" ? null : link.target.path,
               reason: targetSkip,
             });
@@ -670,6 +675,7 @@ export function analyzeLinkPlausibility(
               story_stable_id: story.stable_id,
               acceptance_criterion_stable_id: criterion.stable_id,
               relation: link.relation,
+              provenance: link.provenance,
               path,
               reason: readSkip,
             });
@@ -679,6 +685,7 @@ export function analyzeLinkPlausibility(
             story,
             criterion,
             relation: link.relation,
+            provenance: link.provenance,
             path,
           });
         }
@@ -706,6 +713,7 @@ export function analyzeLinkPlausibility(
         story_stable_id: entry.story.stable_id,
         acceptance_criterion_stable_id: entry.criterion.stable_id,
         relation: entry.relation,
+        provenance: entry.provenance,
         path: entry.path,
         reason: "no_discriminating_terms",
       });
@@ -715,6 +723,7 @@ export function analyzeLinkPlausibility(
       story_stable_id: entry.story.stable_id,
       acceptance_criterion_stable_id: entry.criterion.stable_id,
       relation: entry.relation,
+      provenance: entry.provenance,
       path: entry.path,
       measurement,
     });
@@ -799,6 +808,7 @@ export function analyzeLinkPlausibility(
         story_stable_id: entry.story_stable_id,
         acceptance_criterion_stable_id: entry.acceptance_criterion_stable_id,
         relation: entry.relation,
+        provenance: entry.provenance,
         path: entry.path,
         score: entry.measurement.score,
         rank,
@@ -868,6 +878,7 @@ export function toLinkReviewSuggestion(input: {
       acceptance_criterion_stable_id:
         input.candidate.acceptance_criterion_stable_id,
       relation: input.candidate.relation,
+      provenance: input.candidate.provenance,
       path: input.candidate.path,
       rank: input.candidate.rank,
       percentile: input.candidate.percentile,

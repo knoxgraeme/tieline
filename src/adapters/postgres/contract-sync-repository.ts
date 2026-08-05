@@ -314,19 +314,24 @@ async function replaceStoryLinks(
     if (link.target.kind === "help") {
       const articleId = await ensureHelpArticle(tx, link);
       await tx`
-        insert into story_help_articles (story_id, article_id, relation)
-        values (${storyId}, ${articleId}, 'documents')
+        insert into story_help_articles (
+          story_id, article_id, relation, provenance
+        ) values (
+          ${storyId}, ${articleId}, 'documents', ${link.provenance}
+        )
         on conflict do nothing`;
     } else {
       const assetId = await ensureCodeAsset(tx, ownerRepositoryKey, link);
       await tx`
         insert into story_code_assets (
-          story_id, asset_id, relation, reviewed_content_hash
+          story_id, asset_id, relation, provenance, reviewed_content_hash
         ) values (
-          ${storyId}, ${assetId}, ${link.relation}, ${link.reviewed_content_hash}
+          ${storyId}, ${assetId}, ${link.relation}, ${link.provenance},
+          ${link.reviewed_content_hash}
         )
         on conflict (story_id, asset_id, relation) do update
-          set reviewed_content_hash = excluded.reviewed_content_hash`;
+          set provenance = excluded.provenance,
+              reviewed_content_hash = excluded.reviewed_content_hash`;
     }
   }
 }
@@ -343,19 +348,24 @@ async function replaceCriterionLinks(
     if (link.target.kind === "help") {
       const articleId = await ensureHelpArticle(tx, link);
       await tx`
-        insert into criterion_help_articles (criterion_id, article_id, relation)
-        values (${criterionId}, ${articleId}, 'documents')
+        insert into criterion_help_articles (
+          criterion_id, article_id, relation, provenance
+        ) values (
+          ${criterionId}, ${articleId}, 'documents', ${link.provenance}
+        )
         on conflict do nothing`;
     } else {
       const assetId = await ensureCodeAsset(tx, ownerRepositoryKey, link);
       await tx`
         insert into criterion_code_assets (
-          criterion_id, asset_id, relation, reviewed_content_hash
+          criterion_id, asset_id, relation, provenance, reviewed_content_hash
         ) values (
-          ${criterionId}, ${assetId}, ${link.relation}, ${link.reviewed_content_hash}
+          ${criterionId}, ${assetId}, ${link.relation}, ${link.provenance},
+          ${link.reviewed_content_hash}
         )
         on conflict (criterion_id, asset_id, relation) do update
-          set reviewed_content_hash = excluded.reviewed_content_hash`;
+          set provenance = excluded.provenance,
+              reviewed_content_hash = excluded.reviewed_content_hash`;
     }
   }
 }

@@ -94,17 +94,20 @@ capability:
               then: only production contract records must be returned
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/semantic-repository.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/integration-evidence.ts
                 framework_hint: custom-script
             - relation: documents
+              provenance: authored
               target:
                 kind: help
                 source: intercom
@@ -116,6 +119,9 @@ render the familiar “As a … I want … so that …” sentence. Each accepte
 one observable outcome using `<subject> must <outcome> [when <condition>]`.
 Scenarios use framework-neutral Given/When/Then text. Test locators may include a
 `framework_hint`, but no test framework is required.
+
+Every link states its provenance: `authored` for a deliberate human-authored
+claim, `inferred` for a derived claim, or `materialized` for a copied projection.
 
 Stable IDs are identity, not embedding prose. Aliases support alternate language,
 applicability distinguishes legitimately different behavior, and `supersedes`

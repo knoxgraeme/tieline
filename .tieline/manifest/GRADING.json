@@ -15,12 +15,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "23fe52d08887cbe780304121179f66dae0478c6ee5e03ebf9fd34e18752826ac",
+            "contract_hash": "0310d453a9a807fb781099e41d68db192975e27d7bc7f34ddf0b9fb03fdd7164",
             "criterion": "Tieline must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
+                "reviewed_content_hash": "f5aed29bc056a3299c96ab58b029b1faa23b2c3414b5731e58d29349a9d032a5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -29,8 +30,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "204afd3ceae22da32b8ccb0cc01d37daabfcca827648d3163b58d3a10d0cc1fb",
+                "reviewed_content_hash": "0ea67f77e3f48f0ee06e46b0715cc60fda317bc8d05f8fea83d928fdd8f33495",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/reconciliation.ts",
@@ -39,8 +41,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
+                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -80,12 +83,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "baa1d2f4ca8cefd9120aa3d60a094807eadcdfaaf456fcd2858d11b897649f32",
+            "contract_hash": "86614c7939cfa8190db91db80bc9a3c6f84dca14c7a22d4028d670479cd45224",
             "criterion": "Tieline must give each grading entry a deterministic identity and a sorted citation allow-list derived from the canonical source-symbol index, while artifacts that cannot be examined must receive an empty allow-list instead of a guessed citation.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
+                "reviewed_content_hash": "f5aed29bc056a3299c96ab58b029b1faa23b2c3414b5731e58d29349a9d032a5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -94,6 +98,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "ee6be06bcab7fdd68a1ae729dadb5e760212c8add5bf481a8e75067a2fa11c9e",
                 "target": {
@@ -104,8 +109,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
+                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -138,10 +144,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "0651897433ade380aae5ca09f514c3e4b067f1c0df5e5088b4a24c25ef8efabe",
+            "contract_hash": "796d92b9bc285c70027461a10c420ac7490cf9f327b530d48a9366f7a14438d2",
             "criterion": "Contract grading must derive and verify its scope from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "2b4a059e4509d43be4954fbaf8e57f76a650f8657bb13eaf67754faf3a3abce1",
                 "target": {
@@ -152,8 +159,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1bfd9f0d62f19d9906729ed3382a35aa24256ee747b709f6fd427e66fb549247",
+                "reviewed_content_hash": "150c2826587e7fe6d29976185913eab18e04dca4e3b41993859276b5dae87ace",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -162,8 +170,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
+                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -198,12 +207,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "d77fa41392dfa515d33da718d037e6340e7ceb58b55e5bb6d064e3dd8e69e8e6",
+            "contract_hash": "8b5b3e7324a6bb7cc77cab64c518860535409387ca1dfcaf57f4b50219473b55",
             "criterion": "Tieline must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
+                "reviewed_content_hash": "f5aed29bc056a3299c96ab58b029b1faa23b2c3414b5731e58d29349a9d032a5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -212,8 +222,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
+                "reviewed_content_hash": "f5aed29bc056a3299c96ab58b029b1faa23b2c3414b5731e58d29349a9d032a5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -222,8 +233,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
+                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -249,12 +261,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "40c25004dcdc0072e8ac4c7c81443062149bb411cb4ba55e3c65014895343f23",
+            "contract_hash": "2d98ce33a6dae53144a249ec3af6b3c24867c8a5ebd0dd381fd0468cde1fe7de",
             "criterion": "Tieline must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
+                "reviewed_content_hash": "f5aed29bc056a3299c96ab58b029b1faa23b2c3414b5731e58d29349a9d032a5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -263,8 +276,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
+                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -297,12 +311,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ebf18621f92dd6ae5c5d2914f2a80c07f87f84c4276687e08fec0659eed6cd38",
+            "contract_hash": "0e1f7e0686284a644a93a6e6fcc21285b55c499072b44e82c3f3ff3412b0075e",
             "criterion": "Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1bfd9f0d62f19d9906729ed3382a35aa24256ee747b709f6fd427e66fb549247",
+                "reviewed_content_hash": "150c2826587e7fe6d29976185913eab18e04dca4e3b41993859276b5dae87ace",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -311,8 +326,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
+                "reviewed_content_hash": "f5aed29bc056a3299c96ab58b029b1faa23b2c3414b5731e58d29349a9d032a5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -321,8 +337,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
+                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -355,10 +372,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3d0ab939458bac1934593e662957e87344b839436617cb48e78d908615f2a154",
+            "contract_hash": "ee66a0baf65dd19f779dfe877884eb841c3bf0a52bff49b64993b2da0be3cad1",
             "criterion": "The grading skill must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "420d5666fdfc79256a163408fb0fc79c89cc8d2b24c9d8ab9403d71fdf1ee52e",
                 "target": {
@@ -394,6 +412,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "bcaff6f4f254954cb4f6d122927d49dc3b5cb5894883d35b793f9e60099de157"
+    "sha256": "4c9e239faadad8b5e3392ee441aa4fc9445a64b7a049cf20931340f0e4f8897a"
   }
 }

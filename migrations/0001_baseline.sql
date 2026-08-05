@@ -178,6 +178,7 @@ create table story_code_assets (
   story_id uuid not null references user_stories(id) on delete cascade,
   asset_id uuid not null references code_assets(id),
   relation text not null check (relation in ('implements', 'enforces', 'tests')),
+  provenance text not null check (provenance in ('authored', 'inferred', 'materialized')),
   reviewed_content_hash text check (
     reviewed_content_hash is null or reviewed_content_hash ~ '^[a-f0-9]{64}$'
   ),
@@ -188,6 +189,7 @@ create table criterion_code_assets (
   criterion_id uuid not null references acceptance_criteria(id) on delete cascade,
   asset_id uuid not null references code_assets(id),
   relation text not null check (relation in ('implements', 'enforces', 'tests')),
+  provenance text not null check (provenance in ('authored', 'inferred', 'materialized')),
   reviewed_content_hash text check (
     reviewed_content_hash is null or reviewed_content_hash ~ '^[a-f0-9]{64}$'
   ),
@@ -198,6 +200,7 @@ create table story_help_articles (
   story_id uuid not null references user_stories(id) on delete cascade,
   article_id uuid not null references help_articles(id),
   relation text not null default 'documents' check (relation = 'documents'),
+  provenance text not null check (provenance in ('authored', 'inferred', 'materialized')),
   primary key (story_id, article_id)
 );
 
@@ -205,6 +208,7 @@ create table criterion_help_articles (
   criterion_id uuid not null references acceptance_criteria(id) on delete cascade,
   article_id uuid not null references help_articles(id),
   relation text not null default 'documents' check (relation = 'documents'),
+  provenance text not null check (provenance in ('authored', 'inferred', 'materialized')),
   primary key (criterion_id, article_id)
 );
 

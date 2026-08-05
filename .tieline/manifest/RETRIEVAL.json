@@ -12,12 +12,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "fb1b21b857828ddf13651627168357b0c5d8cf64abd9152a88c81f21e10922dd",
+            "contract_hash": "a7f4ab92747947a6f39ffc10d5f98e200d22d312bd49a08d07911d8f260124fb",
             "criterion": "Tieline must return structured Stories with ordered Acceptance Criteria, direct and fallback links, coverage, freshness, lifecycle, and authority.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "11407c5f095e20c2b6c24c981faed9248e5e83f237cb7cb76355f46166b79758",
+                "reviewed_content_hash": "484a403c56ce158b6d1a388580201cda1673361318a6b8f98c3537d91e904042",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-read-repository.ts",
@@ -25,8 +26,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eab7b061c4c84c4a78c2f9494c970aaa548e4a9ab860b2d6d4766db9f568ac84",
+                "reviewed_content_hash": "0ed8ee5102600c032a0416652f263126dc8c46fc25f0b5479c74fb84bb81d06d",
                 "target": {
                   "kind": "code",
                   "path": "src/domain/contract-read-store.ts",
@@ -34,8 +36,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7a2a01b03478e1be1f717fe86e88a1b9eb5cb16958b61a0fed746dd7a2d7cb9b",
+                "reviewed_content_hash": "a2a3924107310dcc18bb7f9fe9f59d0c1322418105104a45610a695d7cb2d755",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -43,6 +46,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "58fd53a2cf5de05f2f34872cb5207948e6b38a3ff65a6c209b3e96d1f6d666ee",
                 "target": {
@@ -52,6 +56,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "9588c406d2b7c9658e540a3aa449612d9e8f0ea83029bdef8b1a5d8276a3099f",
                 "target": {
@@ -61,8 +66,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b871959e64279007e2fac1ebe5a603c978f1f6361128d6c880f7e3e7f204efd2",
+                "reviewed_content_hash": "a9bd06ecf5b2a31bef077035601c86881b61a3a13c9a99ec6cefb9c5e2f525f6",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -97,10 +103,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "4215ac8c86d3a474887f5b300c8dbf9cf01cc04ca672cc4333c7c786b119f60c",
+            "contract_hash": "d077d3a51d94f74db1d599f2cacb21d812b7045b812543cbe7aa6176f96fe5ef",
             "criterion": "Tieline must resolve a versioned retrieval profile before cross-type search and allow caller filters only to narrow it.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "592337d53da8741d33cd359aeb820cfca90d148929464828373b4760713d4335",
                 "target": {
@@ -110,6 +117,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "03156259c3016f0b25c5e066d90cc4a8b4fc8ad4f2c5407c1f07d80d2e797c19",
                 "target": {
@@ -119,6 +127,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "dde55e5cdad297b87f27f86cabe62d90838b07e9b5b594aba168ea28f031a677",
                 "target": {
@@ -128,8 +137,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "84ae986325de79954f9bd55889eb840bcd74280ea3bd27efd644dfac67804d8e",
+                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -138,6 +148,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "c9590556f14e3417b74497161c5547a25375c0e1a4b01a3e34ae2fc744b896df",
                 "target": {
@@ -182,6 +193,6 @@
   },
   "input": {
     "path": ".tieline/spec/retrieval.yaml",
-    "sha256": "ad69d289dd799e31e25d8606a52b988d862ca46385c6bde25bb4165f0399bd15"
+    "sha256": "374b78c2519251ab401a436f3306fe145dd19a14137b166348a6e3da58abe0d6"
   }
 }

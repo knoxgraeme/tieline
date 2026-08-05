@@ -14,6 +14,7 @@ import {
   validateAcceptedContractDocuments,
 } from "../src/contract/index.js";
 import {
+  contractLinkSchema,
   planningStorySchema,
   renderUserStory,
   type AcceptedContractDocument,
@@ -68,6 +69,7 @@ function document(overrides: Partial<AcceptedContractDocument> = {}): AcceptedCo
               links: [
                 {
                   relation: "tests",
+                  provenance: "authored",
                   target: {
                     kind: "test",
                     repository: "tieline",
@@ -108,6 +110,27 @@ await test("accepts an incomplete backlog Story through the planning schema", ()
   assert.deepEqual(parsed.acceptance_criteria, []);
 });
 
+await test("requires explicit provenance and accepts every stable claim origin", () => {
+  const target = {
+    kind: "code" as const,
+    repository: "tieline",
+    path: "src/contract/schema.ts",
+  };
+  assert.equal(
+    contractLinkSchema.safeParse({ relation: "implements", target }).success,
+    false,
+    "a missing origin must never be guessed"
+  );
+  for (const provenance of ["authored", "inferred", "materialized"] as const) {
+    assert.equal(
+      contractLinkSchema.safeParse({ relation: "implements", provenance, target })
+        .success,
+      true,
+      `${provenance} should be a valid stable provenance`
+    );
+  }
+});
+
 console.log("accepted YAML loading and validation");
 
 await test("loads strict YAML and preserves locator arrays and scalar values", () => {
@@ -135,6 +158,7 @@ capability:
           criterion: Tieline must accept framework-agnostic test locators.
           links:
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -179,6 +203,7 @@ await test("rejects duplicate IDs, broken supersession, and escaping paths", () 
   first.capability.stories[0]!.acceptance_criteria[0]!.links = [
     {
       relation: "implements",
+      provenance: "authored",
       target: { kind: "code", repository: "tieline", path: "../outside.ts" },
     },
   ];
@@ -233,6 +258,27 @@ await test("warns without failing when AC text normalizes to an existing criteri
   assert.match(result.warnings[0]!, /equivalent criterion text/i);
 });
 
+await test("rejects duplicate link identity even when provenance conflicts", () => {
+  const invalid = document();
+  const criterion = invalid.capability.stories[0]!.acceptance_criteria[0]!;
+  criterion.links = [
+    criterion.links[0]!,
+    { ...criterion.links[0]!, provenance: "inferred" },
+  ];
+  assert.throws(
+    () =>
+      validateAcceptedContractDocuments([
+        { path: "duplicate-links.yaml", document: invalid },
+      ]),
+    (error: unknown) => {
+      assert.ok(error instanceof ContractValidationError);
+      assert.match(error.message, /same 'tests' link target/i);
+      assert.match(error.message, /conflicting provenance 'authored' and 'inferred'/i);
+      return true;
+    }
+  );
+});
+
 await test("prunes ignored directories before resolving their contents", () => {
   const root = mkdtempSync(resolve(tmpdir(), "tieline-coverage-"));
   const outside = mkdtempSync(resolve(tmpdir(), "tieline-outside-"));
@@ -265,6 +311,7 @@ capability:
           criterion: Tieline must prune ignored paths before resolving symlinks.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
@@ -361,6 +408,7 @@ function documentWithSelector(selector: string): AcceptedContractDocument {
   base.capability.stories[0]!.acceptance_criteria[0]!.links = [
     {
       relation: "implements",
+      provenance: "authored",
       target: {
         kind: "code",
         repository: "tieline",

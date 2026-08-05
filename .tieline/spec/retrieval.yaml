@@ -15,31 +15,37 @@ capability:
           criterion: Tieline must return structured Stories with ordered Acceptance Criteria, direct and fallback links, coverage, freshness, lifecycle, and authority.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/types.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/domain/contract-read-store.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/contract-read-repository.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/schemas.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/query_stories.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -60,27 +66,32 @@ capability:
               then: Tieline must search only the repository intersection
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/adapters/postgres/profile-repository.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/commands/profile.ts
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/resources.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/integration-evidence.ts
                 framework_hint: custom-script
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline

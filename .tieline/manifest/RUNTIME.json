@@ -12,10 +12,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "5099992110380ea506cd6cee93f5974344603ef186292e7102dad4a605183add",
+            "contract_hash": "e54b533738a4792fa4acd31017085c08b9692274cfab37bc46927b01063b2abf",
             "criterion": "Tieline must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "2b4a059e4509d43be4954fbaf8e57f76a650f8657bb13eaf67754faf3a3abce1",
                 "target": {
@@ -25,6 +26,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "9cb0dd77df7ecbc802670a5143206b94d3a1db8f3f3f054f0aabe7e6f80576aa",
                 "target": {
@@ -34,6 +36,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "8c3113f8ac4d302ae35edc88a662127cf2aa42c20cdb196385c269c20533cd3a",
                 "target": {
@@ -43,6 +46,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "c3c8153279cbf890b9487d8d549cc783313dc8bef3685fca9014701b3e0731b3",
                 "target": {
@@ -52,6 +56,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                 "target": {
@@ -71,10 +76,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "e9b7b7f85519ebd06ac00c994e9378aaa445085a8fdd4a341eb366b3356c38f1",
+            "contract_hash": "ba48dbddce90658dc0ef897612ba44842c83b669220dec2ef1e5c3d0a7bd3b80",
             "criterion": "Tieline must report workspace initialization, clone-local setup, and database-backed capability configuration as separate states.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "6453abe79100aad8774a580b49d3684b890a9e03d14851e0e7814458bd6d5b9f",
                 "target": {
@@ -84,6 +90,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "8124daf81c62a307a05f0b381795e92d8493fe4f637848192aaab37f8b377cc3",
                 "target": {
@@ -93,6 +100,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "8c3113f8ac4d302ae35edc88a662127cf2aa42c20cdb196385c269c20533cd3a",
                 "target": {
@@ -102,6 +110,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                 "target": {
@@ -121,10 +130,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ff24de9f97f85b3adef0e5cfb207cd736ee501b218896fa841044e1fd41d705a",
+            "contract_hash": "7a48cb595945ad2f25ff5740b143f657877eb11de5154e2ad39d123932c53c72",
             "criterion": "Tieline must surface detected source roots and preflight warnings while leaving the specification empty until repository-specific semantic onboarding.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "2b4a059e4509d43be4954fbaf8e57f76a650f8657bb13eaf67754faf3a3abce1",
                 "target": {
@@ -134,6 +144,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "9cb0dd77df7ecbc802670a5143206b94d3a1db8f3f3f054f0aabe7e6f80576aa",
                 "target": {
@@ -143,6 +154,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                 "target": {
@@ -179,10 +191,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "51b8ba56c3717a544f018fa4110ddfea39dbb904d1af6e2f996408ab2820b822",
+            "contract_hash": "2c36a87351e38b2c5b24bdeefffb3347b0e7fdc0cfa9b03395b19352db538a22",
             "criterion": "Tieline must compose read, evidence-write, and planning-write capabilities without exposing repository synchronization through MCP tools.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "enforces",
                 "reviewed_content_hash": "c6182fb317a886f75fd3f68c54f7d8ba8276cfb9c8be6382f83510cd8929e34a",
                 "target": {
@@ -192,6 +205,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "enforces",
                 "reviewed_content_hash": "b0eb2f3b599e78aed08bf888a4c077cf874fd2b2510ba55faab7345f2da7fbba",
                 "target": {
@@ -201,6 +215,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "enforces",
                 "reviewed_content_hash": "fd605375737ec2aa2387403ec392230bc9246092535c77c7e5897ecdc77215db",
                 "target": {
@@ -210,6 +225,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "enforces",
                 "reviewed_content_hash": "41cba159faded83d20a635574f94e099767be29b70059f3c9ef4e1b0f24ba7dc",
                 "target": {
@@ -219,6 +235,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "cf449a59d5a0abb879e6fb298c11c8557a0897edb0d546aefed506b1259c897e",
                 "target": {
@@ -228,6 +245,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "1466752fe7326878746de366c6de4e7d70a7a2209a37b8b38858c5b9138befff",
                 "target": {
@@ -237,6 +255,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "c9590556f14e3417b74497161c5547a25375c0e1a4b01a3e34ae2fc744b896df",
                 "target": {
@@ -256,10 +275,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "96db593fe00db001785d183336e14c7e24cff9b1a944e39ac0f1cfc4ff0c30a8",
+            "contract_hash": "9f2a3f9ecc2551ef813537badadb438679d4f6a8dc0c807d49682968c85d2e34",
             "criterion": "Tieline must serve stdio by default and require explicit gateway configuration for non-loopback HTTP.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "enforces",
                 "reviewed_content_hash": "f8071433f0755226afdf3ad8ef2ad0aa2831cb7a32bc583f778c09bd0269a7c0",
                 "target": {
@@ -269,6 +289,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "1f479c20a7c785e83b58440e9fdd4a9c616d9128fa28ab6980dde664a2980c77",
                 "target": {
@@ -278,6 +299,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "6ff8930f8bce5c9621a558bb89a160f408228b7912c741038dd2615a57217e76",
                 "target": {
@@ -287,6 +309,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "f47ad8b3b82aefd57beaf218e8274ba27f592d513d391b541f709e6807164531",
                 "target": {
@@ -296,6 +319,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "153cac6da711d91437b62f1a6d12db8ef2c64f9ea41086341cf3ac0bddbb1f41",
                 "target": {
@@ -305,6 +329,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "469c89ce5d7f97d333ac69396e60c20630d54d362b20a9bf6b7b41c4bc1e3cce",
                 "target": {
@@ -314,6 +339,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "0451f7da677c969573d5e0b444190b00807d1794ae3126123a3f5f9f79bea1e1",
                 "target": {
@@ -333,10 +359,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "81c3603e5c5fdd89ac8ce3f5bf51d4085a60756eb3b1290394e460502e842274",
+            "contract_hash": "7384d08a80cc6ffa9a2feece4f3902d63c96b5b341622dac62cfa3f9b0977b97",
             "criterion": "Tieline must provide a loud in-memory test seam for contract and tool verification without weakening production adapters.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "0aecc59b02491316c83f90a82da9358a6969464d4b0386d08676ee0251e660da",
                 "target": {
@@ -346,8 +373,9 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b871959e64279007e2fac1ebe5a603c978f1f6361128d6c880f7e3e7f204efd2",
+                "reviewed_content_hash": "a9bd06ecf5b2a31bef077035601c86881b61a3a13c9a99ec6cefb9c5e2f525f6",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -365,10 +393,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "568094a6297e4c82d0081dbeca76bb8d8b2b21a6f4dd062282b75bdb7fd4f709",
+            "contract_hash": "ffe88f8ca0bf0d4945fdac2450abf904d4f226dc7c9d94b48b991a61bbd2a070",
             "criterion": "Tieline must expose a semantic-authoring prompt that uses configured repository context and falls back to disclosed local duplicate checks when database-backed matching is unavailable.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "84b74d5650baad503a10fb6d223e1186a015daf6af9ccb9a4e7a707043c7dfeb",
                 "target": {
@@ -378,6 +407,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "579c7e6f6496dcc5317b1c2a1f5c24124bf3c9352753241051334cbcc08534c7",
                 "target": {
@@ -387,6 +417,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "implements",
                 "reviewed_content_hash": "cf449a59d5a0abb879e6fb298c11c8557a0897edb0d546aefed506b1259c897e",
                 "target": {
@@ -396,6 +427,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "c9590556f14e3417b74497161c5547a25375c0e1a4b01a3e34ae2fc744b896df",
                 "target": {
@@ -406,6 +438,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "18a50d6bbf9011cf1d2137d2117de8dd4a2c35a9ef7e5ffd674d3e003f7ad5cb",
                 "target": {
@@ -442,12 +475,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "bc03344cdc305074401567d58ffeaa3c06326c0b971274ea2e6fb9a9ccb76e1c",
+            "contract_hash": "57dbd2fa6845c6737c9d8f3d0e2d56c2862bf25a26652d4e0ab8af9b359d02e6",
             "criterion": "Tieline must run the clean lifecycle integration suite against a disposable baseline database.",
             "links": [
               {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6e5f17dc0c9072307dda57cf1cdb696ee351383b0ccfa9f13ec86c6a651630ed",
+                "reviewed_content_hash": "f880865dd401fff0dc575ae86b4ed9c422b42e6748079cf79a31454dfdcf6906",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -456,6 +490,7 @@
                 }
               },
               {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "9133932de363ec718bccc57763811a7e812fff735de1a1d8c1f17d8797e885af",
                 "target": {
@@ -492,6 +527,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "ed095b34bcc16b61abe096f04105fdace46954edd2daf6a620ab77424ad4b7eb"
+    "sha256": "e3fd93045805b511324228a7fccd8bae26a1c63f1f06f8737b3570adabb5f53d"
   }
 }

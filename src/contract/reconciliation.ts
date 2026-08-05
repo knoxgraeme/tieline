@@ -70,6 +70,8 @@ export interface ClaimingCriterion {
   /** The acceptance criterion sentence exactly as it was accepted. */
   acceptance_criterion: string;
   relation: ReconciliationRelation;
+  /** How the contract's owner established this relationship. */
+  provenance: ManifestLink["provenance"];
   /**
    * `direct` when the link sits on the acceptance criterion itself,
    * `story_fallback` when it is inherited from the owning Story.
@@ -285,6 +287,7 @@ export function buildContractClaimIndex(
             acceptance_criterion_stable_id: criterion.stable_id,
             acceptance_criterion: criterion.criterion,
             relation: link.relation,
+            provenance: link.provenance,
             link_scope: scope,
             linked_path: path,
           };

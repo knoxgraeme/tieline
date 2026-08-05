@@ -61,6 +61,7 @@ capability:
         revision: 2
       links:
         - relation: implements
+          provenance: authored
           target:
             kind: code
             repository: tieline
@@ -74,12 +75,14 @@ capability:
               then: both manifest files are byte-identical
           links:
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/contract.test.ts
                 framework_hint: custom
             - relation: documents
+              provenance: authored
               target:
                 kind: help
                 source: intercom
@@ -145,6 +148,7 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
       revision: 2,
     });
     assert.match(story.links[0]!.reviewed_content_hash!, /^[a-f0-9]{64}$/);
+    assert.equal(story.links[0]!.provenance, "authored");
     const testLink = story.acceptance_criteria[0]!.links.find(
       (link) => link.target.kind === "test"
     );
@@ -156,6 +160,44 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
       helpLink!.reviewed_content_hash,
       null,
       "unresolved help locators stay in the manifest without inventing content"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("changes contract semantics when only link provenance changes", () => {
+  const root = fixture();
+  try {
+    const before = compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "tieline",
+      commit: "abc123",
+    });
+    const specPath = resolve(root, ".tieline/spec/contract.yaml");
+    const authored = readFileSync(specPath, "utf8");
+    writeFileSync(
+      specPath,
+      authored.replace(
+        "            - relation: tests\n              provenance: authored",
+        "            - relation: tests\n              provenance: inferred"
+      )
+    );
+    const after = compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "tieline",
+      commit: "abc123",
+    });
+    const beforeStory = before.capabilities[0]!.stories[0]!;
+    const afterStory = after.capabilities[0]!.stories[0]!;
+    const beforeCriterion = beforeStory.acceptance_criteria[0]!;
+    const afterCriterion = afterStory.acceptance_criteria[0]!;
+
+    assert.equal(beforeStory.contract_hash, afterStory.contract_hash);
+    assert.notEqual(beforeCriterion.contract_hash, afterCriterion.contract_hash);
+    assert.equal(
+      afterCriterion.links.find((link) => link.relation === "tests")!.provenance,
+      "inferred"
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -253,6 +295,29 @@ await test("rejects malformed nested content in a reviewed manifest", () => {
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
         assert.match(error.message, /reviewed_content_hash/i);
+        assert.match(error.message, /CONTRACT\.json/);
+        return true;
+      }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("rejects a reviewed manifest link with no provenance", () => {
+  const root = fixture();
+  try {
+    const compiled = compile(root);
+    const link = compiled.manifest.capabilities[0]!.stories[0]!
+      .acceptance_criteria[0]!.links[0]! as unknown as Record<string, unknown>;
+    delete link.provenance;
+    const directory = manifestDirectory(root);
+    writeContractManifest(directory, compiled);
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /provenance/i);
         assert.match(error.message, /CONTRACT\.json/);
         return true;
       }

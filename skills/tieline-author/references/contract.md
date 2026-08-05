@@ -44,11 +44,13 @@ capability:
               then: the parent AC and Story are included
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tools/find_related.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: tieline
@@ -59,3 +61,5 @@ capability:
 Accepted Stories require actor, goal, benefit, and at least one complete AC.
 Aliases preserve alternative phrasing. Supersession preserves identity when two
 contract records are intentionally consolidated.
+Every link requires `provenance`: `authored` for a deliberate claim, `inferred`
+for a derived claim, or `materialized` for a copied projection.

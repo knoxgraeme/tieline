@@ -77,6 +77,7 @@ capability:
       lifecycle: production
       links:
         - relation: implements
+          provenance: authored
           target:
             kind: code
             repository: reconciliation-fixture
@@ -86,11 +87,13 @@ capability:
           criterion: Tieline must list the acceptance criteria claiming a changed path.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: reconciliation-fixture
                 path: src/claimed-direct.ts
             - relation: tests
+              provenance: authored
               target:
                 kind: test
                 repository: reconciliation-fixture
@@ -99,6 +102,7 @@ capability:
           criterion: Tieline must report a changed path whose evidence was removed.
           links:
             - relation: implements
+              provenance: authored
               target:
                 kind: code
                 repository: reconciliation-fixture
@@ -167,6 +171,7 @@ capability:
     "Tieline must list the acceptance criteria claiming a changed path."
   );
   assert.equal(direct.claimed_by[0].relation, "implements");
+  assert.equal(direct.claimed_by[0].provenance, "authored");
   assert.equal(
     direct.claimed_by[0].story_title,
     "See what the contract already claims"
