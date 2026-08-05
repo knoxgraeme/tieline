@@ -17,7 +17,7 @@
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "d42a2c22ba60eb5353f1f36519e0b7bfe8acb160b5d5127e34a5b4890e1b90a2",
+                "reviewed_content_hash": "2b4a059e4509d43be4954fbaf8e57f76a650f8657bb13eaf67754faf3a3abce1",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -126,7 +126,7 @@
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "d42a2c22ba60eb5353f1f36519e0b7bfe8acb160b5d5127e34a5b4890e1b90a2",
+                "reviewed_content_hash": "2b4a059e4509d43be4954fbaf8e57f76a650f8657bb13eaf67754faf3a3abce1",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",

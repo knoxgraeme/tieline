@@ -1,0 +1,189 @@
+version: 1
+capability:
+  key: GRADING
+  name: Agent-graded contract evidence
+  description: A host agent can judge changed contract links while Tieline deterministically fixes the scope and rejects unsupported evidence claims.
+  aliases:
+    - evidence grading
+    - link claim verification
+  stories:
+    - key: GRADING-001
+      title: Judge every contract link touched by a change
+      actor: reviewing agent
+      goal: receive the complete changed-link work list and its legal citations
+      benefit: semantic evidence claims can be checked without silently omitting difficult links
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-001-AC1
+          criterion: Tieline must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.
+          rationale: Relevance is useful for ranking review work but cannot decide which accepted evidence claims are allowed to escape judgment.
+          scenarios:
+            - given: a changed path is linked directly by an Acceptance Criterion and by its owning Story
+              when: grading scope is emitted against the branch base
+              then: Tieline must emit both the direct and story_fallback entries
+            - given: a changed linked artifact shares no lexical vocabulary with its Acceptance Criterion
+              when: grading scope is emitted
+              then: Tieline must retain the entry for judgment
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/reconciliation.ts
+                selector: function:buildContractClaimIndex
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:buildGradeScope
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-001-AC2
+          criterion: Tieline must give each grading entry a deterministic identity and a sorted citation allow-list derived from the canonical source-symbol index, while artifacts that cannot be examined must receive an empty allow-list instead of a guessed citation.
+          rationale: A host agent may refuse support, but it must not manufacture a symbol or widen the scope that Tieline emitted.
+          scenarios:
+            - given: a source artifact declares a function and names another identifier only in a comment
+              when: its grading entry is built
+              then: Tieline must offer the function selector and must not offer the comment-only identifier
+            - given: a linked artifact is deleted or uses an unsupported language
+              when: its grading entry is built
+              then: Tieline must emit an empty citation allow-list without failing the scope
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/selector.ts
+                selector: function:indexSourceSymbols
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:citableSymbolsForPath
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-001-AC3
+          criterion: Contract grading must derive and verify its scope from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.
+          rationale: The semantic judgment belongs to the host agent, while both Tieline phases remain deterministic and usable in the same offline pull-request loop as contract validation.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+                selector: function:buildProgram
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+    - key: GRADING-002
+      title: Refuse grading claims that cannot be checked
+      actor: reviewing maintainer
+      goal: see every negative, missing, malformed, and downgraded judgment
+      benefit: an agent cannot turn weak or absent evidence into a silent confirmation
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-002-AC1
+          criterion: Tieline must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.
+          scenarios:
+            - given: an agent submits a supported verdict with a citation Tieline did not emit for that entry
+              when: the verdict document is verified
+              then: Tieline must report unsupported with fabricated_citation
+          links:
+            - relation: enforces
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:parseGradeVerdicts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:verifyGradeVerdicts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC2
+          criterion: Tieline must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.
+          rationale: Omission is the refusal path rather than a way to skip hard work, while an identity outside the current scope signals stale or substituted input.
+          scenarios:
+            - given: the emitted scope contains an entry that no verdict names
+              when: the verdict document is verified
+              then: Tieline must report that entry unsupported with missing_verdict
+            - given: a verdict identity is duplicated or absent from the rederived scope
+              when: the verdict document is verified
+              then: Tieline must reject the submission instead of choosing or ignoring a verdict
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:verifyGradeVerdicts
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC3
+          criterion: Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.
+          rationale: Agent judgment stays advisory until its operating quality is known; callers that knowingly want a gate can opt into one without hiding its findings.
+          scenarios:
+            - given: verification leaves an unsupported result and strict mode is not requested
+              when: contract grade finishes
+              then: Tieline must print the unsupported result and exit zero
+            - given: verification leaves an unsupported result and strict mode is requested
+              when: contract grade finishes
+              then: Tieline must print the unsupported result and exit non-zero
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:verifyGradeVerdicts
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: tests
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC4
+          criterion: The grading skill must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.
+          rationale: The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.
+          links:
+            - relation: implements
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline-grade/SKILL.md
