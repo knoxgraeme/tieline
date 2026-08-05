@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
@@ -47,7 +47,10 @@ import {
 } from "../contract/reconciliation.js";
 import {
   buildGradeScope,
+  parseGradeVerdicts,
+  renderGradeReportText,
   renderGradeScopeText,
+  verifyGradeVerdicts,
 } from "../contract/grade.js";
 
 interface ContractCommandIO {
@@ -175,10 +178,7 @@ function runGrade(
       "`contract grade` requires --base <ref> so its work list comes from an explicit diff."
     );
   }
-  if (parsed.verify !== undefined) {
-    throw new Error("`contract grade --verify` is not available yet.");
-  }
-  if (parsed.strict) {
+  if (parsed.emitScope && parsed.strict) {
     throw new Error("`--strict` applies only with `contract grade --verify`.");
   }
 
@@ -201,12 +201,39 @@ function runGrade(
     ignore: parsed.ignore,
     specDirectory: parsed.specDirectory,
   });
+  if (parsed.emitScope) {
+    io.write(
+      parsed.json
+        ? `${JSON.stringify(scope, null, 2)}\n`
+        : renderGradeScopeText(scope)
+    );
+    return 0;
+  }
+
+  const verdictsPath = isAbsolute(parsed.verify!)
+    ? parsed.verify!
+    : resolve(parsed.repositoryRoot, parsed.verify!);
+  let document: unknown;
+  try {
+    document = JSON.parse(readFileSync(verdictsPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Cannot read grade verdicts '${verdictsPath}': ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+  const report = verifyGradeVerdicts({
+    scope,
+    verdicts: parseGradeVerdicts(document),
+    strict: parsed.strict,
+  });
   io.write(
     parsed.json
-      ? `${JSON.stringify(scope, null, 2)}\n`
-      : renderGradeScopeText(scope)
+      ? `${JSON.stringify(report, null, 2)}\n`
+      : renderGradeReportText(report)
   );
-  return 0;
+  return report.strict_failure ? 1 : 0;
 }
 
 function changesSince(repositoryRoot: string, base: string) {

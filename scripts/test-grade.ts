@@ -12,7 +12,13 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runCli, type TielineCliIO } from "../src/cli.js";
 import type { RepositoryPathChange } from "../src/contract/impact.js";
-import { buildGradeScope } from "../src/contract/grade.js";
+import {
+  buildGradeScope,
+  GradeVerdictError,
+  parseGradeVerdicts,
+  verifyGradeVerdicts,
+  type GradeScope,
+} from "../src/contract/grade.js";
 import {
   compileContractManifest,
   compileContractManifestWithSources,
@@ -304,7 +310,7 @@ capability:
     ),
     0
   );
-  const emitted = JSON.parse(output);
+  const emitted = JSON.parse(output) as GradeScope;
   assert.equal(emitted.base, "HEAD");
   assert.equal(emitted.repository, REPOSITORY);
   assert.equal(emitted.scoped_links, 1);
@@ -328,6 +334,238 @@ capability:
   assert.match(output, /FEATURE-001-AC1/);
   assert.match(output, /src\/feature\.ts/);
   assert.match(output, /function:computeFeature/);
+
+  const scopeEntry = emitted.entries[0]!;
+  const verify = (document: unknown, strict = false) =>
+    verifyGradeVerdicts({
+      scope: emitted,
+      verdicts: parseGradeVerdicts(document),
+      strict,
+    });
+
+  const supported = verify({
+    verdicts: [
+      {
+        id: scopeEntry.id,
+        grade: "supported",
+        citation: "function:computeFeature",
+      },
+    ],
+  });
+  assert.deepEqual(supported.counts, {
+    supported: 1,
+    partial: 0,
+    unsupported: 0,
+  });
+  assert.equal(supported.entries[0]?.grade, "supported");
+  assert.equal(supported.entries[0]?.cause, null);
+  assert.deepEqual(supported.proposed_selectors, [
+    {
+      acceptance_criterion_stable_id: "FEATURE-001-AC1",
+      path: "src/feature.ts",
+      selector: "function:computeFeature",
+    },
+  ]);
+
+  const partial = verify(
+    {
+      verdicts: [
+        {
+          id: scopeEntry.id,
+          grade: "partial",
+          reason: "The symbol contributes, but does not establish the whole outcome.",
+        },
+      ],
+    },
+    true
+  );
+  assert.equal(partial.entries[0]?.grade, "partial");
+  assert.equal(partial.strict_failure, false);
+  assert.equal(partial.findings.length, 1);
+
+  const unsupported = verify({
+    verdicts: [
+      {
+        id: scopeEntry.id,
+        grade: "unsupported",
+        reason: "This file no longer implements the accepted outcome.",
+      },
+    ],
+  });
+  assert.equal(unsupported.entries[0]?.grade, "unsupported");
+  assert.equal(unsupported.entries[0]?.submitted_grade, "unsupported");
+
+  const missing = verify({ verdicts: [] });
+  assert.equal(missing.entries[0]?.grade, "unsupported");
+  assert.equal(missing.entries[0]?.submitted_grade, null);
+  assert.equal(missing.entries[0]?.cause, "missing_verdict");
+  assert.equal(missing.missing_verdicts.length, 1);
+
+  for (const citation of ["function:inventedFeature", undefined]) {
+    const fabricated = verify({
+      verdicts: [
+        {
+          id: scopeEntry.id,
+          grade: "supported",
+          ...(citation ? { citation } : {}),
+        },
+      ],
+    });
+    assert.equal(fabricated.entries[0]?.grade, "unsupported");
+    assert.equal(fabricated.entries[0]?.submitted_grade, "supported");
+    assert.equal(fabricated.entries[0]?.cause, "fabricated_citation");
+    assert.equal(fabricated.downgrades.length, 1);
+  }
+
+  assert.throws(
+    () =>
+      verify({
+        verdicts: [
+          {
+            id: scopeEntry.id,
+            grade: "partial",
+            reason: "Some support.",
+            citation: "function:computeFeature",
+          },
+        ],
+      }),
+    GradeVerdictError
+  );
+  assert.throws(
+    () =>
+      verify({
+        verdicts: [{ id: scopeEntry.id, grade: "unsupported" }],
+      }),
+    GradeVerdictError
+  );
+  assert.throws(
+    () =>
+      verify({
+        verdicts: [
+          {
+            id: "grade:0000000000000000000000000000000000000000000000000000000000000000",
+            grade: "unsupported",
+            reason: "Not current scope.",
+          },
+        ],
+      }),
+    /outside the derived grading scope/
+  );
+  assert.throws(
+    () =>
+      verify({
+        verdicts: [
+          {
+            id: scopeEntry.id,
+            grade: "unsupported",
+            reason: "First.",
+          },
+          {
+            id: scopeEntry.id,
+            grade: "unsupported",
+            reason: "Second.",
+          },
+        ],
+      }),
+    /Duplicate verdict/
+  );
+  assert.throws(
+    () => parseGradeVerdicts([{ id: scopeEntry.id, grade: "supported" }]),
+    GradeVerdictError
+  );
+
+  const verdictsPath = resolve(root, "verdicts.json");
+  const writeVerdicts = (document: unknown): void => {
+    writeFileSync(verdictsPath, `${JSON.stringify(document, null, 2)}\n`);
+  };
+
+  writeVerdicts({
+    verdicts: [
+      {
+        id: scopeEntry.id,
+        grade: "supported",
+        citation: "const:changedFeature",
+      },
+    ],
+  });
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "grade",
+        root,
+        "--base",
+        "HEAD",
+        "--verify",
+        verdictsPath,
+        "--strict",
+        "--json",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  assert.equal(JSON.parse(output).counts.supported, 1);
+
+  writeVerdicts({
+    verdicts: [
+      {
+        id: scopeEntry.id,
+        grade: "supported",
+        citation: "function:notReal",
+      },
+    ],
+  });
+  output = "";
+  assert.equal(
+    await runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--verify", verdictsPath],
+      io,
+      {}
+    ),
+    0
+  );
+  assert.match(output, /unsupported=1/);
+  assert.match(output, /fabricated_citation/);
+
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "contract",
+        "grade",
+        root,
+        "--base",
+        "HEAD",
+        "--verify",
+        verdictsPath,
+        "--strict",
+      ],
+      io,
+      {}
+    ),
+    1
+  );
+  assert.match(output, /Strict mode/);
+
+  await assert.rejects(
+    runCli(
+      [
+        "contract",
+        "grade",
+        root,
+        "--base",
+        "HEAD",
+        "--verify",
+        "missing-verdicts.json",
+      ],
+      io,
+      {}
+    ),
+    /Cannot read grade verdicts/
+  );
 
   await assert.rejects(
     runCli(["contract", "grade", root, "--base", "HEAD"], io, {}),

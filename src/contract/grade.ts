@@ -9,6 +9,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { extname, isAbsolute, relative, resolve } from "node:path";
+import { z } from "zod";
 import type { RepositoryPathChange } from "./impact.js";
 import type { ContractManifest } from "./manifest.js";
 import {
@@ -50,6 +51,16 @@ export interface GradeScope {
   repository: string;
   scoped_links: number;
   entries: GradeScopeEntry[];
+}
+
+export const GRADE_VALUES = ["supported", "partial", "unsupported"] as const;
+export type GradeValue = (typeof GRADE_VALUES)[number];
+
+export class GradeVerdictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GradeVerdictError";
+  }
 }
 
 export interface BuildGradeScopeInput {
@@ -203,6 +214,229 @@ export function renderGradeScopeText(scope: GradeScope): string {
       entry.symbols.length > 0
         ? `    Legal citations: ${entry.symbols.join(", ")}\n`
         : "    Legal citations: none extracted; this link cannot be graded supported.\n"
+    );
+  }
+  return lines.join("");
+}
+
+const nonEmptyText = z.string().trim().min(1);
+const gradeScopeId = z.string().regex(/^grade:[a-f0-9]{64}$/);
+
+export const gradeVerdictSchema = z.discriminatedUnion("grade", [
+  z
+    .object({
+      id: gradeScopeId,
+      grade: z.literal("supported"),
+      citation: nonEmptyText.optional(),
+      reason: nonEmptyText.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      id: gradeScopeId,
+      grade: z.literal("partial"),
+      reason: nonEmptyText,
+    })
+    .strict(),
+  z
+    .object({
+      id: gradeScopeId,
+      grade: z.literal("unsupported"),
+      reason: nonEmptyText,
+    })
+    .strict(),
+]);
+
+export const gradeVerdictDocumentSchema = z
+  .object({ verdicts: z.array(gradeVerdictSchema) })
+  .strict();
+
+export type GradeVerdict = z.infer<typeof gradeVerdictSchema>;
+
+export function parseGradeVerdicts(value: unknown): GradeVerdict[] {
+  const parsed = gradeVerdictDocumentSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new GradeVerdictError(
+      `Grade verdicts are malformed:\n${parsed.error.issues
+        .map(
+          (issue) =>
+            `- ${issue.path.length > 0 ? `${issue.path.join(".")}: ` : ""}${issue.message}`
+        )
+        .join("\n")}`
+    );
+  }
+  return parsed.data.verdicts;
+}
+
+export type GradeVerificationCause =
+  | "fabricated_citation"
+  | "missing_verdict";
+
+export interface GradeEntryResult extends GradeScopeEntry {
+  grade: GradeValue;
+  submitted_grade: GradeValue | null;
+  citation: string | null;
+  judgment_reason: string;
+  cause: GradeVerificationCause | null;
+  downgraded: boolean;
+  missing_verdict: boolean;
+}
+
+export interface GradeProposedSelector {
+  acceptance_criterion_stable_id: string;
+  path: string;
+  selector: string;
+}
+
+export interface GradeReport {
+  base: string;
+  repository: string;
+  strict: boolean;
+  scoped_links: number;
+  counts: Record<GradeValue, number>;
+  entries: GradeEntryResult[];
+  /** Every non-supported result; an honest negative is never hidden. */
+  findings: GradeEntryResult[];
+  downgrades: GradeEntryResult[];
+  missing_verdicts: GradeEntryResult[];
+  proposed_selectors: GradeProposedSelector[];
+  strict_failure: boolean;
+}
+
+/**
+ * Applies the deterministic fence to host-agent judgments. Verdicts may narrow
+ * neither the work list nor its citation vocabulary.
+ */
+export function verifyGradeVerdicts(input: {
+  scope: GradeScope;
+  verdicts: GradeVerdict[];
+  strict?: boolean;
+}): GradeReport {
+  const scoped = new Map(input.scope.entries.map((entry) => [entry.id, entry]));
+  const submitted = new Map<string, GradeVerdict>();
+
+  for (const verdict of input.verdicts) {
+    if (!scoped.has(verdict.id)) {
+      throw new GradeVerdictError(
+        `Verdict '${verdict.id}' is outside the derived grading scope for base '${input.scope.base}'. Emit the scope again and grade only its current entries.`
+      );
+    }
+    if (submitted.has(verdict.id)) {
+      throw new GradeVerdictError(
+        `Duplicate verdict '${verdict.id}'; submit exactly one verdict per scoped link.`
+      );
+    }
+    submitted.set(verdict.id, verdict);
+  }
+
+  const entries = input.scope.entries.map((entry): GradeEntryResult => {
+    const verdict = submitted.get(entry.id);
+    if (!verdict) {
+      return {
+        ...entry,
+        grade: "unsupported",
+        submitted_grade: null,
+        citation: null,
+        judgment_reason: "No verdict was submitted for this scoped link.",
+        cause: "missing_verdict",
+        downgraded: false,
+        missing_verdict: true,
+      };
+    }
+    if (verdict.grade !== "supported") {
+      return {
+        ...entry,
+        grade: verdict.grade,
+        submitted_grade: verdict.grade,
+        citation: null,
+        judgment_reason: verdict.reason,
+        cause: null,
+        downgraded: false,
+        missing_verdict: false,
+      };
+    }
+    if (!verdict.citation || !entry.symbols.includes(verdict.citation)) {
+      const citation = verdict.citation ?? null;
+      return {
+        ...entry,
+        grade: "unsupported",
+        submitted_grade: "supported",
+        citation,
+        judgment_reason: citation
+          ? `Cited symbol '${citation}' is not in the emitted vocabulary for '${entry.path}'.`
+          : `No symbol was cited from the emitted vocabulary for '${entry.path}'.`,
+        cause: "fabricated_citation",
+        downgraded: true,
+        missing_verdict: false,
+      };
+    }
+    return {
+      ...entry,
+      grade: "supported",
+      submitted_grade: "supported",
+      citation: verdict.citation,
+      judgment_reason:
+        verdict.reason ??
+        `Cited symbol '${verdict.citation}' is in the emitted vocabulary for '${entry.path}'.`,
+      cause: null,
+      downgraded: false,
+      missing_verdict: false,
+    };
+  });
+
+  const counts: Record<GradeValue, number> = {
+    supported: 0,
+    partial: 0,
+    unsupported: 0,
+  };
+  for (const entry of entries) counts[entry.grade] += 1;
+  const strict = input.strict === true;
+  return {
+    base: input.scope.base,
+    repository: input.scope.repository,
+    strict,
+    scoped_links: input.scope.scoped_links,
+    counts,
+    entries,
+    findings: entries.filter((entry) => entry.grade !== "supported"),
+    downgrades: entries.filter((entry) => entry.downgraded),
+    missing_verdicts: entries.filter((entry) => entry.missing_verdict),
+    proposed_selectors: entries
+      .filter(
+        (entry): entry is GradeEntryResult & { citation: string } =>
+          entry.grade === "supported" && entry.citation !== null
+      )
+      .map((entry) => ({
+        acceptance_criterion_stable_id:
+          entry.acceptance_criterion_stable_id,
+        path: entry.path,
+        selector: entry.citation,
+      })),
+    strict_failure: strict && counts.unsupported > 0,
+  };
+}
+
+export function renderGradeReportText(report: GradeReport): string {
+  const lines = [
+    `Grades: ${report.scoped_links} scoped link(s); supported=${report.counts.supported}, partial=${report.counts.partial}, unsupported=${report.counts.unsupported}.\n`,
+  ];
+  for (const entry of report.entries) {
+    lines.push(
+      `  ${entry.grade}  ${entry.id} ${entry.acceptance_criterion_stable_id} ${entry.path}${entry.citation ? ` (${entry.citation})` : ""}\n`
+    );
+    if (entry.grade !== "supported") {
+      lines.push(`    ${entry.judgment_reason}\n`);
+    }
+    if (entry.cause) lines.push(`    cause: ${entry.cause}\n`);
+  }
+  for (const proposal of report.proposed_selectors) {
+    lines.push(
+      `  selector  ${proposal.acceptance_criterion_stable_id} ${proposal.path} proposes '${proposal.selector}' for contract review.\n`
+    );
+  }
+  if (report.strict_failure) {
+    lines.push(
+      `  Strict mode: ${report.counts.unsupported} unsupported grade(s) remain.\n`
     );
   }
   return lines.join("");
