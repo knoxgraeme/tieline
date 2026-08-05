@@ -15,7 +15,7 @@ import {
   type ReconciliationLinkScope,
   type ReconciliationRelation,
 } from "./reconciliation.js";
-import type { ContractManifest } from "./manifest.js";
+import { manifestDigest, type ContractManifest } from "./manifest.js";
 
 export interface PathCriterion {
   path: string;
@@ -50,8 +50,10 @@ export interface PathCriteriaResult {
 }
 
 export interface PathCriteriaReport {
-  /** The manifest state that answered the query. */
+  /** Stable repository identity recorded by the reviewed manifest. */
   repository: ContractManifest["repository"];
+  /** Content identity of the complete reviewed manifest that answered. */
+  manifest_digest: string;
   has_criteria_paths: number;
   no_criteria_paths: number;
   not_found_paths: number;
@@ -177,6 +179,7 @@ export function lookupPathCriteria(input: {
   });
   return {
     repository: { ...input.manifest.repository },
+    manifest_digest: manifestDigest(input.manifest),
     has_criteria_paths: results.filter(
       (result) => result.status === "has_criteria"
     ).length,
@@ -191,7 +194,7 @@ export function lookupPathCriteria(input: {
 
 export function renderPathCriteriaText(report: PathCriteriaReport): string {
   const lines = [
-    `Contract criteria in repository '${report.repository.key}' at manifest commit ${report.repository.commit}: ${report.has_criteria_paths} with criteria, ${report.no_criteria_paths} with no criteria, ${report.not_found_paths} not found of ${report.results.length} path(s).\n`,
+    `Contract criteria in repository '${report.repository.key}' from manifest ${report.manifest_digest}: ${report.has_criteria_paths} with criteria, ${report.no_criteria_paths} with no criteria, ${report.not_found_paths} not found of ${report.results.length} path(s).\n`,
   ];
   for (const result of report.results) {
     lines.push(`  ${result.status}  ${result.answer}\n`);

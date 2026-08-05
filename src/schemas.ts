@@ -244,7 +244,8 @@ export const getPathCriteriaSchema = z
   .strict();
 export type GetPathCriteriaInput = z.infer<typeof getPathCriteriaSchema>;
 export const getPathCriteriaOutputShape = {
-  repository: z.object({ key: z.string(), commit: z.string() }),
+  repository: z.object({ key: z.string() }),
+  manifest_digest: z.string().regex(/^[a-f0-9]{64}$/),
   has_criteria_paths: z.number(),
   no_criteria_paths: z.number(),
   not_found_paths: z.number(),

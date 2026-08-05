@@ -900,8 +900,10 @@ export class PostgresContractSyncRepository
 
   async sync(
     manifest: ContractManifest,
-    options: ContractSyncOptions = {}
+    options: ContractSyncOptions
   ): Promise<ContractSyncResult> {
+    const commit = options.commit.trim();
+    if (!commit) throw new Error("Repository sync commit cannot be empty.");
     const counts = manifestCounts(manifest);
     return this.sql.begin(async (tx) => {
       await tx`
@@ -921,7 +923,7 @@ export class PostgresContractSyncRepository
         for update`;
       const currentCommit = checkpoints[0]?.commit_sha;
 
-      if (currentCommit === manifest.repository.commit) {
+      if (currentCommit === commit) {
         await refreshCodeAssetHashes(tx, manifest);
         // Reconcile on the unchanged path too: re-running sync at the same
         // commit is how a projection carrying orphans from an earlier release
@@ -934,7 +936,7 @@ export class PostgresContractSyncRepository
         return {
           outcome: "unchanged" as const,
           repository: manifest.repository.key,
-          commit: manifest.repository.commit,
+          commit,
           stories: counts.stories,
           acceptance_criteria: counts.acceptanceCriteria,
           retired_stories: 0,
@@ -959,7 +961,7 @@ export class PostgresContractSyncRepository
           await upsertCapability(
             tx,
             repositoryId,
-            manifest.repository.commit,
+            commit,
             capability
           )
         );
@@ -987,7 +989,7 @@ export class PostgresContractSyncRepository
             repositoryId,
             repositoryKey: manifest.repository.key,
             capabilityId,
-            commit: manifest.repository.commit,
+            commit,
             story,
             conflicts,
             claimedPlanningStories,
@@ -998,7 +1000,7 @@ export class PostgresContractSyncRepository
               repositoryId,
               repositoryKey: manifest.repository.key,
               storyId,
-              commit: manifest.repository.commit,
+              commit,
               criterion,
               claimedPlanningStories,
             });
@@ -1010,7 +1012,7 @@ export class PostgresContractSyncRepository
         update user_stories
         set lifecycle = 'retired',
             revision = revision + 1,
-            repository_commit = ${manifest.repository.commit}
+            repository_commit = ${commit}
         where repository_id = ${repositoryId}
           and authority = 'repository'
           and lifecycle <> 'retired'
@@ -1020,7 +1022,7 @@ export class PostgresContractSyncRepository
         await recordRevision(tx, "story", row.id, row.revision, {
           lifecycle: "retired",
           reason: "absent_from_repository_contract",
-          repository_commit: manifest.repository.commit,
+          repository_commit: commit,
         });
       }
 
@@ -1032,7 +1034,7 @@ export class PostgresContractSyncRepository
         set active = false,
             authority = 'repository',
             revision = revision + 1,
-            repository_commit = ${manifest.repository.commit}
+            repository_commit = ${commit}
         where repository_id = ${repositoryId}
           and (
             authority = 'repository'
@@ -1055,7 +1057,7 @@ export class PostgresContractSyncRepository
           {
             active: false,
             reason: "absent_from_repository_contract",
-            repository_commit: manifest.repository.commit,
+            repository_commit: commit,
           }
         );
       }
@@ -1087,7 +1089,7 @@ export class PostgresContractSyncRepository
         insert into repository_sync_checkpoints (
           repository_id, commit_sha, synced_at
         ) values (
-          ${repositoryId}, ${manifest.repository.commit}, now()
+          ${repositoryId}, ${commit}, now()
         )
         on conflict (repository_id) do update
           set commit_sha = excluded.commit_sha, synced_at = excluded.synced_at`;
@@ -1097,7 +1099,7 @@ export class PostgresContractSyncRepository
           'repository_contract_synced',
           ${jsonValue(tx, {
             repository: manifest.repository.key,
-            commit: manifest.repository.commit,
+            commit,
             stories: counts.stories,
             acceptance_criteria: counts.acceptanceCriteria,
             retired_stories: retiredStories.length,
@@ -1110,7 +1112,7 @@ export class PostgresContractSyncRepository
       return {
         outcome: "synced" as const,
         repository: manifest.repository.key,
-        commit: manifest.repository.commit,
+        commit,
         stories: counts.stories,
         acceptance_criteria: counts.acceptanceCriteria,
         retired_stories: retiredStories.length,

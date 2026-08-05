@@ -241,25 +241,26 @@ tieline contract criteria src/commands/check.ts src/server.ts
 This is an exact path lookup, not semantic search. Each path is reported as
 `has_criteria`, `no_criteria`, or `not_found`; results with criteria preserve
 whether the link is `direct` on an acceptance criterion or a `story_fallback`.
-JSON output also carries the manifest commit that answered.
+JSON output also carries a content-derived `manifest_digest` identifying the
+complete reviewed manifest that answered.
 
 Compilation writes `.tieline/manifest/`, one file per capability plus a small
 index:
 
 ```
 .tieline/manifest/
-  index.json        schema version and the repository key and commit
+  index.json        schema version and the stable repository key
   CONTRACT.json     one capability, named after its stable ID, with the
   RETRIEVAL.json    specification file and hash it was compiled from
   ...
 ```
 
 A capability is exactly one specification file, so this is the boundary the
-contract already has. Two branches that change different capabilities now change
-different files and have nothing to conflict over. The index changes on every
-commit because it records one, and `.gitattributes` marks it `-merge` so git
-asks for a recompile instead of stitching two indexes together. Compiling
-deletes the file of any capability the specification no longer declares.
+contract already has. The schema-v2 index contains only stable repository
+identity, stays byte-identical for commit-only changes, and uses normal Git
+merging. Different capability shards avoid cross-capability conflicts; edits to
+the same shard use normal conflict resolution. Compiling deletes stale
+capability shards the specification no longer declares.
 
 Mapping coverage counts a repository file as mapped when any contract link names
 it. That records who claimed the file is evidence, not how much is known about

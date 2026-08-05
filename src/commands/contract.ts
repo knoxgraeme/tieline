@@ -548,21 +548,16 @@ export async function runContractCommand(
         `Reviewed manifest repository '${reviewedManifest.repository.key}' does not match requested repository '${parsed.repositoryKey}'.`
       );
     }
+    const commit = parsed.commit ?? gitCommit(parsed.repositoryRoot);
     const manifest = attachCurrentArtifactHashes(
-      {
-        ...reviewedManifest,
-        repository: {
-          ...reviewedManifest.repository,
-          commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
-        },
-      },
+      reviewedManifest,
       parsed.repositoryRoot
     );
     try {
       const result = await syncContractManifest(
         new PostgresContractSyncRepository(getSyncSql()),
         manifest,
-        { expectedPreviousCommit: parsed.expectedPreviousCommit }
+        { commit, expectedPreviousCommit: parsed.expectedPreviousCommit }
       );
       const reads = new PostgresContractReadRepository(getSyncSql);
       const projected = await reads.queryContractStories({
@@ -629,7 +624,6 @@ export async function runContractCommand(
     compileContractManifestWithSources({
       repositoryRoot: parsed.repositoryRoot,
       repositoryKey: parsed.repositoryKey,
-      commit: parsed.commit ?? gitCommit(parsed.repositoryRoot),
       specDirectory: parsed.specDirectory,
       onUnhashableArtifact,
     });

@@ -220,8 +220,6 @@ try {
       root,
       "--repo",
       "contract-command-test",
-      "--commit",
-      "offline-proof",
       "--output",
       manifestPath,
       "--json",
@@ -230,6 +228,14 @@ try {
     {}
   );
   assert.equal(compileExit, 0);
+  await assert.rejects(
+    runCli(
+      ["contract", "compile", root, "--commit", "legacy-compile-commit"],
+      io,
+      {}
+    ),
+    /unknown option '--commit'/
+  );
   const compileResult = JSON.parse(output);
   assert.deepEqual(compileResult.files, [
     "BEHAVIOR.json",
@@ -243,8 +249,8 @@ try {
   assert.deepEqual(
     JSON.parse(readFileSync(resolve(manifestPath, "index.json"), "utf8")),
     {
-      schema_version: 1,
-      repository: { key: "contract-command-test", commit: "offline-proof" },
+      schema_version: 2,
+      repository: { key: "contract-command-test" },
     }
   );
   const behaviorShard = JSON.parse(
@@ -261,7 +267,6 @@ try {
       "compile",
       root,
       "--repo=contract-command-test",
-      "--commit=offline-proof",
       `--output=${manifestPath}`,
     ],
     io,
@@ -279,7 +284,6 @@ try {
       "compile",
       root,
       "--repo=contract-command-test",
-      "--commit=offline-proof",
       `--output=${manifestPath}`,
       "--json",
     ],
@@ -297,8 +301,6 @@ try {
       root,
       "--repo",
       "contract-command-test",
-      "--commit",
-      "offline-proof",
       "--json",
     ],
     io,
@@ -314,7 +316,7 @@ try {
     ...Array.from({ length: 7 }, (_unused, index) => `src/mapped-${index + 1}.ts`),
   ];
   assert.deepEqual(JSON.parse(output), {
-    repository: { key: "contract-command-test", commit: "offline-proof" },
+    repository: { key: "contract-command-test" },
     stories: 2,
     acceptance_criteria: 5,
     criteria_with_direct_links: 5,
@@ -349,7 +351,6 @@ try {
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: "contract-command-test",
-    commit: "offline-proof",
   });
   const untiered = computeRepositoryMappingCoverage(manifest, {
     repositoryRoot: root,
@@ -400,8 +401,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
         "--json",
       ],
       io,
@@ -424,8 +423,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
       ],
       io,
       {}
@@ -446,8 +443,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
         "--json",
       ],
       io,
@@ -489,8 +484,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
       ],
       io,
       {}
@@ -537,8 +530,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
         "--base",
         "HEAD",
         "--json",
@@ -596,8 +587,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
         "--base",
         "HEAD",
       ],
@@ -627,8 +616,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
         "--base",
         "HEAD",
         "--json",
@@ -665,8 +652,6 @@ try {
         root,
         "--repo",
         "contract-command-test",
-        "--commit",
-        "offline-proof",
         "--json",
       ],
       io,
@@ -697,8 +682,6 @@ try {
           root,
           "--repo",
           "contract-command-test",
-          "--commit",
-          "offline-proof",
           "--output",
           manifestPath,
         ],

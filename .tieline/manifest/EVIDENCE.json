@@ -219,7 +219,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5e36b65da676de069e31bc8f60fd3a94e58dc63a559152c26ee1e0a904a0d65a",
+                "reviewed_content_hash": "1095a4924b5c6dfdd436d4d526dff24055003a111bc6004b8db07981591a1abb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

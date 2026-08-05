@@ -291,6 +291,127 @@ capability:
                 repository: tieline
                 path: scripts/integration-contract-sync.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC8
+          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.
+          rationale: A revision in the tracked repository-level index made every branch conflict in one shared generated file and became stale as soon as that generated file was committed. Content identity belongs to the reviewed manifest, while Git revision belongs to the runtime projection checkpoint and audit boundary.
+          scenarios:
+            - given: accepted specifications and linked artifacts whose content is unchanged across two Git revisions
+              when: the contract is compiled at each revision
+              then: the repository-level manifest index must remain byte-identical and must not record either Git revision
+            - given: the content of the reviewed manifest changes
+              when: exact path criteria are requested
+              then: Tieline must return a different manifest digest identifying the complete reviewed manifest that answered
+            - given: a reviewed manifest and an explicit runtime Git commit
+              when: the repository contract is synchronized
+              then: Tieline must use that runtime commit for projection rows, checkpoint guards, sync results, and audit events without adding it to the reviewed manifest
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/path-criteria.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/sync.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/repository-sync-store.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/schemas.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/path-criteria.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/status.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: .gitattributes
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-path-criteria.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
       actor: implementing agent
@@ -352,7 +473,7 @@ capability:
           scenarios:
             - given: no database connection is configured
               when: the contract criteria for a path are requested over MCP
-              then: Tieline must return the applicable acceptance criteria and the commit the manifest records
+              then: Tieline must return the applicable acceptance criteria and the content-derived digest of the manifest that answered
             - given: the server runs outside any Tieline workspace
               when: the contract criteria for a path are requested
               then: Tieline must name the missing workspace and the command that creates one

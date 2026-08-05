@@ -8,6 +8,8 @@ export interface HandoffConflict {
 }
 
 export interface ContractSyncOptions {
+  /** Git revision whose repository projection is being synchronized. */
+  commit: string;
   expectedPreviousCommit?: string;
 }
 
@@ -30,7 +32,7 @@ export interface ContractSyncResult {
 export interface ContractSyncRepository {
   sync(
     manifest: ContractManifest,
-    options?: ContractSyncOptions
+    options: ContractSyncOptions
   ): Promise<ContractSyncResult>;
 }
 
@@ -51,7 +53,11 @@ export class ContractSyncCheckpointError extends Error {
 export async function syncContractManifest(
   repository: ContractSyncRepository,
   manifest: ContractManifest,
-  options: ContractSyncOptions = {}
+  options: ContractSyncOptions
 ): Promise<ContractSyncResult> {
-  return repository.sync(manifest, options);
+  const commit = options.commit.trim();
+  if (!commit) {
+    throw new Error("Repository sync commit cannot be empty.");
+  }
+  return repository.sync(manifest, { ...options, commit });
 }

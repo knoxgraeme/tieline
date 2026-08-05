@@ -43,7 +43,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
+                "reviewed_content_hash": "47a12a7e9106f3483f4afd7ec215a2e8ed028c812881f89bf7200e49cd936a9f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -111,7 +111,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
+                "reviewed_content_hash": "47a12a7e9106f3483f4afd7ec215a2e8ed028c812881f89bf7200e49cd936a9f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -150,7 +150,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b4a059e4509d43be4954fbaf8e57f76a650f8657bb13eaf67754faf3a3abce1",
+                "reviewed_content_hash": "7f4c267a3f6f579c0f58039402379667446dd9c80248e24a2cd3f122e2f15e79",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -161,7 +161,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "150c2826587e7fe6d29976185913eab18e04dca4e3b41993859276b5dae87ace",
+                "reviewed_content_hash": "33e66f296cc4576b2b0e19c42dbac5859e16284fdaef572c0b9ca29d335fae3c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -172,7 +172,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
+                "reviewed_content_hash": "47a12a7e9106f3483f4afd7ec215a2e8ed028c812881f89bf7200e49cd936a9f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -235,7 +235,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
+                "reviewed_content_hash": "47a12a7e9106f3483f4afd7ec215a2e8ed028c812881f89bf7200e49cd936a9f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -278,7 +278,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
+                "reviewed_content_hash": "47a12a7e9106f3483f4afd7ec215a2e8ed028c812881f89bf7200e49cd936a9f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -317,7 +317,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "150c2826587e7fe6d29976185913eab18e04dca4e3b41993859276b5dae87ace",
+                "reviewed_content_hash": "33e66f296cc4576b2b0e19c42dbac5859e16284fdaef572c0b9ca29d335fae3c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -339,7 +339,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f2021bcade671d043f5cdc10896023cf06d76d69b716f825fca977a8724610c4",
+                "reviewed_content_hash": "47a12a7e9106f3483f4afd7ec215a2e8ed028c812881f89bf7200e49cd936a9f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

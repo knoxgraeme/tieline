@@ -268,7 +268,6 @@ export async function runCheckCommand(
     const currentManifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey,
-      commit: manifest.repository.commit,
       specDirectory,
     });
     manifestCurrent =

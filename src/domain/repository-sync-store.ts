@@ -9,6 +9,6 @@ import type { ContractManifest } from "../contract/manifest.js";
 export interface RepositorySyncStore extends ContractSyncRepository {
   sync(
     manifest: ContractManifest,
-    options?: ContractSyncOptions
+    options: ContractSyncOptions
   ): Promise<ContractSyncResult>;
 }

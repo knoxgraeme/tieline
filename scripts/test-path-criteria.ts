@@ -18,6 +18,7 @@ import {
 } from "../src/contract/path-criteria.js";
 import {
   compileContractManifestWithSources,
+  manifestDigest,
   writeContractManifest,
   type ContractManifest,
 } from "../src/contract/manifest.js";
@@ -136,6 +137,23 @@ capability:
                 path: src/direct.ts
 `;
 
+const OTHER_SPEC = `version: 1
+capability:
+  key: OTHER-CAPABILITY
+  name: Unqueried contract content
+  description: Contract content outside the queried path still contributes to manifest identity.
+  stories:
+    - key: OTHER-CAPABILITY-001
+      title: Keep exact reads attributable
+      actor: implementing agent
+      goal: identify the complete reviewed contract behind an exact read
+      benefit: changes outside one lookup remain visible in its manifest identity
+      lifecycle: production
+      acceptance_criteria:
+        - key: OTHER-CAPABILITY-001-AC1
+          criterion: Tieline must include the first unqueried contract statement in manifest identity.
+`;
+
 function createFixture(withManifest: boolean): {
   root: string;
   manifest: ContractManifest;
@@ -145,6 +163,7 @@ function createFixture(withManifest: boolean): {
   mkdirSync(resolve(root, "src"), { recursive: true });
   writeFileSync(resolve(root, ".tieline/config.json"), workspaceConfig());
   writeFileSync(resolve(root, ".tieline/spec/path-criteria.yaml"), SPEC);
+  writeFileSync(resolve(root, ".tieline/spec/other.yaml"), OTHER_SPEC);
   writeFileSync(resolve(root, "src/direct.ts"), "export const direct = 1;\n");
   writeFileSync(resolve(root, "src/shared.ts"), "export const shared = 1;\n");
   writeFileSync(
@@ -158,7 +177,6 @@ function createFixture(withManifest: boolean): {
   const compiled = compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "path-criteria-fixture",
-    commit: "path-criteria-fixture-commit",
     specDirectory: ".tieline/spec",
   });
   if (withManifest) {
@@ -212,10 +230,8 @@ try {
       "src/DIRECT.ts",
     ],
   });
-  assert.deepEqual(report.repository, {
-    key: "path-criteria-fixture",
-    commit: "path-criteria-fixture-commit",
-  });
+  assert.deepEqual(report.repository, { key: "path-criteria-fixture" });
+  assert.equal(report.manifest_digest, manifestDigest(manifest));
   assert.equal(report.has_criteria_paths, 2);
   assert.equal(report.no_criteria_paths, 1);
   assert.equal(report.not_found_paths, 2);
@@ -241,6 +257,35 @@ try {
   assert.equal(report.results[4]?.status, "not_found");
   assert.equal(report.results[4]?.exists, false);
 
+  writeFileSync(
+    resolve(root, ".tieline/spec/other.yaml"),
+    OTHER_SPEC.replace("first unqueried", "changed unqueried")
+  );
+  const changedManifest = compileContractManifestWithSources({
+    repositoryRoot: root,
+    repositoryKey: "path-criteria-fixture",
+    specDirectory: ".tieline/spec",
+  }).manifest;
+  const changedReport = lookupPathCriteria({
+    manifest: changedManifest,
+    repositoryRoot: root,
+    paths: ["src/direct.ts"],
+  });
+  assert.notEqual(
+    changedReport.manifest_digest,
+    report.manifest_digest,
+    "an unqueried capability still changes the complete manifest identity"
+  );
+  assert.deepEqual(
+    changedReport.results[0]?.criteria.map(
+      (criterion) => criterion.acceptance_criterion_stable_id
+    ),
+    report.results[0]?.criteria.map(
+      (criterion) => criterion.acceptance_criterion_stable_id
+    ),
+    "changing unqueried content does not change the path lookup itself"
+  );
+
   let output = "";
   const io: TielineCliIO = {
     write(message) {
@@ -262,7 +307,7 @@ try {
     ),
     0
   );
-  assert.match(output, /manifest commit path-criteria-fixture-commit/);
+  assert.match(output, new RegExp(`manifest ${manifestDigest(manifest)}`));
   assert.match(output, /PATH-CRITERIA-001-AC1 direct implements/);
   assert.match(output, /PATH-CRITERIA-001-AC1 story_fallback implements/);
 
@@ -288,7 +333,8 @@ try {
     cliReport.results.map((entry: { status: string }) => entry.status),
     ["no_criteria", "not_found"]
   );
-  assert.equal(cliReport.repository.commit, "path-criteria-fixture-commit");
+  assert.deepEqual(cliReport.repository, { key: "path-criteria-fixture" });
+  assert.equal(cliReport.manifest_digest, manifestDigest(manifest));
 
   const toolSource = readFileSync(
     resolve(projectRoot, "src/tools/path-criteria.ts"),
@@ -344,14 +390,16 @@ try {
   }
   assert.notEqual(handlerResult.isError, true);
   const structured = handlerResult.structuredContent as {
-    repository: { commit: string };
+    repository: { key: string };
+    manifest_digest: string;
     has_criteria_paths: number;
     no_criteria_paths: number;
     not_found_paths: number;
     results: Array<{ status: string; criteria: PathCriterion[] }>;
     note?: string;
   };
-  assert.equal(structured.repository.commit, "path-criteria-fixture-commit");
+  assert.deepEqual(structured.repository, { key: "path-criteria-fixture" });
+  assert.equal(structured.manifest_digest, manifestDigest(manifest));
   assert.equal(structured.has_criteria_paths, 1);
   assert.equal(structured.no_criteria_paths, 1);
   assert.equal(structured.not_found_paths, 1);
@@ -416,9 +464,9 @@ try {
   assert.notEqual(configuredWorkspaceResult.isError, true);
   assert.equal(
     (configuredWorkspaceResult.structuredContent as {
-      repository: { commit: string };
-    }).repository.commit,
-    "path-criteria-fixture-commit"
+      manifest_digest: string;
+    }).manifest_digest,
+    manifestDigest(manifest)
   );
 } finally {
   if (originalTielineWorkspace === undefined) {

@@ -29,7 +29,7 @@ import type {
 } from "./schema.js";
 import { loadAcceptedContractWithSources } from "./load.js";
 
-export const CONTRACT_MANIFEST_VERSION = 1 as const;
+export const CONTRACT_MANIFEST_VERSION = 2 as const;
 
 export interface ManifestInput {
   path: string;
@@ -98,7 +98,6 @@ export interface ContractManifest {
   schema_version: typeof CONTRACT_MANIFEST_VERSION;
   repository: {
     key: string;
-    commit: string;
   };
   inputs: ManifestInput[];
   capabilities: ManifestCapability[];
@@ -183,7 +182,6 @@ export type UnhashableArtifactPolicy = "throw" | "omit_hash";
 export interface CompileContractManifestOptions {
   repositoryRoot: string;
   repositoryKey: string;
-  commit: string;
   specDirectory?: string;
   /**
    * Defaults to `throw`, so every caller that does not opt in keeps refusing to
@@ -401,7 +399,6 @@ const contractManifestIndexSchema = z
     repository: z
       .object({
         key: stableIdSchema,
-        commit: nonEmptyTextSchema,
       })
       .strict(),
   })
@@ -841,9 +838,7 @@ export function compileContractManifestWithSources(
 ): CompiledContractManifest {
   const root = resolve(options.repositoryRoot);
   const repositoryKey = options.repositoryKey.trim();
-  const commit = options.commit.trim();
   if (!repositoryKey) throw new ContractManifestError("Repository key cannot be empty.");
-  if (!commit) throw new ContractManifestError("Repository commit cannot be empty.");
 
   const loaded = loadAcceptedContractWithSources(root, options.specDirectory);
   // One document per source file, one capability per document: the accepted
@@ -880,7 +875,7 @@ export function compileContractManifestWithSources(
   return {
     manifest: {
       schema_version: CONTRACT_MANIFEST_VERSION,
-      repository: { key: repositoryKey, commit },
+      repository: { key: repositoryKey },
       inputs: [...sources.values()].sort((left, right) =>
         left.path.localeCompare(right.path)
       ),
@@ -910,6 +905,16 @@ export function serializeContractManifest(manifest: ContractManifest): string {
     ...manifest,
     capabilities: manifest.capabilities.map(reviewedCapability),
   });
+}
+
+/**
+ * Deterministic identity of the complete reviewed manifest assembled from its
+ * index and capability shards. The digest is computed when needed instead of
+ * being persisted in the shared index, so branch-local contract changes do not
+ * create an additional cross-capability conflict surface.
+ */
+export function manifestDigest(manifest: ContractManifest): string {
+  return sha256(serializeContractManifest(manifest));
 }
 
 function serializeManifestIndex(manifest: ContractManifest): string {
