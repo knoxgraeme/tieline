@@ -24,6 +24,9 @@ capability:
             - given: a changed linked artifact shares no lexical vocabulary with its Acceptance Criterion
               when: grading scope is emitted
               then: Tieline must retain the entry for judgment
+            - given: one Acceptance Criterion links both the old and new paths of a renamed artifact
+              when: grading scope is emitted
+              then: Tieline must emit distinct entries whose linked_path values preserve both contract targets
           links:
             - relation: implements
               target:

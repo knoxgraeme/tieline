@@ -37,6 +37,8 @@ export interface GradeScopeEntry {
   acceptance_criterion: string;
   relation: ReconciliationRelation;
   link_scope: ReconciliationLinkScope;
+  /** Repository path named by this contract link. */
+  linked_path: string;
   /** Current artifact path; for a rename, the path after the rename. */
   path: string;
   /** The path before a rename, otherwise null. */
@@ -117,12 +119,14 @@ export function citableSymbolsForPath(
 function scopeId(input: {
   acceptanceCriterionStableId: string;
   relation: string;
+  linkedPath: string;
   path: string;
   linkScope: string;
 }): string {
   const identity = [
     input.acceptanceCriterionStableId,
     input.relation,
+    input.linkedPath,
     input.path,
     input.linkScope,
   ].join("\0");
@@ -135,6 +139,7 @@ function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
       right.acceptance_criterion_stable_id
     ) ||
     left.path.localeCompare(right.path) ||
+    left.linked_path.localeCompare(right.linked_path) ||
     left.link_scope.localeCompare(right.link_scope) ||
     left.relation.localeCompare(right.relation)
   );
@@ -166,6 +171,7 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
       const id = scopeId({
         acceptanceCriterionStableId: claim.acceptance_criterion_stable_id,
         relation: claim.relation,
+        linkedPath: claim.linked_path,
         path: change.path,
         linkScope: claim.link_scope,
       });
@@ -180,6 +186,7 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
         acceptance_criterion: claim.acceptance_criterion,
         relation: claim.relation,
         link_scope: claim.link_scope,
+        linked_path: claim.linked_path,
         path: change.path,
         previous_path: change.old_path ?? null,
         reason: change.status,
@@ -206,8 +213,12 @@ export function renderGradeScopeText(scope: GradeScope): string {
     return lines.join("");
   }
   for (const entry of scope.entries) {
+    const target =
+      entry.linked_path === entry.path
+        ? ""
+        : `, contract target ${entry.linked_path}`;
     lines.push(
-      `\n  ${entry.id}  ${entry.acceptance_criterion_stable_id} ${entry.relation} ${entry.path} (${entry.link_scope}, ${entry.reason})\n`
+      `\n  ${entry.id}  ${entry.acceptance_criterion_stable_id} ${entry.relation} ${entry.path} (${entry.link_scope}, ${entry.reason}${target})\n`
     );
     lines.push(`    ${entry.acceptance_criterion}\n`);
     lines.push(

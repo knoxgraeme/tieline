@@ -75,7 +75,7 @@ The manifest can prove that a link is structurally present and current, but not 
 Each scope entry has a deterministic identity derived from:
 
 ```text
-acceptance_criterion_stable_id + NUL + relation + NUL + path + NUL + link_scope
+acceptance_criterion_stable_id + NUL + relation + NUL + linked_path + NUL + path + NUL + link_scope
 ```
 
 The JSON scope shape is:
@@ -86,6 +86,7 @@ interface GradeScopeEntry {
   acceptance_criterion_stable_id: string;
   acceptance_criterion: string;
   relation: string;
+  linked_path: string;
   path: string;
   link_scope: "direct" | "story_fallback";
   reason: "modified" | "added" | "deleted" | "renamed";
@@ -124,7 +125,7 @@ The verification report repeats the current scope entry, records the normalized 
 
 - Convert `SymbolIndex.kinds` entries into canonical `kind:name` selectors and sort them.
 - Read only repository-local, supported source files. Missing, deleted, directory, binary, oversized, and unsupported files yield an empty vocabulary instead of throwing.
-- Derive entries from reconciliation's `claimed_changes`, retaining direct and story-fallback as distinct work.
+- Derive entries from reconciliation's `claimed_changes`, retaining direct and story-fallback as distinct work. Preserve `ClaimingCriterion.linked_path` separately from the changed artifact's current path so links to both sides of a rename cannot collapse.
 - Contract-definition changes are reconciliation exclusions, not gradeable artifacts; unrelated broken-link sweeps are outside this diff-scoped command.
 
 **Proof first:** Add focused tests for deterministic IDs/order, selector vocabulary, empty vocabularies, direct/story-fallback distinction, and no relevance filtering.

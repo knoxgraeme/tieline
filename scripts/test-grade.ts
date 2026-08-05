@@ -45,6 +45,10 @@ export function computeFeature(): number {
     "export const unrelatedSharedImplementation = true;\n"
   );
   writeFileSync(
+    resolve(root, "src/renamed.ts"),
+    "export const futureRenameTarget = true;\n"
+  );
+  writeFileSync(
     resolve(root, "src/deleted.ts"),
     "export const deletedFeature = true;\n"
   );
@@ -82,6 +86,11 @@ capability:
                 kind: code
                 repository: ${REPOSITORY}
                 path: src/feature.ts
+            - relation: implements
+              target:
+                kind: code
+                repository: ${REPOSITORY}
+                path: src/renamed.ts
             - relation: implements
               target:
                 kind: code
@@ -190,6 +199,7 @@ capability:
   ]);
   assert.deepEqual(unsupportedLanguage.entries[0]?.symbols, []);
 
+  unlinkSync(resolve(root, "src/renamed.ts"));
   renameSync(resolve(root, "src/feature.ts"), resolve(root, "src/renamed.ts"));
   const renamed = scopeFor([
     {
@@ -198,13 +208,53 @@ capability:
       path: "src/renamed.ts",
     },
   ]);
-  assert.equal(renamed.entries[0]?.path, "src/renamed.ts");
-  assert.equal(renamed.entries[0]?.previous_path, "src/feature.ts");
-  assert.equal(renamed.entries[0]?.reason, "renamed");
-  assert.deepEqual(renamed.entries[0]?.symbols, [
-    "const:featureLocal",
-    "function:computeFeature",
-  ]);
+  assert.equal(renamed.scoped_links, 2);
+  assert.deepEqual(
+    renamed.entries.map((entry) => ({
+      linked_path: entry.linked_path,
+      path: entry.path,
+      previous_path: entry.previous_path,
+      reason: entry.reason,
+    })),
+    [
+      {
+        linked_path: "src/feature.ts",
+        path: "src/renamed.ts",
+        previous_path: "src/feature.ts",
+        reason: "renamed",
+      },
+      {
+        linked_path: "src/renamed.ts",
+        path: "src/renamed.ts",
+        previous_path: "src/feature.ts",
+        reason: "renamed",
+      },
+    ]
+  );
+  assert.equal(new Set(renamed.entries.map((entry) => entry.id)).size, 2);
+  for (const entry of renamed.entries) {
+    assert.deepEqual(entry.symbols, [
+      "const:featureLocal",
+      "function:computeFeature",
+    ]);
+  }
+  const incompleteRename = verifyGradeVerdicts({
+    scope: renamed,
+    verdicts: [
+      {
+        id: renamed.entries[0]!.id,
+        grade: "supported",
+        citation: "function:computeFeature",
+      },
+    ],
+    strict: true,
+  });
+  assert.equal(incompleteRename.strict_failure, true);
+  assert.equal(incompleteRename.missing_verdicts.length, 1);
+  assert.equal(
+    incompleteRename.missing_verdicts[0]?.linked_path,
+    "src/renamed.ts"
+  );
 
   assert.deepEqual(scopeFor([]).entries, []);
   assert.deepEqual(
@@ -217,6 +267,10 @@ capability:
   // Exercise the complete CLI chain over an actual Git diff and sharded
   // manifest. Restore files changed by the focused domain scenarios first.
   renameSync(resolve(root, "src/renamed.ts"), resolve(root, "src/feature.ts"));
+  writeFileSync(
+    resolve(root, "src/renamed.ts"),
+    "export const futureRenameTarget = true;\n"
+  );
   writeFileSync(
     resolve(root, "src/deleted.ts"),
     "export const deletedFeature = true;\n"

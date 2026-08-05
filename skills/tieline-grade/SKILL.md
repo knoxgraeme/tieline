@@ -20,7 +20,8 @@ This command is offline and database-free. Each entry contains:
 
 - `id`, the opaque identity to echo in the verdict;
 - the acceptance-criterion ID and exact `acceptance_criterion` text;
-- `relation`, `path`, and `link_scope`, describing the link being judged;
+- `relation`, `linked_path`, and `link_scope`, describing the contract link;
+- `path`, the current artifact to inspect;
 - `reason` and `previous_path`, describing the diff; and
 - `symbols`, the complete allow-list of citations for that artifact.
 
@@ -29,9 +30,11 @@ contract evidence link, then stop.
 
 ## Judge every entry
 
-Read the artifact and relevant diff for every scope entry. For a rename, read
-`path` and use `previous_path` for context. For a deletion, inspect the diff or
-base version; its empty symbol list means it cannot receive `supported`.
+Read the artifact and relevant diff for every scope entry. For a rename,
+`linked_path` is the exact old-path or new-path target named by the contract;
+read the current `path` and use `previous_path` for context. For a deletion,
+inspect the diff or base version; its empty symbol list means it cannot receive
+`supported`.
 
 Choose exactly one grade per entry:
 
@@ -79,7 +82,8 @@ Write a temporary JSON document with exactly one verdict per entry:
 ```
 
 Do not add fields from the scope to a verdict. The opaque `id` binds the verdict
-to the current acceptance criterion, relation, path, and link scope.
+to the current acceptance criterion, relation, linked path, current artifact
+path, and link scope.
 
 ## Verify and report
 

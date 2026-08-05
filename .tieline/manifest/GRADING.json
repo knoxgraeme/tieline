@@ -15,12 +15,12 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "149f61d0812fc7dfe6c0a87be7ee766f9bee35f565a06d3fca4ba008d7b4e9c8",
+            "contract_hash": "23fe52d08887cbe780304121179f66dae0478c6ee5e03ebf9fd34e18752826ac",
             "criterion": "Tieline must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.",
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "73db83834f6f845f695a3dab1e629f4158d80b7f4181ada37e5989f76c5fe78a",
+                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -40,7 +40,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "ba8ac345ced811e5aaf5dc95095831e271fa9cb3c812b68cf08887cd69e8bbcb",
+                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -65,6 +65,13 @@
                 "stable_id": "GRADING-001-AC1-S2",
                 "then": "Tieline must retain the entry for judgment",
                 "when": "grading scope is emitted"
+              },
+              {
+                "given": "one Acceptance Criterion links both the old and new paths of a renamed artifact",
+                "position": 2,
+                "stable_id": "GRADING-001-AC1-S3",
+                "then": "Tieline must emit distinct entries whose linked_path values preserve both contract targets",
+                "when": "grading scope is emitted"
               }
             ],
             "stable_id": "GRADING-001-AC1",
@@ -78,7 +85,7 @@
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "73db83834f6f845f695a3dab1e629f4158d80b7f4181ada37e5989f76c5fe78a",
+                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -98,7 +105,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "ba8ac345ced811e5aaf5dc95095831e271fa9cb3c812b68cf08887cd69e8bbcb",
+                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -156,7 +163,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "ba8ac345ced811e5aaf5dc95095831e271fa9cb3c812b68cf08887cd69e8bbcb",
+                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -196,7 +203,7 @@
             "links": [
               {
                 "relation": "enforces",
-                "reviewed_content_hash": "73db83834f6f845f695a3dab1e629f4158d80b7f4181ada37e5989f76c5fe78a",
+                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -206,7 +213,7 @@
               },
               {
                 "relation": "implements",
-                "reviewed_content_hash": "73db83834f6f845f695a3dab1e629f4158d80b7f4181ada37e5989f76c5fe78a",
+                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -216,7 +223,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "ba8ac345ced811e5aaf5dc95095831e271fa9cb3c812b68cf08887cd69e8bbcb",
+                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -247,7 +254,7 @@
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "73db83834f6f845f695a3dab1e629f4158d80b7f4181ada37e5989f76c5fe78a",
+                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -257,7 +264,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "ba8ac345ced811e5aaf5dc95095831e271fa9cb3c812b68cf08887cd69e8bbcb",
+                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -305,7 +312,7 @@
               },
               {
                 "relation": "implements",
-                "reviewed_content_hash": "73db83834f6f845f695a3dab1e629f4158d80b7f4181ada37e5989f76c5fe78a",
+                "reviewed_content_hash": "203695a1d1c02b7d2a4e5bab44489689c87407f128f0ea5c7b9d01418f7e4e28",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -315,7 +322,7 @@
               },
               {
                 "relation": "tests",
-                "reviewed_content_hash": "ba8ac345ced811e5aaf5dc95095831e271fa9cb3c812b68cf08887cd69e8bbcb",
+                "reviewed_content_hash": "0985e00d2d0ebac7ba7b1674d9a52ea0ddf3475ae9801eedc8c8c5f1e9d26fdd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -353,7 +360,7 @@
             "links": [
               {
                 "relation": "implements",
-                "reviewed_content_hash": "42687500335f816fe8636fcbcf670468aef7a26340fdb46c66e0ba839140fd62",
+                "reviewed_content_hash": "420d5666fdfc79256a163408fb0fc79c89cc8d2b24c9d8ab9403d71fdf1ee52e",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline-grade/SKILL.md",
@@ -387,6 +394,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "104c5e0122340ae6d4cab1ce7204eaecf64a76c554a9d21f1966939e0ab2bf36"
+    "sha256": "bcaff6f4f254954cb4f6d122927d49dc3b5cb5894883d35b793f9e60099de157"
   }
 }
