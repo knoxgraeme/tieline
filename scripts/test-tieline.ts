@@ -16,12 +16,17 @@ import {
   workspaceStartForCommand,
   type TielineCliIO,
 } from "../src/cli.js";
+import { detectRepositoryName } from "../src/tieline/init.js";
 import {
   loadWorkspaceProfileForCommand,
   loadWorkspaceProfile,
   readWorkspaceProfile,
 } from "../src/tieline/profile.js";
 import { configureWorkspaceRuntime } from "../src/tieline/setup.js";
+import type {
+  SkillfishInvocation,
+  SkillfishProcessResult,
+} from "../src/tieline/skill-install.js";
 import type { TielineStatus } from "../src/tieline/status.js";
 import {
   findTielineWorkspace,
@@ -40,6 +45,78 @@ function io(): { adapter: TielineCliIO; output: string[] } {
       },
     },
   };
+}
+
+interface InteractiveResponses {
+  text: string[];
+  confirm: boolean[];
+  select: string[];
+  multiselect: string[][];
+}
+
+function interactiveIo(responses: InteractiveResponses): {
+  adapter: TielineCliIO;
+  output: string[];
+  prompts: string[];
+} {
+  const output: string[] = [];
+  const prompts: string[] = [];
+  return {
+    output,
+    prompts,
+    adapter: {
+      interactive: true,
+      write: (message) => output.push(message),
+      error: (message) => output.push(message),
+      question: async () => {
+        throw new Error("Unexpected legacy text question.");
+      },
+      prompts: {
+        text: async (message: string) => {
+          prompts.push(message);
+          return responses.text.shift() ?? "";
+        },
+        confirm: async (message: string) => {
+          prompts.push(message);
+          return responses.confirm.shift() ?? false;
+        },
+        select: async (message: string) => {
+          prompts.push(message);
+          return responses.select.shift() ?? null;
+        },
+        multiselect: async (message: string) => {
+          prompts.push(message);
+          return responses.multiselect.shift() ?? null;
+        },
+        note: (title: string, message: string) => {
+          prompts.push(`${title}: ${message}`);
+        },
+      },
+    } as TielineCliIO,
+  };
+}
+
+function successfulSkillfish(
+  invocation: SkillfishInvocation
+): Promise<SkillfishProcessResult> {
+  const selectors = invocation.args.flatMap((arg, index) =>
+    arg === "--agent" ? [invocation.args[index + 1]!] : []
+  );
+  return Promise.resolve({
+    code: 0,
+    stdout: JSON.stringify({
+      success: true,
+      exit_code: 0,
+      errors: [],
+      installed: selectors.map((agent) => ({
+        skill: "tieline-author",
+        agent,
+        path: `/test/${agent}`,
+      })),
+      skipped: [],
+    }),
+    stderr: "",
+  });
 }
 
 assert.equal(
@@ -74,6 +151,294 @@ assert.equal(
 
 const root = mkdtempSync(resolve(tmpdir(), "tieline-workspace-"));
 try {
+  const remoteTarget = resolve(root, "Remote Checkout");
+  mkdirSync(remoteTarget, { recursive: true });
+  assert.equal(
+    spawnSync("git", ["init", "-q", remoteTarget]).status,
+    0
+  );
+  assert.equal(
+    spawnSync("git", ["-C", remoteTarget, "remote", "add", "origin", "git@github.com:example/remote-product.git"]).status,
+    0
+  );
+  assert.equal(detectRepositoryName(remoteTarget), "remote-product");
+  assert.equal(
+    spawnSync("git", ["-C", remoteTarget, "remote", "set-url", "origin", "malformed"]).status,
+    0
+  );
+  assert.equal(detectRepositoryName(remoteTarget), "remote-checkout");
+
+  const validationTarget = resolve(root, "validation-target");
+  mkdirSync(resolve(validationTarget, "src"), { recursive: true });
+  await assert.rejects(
+    runCli(
+      ["init", validationTarget, "--yes", "--agent", "codex"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+    ),
+    /--skill-scope/
+  );
+  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+  await assert.rejects(
+    runCli(
+      ["init", validationTarget, "--yes", "--skill-scope", "project"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+    ),
+    /requires.*--agent/i
+  );
+  await assert.rejects(
+    runCli(
+      [
+        "init",
+        validationTarget,
+        "--yes",
+        "--agent",
+        "unknown-agent",
+        "--skill-scope",
+        "project",
+      ],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+    ),
+    /unsupported agent/i
+  );
+  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+
+  await assert.rejects(
+    runCli(
+      [
+        "init",
+        validationTarget,
+        "--yes",
+        "--agent",
+        "codex",
+        "--skill-scope",
+        "project",
+        "--skip-skill-install",
+      ],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+    ),
+    /skip-skill-install.*cannot be combined/i
+  );
+  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+
+  const interactiveTarget = resolve(root, "Interactive Checkout");
+  const interactiveConfigHome = resolve(root, "interactive-config");
+  mkdirSync(resolve(interactiveTarget, "src"), { recursive: true });
+  writeFileSync(resolve(interactiveTarget, "README.md"), "# Interactive\n");
+  const interactive = interactiveIo({
+    text: [
+      "Interactive Product",
+      "interactive-repo",
+      "A useful product",
+      "README.md",
+      "src",
+    ],
+    confirm: [true, true],
+    select: ["offline", "hash", "project"],
+    multiselect: [["codex", "claude-code"]],
+  });
+  const interactiveInvocations: SkillfishInvocation[] = [];
+  assert.equal(
+    await runCli(
+      ["init", interactiveTarget],
+      interactive.adapter,
+      { TIELINE_CONFIG_HOME: interactiveConfigHome },
+      {
+        skillfishRunner: async (invocation) => {
+          interactiveInvocations.push(invocation);
+          const currentWorkspace = findTielineWorkspace(interactiveTarget);
+          assert.ok(currentWorkspace, "workspace must exist before Skillfish runs");
+          assert.ok(
+            readWorkspaceProfile(currentWorkspace, {
+              TIELINE_CONFIG_HOME: interactiveConfigHome,
+            }),
+            "runtime profile must exist before Skillfish runs"
+          );
+          return successfulSkillfish(invocation);
+        },
+      }
+    ),
+    0
+  );
+  assert.equal(interactiveInvocations.length, 1);
+  const interactiveWorkspace = findTielineWorkspace(interactiveTarget);
+  assert.ok(interactiveWorkspace);
+  assert.deepEqual(interactiveWorkspace.config.repository.source_roots, [
+    "src",
+  ]);
+  assert.deepEqual(
+    interactiveWorkspace.config.context.sources.map((source) => source.type),
+    ["description", "local"]
+  );
+  assert.deepEqual(interactive.prompts.slice(0, 7), [
+    "Company/product name",
+    "Stable repository name",
+    "Product description (optional)",
+    "Additional context paths or URLs (comma-separated)",
+    "Source roots (comma-separated)",
+    "Database mode",
+    "Embedding provider",
+  ]);
+  assert.match(
+    interactive.output.join(""),
+    /Skill: tieline-author installed for Codex and Claude Code \(project\)/
+  );
+  assert.match(interactive.output.join(""), /use \$tieline-author/i);
+
+  const cancelledTarget = resolve(root, "Cancelled Checkout");
+  mkdirSync(resolve(cancelledTarget, "src"), { recursive: true });
+  const cancelled = interactiveIo({
+    text: ["", "", "", "", ""],
+    confirm: [false, false],
+    select: ["offline", "hash"],
+    multiselect: [],
+  });
+  await assert.rejects(
+    runCli(["init", cancelledTarget], cancelled.adapter, {
+      TIELINE_CONFIG_HOME: resolve(root, "cancelled-config"),
+    }),
+    /Cancelled/
+  );
+  assert.equal(existsSync(resolve(cancelledTarget, ".tieline")), false);
+
+  const automatedTarget = resolve(root, "Automated Checkout");
+  const automatedConfigHome = resolve(root, "automated-config");
+  mkdirSync(resolve(automatedTarget, "src"), { recursive: true });
+  let automatedCalls = 0;
+  const automated = io();
+  assert.equal(
+    await runCli(
+      [
+        "init",
+        automatedTarget,
+        "--yes",
+        "--embedding",
+        "hash",
+        "--agent",
+        "codex",
+        "--skill-scope",
+        "global",
+      ],
+      automated.adapter,
+      { TIELINE_CONFIG_HOME: automatedConfigHome },
+      {
+        skillfishRunner: async (invocation) => {
+          automatedCalls++;
+          const currentWorkspace = findTielineWorkspace(automatedTarget);
+          assert.ok(currentWorkspace);
+          assert.ok(
+            readWorkspaceProfile(currentWorkspace, {
+              TIELINE_CONFIG_HOME: automatedConfigHome,
+            })
+          );
+          return successfulSkillfish(invocation);
+        },
+      }
+    ),
+    0
+  );
+  assert.equal(automatedCalls, 1);
+  assert.match(
+    automated.output.join(""),
+    /Skill: tieline-author installed for Codex \(global\)/
+  );
+  const automatedWorkspace = findTielineWorkspace(automatedTarget);
+  assert.ok(automatedWorkspace);
+  const automatedConfig = readFileSync(automatedWorkspace.configPath, "utf8");
+  const alreadyPresent = io();
+  assert.equal(
+    await runCli(
+      [
+        "init",
+        automatedTarget,
+        "--yes",
+        "--agent",
+        "codex",
+        "--skill-scope",
+        "global",
+      ],
+      alreadyPresent.adapter,
+      { TIELINE_CONFIG_HOME: automatedConfigHome },
+      {
+        skillfishRunner: async () => ({
+          code: 0,
+          stdout: JSON.stringify({
+            success: true,
+            exit_code: 0,
+            errors: [],
+            installed: [],
+            skipped: [
+              {
+                skill: "tieline-author",
+                agent: "Codex",
+                reason: "Already exists",
+              },
+            ],
+          }),
+          stderr: "",
+        }),
+      }
+    ),
+    0
+  );
+  assert.match(
+    alreadyPresent.output.join(""),
+    /Skill: tieline-author already present for Codex \(global\)/
+  );
+  assert.equal(
+    readFileSync(automatedWorkspace.configPath, "utf8"),
+    automatedConfig,
+    "skill retry must preserve shared workspace configuration"
+  );
+
+  const failedTarget = resolve(root, "Failed Install Checkout");
+  const failedConfigHome = resolve(root, "failed-config");
+  mkdirSync(resolve(failedTarget, "src"), { recursive: true });
+  const failed = io();
+  assert.equal(
+    await runCli(
+      [
+        "init",
+        failedTarget,
+        "--yes",
+        "--embedding",
+        "hash",
+        "--agent",
+        "codex",
+        "--skill-scope",
+        "project",
+      ],
+      failed.adapter,
+      { TIELINE_CONFIG_HOME: failedConfigHome },
+      {
+        skillfishRunner: async () => ({
+          code: 7,
+          stdout: "",
+          stderr: "private nested output",
+        }),
+      }
+    ),
+    1
+  );
+  const failedWorkspace = findTielineWorkspace(failedTarget);
+  assert.ok(failedWorkspace);
+  assert.ok(
+    readWorkspaceProfile(failedWorkspace, {
+      TIELINE_CONFIG_HOME: failedConfigHome,
+    })
+  );
+  const failedOutput = failed.output.join("");
+  assert.match(failedOutput, /Workspace: ready/i);
+  assert.match(failedOutput, /installation incomplete/i);
+  assert.match(
+    failedOutput,
+    /Retry: tieline init .*Failed Install Checkout.*--yes --agent codex --skill-scope project/
+  );
+  assert.doesNotMatch(failedOutput, /private nested output|Agent handoff prompt/);
+
   const target = resolve(root, "Product");
   const configHome = resolve(root, "config-home");
   mkdirSync(resolve(target, "src"), { recursive: true });
@@ -101,6 +466,11 @@ try {
       {
         TIELINE_CONFIG_HOME: configHome,
         EMBEDDING_PROVIDER: "hash",
+      },
+      {
+        skillfishRunner: async () => {
+          throw new Error("--yes without agents must not invoke Skillfish");
+        },
       }
     ),
     0
@@ -141,23 +511,15 @@ try {
     }
   );
   const firstOutput = first.output.join("");
-  assert.match(firstOutput, /source scope: src/i);
-  assert.match(firstOutput, /warning.*duplicate checks/i);
-  assert.match(firstOutput, /MCP prompt `tieline_author`/);
-  assert.match(firstOutput, /semantic onboarding has not started/i);
-  assert.match(firstOutput, /Agent handoff prompt:/);
-  assert.match(firstOutput, /bundled `tieline-author` skill/);
-  assert.match(firstOutput, /otherwise continue directly from this brief/i);
-  assert.match(firstOutput, /read `.tieline\/config\.json`/i);
-  assert.match(firstOutput, /do not add generic starter content/i);
-  assert.match(firstOutput, /strict YAML under `.tieline\/spec\/`/i);
-  assert.match(firstOutput, /tieline contract validate \./);
-  const handoffMarker = "Agent handoff prompt:\n";
-  const handoffStart = firstOutput.lastIndexOf(handoffMarker);
-  assert.notEqual(handoffStart, -1);
-  const renderedAgentPrompt = firstOutput
-    .slice(handoffStart + handoffMarker.length)
-    .trimEnd();
+  assert.match(firstOutput, /workspace: ready/i);
+  assert.match(firstOutput, /runtime: offline.*local contract authoring ready/i);
+  assert.match(firstOutput, /source roots: src/i);
+  assert.match(firstOutput, /optional capabilities:.*duplicate checks/i);
+  assert.match(firstOutput, /skill: not installed/i);
+  assert.match(firstOutput, /install later: tieline init \./i);
+  assert.doesNotMatch(firstOutput, /Warning \[/);
+  assert.doesNotMatch(firstOutput, /Agent handoff prompt:/);
+  assert.doesNotMatch(firstOutput, /otherwise continue directly from this brief/i);
 
   const stored = readWorkspaceProfile(workspace, {
     TIELINE_CONFIG_HOME: configHome,
@@ -193,6 +555,43 @@ try {
     0
   );
   assert.match(second.output.join(""), /already initialized/i);
+
+  const existingInteractive = interactiveIo({
+    text: [],
+    confirm: [true, true],
+    select: ["project"],
+    multiselect: [["codex"]],
+  });
+  let existingInstallCalls = 0;
+  assert.equal(
+    await runCli(
+      ["init", target],
+      existingInteractive.adapter,
+      { TIELINE_CONFIG_HOME: configHome },
+      {
+        skillfishRunner: async (invocation) => {
+          existingInstallCalls++;
+          return successfulSkillfish(invocation);
+        },
+      }
+    ),
+    0
+  );
+  assert.equal(existingInstallCalls, 1);
+  assert.equal(
+    existingInteractive.prompts.some((prompt) =>
+      [
+        "Company/product name",
+        "Stable repository name",
+        "Source roots (comma-separated)",
+        "Database mode",
+        "Embedding provider",
+      ].includes(prompt)
+    ),
+    false,
+    "existing empty workspaces should offer only agent installation"
+  );
+  assert.equal(readFileSync(workspace.configPath, "utf8"), configBody);
 
   const freshConfigHome = resolve(root, "fresh-clone-config-home");
   const unconfiguredStatus = io();
@@ -231,7 +630,10 @@ try {
     }),
     0
   );
-  assert.match(resumed.output.join(""), /completed tieline runtime setup/i);
+  assert.match(
+    resumed.output.join(""),
+    /Runtime: offline.*local contract authoring ready/i
+  );
   assert.ok(
     readWorkspaceProfile(workspace, {
       TIELINE_CONFIG_HOME: freshConfigHome,
@@ -257,18 +659,17 @@ try {
   assert.equal(parsedStatus.capabilities.planning_writes_configured, false);
   assert.equal(parsedStatus.contract.stories, 0);
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
-  assert.match(parsedStatus.next_action, /agent_onboarding_prompt/);
-  assert.ok(parsedStatus.agent_onboarding_prompt);
-  assert.match(parsedStatus.agent_onboarding_prompt, /tieline-author/);
-  assert.match(parsedStatus.agent_onboarding_prompt, /tieline_author/);
-  assert.match(parsedStatus.agent_onboarding_prompt, /\.tieline\/config\.json/);
-  assert.match(
-    parsedStatus.agent_onboarding_prompt,
-    /remote-tracking default branch/
+  assert.equal(
+    parsedStatus.next_action,
+    "Use $tieline-author to onboard this repository."
   );
-  assert.match(parsedStatus.agent_onboarding_prompt, /<base-ref>/);
-  assert.doesNotMatch(parsedStatus.agent_onboarding_prompt, /origin\/main/);
-  assert.equal(parsedStatus.agent_onboarding_prompt, renderedAgentPrompt);
+  assert.deepEqual(parsedStatus.onboarding, {
+    required: true,
+    skill: "tieline-author",
+    instruction: "Use $tieline-author to onboard this repository.",
+    install_command: "tieline init .",
+  });
+  assert.equal("agent_onboarding_prompt" in parsedStatus, false);
 
   const humanStatus = io();
   assert.equal(
@@ -277,13 +678,12 @@ try {
     }),
     0
   );
-  assert.match(humanStatus.output.join(""), /Agent handoff prompt:/);
-  assert.ok(
-    humanStatus.output
-      .join("")
-      .trimEnd()
-      .endsWith(renderedAgentPrompt)
+  assert.match(
+    humanStatus.output.join(""),
+    /Next: Use \$tieline-author to onboard this repository\./
   );
+  assert.match(humanStatus.output.join(""), /Install skill: tieline init \./);
+  assert.doesNotMatch(humanStatus.output.join(""), /Agent handoff prompt:/);
 
   writeFileSync(
     resolve(workspace.specDirectoryPath, "status.yaml"),
@@ -329,7 +729,7 @@ capability:
     legacyManifestStatus.output.join("")
   ) as TielineStatus;
   assert.equal(parsedLegacyManifestStatus.contract.manifest_exists, false);
-  assert.equal(parsedLegacyManifestStatus.agent_onboarding_prompt, null);
+  assert.equal(parsedLegacyManifestStatus.onboarding, null);
   assert.match(
     parsedLegacyManifestStatus.next_action,
     /tieline contract compile \./
@@ -495,7 +895,19 @@ capability:
   assert.match(authorSkill, /local YAML.*manifest/i);
   assert.match(authorSkill, /semantic matching.*unavailable/i);
   assert.match(authorSkill, /after `tieline init`/i);
+  assert.match(authorSkill, /installed skill or MCP prompt/i);
   assert.match(authorSkill, /semantic onboarding/i);
+  assert.doesNotMatch(authorSkill, /agent handoff printed/i);
+
+  const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
+  assert.match(
+    readme,
+    /npx --yes --package=skillfish@latest skillfish add knoxgraeme\/tieline/
+  );
+  assert.match(readme, /--agent codex[\s\S]*--agent claude-code/);
+  assert.match(readme, /--skill-scope project/);
+  assert.doesNotMatch(readme, /agent_onboarding_prompt/);
+  assert.doesNotMatch(readme, /copyable,? self-contained prompt/i);
 
   for (const removed of ["merge", "review", "import", "context"]) {
     await assert.rejects(

@@ -1,5 +1,8 @@
 import pc from "picocolors";
-import type { TielineCliIO } from "./cli.js";
+import type {
+  TielineCliIO,
+  TielineCliPromptOption,
+} from "./cli.js";
 
 export type Palette = ReturnType<typeof pc.createColors>;
 
@@ -53,6 +56,11 @@ export async function ask(
   defaultValue: string
 ): Promise<string> {
   if (io.interactive) {
+    if (io.prompts) {
+      const value = await io.prompts.text(message, defaultValue);
+      if (value === null) throw new Error("Cancelled.");
+      return value.trim() || defaultValue;
+    }
     const clack = await import("@clack/prompts");
     const value = await clack.text({
       message,
@@ -71,11 +79,131 @@ export async function ask(
   );
 }
 
+export async function askOptional(
+  io: TielineCliIO,
+  message: string,
+  defaultValue = ""
+): Promise<string> {
+  if (!io.interactive) return defaultValue;
+  if (io.prompts) {
+    const value = await io.prompts.text(message, defaultValue);
+    if (value === null) throw new Error("Cancelled.");
+    return value.trim();
+  }
+  const clack = await import("@clack/prompts");
+  const value = await clack.text({
+    message,
+    placeholder: defaultValue || "Optional",
+    defaultValue,
+  });
+  if (clack.isCancel(value)) {
+    clack.cancel("Cancelled.");
+    throw new Error("Cancelled.");
+  }
+  return value.trim();
+}
+
+export async function askList(
+  io: TielineCliIO,
+  message: string,
+  defaultValues: readonly string[] = []
+): Promise<string[]> {
+  const value = await askOptional(io, message, defaultValues.join(", "));
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export async function confirmChoice(
+  io: TielineCliIO,
+  message: string,
+  initialValue: boolean
+): Promise<boolean> {
+  if (!io.interactive) return initialValue;
+  if (io.prompts) {
+    const value = await io.prompts.confirm(message, initialValue);
+    if (value === null) throw new Error("Cancelled.");
+    return value;
+  }
+  const clack = await import("@clack/prompts");
+  const value = await clack.confirm({ message, initialValue });
+  if (clack.isCancel(value)) {
+    clack.cancel("Cancelled.");
+    throw new Error("Cancelled.");
+  }
+  return value;
+}
+
+export async function selectChoice<T extends string>(
+  io: TielineCliIO,
+  message: string,
+  options: readonly TielineCliPromptOption[],
+  initialValue: T
+): Promise<T> {
+  if (!io.interactive) return initialValue;
+  if (io.prompts) {
+    const value = await io.prompts.select(message, options, initialValue);
+    if (value === null) throw new Error("Cancelled.");
+    return value as T;
+  }
+  const clack = await import("@clack/prompts");
+  const value = await clack.select({
+    message,
+    options: [...options],
+    initialValue,
+  });
+  if (clack.isCancel(value)) {
+    clack.cancel("Cancelled.");
+    throw new Error("Cancelled.");
+  }
+  return value as T;
+}
+
+export async function multiselectChoice<T extends string>(
+  io: TielineCliIO,
+  message: string,
+  options: readonly TielineCliPromptOption[]
+): Promise<T[]> {
+  if (!io.interactive) return [];
+  if (io.prompts) {
+    const value = await io.prompts.multiselect(message, options);
+    if (value === null) throw new Error("Cancelled.");
+    return value as T[];
+  }
+  const clack = await import("@clack/prompts");
+  const value = await clack.multiselect({
+    message,
+    options: [...options],
+    required: true,
+  });
+  if (clack.isCancel(value)) {
+    clack.cancel("Cancelled.");
+    throw new Error("Cancelled.");
+  }
+  return value as T[];
+}
+
+export async function showNote(
+  io: TielineCliIO,
+  title: string,
+  message: string
+): Promise<void> {
+  if (!io.interactive) return;
+  if (io.prompts) {
+    io.prompts.note(title, message);
+    return;
+  }
+  const clack = await import("@clack/prompts");
+  clack.note(message, title);
+}
+
 export async function intro(
   io: TielineCliIO,
   title: string
 ): Promise<void> {
   if (!io.interactive) return;
+  if (io.prompts) return;
   const clack = await import("@clack/prompts");
   clack.intro(pc.bgCyan(pc.black(` ${title} `)));
 }
@@ -85,6 +213,7 @@ export async function outro(
   message: string
 ): Promise<void> {
   if (!io.interactive) return;
+  if (io.prompts) return;
   const clack = await import("@clack/prompts");
   clack.outro(message);
 }

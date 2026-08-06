@@ -75,7 +75,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC3
-          criterion: Tieline must surface detected source roots and preflight warnings, leave the specification empty until repository-specific semantic onboarding, and end initialization with a copyable, self-contained prompt that hands that onboarding to an agent.
+          criterion: Tieline initialization must persist user-confirmed deterministic repository and runtime inputs without generating semantic contract content.
           rationale: Deterministic setup belongs in the CLI, while interpreting repository context and proposing semantic boundaries belongs with an agent and normal pull-request review.
           links:
             - relation: implements
@@ -90,18 +90,108 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tieline/init.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC4
+          criterion: Tieline initialization must install the tieline-author skill through Skillfish only for explicitly selected supported agents and scope.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/skill-install.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-skill-install.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC5
+          criterion: Tieline must preserve a ready workspace when optional skill installation fails.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/skill-install.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC6
+          criterion: Tieline status must expose concise structured onboarding state without duplicating the authoring workflow.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/tieline/status.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC7
+          criterion: Tieline initialization must print an exact Tieline retry command when requested skill installation is incomplete.
+          links:
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
-                path: skills/tieline-author/SKILL.md
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/skill-install.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-skill-install.ts
+                framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
