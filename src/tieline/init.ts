@@ -155,6 +155,42 @@ export function detectSourceRoots(targetPath: string): string[] {
   return roots.length > 0 ? roots : ["."];
 }
 
+function normalizedWebsiteLocation(location: string): string | undefined {
+  const explicitScheme = /^https?:\/\//i.test(location);
+  const candidate = explicitScheme ? location : `https://${location}`;
+  try {
+    const website = new URL(candidate);
+    if (website.protocol !== "http:" && website.protocol !== "https:") {
+      return undefined;
+    }
+    if (
+      !explicitScheme &&
+      website.hostname !== "localhost" &&
+      !website.hostname.includes(".")
+    ) {
+      return undefined;
+    }
+    return website.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+export function normalizeContextLocations(
+  targetPath: string,
+  locations: string[]
+): string[] {
+  return locations
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((location) => {
+      if (existsSync(resolve(targetPath, location))) return location;
+      const website = normalizedWebsiteLocation(location);
+      if (website) return website;
+      throw new Error(`Context source does not exist: ${location}`);
+    });
+}
+
 function normalizedPath(targetPath: string, candidate: string): string {
   const absolute = resolve(targetPath, candidate);
   const rel = relative(targetPath, absolute).replaceAll("\\", "/") || ".";
@@ -182,11 +218,8 @@ function contextSources(
       allow_external_fetch: false,
     });
   }
-  for (const location of locations.map((value) => value.trim()).filter(Boolean)) {
+  for (const location of normalizeContextLocations(targetPath, locations)) {
     const website = /^https?:\/\//i.test(location);
-    if (!website && !existsSync(resolve(targetPath, location))) {
-      throw new Error(`Context source does not exist: ${location}`);
-    }
     sources.push({
       id: `source-${sources.length + 1}`,
       type: website ? "website" : "local",
@@ -249,6 +282,10 @@ export function initWorkspace(
       ? options.sourceRoots
       : detectSourceRoots(targetPath)
   ).map((root) => normalizedPath(targetPath, root));
+  const contextLocations = normalizeContextLocations(
+    targetPath,
+    options.contextLocations ?? []
+  );
   const now = options.now ?? new Date().toISOString();
   const directory = resolve(targetPath, TIELINE_DIRECTORY);
   mkdirSync(resolve(directory, TIELINE_SPEC_DIRECTORY), {
@@ -268,7 +305,7 @@ export function initWorkspace(
       sources: contextSources(
         targetPath,
         options.description,
-        options.contextLocations ?? []
+        contextLocations
       ),
     },
     runtime: {

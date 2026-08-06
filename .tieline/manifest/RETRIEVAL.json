@@ -129,7 +129,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e1a21441e5c482bcba88f30b13599f4bd88781e869035f8987e15f0e5574a6cf",
+                "reviewed_content_hash": "8be8afd609bcfcd465906e6898f0af7608162c234ca135d36968e229ad28fb19",
                 "target": {
                   "kind": "code",
                   "path": "src/resources.ts",

@@ -29,6 +29,7 @@ import {
   detectRepositoryName,
   detectSourceRoots,
   initWorkspace,
+  normalizeContextLocations,
   slugifyRepoName,
 } from "./tieline/init.js";
 import {
@@ -153,8 +154,8 @@ const DATABASE_MODE_OPTIONS = [
   },
   {
     value: "existing",
-    label: "Existing PostgreSQL",
-    hint: "Use operator-provided connection URLs",
+    label: "Hosted / remote PostgreSQL",
+    hint: "Connect using operator-provided URLs",
   },
 ] as const;
 
@@ -162,7 +163,6 @@ const EMBEDDING_PROVIDER_OPTIONS = [
   { value: "local", label: "Local gte-small" },
   { value: "openai", label: "OpenAI" },
   { value: "supabase-edge", label: "Supabase Edge" },
-  { value: "hash", label: "Hash (development only)" },
 ] as const;
 
 const SKILL_AGENT_OPTIONS = SUPPORTED_SKILL_AGENTS.map((agent) => ({
@@ -198,6 +198,19 @@ function agentLabel(agentId: SkillAgentId): string {
     SUPPORTED_SKILL_AGENTS.find((agent) => agent.id === agentId)?.selector ??
     agentId
   );
+}
+
+function databaseModeLabel(database: DatabaseMode): string {
+  if (database === "existing") return "hosted / remote PostgreSQL";
+  if (database === "local") return "local PostgreSQL";
+  return "offline";
+}
+
+function embeddingProviderLabel(provider: EmbeddingProvider): string {
+  if (provider === "local") return "local gte-small";
+  if (provider === "supabase-edge") return "Supabase Edge";
+  if (provider === "openai") return "OpenAI";
+  return "hash (development only)";
 }
 
 function joinLabels(values: readonly string[]): string {
@@ -237,7 +250,7 @@ function renderInitSummary(
   const runtimeDescription =
     status.runtime.database_mode === "offline"
       ? "offline — local contract authoring ready"
-      : `${status.runtime.database_mode} — ${status.runtime.setup_complete ? "setup complete" : "setup incomplete"}`;
+      : `${databaseModeLabel(status.runtime.database_mode)} — ${status.runtime.setup_complete ? "setup complete" : "setup incomplete"}`;
   const optional: string[] = [];
   if (!status.capabilities.semantic_matching_configured) {
     optional.push("organization-wide duplicate checks");
@@ -441,7 +454,7 @@ async function runInit(
       const review = [
         `Workspace: reuse ${existing.directory}`,
         shouldConfigure
-          ? `Runtime: configure ${databaseMode} database and ${embeddingProvider} embeddings`
+          ? `Runtime: configure ${databaseModeLabel(databaseMode)} with ${embeddingProviderLabel(embeddingProvider)} embeddings`
           : "Runtime: keep completed setup",
         ...renderRuntimeRequirements(databaseMode, env),
         ...renderSkillReview(skillSelection),
@@ -520,9 +533,10 @@ async function runInit(
   if (context.length === 0 && richInteractive) {
     context = await askList(
       io,
-      "Additional context paths or URLs (comma-separated)"
+      "Additional context files or websites (comma-separated)"
     );
   }
+  context = normalizeContextLocations(parsed.target, context);
   const detectedRoots = detectSourceRoots(parsed.target);
   let sourceRoots = parsed.sourceRoots;
   if (sourceRoots.length === 0) {
@@ -545,7 +559,7 @@ async function runInit(
       io,
       "Embedding provider",
       EMBEDDING_PROVIDER_OPTIONS,
-      embedding
+      embedding === "hash" ? "local" : embedding
     );
   }
 
@@ -556,12 +570,17 @@ async function runInit(
   );
 
   if (richInteractive) {
+    const contextReview = [
+      ...(description?.trim() ? ["product description"] : []),
+      ...context,
+    ];
     await confirmInitReview(
       io,
       [
         `Workspace: create .tieline for ${product} (${repoName})`,
+        `Context: ${contextReview.length > 0 ? contextReview.join(", ") : "none"}`,
         `Source roots: ${sourceRoots.join(", ")}`,
-        `Runtime: ${database} database and ${embedding} embeddings`,
+        `Runtime: ${databaseModeLabel(database)} with ${embeddingProviderLabel(embedding)} embeddings`,
         ...renderRuntimeRequirements(database, env),
         ...renderSkillReview(skillSelection),
       ].join("\n")
@@ -623,15 +642,9 @@ async function resolveSkillSelection(
       : [];
   if (agents.length === 0) {
     if (!offerInteractive) return null;
-    const install = await confirmChoice(
-      io,
-      "Install tieline-author for coding agents?",
-      true
-    );
-    if (!install) return null;
     agents = await multiselectChoice<SkillAgentId>(
       io,
-      "Coding agents",
+      "Where should Tieline install its onboarding and authoring skill?",
       SKILL_AGENT_OPTIONS
     );
     if (agents.length === 0) {
@@ -642,7 +655,7 @@ async function resolveSkillSelection(
     parsed.skillScope ??
     (await selectChoice<SkillInstallScope>(
       io,
-      "Skill installation scope",
+      "Onboarding skill installation scope",
       SKILL_SCOPE_OPTIONS,
       "project"
     ));
@@ -654,6 +667,7 @@ function renderSkillReview(
 ): string[] {
   if (!selection) return ["Skill: do not install now"];
   return [
+    "Skill: tieline-author (onboarding and authoring)",
     "Skill source: github.com/knoxgraeme/tieline (default branch)",
     `Skill targets: ${joinLabels(selection.agents.map(agentLabel))}`,
     `Skill scope: ${selection.scope}`,
@@ -740,7 +754,7 @@ function buildProgram(
     .addHelpText("before", () => `${renderBanner(paletteFor(io))}\n\n`)
     .addHelpText(
       "after",
-      "\nRun `tieline init` for deterministic setup and optional agent-skill installation. Use $tieline-author for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
+      "\nRun `tieline init` for deterministic setup and agent-skill installation. Use $tieline-author for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
     );
 
   program
@@ -787,7 +801,7 @@ function buildProgram(
     )
     .option(
       "--skip-skill-install",
-      "skip the optional tieline-author installation"
+      "initialize without installing tieline-author"
     )
     .option("--yes", "accept detected defaults without prompting")
     .option("--skip-migrate", "skip applying database migrations")

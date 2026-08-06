@@ -64,8 +64,9 @@ Invoke the MCP \`tieline_author\` prompt (or use the bundled
 \`$tieline-author\` skill) to onboard repository behavior, materialize planning
 definitions, reconcile branch changes, validate/compile YAML, and review the
 semantic diff. Normal pull-request merge is the semantic approval event.
-During deterministic setup, interactive \`tieline init\` can install the skill
-for explicitly selected coding agents. While the spec has no Stories,
+During deterministic setup, interactive \`tieline init\` asks which coding
+agents should receive this onboarding and authoring skill. While the spec has
+no Stories,
 \`tieline status --json\` exposes concise structured onboarding state and
 \`tieline init .\` as the skill-install entry point.
 

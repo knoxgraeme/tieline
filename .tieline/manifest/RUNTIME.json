@@ -18,7 +18,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b42e606dd367ab6dca915cf26256f1a6c3a17d532c7c4628980af6f4a05230ad",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -28,7 +28,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bc651a943f4ab35b385697a533b3da285e1fd59310038af1f6791b018b6e4c68",
+                "reviewed_content_hash": "661a8c3eed140e63718d99ae3043dd491d15f57ffe48dd5626be71be53d0d344",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -112,7 +112,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -136,7 +136,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b42e606dd367ab6dca915cf26256f1a6c3a17d532c7c4628980af6f4a05230ad",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -146,7 +146,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bc651a943f4ab35b385697a533b3da285e1fd59310038af1f6791b018b6e4c68",
+                "reviewed_content_hash": "661a8c3eed140e63718d99ae3043dd491d15f57ffe48dd5626be71be53d0d344",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -180,7 +180,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b42e606dd367ab6dca915cf26256f1a6c3a17d532c7c4628980af6f4a05230ad",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -211,7 +211,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -229,13 +229,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b41d9691e9973f6a1de5512ece6c241a8f3477371318383b8f9bfd4d2770ad77",
-            "criterion": "Tieline must preserve a ready workspace when optional skill installation fails.",
+            "contract_hash": "96fb2484f79a468ff4b54b695bc9f4303f78884915e4b4546e5e724a431e32d6",
+            "criterion": "Tieline must preserve a ready workspace when requested skill installation fails.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b42e606dd367ab6dca915cf26256f1a6c3a17d532c7c4628980af6f4a05230ad",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -255,7 +255,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -279,7 +279,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b42e606dd367ab6dca915cf26256f1a6c3a17d532c7c4628980af6f4a05230ad",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -299,7 +299,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -323,7 +323,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b42e606dd367ab6dca915cf26256f1a6c3a17d532c7c4628980af6f4a05230ad",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -354,7 +354,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -367,6 +367,50 @@
             "rationale": null,
             "scenarios": [],
             "stable_id": "RUNTIME-001-AC7",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "2225dea511f42025f196b756e043f1856b9c7ac3ae5667f09731b7596aba03e8",
+            "criterion": "Tieline initialization must normalize scheme-less website context sources to HTTPS before the final review.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3288c7a82542f1cb78f56ed7f23748a9a600ecb0e0d3047eddc86ff03d04fe95",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "661a8c3eed140e63718d99ae3043dd491d15f57ffe48dd5626be71be53d0d344",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/init.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 7,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-001-AC8",
             "supersedes": null
           }
         ],
@@ -638,7 +682,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "522113adbd32181091fe2353d8c0b4130c19d31ebc135eb22f08e02d50d744f0",
+                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -725,6 +769,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "58801bc6476df46331705d47ab577ec542351903bbc78de6a42e7c722a093786"
+    "sha256": "1959a17991335928c6c1ec78ba48b5064b39105f5405ea3c80674b52b7194cb6"
   }
 }

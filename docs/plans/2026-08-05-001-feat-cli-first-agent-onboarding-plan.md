@@ -16,7 +16,7 @@ depth: standard
 
 - **Objective:** Make `tieline init` the complete deterministic setup flow, install `tieline-author` into user-selected coding agents through Skillfish, and end with one concise instruction instead of warnings plus a duplicated fallback prompt.
 - **Authority:** Tieline owns onboarding questions and workspace state. Skillfish owns agent-specific installation paths and writes. The installed skill owns semantic onboarding.
-- **Execution profile:** Preserve non-interactive initialization, keep the workspace usable when optional skill installation fails, and make every external write require an explicit agent and scope choice.
+- **Execution profile:** Preserve non-interactive initialization, keep the workspace usable when requested skill installation fails, and make every external write require an explicit agent and scope choice.
 - **Stop conditions:** Do not auto-detect agents, launch a coding agent, author generic contract YAML, store agent choices in shared workspace configuration, or remove the packaged skill used by the MCP prompt.
 - **Tail ownership:** Normal pull-request review accepts the CLI contract, documentation, self-hosted runtime contract, and regenerated manifest together.
 
@@ -26,7 +26,7 @@ depth: standard
 
 ### Summary
 
-Tieline will collect the deterministic repository setup that an agent should not rediscover, optionally install `tieline-author` for selected coding agents, and leave the repository ready for semantic onboarding. Expected offline limitations become concise readiness information, while the next action becomes `Use $tieline-author to onboard this repository.`
+Tieline will collect the deterministic repository setup that an agent should not rediscover, require interactive users to select where `tieline-author` is installed, and leave the repository ready for semantic onboarding. Expected offline limitations become concise readiness information, while the next action becomes `Use $tieline-author to onboard this repository.`
 
 ### Problem Frame
 
@@ -44,13 +44,13 @@ This makes a successful initialization look incomplete and asks the user to move
 
 #### Deterministic setup
 
-- R1. Interactive `tieline init` must capture or confirm product identity, stable repository identity, an optional product description and context sources, detected source roots, database mode, and embedding provider before writing the workspace.
+- R1. Interactive `tieline init` must capture or confirm product identity, stable repository identity, an optional product description and context sources, detected source roots, database mode, and embedding provider before writing the workspace; scheme-less website context must be normalized to HTTPS before review.
 - R2. Repository-derived defaults must remain editable, with the stable repository name preferring Git remote metadata over the checkout directory name when usable metadata exists.
 - R3. Existing flags and `--yes` must retain a prompt-free path, and omitted optional values must resolve to documented defaults without triggering skill installation.
 
 #### Skill installation
 
-- R4. Interactive initialization must let the user choose whether to install `tieline-author`, select one or more supported coding agents manually, and select project or global scope.
+- R4. Interactive initialization must directly require one or more supported coding agents and project or global scope for `tieline-author`; cancellation must stop before mutation.
 - R5. Non-interactive installation must require at least one repeatable `--agent` value and an explicit `--skill-scope project|global`, and reject missing, unsupported, or conflicting combinations before starting `npx`.
 - R6. Tieline must invoke the unpinned latest Skillfish CLI through `npx --yes --package=skillfish@latest` without a Tieline package dependency, using `skillfish add knoxgraeme/tieline --path skills/tieline-author`, one `--agent` per selected target, exactly one of `--project` or `--global`, and `--yes --json`; it must omit a Git ref so Skillfish reads the repository default branch.
 - R7. Tieline must show the source, agents, and scope before an interactive external write, then pass Skillfish its non-interactive and JSON flags so the user confirms only once.
@@ -59,7 +59,7 @@ This makes a successful initialization look incomplete and asks the user to move
 #### Recovery and handoff
 
 - R9. Workspace and runtime setup must complete before Skillfish runs; a missing `npx`, network failure, malformed Skillfish response, or rejected requested install must leave the valid workspace intact, return a non-zero command result, and print the exact Tieline retry shape `tieline init <repository> --yes --agent <id>... --skill-scope <scope>` with the original targets and scope.
-- R10. Re-running `tieline init` against an existing workspace with explicit agents must retry installation without replacing shared configuration or repeating completed runtime setup; a bare real-TTY rerun on an empty contract must offer the same interactive skill-install step.
+- R10. Re-running `tieline init` against an existing workspace with explicit agents must retry installation without replacing shared configuration or repeating completed runtime setup; a bare real-TTY rerun on an empty contract must open the same required interactive skill-install step.
 - R11. Successful initialization and human-readable status must group expected offline limitations as optional readiness information and must not print the current full fallback prompt.
 - R12. JSON status must expose structured onboarding state, the skill name, the concise instruction, and `tieline init .` as the interactive install command while the contract has no Stories; onboarding fields must clear after the first Story exists.
 - R13. The packaged `tieline-author` skill and `tieline_author` MCP prompt must remain available as authoring surfaces even though the CLI no longer prints their full instructions.
@@ -81,15 +81,15 @@ This makes a successful initialization look incomplete and asks the user to move
 - AE6. Given offline mode with no database URLs or local embedding package, the final summary describes local authoring as ready and organization-wide matching or embeddings as optional capabilities rather than emitting three warnings.
 - AE7. **Covers F4.** Given an empty contract, `tieline status --json` returns the concise `$tieline-author` instruction and no self-contained fallback prose.
 - AE8. Given a contract with at least one Story, status clears its onboarding instruction and returns the existing compile or reconcile action appropriate to manifest state.
-- AE9. Given an empty existing workspace and a bare interactive `tieline init .`, the CLI offers skill installation, leaves the stored config and completed runtime untouched, and makes `tieline init .` from status a runnable recovery path.
+- AE9. Given an empty existing workspace and a bare interactive `tieline init .`, the CLI requires agent and scope selection, leaves the stored config and completed runtime untouched, and makes `tieline init .` from status a runnable recovery path.
 
 ### Interaction Contract
 
 1. **Repository setup:** Show detected product, remote-derived repository name, source roots, database mode, and embedding provider as defaults. Prompt only for values not supplied by flags, allow a blank description and zero or more additional context paths, and make detected source roots editable rather than forcing manual re-entry.
-2. **Runtime guidance:** Describe `offline` as local authoring without organization-wide matching, `local` as Docker PostgreSQL, and `existing` as operator-provided PostgreSQL. When `local` or `existing` prerequisites are absent, show the requirement before the final confirmation; do not relabel a configured runtime blocker as optional readiness.
-3. **Agent setup:** Ask whether to install `tieline-author`, defaulting to yes. A decline skips all agent prompts. Acceptance opens a curated multiselect with no inferred targets, then a project/global scope select with project preselected.
+2. **Runtime guidance:** Describe `offline` as local authoring without organization-wide matching, `local` as Docker PostgreSQL, and the stored `existing` value as hosted / remote PostgreSQL. Do not offer the development-only `hash` provider interactively. When `local` or `existing` prerequisites are absent, show the requirement before the final confirmation; do not relabel a configured runtime blocker as optional readiness.
+3. **Agent setup:** Open a required curated agent multiselect with no inferred targets, then a project/global scope select with project preselected. Cancelling either prompt stops initialization.
 4. **Single review:** Before mutation, show one grouped review of the shared `.tieline` write, private runtime setup, public skill source, selected agents, and external scope. One confirmation authorizes both deterministic setup and the requested Skillfish write; Tieline then passes `--yes --json` so Skillfish does not ask again.
-5. **Terminal states:** Cancellation writes nothing. A skipped install exits successfully with `tieline init .` as the later install path. A requested install succeeds with the concise skill invocation, or fails non-zero after reporting that the workspace remains ready and printing the exact Tieline retry.
+5. **Terminal states:** Interactive cancellation writes nothing. A requested install succeeds with the concise skill invocation, or fails non-zero after reporting that the workspace remains ready and printing the exact Tieline retry. Headless initialization without explicit agents remains network-free.
 
 Piped stdin keeps the legacy product/repository text questions only. `--yes` remains fully prompt-free, uses detected or flag-provided setup defaults, and performs no network or external agent write unless both agent and scope flags are explicit.
 
@@ -160,9 +160,9 @@ sequenceDiagram
   participant Npx as npx skillfish
   participant Agent as Agent skill directory
 
-  User->>Init: Confirm setup and optional agent targets
+  User->>Init: Confirm setup, agent targets, and scope
   Init->>Workspace: Write or reuse deterministic setup
-  alt No agents selected
+  alt Headless invocation without explicit agents
     Init-->>User: Ready plus interactive install command
   else Agents selected
     Init->>Npx: Public source, skill path, agents, scope, JSON
@@ -184,7 +184,7 @@ sequenceDiagram
 - Build the Skillfish argv as an array and launch without user-controlled shell interpolation. Use a cross-platform executable strategy for `npx` and `npx.cmd`.
 - Set the Skillfish child's `cwd` to the resolved Tieline workspace root so `--project` can never target the directory from which `tieline init <other-path>` happened to be launched.
 - Build the child environment from an allowlist after runtime setup. Retain only executable lookup, platform home/config, npm registry/cache, certificate, proxy, locale, temporary-directory, and the user's `DO_NOT_TRACK`/`CI` controls needed to run `npx`; explicitly exclude all Tieline profile keys plus GitHub and npm authentication-token variables.
-- Parse Skillfish JSON defensively. Treat non-zero exits, empty output, invalid JSON, or a reported unsuccessful result as an incomplete optional integration.
+- Parse Skillfish JSON defensively. Treat non-zero exits, empty output, invalid JSON, or a reported unsuccessful result as an incomplete requested integration.
 - Keep config schema version 1 because agent installation preferences are not persisted.
 
 ### System-Wide Impact
@@ -200,7 +200,7 @@ sequenceDiagram
 - **Latest-installer drift:** A future Skillfish release could change flags or JSON. Keep the adapter narrow, validate its response, test the expected command contract, and always provide a manual retry command.
 - **Agent ID drift:** The curated Tieline list can diverge from Skillfish. Keep IDs in one module and test every displayed ID through command construction; coordinate changes across the two owned repositories.
 - **Default-branch skill drift:** The current skill may adopt commands unsupported by an older Tieline CLI. Keep `tieline-author` backward-compatible across supported CLI releases and make unsupported capabilities fail with an upgrade instruction.
-- **Network and npm availability:** `npx` and GitHub access are not guaranteed. Skill installation remains optional and happens only after durable setup.
+- **Network and npm availability:** `npx` and GitHub access are not guaranteed. Interactive users must select a target, headless installation remains opt-in, and the external install happens only after durable setup.
 - **Nested output noise:** Tieline must capture Skillfish JSON and render its own summary instead of forwarding banners, confirmations, or raw stderr into the onboarding UX.
 - **Release ordering:** This Tieline work assumes the `skillfish@latest` release already accepts repeatable `--agent` values for `add`. Verify that published command contract before merging Tieline; if it is absent, publish the owned Skillfish change first rather than adding detection or path logic here.
 
@@ -244,25 +244,25 @@ sequenceDiagram
 - **Requirements:** R1-R5; KTD1, KTD4, KTD5.
 - **Dependencies:** U1.
 - **Files:** Modify `src/cli-ui.ts`, `src/cli.ts`, `src/tieline/init.ts`, and `scripts/test-tieline.ts`.
-- **Approach:** Add testable optional-text/list, confirmation, select, and multiselect wrappers around Clack. Implement the Interaction Contract as two grouped sections—repository/runtime and agent setup—followed by one review confirmation. Confirm an optional description and context paths, editable detected source roots, database mode, embedding provider, optional skill installation, supported agents, and scope. Prefer a usable Git remote repository name before the checkout basename. Add repeatable `--agent`, `--skill-scope project|global`, and `--skip-skill-install` flags with conflict validation. Preserve the current piped-input contract and make `--yes` skip optional installation unless both agents and scope are explicit.
+- **Approach:** Add testable optional-text/list, confirmation, select, and multiselect wrappers around Clack. Implement the Interaction Contract as two grouped sections—repository/runtime and agent setup—followed by one review confirmation. Confirm an optional description and context sources, normalize scheme-less websites to HTTPS, keep detected source roots editable, hide the development-only hash embedding provider from interactive choices, label the `existing` database value as hosted/remote, and require supported agents plus scope. Prefer a usable Git remote repository name before the checkout basename. Add repeatable `--agent`, `--skill-scope project|global`, and `--skip-skill-install` flags with conflict validation. Preserve the current piped-input contract and make `--yes` skip installation unless both agents and scope are explicit.
 - **Patterns to follow:** Preserve `TielineCliIO` injection, Commander choices and conflicts in `buildProgram`, `collect` for repeatable options, repository-relative path normalization in `src/tieline/init.ts`, and buffered piped input in `createQuestioner`.
 - **Test scenarios:**
-  - An interactive new repository accepts detected values, records an optional description and context path, confirms source roots, selects offline database and embedding defaults, and returns explicit agent and scope choices before mutation.
+  - An interactive new repository accepts detected values, records an optional description plus local and scheme-less website context, confirms source roots, selects offline database and a production embedding provider, and returns explicit agent and scope choices before mutation.
   - CLI-provided product, repository, context, source roots, runtime, agents, or scope bypass only their corresponding prompts.
   - A GitHub-style origin URL yields the remote repository name, while missing or malformed remote metadata falls back to the checkout basename.
   - `--yes` with no agents performs no interactive prompts and marks skill installation as skipped.
   - Repeatable supported `--agent` flags imply installation; unsupported IDs, skip/install conflicts, scope without an agent, and a headless agent without scope fail before workspace creation.
   - Piped stdin retains the existing product and repository question behavior and does not attempt rich terminal selections.
-  - Cancelling the interactive questionnaire before confirmation leaves no `.tieline` directory.
+  - Cancelling required agent selection or the final confirmation leaves no `.tieline` directory.
 - **Verification:** CLI tests prove prompt routing, default detection, flag precedence, validation, cancellation safety, and backward-compatible automation behavior.
 
 ### U3. Orchestrate setup, installation, recovery, and concise status
 
-- **Goal:** Join deterministic setup and optional installation into an idempotent lifecycle with a small, truthful final summary.
+- **Goal:** Join deterministic setup and requested installation into an idempotent lifecycle with a small, truthful final summary.
 - **Requirements:** R3, R7-R13; KTD1, KTD5-KTD8.
 - **Dependencies:** U1, U2.
 - **Files:** Modify `src/cli.ts`, `src/tieline/init.ts`, `src/tieline/preflight.ts`, `src/tieline/status.ts`, `src/resources.ts`, and `scripts/test-tieline.ts`.
-- **Approach:** Remove preflight calculation from workspace file creation and render readiness only after runtime setup. Distinguish blocking setup failures from expected offline limitations. Run the install adapter after the workspace and profile are durable, and summarize installed, already-present, skipped, or incomplete outcomes. Let explicit agents trigger installation on an existing workspace without rewriting config; when an empty existing workspace is opened through a bare real-TTY `tieline init .`, offer only the agent-install section and keep completed setup untouched. Replace the long status field with the KTD7 onboarding object, set its install command to that real rerun path, keep `next_action` concise, and remove duplicated fallback references from the MCP guide resource.
+- **Approach:** Remove preflight calculation from workspace file creation and render readiness only after runtime setup. Distinguish blocking setup failures from expected offline limitations. Run the install adapter after the workspace and profile are durable, and summarize installed, already-present, skipped, or incomplete outcomes. Let explicit agents trigger installation on an existing workspace without rewriting config; when an empty existing workspace is opened through a bare real-TTY `tieline init .`, run only the required agent-install section and keep completed setup untouched. Replace the long status field with the KTD7 onboarding object, set its install command to that real rerun path, keep `next_action` concise, and remove duplicated fallback references from the MCP guide resource.
 - **Patterns to follow:** Preserve config/profile separation in `src/tieline/profile.ts`, current readable-manifest recovery in `src/tieline/status.ts`, byte-stable existing config behavior in `scripts/test-tieline.ts`, and the existing rule that an empty spec is intentional.
 - **Test scenarios:**
   - **Covers AE1.** A successful multi-agent project install occurs after config and profile creation, and the summary names both agents plus the concise invocation.
@@ -273,9 +273,9 @@ sequenceDiagram
   - **Covers AE6.** Offline mode no longer emits separate database-admin, database-read, and local-embedder warnings; optional capability limits remain visible in one readiness section.
   - **Covers AE7.** Empty-contract JSON and human status expose the concise instruction and install command without `agent_onboarding_prompt`.
   - **Covers AE8.** A first Story clears onboarding fields and preserves unreadable-manifest compile recovery followed by normal reconcile guidance.
-  - **Covers AE9.** A bare interactive rerun on an empty workspace offers installation without repeating repository questions or runtime setup, while a non-interactive bare rerun remains prompt- and network-free.
+  - **Covers AE9.** A bare interactive rerun on an empty workspace requires agent installation choices without repeating repository questions or runtime setup, while a non-interactive bare rerun remains prompt- and network-free.
   - A Skillfish already-present result is treated as ready rather than a warning or failure.
-- **Verification:** End-to-end CLI tests prove the ordering of durable setup and optional installation, rerun idempotency, output size, status schema, and state-dependent next actions.
+- **Verification:** End-to-end CLI tests prove the ordering of durable setup and requested installation, rerun idempotency, output size, status schema, and state-dependent next actions.
 
 ### U4. Align the maintained skill, documentation, and self-hosted contract
 
@@ -316,7 +316,7 @@ sequenceDiagram
 - Interactive users can select supported agents and project/global scope; non-interactive callers install only through explicit agent flags.
 - Tieline invokes the unpinned latest Skillfish through `npx` against `knoxgraeme/tieline` without adding a package dependency or Git ref.
 - The Skillfish process receives explicit targets and a sanitized environment, and its output is normalized behind tests.
-- Optional install failure never removes or corrupts the completed workspace and always provides an exact retry command.
+- Requested install failure never removes or corrupts the completed workspace and always provides an exact retry command.
 - A rerun can install the skill into an existing workspace without changing tracked configuration or repeating completed runtime setup.
 - Init and status no longer print the self-contained fallback prompt or portray expected offline authoring limits as a wall of warnings.
 - Empty-contract status tells the user to invoke `$tieline-author`; onboarded status returns compile or reconcile guidance as appropriate.
