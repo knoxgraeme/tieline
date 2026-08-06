@@ -16,7 +16,10 @@ import {
   workspaceStartForCommand,
   type TielineCliIO,
 } from "../src/cli.js";
-import { detectRepositoryName } from "../src/tieline/init.js";
+import {
+  detectRepositoryName,
+  normalizeContextLocations,
+} from "../src/tieline/init.js";
 import {
   loadWorkspaceProfileForCommand,
   loadWorkspaceProfile,
@@ -58,12 +61,18 @@ function interactiveIo(responses: InteractiveResponses): {
   adapter: TielineCliIO;
   output: string[];
   prompts: string[];
+  choices: Record<string, readonly { value: string; label: string }[]>;
 } {
   const output: string[] = [];
   const prompts: string[] = [];
+  const choices: Record<
+    string,
+    readonly { value: string; label: string }[]
+  > = {};
   return {
     output,
     prompts,
+    choices,
     adapter: {
       interactive: true,
       write: (message) => output.push(message),
@@ -80,12 +89,14 @@ function interactiveIo(responses: InteractiveResponses): {
           prompts.push(message);
           return responses.confirm.shift() ?? false;
         },
-        select: async (message: string) => {
+        select: async (message: string, options) => {
           prompts.push(message);
+          choices[message] = [...options];
           return responses.select.shift() ?? null;
         },
-        multiselect: async (message: string) => {
+        multiselect: async (message: string, options) => {
           prompts.push(message);
+          choices[message] = [...options];
           return responses.multiselect.shift() ?? null;
         },
         note: (title: string, message: string) => {
@@ -224,6 +235,37 @@ try {
   );
   assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
 
+  const invalidContextTarget = resolve(root, "Invalid Context Checkout");
+  mkdirSync(resolve(invalidContextTarget, "src"), { recursive: true });
+  await assert.rejects(
+    runCli(
+      ["init", invalidContextTarget, "--yes", "--context", "product.md"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "invalid-context-config") }
+    ),
+    /existing repository path or explicit HTTP\(S\) URL: product\.md/
+  );
+  assert.equal(existsSync(resolve(invalidContextTarget, ".tieline")), false);
+  assert.throws(
+    () =>
+      normalizeContextLocations(invalidContextTarget, ["mcpmarket.com/hub"]),
+    /explicit HTTP\(S\) URL/
+  );
+  assert.deepEqual(
+    normalizeContextLocations(invalidContextTarget, [
+      "https://mcpmarket.com/hub",
+    ]),
+    ["https://mcpmarket.com/hub"]
+  );
+  writeFileSync(resolve(root, "outside-context.md"), "outside\n");
+  assert.throws(
+    () =>
+      normalizeContextLocations(invalidContextTarget, [
+        "../outside-context.md",
+      ]),
+    /escapes the target repository/
+  );
+
   const interactiveTarget = resolve(root, "Interactive Checkout");
   const interactiveConfigHome = resolve(root, "interactive-config");
   mkdirSync(resolve(interactiveTarget, "src"), { recursive: true });
@@ -233,17 +275,23 @@ try {
       "Interactive Product",
       "interactive-repo",
       "A useful product",
-      "README.md",
       "src",
     ],
-    confirm: [true, true],
-    select: ["offline", "hash", "project"],
+    confirm: [true],
+    select: ["offline", "local", "project"],
     multiselect: [["codex", "claude-code"]],
   });
   const interactiveInvocations: SkillfishInvocation[] = [];
   assert.equal(
     await runCli(
-      ["init", interactiveTarget],
+      [
+        "init",
+        interactiveTarget,
+        "--context",
+        "README.md",
+        "--context",
+        "https://mcpmarket.com/hub",
+      ],
       interactive.adapter,
       { TIELINE_CONFIG_HOME: interactiveConfigHome },
       {
@@ -271,17 +319,52 @@ try {
   ]);
   assert.deepEqual(
     interactiveWorkspace.config.context.sources.map((source) => source.type),
-    ["description", "local"]
+    ["description", "local", "website"]
   );
-  assert.deepEqual(interactive.prompts.slice(0, 7), [
+  assert.equal(
+    interactiveWorkspace.config.context.sources[2]?.location,
+    "https://mcpmarket.com/hub"
+  );
+  assert.deepEqual(interactive.prompts.slice(0, 6), [
     "Company/product name",
     "Stable repository name",
     "Product description (optional)",
-    "Additional context paths or URLs (comma-separated)",
     "Source roots (comma-separated)",
     "Database mode",
     "Embedding provider",
   ]);
+  assert.equal(
+    interactive.prompts.some((prompt) => prompt.includes("context files")),
+    false
+  );
+  assert.deepEqual(
+    interactive.choices["Embedding provider"]?.map((option) => option.value),
+    ["local", "openai", "supabase-edge"]
+  );
+  assert.equal(
+    interactive.choices["Database mode"]?.find(
+      (option) => option.value === "existing"
+    )?.label,
+    "Hosted / remote PostgreSQL"
+  );
+  assert.ok(
+    interactive.prompts.includes(
+      "Where should Tieline install its onboarding and authoring skill?"
+    )
+  );
+  assert.ok(
+    interactive.prompts.includes("Onboarding skill installation scope")
+  );
+  assert.equal(
+    interactive.prompts.some((prompt) =>
+      prompt.includes("Install tieline-author for coding agents?")
+    ),
+    false
+  );
+  assert.match(
+    interactive.prompts.find((prompt) => prompt.startsWith("Review:")) ?? "",
+    /Context: product description, README\.md, https:\/\/mcpmarket\.com\/hub/
+  );
   assert.match(
     interactive.output.join(""),
     /Skill: tieline-author installed for Codex and Claude Code \(project\)/
@@ -291,9 +374,9 @@ try {
   const cancelledTarget = resolve(root, "Cancelled Checkout");
   mkdirSync(resolve(cancelledTarget, "src"), { recursive: true });
   const cancelled = interactiveIo({
-    text: ["", "", "", "", ""],
-    confirm: [false, false],
-    select: ["offline", "hash"],
+    text: ["", "", "", ""],
+    confirm: [],
+    select: ["offline", "local"],
     multiselect: [],
   });
   await assert.rejects(
@@ -558,7 +641,7 @@ try {
 
   const existingInteractive = interactiveIo({
     text: [],
-    confirm: [true, true],
+    confirm: [true],
     select: ["project"],
     multiselect: [["codex"]],
   });
@@ -890,6 +973,13 @@ capability:
     resolve(process.cwd(), "skills/tieline-author/SKILL.md"),
     "utf8"
   );
+  const onboardingReference = readFileSync(
+    resolve(
+      process.cwd(),
+      "skills/tieline-author/references/onboarding.md"
+    ),
+    "utf8"
+  );
   assert.match(authorSkill, /\.tieline\/config\.json/);
   assert.match(authorSkill, /allow_external_fetch/);
   assert.match(authorSkill, /local YAML.*manifest/i);
@@ -897,6 +987,12 @@ capability:
   assert.match(authorSkill, /after `tieline init`/i);
   assert.match(authorSkill, /installed skill or MCP prompt/i);
   assert.match(authorSkill, /semantic onboarding/i);
+  assert.match(authorSkill, /references\/onboarding\.md/);
+  assert.match(
+    onboardingReference,
+    /Discover these repository sources directly/
+  );
+  assert.match(onboardingReference, /Ask focused questions only/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");

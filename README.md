@@ -131,7 +131,7 @@ converges definitions without deleting history.
 
 - Node.js 20.12 or newer.
 - Docker with a running daemon when using `--database local`.
-- An existing PostgreSQL database with pgvector when using
+- A hosted or remote PostgreSQL database with pgvector when using
   `--database existing`.
 - Embeddings are optional for retrieval. An OpenAI-compatible provider,
   Supabase Edge function, or the optional local runtime adds vector similarity;
@@ -164,7 +164,8 @@ current machine. Without it, replace `tieline` in the examples below with
 
 For an interactive setup, run Tieline from the repository and confirm the
 detected product, remote-derived repository name, context, source roots,
-database, and embedding settings:
+database, embedding settings, and coding agents that should receive the
+onboarding skill:
 
 ```bash
 cd /path/to/product-repository
@@ -176,7 +177,7 @@ The same setup remains prompt-free for automation:
 ```bash
 tieline init /path/to/product-repository \
   --database offline \
-  --embedding hash \
+  --embedding local \
   --description "A concise description of the product and business" \
   --context docs/product-context.md \
   --yes
@@ -195,11 +196,16 @@ tieline init /path/to/product-repository \
   --skill-scope project
 ```
 
-The context file is supplied by the repository; init records its repo-relative
-location rather than generating or copying it. A durable product-context file
-can hold business purpose, actors, domain terms, invariants, and glossary
-entries. It should describe the business, not ideas, feature requests, or a
-second backlog.
+Context sources are optional and explicit: provide each one with a repeatable
+`--context` flag. A local source must already exist in the repository, while a
+website must use an explicit `http://` or `https://` URL. Init records local
+sources by repository-relative location rather than generating or copying
+them. Interactive init does not ask the user to enumerate context; the
+installed `tieline-author` skill discovers README, product documentation,
+public code entry points, and tests during semantic onboarding. A durable
+product-context file can still hold business purpose, actors, domain terms,
+invariants, and glossary entries. It should describe the business, not ideas,
+feature requests, or a second backlog.
 
 Choose the database mode based on the workflow:
 
@@ -207,11 +213,12 @@ Choose the database mode based on the workflow:
 | --- | --- |
 | `offline` | Writes the workspace and supports local YAML/manifest authoring without organization-wide matching |
 | `local` | Creates or reuses a dedicated Docker PostgreSQL + pgvector database and stores clone-local credentials privately |
-| `existing` | Connects your own Postgres 16 + pgvector database identified by `DATABASE_URL_ADMIN`; no Docker container is required |
+| `existing` (hosted / remote) | Connects a hosted or remote Postgres 16 + pgvector database identified by `DATABASE_URL_ADMIN`; no Docker container is required |
 
 `--embedding hash` is deterministic and intended only for development and
-tests. For a real deployment, choose `local`, `openai`, or `supabase-edge`.
-In `existing` mode, the baseline defines the least-privilege roles as
+tests, so it is not offered during interactive onboarding. For a real
+deployment, choose `local`, `openai`, or `supabase-edge`. In `existing`
+(hosted / remote) mode, the baseline defines the least-privilege roles as
 `NOLOGIN`. Before init, provide URLs for operator-managed login roles that
 inherit `tieline_reader`, `tieline_planning_writer`, and
 `tieline_repository_sync`; init does not create or rotate passwords.
@@ -226,15 +233,19 @@ in a private profile outside the repository, so a new clone completes its own
 runtime setup instead of inheriting another machine's "ready" state.
 
 On a new repository, the only Tieline command a user needs to begin onboarding
-is `tieline init`. It captures deterministic setup, then can install the
-packaged `tieline-author` skill for manually selected coding agents. Tieline
+is `tieline init`. It captures deterministic setup, then asks which coding
+agents should receive the packaged `tieline-author` skill. That one skill owns
+both first-time semantic onboarding and ongoing authoring/reconciliation; a
+separate onboarding skill is not required. Tieline
 does not auto-detect or launch an agent, persist agent choices in shared
 configuration, or invent generic starter content.
 
 Interactive setup offers Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot,
 OpenCode, and Windsurf. Choose `project` to install for this repository or
 `global` to install for the current user. Project scope is the interactive
-default. Use `--skip-skill-install` to explicitly defer installation.
+default. Cancelling agent selection stops initialization before anything is
+written. Headless callers can use `--skip-skill-install` to explicitly suppress
+installation.
 
 | `--agent` ID | Coding agent |
 | --- | --- |
@@ -260,7 +271,7 @@ npx --yes --package=skillfish@latest skillfish add knoxgraeme/tieline \
   --json
 ```
 
-If the optional install fails or does not finish within two minutes, the
+If a requested install fails or does not finish within two minutes, the
 workspace and private runtime profile remain ready. Tieline terminates the
 installer, exits non-zero, and prints a retry command using its stable agent
 IDs, for example:

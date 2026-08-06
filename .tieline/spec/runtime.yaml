@@ -127,7 +127,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC5
-          criterion: Tieline must preserve a ready workspace when optional skill installation fails.
+          criterion: Tieline must preserve a ready workspace when requested skill installation fails.
           links:
             - relation: implements
               provenance: authored
@@ -192,6 +192,28 @@ capability:
                 repository: tieline
                 path: scripts/test-skill-install.ts
                 framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC8
+          criterion: Tieline initialization must accept context sources only through repeatable --context flags and validate each as an existing repository path or explicit HTTP(S) URL before mutation.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/init.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
             - relation: tests
               provenance: authored
               target:
@@ -335,6 +357,12 @@ capability:
                 kind: code
                 repository: tieline
                 path: skills/tieline-author/SKILL.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline-author/references/onboarding.md
             - relation: tests
               provenance: authored
               target:

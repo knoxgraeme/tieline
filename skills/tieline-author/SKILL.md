@@ -10,10 +10,12 @@ separate draft, proposal, or semantic-approval record.
 
 Read [contract.md](references/contract.md) before editing contract YAML.
 
-When invoked after `tieline init` as an installed skill or MCP prompt, start
-with semantic onboarding below. The CLI has already captured deterministic
-setup; do not ask the user to repeat product, repository, source-root, or
-context answers that are present in `.tieline/config.json`.
+When invoked after `tieline init` as an installed skill or MCP prompt, inspect
+`.tieline/spec/`. If it has no YAML, read
+[onboarding.md](references/onboarding.md) and perform semantic onboarding
+before choosing a normal authoring flow. The CLI has already captured
+deterministic setup; do not ask the user to repeat product, repository, or
+source-root answers that are present in `.tieline/config.json`.
 
 ## Orient to this repository
 
@@ -26,13 +28,6 @@ context answers that are present in `.tieline/config.json`.
    locator is not evidence that its content was actually inspected.
 4. Review `repository.source_roots` and confirm they describe the code whose
    mapping coverage will be measured.
-
-When `.tieline/spec/` has no YAML, perform semantic onboarding before normal
-reconciliation. Discover repository-specific capabilities from configured
-context, README and product docs, public code entry points, and tests. Author
-the capability boundaries and first Stories/ACs, then summarize them for normal
-pull-request review; never create generic starter capabilities merely to make
-the directory non-empty.
 
 ## Choose the flow
 

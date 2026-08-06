@@ -129,7 +129,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e1a21441e5c482bcba88f30b13599f4bd88781e869035f8987e15f0e5574a6cf",
+                "reviewed_content_hash": "8be8afd609bcfcd465906e6898f0af7608162c234ca135d36968e229ad28fb19",
                 "target": {
                   "kind": "code",
                   "path": "src/resources.ts",
@@ -150,7 +150,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c9590556f14e3417b74497161c5547a25375c0e1a4b01a3e34ae2fc744b896df",
+                "reviewed_content_hash": "7d61deff98acd160ad205b123af34ac1a0e06d57dde0e030acc50bba70d941a7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

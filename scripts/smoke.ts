@@ -99,7 +99,7 @@ try {
     String(authorPrompt.messages[0]?.content.type === "text"
       ? authorPrompt.messages[0].content.text
       : ""),
-    /\.tieline\/config\.json[\s\S]*Search before creating/
+    /\.tieline\/config\.json[\s\S]*Search before creating[\s\S]*Semantic onboarding/
   );
 
   const omittedProfile = (await client.callTool({
