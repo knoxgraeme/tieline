@@ -700,7 +700,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

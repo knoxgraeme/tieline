@@ -48,6 +48,28 @@ const SOURCE_ROOT_CANDIDATES = [
   "services",
   "functions",
 ];
+const CONTEXT_FILE_EXTENSIONS = new Set([
+  "adoc",
+  "asciidoc",
+  "csv",
+  "doc",
+  "docx",
+  "htm",
+  "html",
+  "json",
+  "jsonc",
+  "markdown",
+  "md",
+  "mdx",
+  "pdf",
+  "rst",
+  "toml",
+  "tsv",
+  "txt",
+  "xml",
+  "yaml",
+  "yml",
+]);
 
 export interface InitWorkspaceOptions {
   targetPath: string;
@@ -167,6 +189,19 @@ function normalizedWebsiteLocation(location: string): string | undefined {
       !explicitScheme &&
       website.hostname !== "localhost" &&
       !website.hostname.includes(".")
+    ) {
+      return undefined;
+    }
+    const extension = website.hostname.split(".").at(-1)?.toLowerCase();
+    const explicitWebsiteShape =
+      website.hostname.startsWith("www.") ||
+      Boolean(website.port) ||
+      /[/?#]/.test(location);
+    if (
+      !explicitScheme &&
+      !explicitWebsiteShape &&
+      extension &&
+      CONTEXT_FILE_EXTENSIONS.has(extension)
     ) {
       return undefined;
     }

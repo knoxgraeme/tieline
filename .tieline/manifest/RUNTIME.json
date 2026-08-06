@@ -28,7 +28,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "661a8c3eed140e63718d99ae3043dd491d15f57ffe48dd5626be71be53d0d344",
+                "reviewed_content_hash": "fc840a27c0bbed31f2086836450023c95a5276019d619879df30527809670dc8",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -112,7 +112,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -146,7 +146,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "661a8c3eed140e63718d99ae3043dd491d15f57ffe48dd5626be71be53d0d344",
+                "reviewed_content_hash": "fc840a27c0bbed31f2086836450023c95a5276019d619879df30527809670dc8",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -211,7 +211,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -255,7 +255,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -299,7 +299,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -354,7 +354,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -372,8 +372,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "2225dea511f42025f196b756e043f1856b9c7ac3ae5667f09731b7596aba03e8",
-            "criterion": "Tieline initialization must normalize scheme-less website context sources to HTTPS before the final review.",
+            "contract_hash": "69f451030792bb0b4fea13542f1a34a022e9d55eaab15c0518e3946b6db62340",
+            "criterion": "Tieline initialization must normalize unambiguous scheme-less website context sources to HTTPS before the final review.",
             "links": [
               {
                 "provenance": "authored",
@@ -388,7 +388,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "661a8c3eed140e63718d99ae3043dd491d15f57ffe48dd5626be71be53d0d344",
+                "reviewed_content_hash": "fc840a27c0bbed31f2086836450023c95a5276019d619879df30527809670dc8",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -398,7 +398,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -682,7 +682,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e71715b4ee1d0fb7698344f5afad8af8d2e84ef42d2f4fa453e871fb218f5ef3",
+                "reviewed_content_hash": "cfa3b3c383628c32bc3a672418045afbfb66effb12bd365c427c9cb0e7ebac51",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -769,6 +769,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "1959a17991335928c6c1ec78ba48b5064b39105f5405ea3c80674b52b7194cb6"
+    "sha256": "671de16f63cd46eda2b81a0dae08bd3613387ceae3fe68cc9cd909fa1305532f"
   }
 }

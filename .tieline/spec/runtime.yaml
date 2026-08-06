@@ -200,7 +200,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC8
-          criterion: Tieline initialization must normalize scheme-less website context sources to HTTPS before the final review.
+          criterion: Tieline initialization must normalize unambiguous scheme-less website context sources to HTTPS before the final review.
           links:
             - relation: implements
               provenance: authored

@@ -202,7 +202,9 @@ can hold business purpose, actors, domain terms, invariants, and glossary
 entries. It should describe the business, not ideas, feature requests, or a
 second backlog. Website context can be entered with or without an `https://`
 prefix; Tieline normalizes scheme-less websites to HTTPS and validates all
-context sources before the final review.
+context sources before the final review. An absent root-level document name
+such as `product.md` remains a missing file; use an explicit scheme if a real
+website has a document-like hostname.
 
 Choose the database mode based on the workflow:
 

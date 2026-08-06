@@ -16,7 +16,10 @@ import {
   workspaceStartForCommand,
   type TielineCliIO,
 } from "../src/cli.js";
-import { detectRepositoryName } from "../src/tieline/init.js";
+import {
+  detectRepositoryName,
+  normalizeContextLocations,
+} from "../src/tieline/init.js";
 import {
   loadWorkspaceProfileForCommand,
   loadWorkspaceProfile,
@@ -239,7 +242,7 @@ try {
       "Context Product",
       "context-repo",
       "",
-      "docs/missing-context.md",
+      "product.md",
     ],
     confirm: [],
     select: [],
@@ -249,12 +252,20 @@ try {
     runCli(["init", invalidContextTarget], invalidContext.adapter, {
       TIELINE_CONFIG_HOME: resolve(root, "invalid-context-config"),
     }),
-    /Context source does not exist: docs\/missing-context\.md/
+    /Context source does not exist: product\.md/
   );
   assert.equal(existsSync(resolve(invalidContextTarget, ".tieline")), false);
   assert.equal(
     invalidContext.prompts.some((prompt) => prompt.startsWith("Review:")),
     false
+  );
+  assert.deepEqual(
+    normalizeContextLocations(invalidContextTarget, ["example.com"]),
+    ["https://example.com/"]
+  );
+  assert.deepEqual(
+    normalizeContextLocations(invalidContextTarget, ["https://product.md"]),
+    ["https://product.md/"]
   );
 
   const interactiveTarget = resolve(root, "Interactive Checkout");

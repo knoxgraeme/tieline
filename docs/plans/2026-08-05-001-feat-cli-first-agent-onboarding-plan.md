@@ -44,7 +44,7 @@ This makes a successful initialization look incomplete and asks the user to move
 
 #### Deterministic setup
 
-- R1. Interactive `tieline init` must capture or confirm product identity, stable repository identity, an optional product description and context sources, detected source roots, database mode, and embedding provider before writing the workspace; scheme-less website context must be normalized to HTTPS before review.
+- R1. Interactive `tieline init` must capture or confirm product identity, stable repository identity, an optional product description and context sources, detected source roots, database mode, and embedding provider before writing the workspace; unambiguous scheme-less website context must be normalized to HTTPS before review while absent file-like values remain errors.
 - R2. Repository-derived defaults must remain editable, with the stable repository name preferring Git remote metadata over the checkout directory name when usable metadata exists.
 - R3. Existing flags and `--yes` must retain a prompt-free path, and omitted optional values must resolve to documented defaults without triggering skill installation.
 
