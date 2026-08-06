@@ -37,9 +37,16 @@ export interface TielineStatus {
   onboarding: {
     required: true;
     skill: "tieline-author";
-    instruction: "Use $tieline-author to onboard this repository.";
+    instruction: typeof ONBOARDING_AGENT_PROMPT;
     install_command: "tieline init .";
   } | null;
+}
+
+export const ONBOARDING_AGENT_PROMPT =
+  "Use the tieline-author skill to onboard this repository to Tieline.";
+
+function onboardingPasteInstruction(): string {
+  return `Paste this prompt to your agent to finish onboarding: "${ONBOARDING_AGENT_PROMPT}"`;
 }
 
 function configured(value: string | undefined): boolean {
@@ -97,13 +104,13 @@ export function getTielineStatus(
       ? ({
           required: true,
           skill: "tieline-author",
-          instruction: "Use $tieline-author to onboard this repository.",
+          instruction: ONBOARDING_AGENT_PROMPT,
           install_command: "tieline init .",
         } as const)
       : null;
   const nextAction =
     onboarding
-      ? onboarding.instruction
+      ? onboardingPasteInstruction()
       : !manifestExists
         ? "Run `tieline contract compile .` and review the semantic diff."
         : "Use $tieline-author to reconcile branch work; the pull request is the approval boundary.";

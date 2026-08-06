@@ -307,8 +307,9 @@ An empty `.tieline/spec/` immediately after init is intentional: init does not
 invent generic capabilities. The authoring skill validates the detected code
 scope against the repository before claiming coverage. While the spec has no Stories,
 `tieline status --json` exposes `onboarding.required`, the `tieline-author`
-skill name, the concise instruction `Use $tieline-author to onboard this
-repository.`, and `tieline init .` as the install command. `onboarding` becomes
+skill name, a paste-ready agent prompt (`Use the tieline-author skill to
+onboard this repository to Tieline.`), and `tieline init .` as the install
+command. `onboarding` becomes
 `null` after the first Story exists. Status also reports whether the local
 profile is ready and whether database-backed semantic matching and planning
 writes are configured. Tool calls remain the operational check.
