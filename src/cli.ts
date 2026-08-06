@@ -140,6 +140,49 @@ interface SkillInstallSelection {
   scope: SkillInstallScope;
 }
 
+const DATABASE_MODE_OPTIONS = [
+  {
+    value: "offline",
+    label: "Offline",
+    hint: "Local authoring without organization-wide matching",
+  },
+  {
+    value: "local",
+    label: "Local PostgreSQL",
+    hint: "Docker PostgreSQL with pgvector",
+  },
+  {
+    value: "existing",
+    label: "Existing PostgreSQL",
+    hint: "Use operator-provided connection URLs",
+  },
+] as const;
+
+const EMBEDDING_PROVIDER_OPTIONS = [
+  { value: "local", label: "Local gte-small" },
+  { value: "openai", label: "OpenAI" },
+  { value: "supabase-edge", label: "Supabase Edge" },
+  { value: "hash", label: "Hash (development only)" },
+] as const;
+
+const SKILL_AGENT_OPTIONS = SUPPORTED_SKILL_AGENTS.map((agent) => ({
+  value: agent.id,
+  label: agent.selector,
+}));
+
+const SKILL_SCOPE_OPTIONS = [
+  {
+    value: "project",
+    label: "Project",
+    hint: "Install for this repository",
+  },
+  {
+    value: "global",
+    label: "Global",
+    hint: "Install for your user account",
+  },
+] as const;
+
 function withoutDatabaseEnvironment(
   env: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv {
@@ -371,17 +414,14 @@ async function runInit(
   }
 
   const existing = findTielineWorkspace(parsed.target);
-  const existingStatus = existing ? getTielineStatus(existing, env) : null;
-  const offerInteractiveInstall = Boolean(
-    io.interactive && !parsed.yes && (!existingStatus || existingStatus.onboarding)
-  );
   let skillSelection: SkillInstallSelection | null = null;
 
   if (existing) {
+    const existingStatus = getTielineStatus(existing, env);
     skillSelection = await resolveSkillSelection(
       parsed,
       io,
-      offerInteractiveInstall
+      Boolean(io.interactive && !parsed.yes && existingStatus.onboarding)
     );
     const stored = readWorkspaceProfile(existing, env);
     const databaseMode = parsed.databaseExplicit
@@ -423,7 +463,7 @@ async function runInit(
     }
     if (!shouldConfigure && !skillSelection) {
       io.write(
-        `Tieline is already initialized at ${existing.directory}.\n${renderStatus(getTielineStatus(existing, env), paletteFor(io))}\n`
+        `Tieline is already initialized at ${existing.directory}.\n${renderStatus(existingStatus, paletteFor(io))}\n`
       );
       return 0;
     }
@@ -476,69 +516,43 @@ async function runInit(
     (richInteractive
       ? await askOptional(io, "Product description (optional)")
       : undefined);
-  const context =
-    parsed.context.length > 0
-      ? parsed.context
-      : richInteractive
-        ? await askList(io, "Additional context paths or URLs (comma-separated)")
-        : [];
+  let context = parsed.context;
+  if (context.length === 0 && richInteractive) {
+    context = await askList(
+      io,
+      "Additional context paths or URLs (comma-separated)"
+    );
+  }
   const detectedRoots = detectSourceRoots(parsed.target);
-  const sourceRoots =
-    parsed.sourceRoots.length > 0
-      ? parsed.sourceRoots
-      : richInteractive
-        ? await askList(
-            io,
-            "Source roots (comma-separated)",
-            detectedRoots
-          )
-        : detectedRoots;
-  const database = parsed.databaseExplicit
-    ? parsed.database
-    : richInteractive
-      ? await selectChoice<DatabaseMode>(
-          io,
-          "Database mode",
-          [
-            {
-              value: "offline",
-              label: "Offline",
-              hint: "Local authoring without organization-wide matching",
-            },
-            {
-              value: "local",
-              label: "Local PostgreSQL",
-              hint: "Docker PostgreSQL with pgvector",
-            },
-            {
-              value: "existing",
-              label: "Existing PostgreSQL",
-              hint: "Use operator-provided connection URLs",
-            },
-          ],
-          parsed.database
-        )
-      : parsed.database;
-  const embedding = parsed.embeddingExplicit
-    ? parsed.embedding
-    : richInteractive
-      ? await selectChoice<EmbeddingProvider>(
-          io,
-          "Embedding provider",
-          [
-            { value: "local", label: "Local gte-small" },
-            { value: "openai", label: "OpenAI" },
-            { value: "supabase-edge", label: "Supabase Edge" },
-            { value: "hash", label: "Hash (development only)" },
-          ],
-          parsed.embedding
-        )
-      : parsed.embedding;
+  let sourceRoots = parsed.sourceRoots;
+  if (sourceRoots.length === 0) {
+    sourceRoots = richInteractive
+      ? await askList(io, "Source roots (comma-separated)", detectedRoots)
+      : detectedRoots;
+  }
+  let database = parsed.database;
+  if (!parsed.databaseExplicit && richInteractive) {
+    database = await selectChoice<DatabaseMode>(
+      io,
+      "Database mode",
+      DATABASE_MODE_OPTIONS,
+      database
+    );
+  }
+  let embedding = parsed.embedding;
+  if (!parsed.embeddingExplicit && richInteractive) {
+    embedding = await selectChoice<EmbeddingProvider>(
+      io,
+      "Embedding provider",
+      EMBEDDING_PROVIDER_OPTIONS,
+      embedding
+    );
+  }
 
   skillSelection = await resolveSkillSelection(
     parsed,
     io,
-    offerInteractiveInstall
+    richInteractive
   );
 
   if (richInteractive) {
@@ -618,10 +632,7 @@ async function resolveSkillSelection(
     agents = await multiselectChoice<SkillAgentId>(
       io,
       "Coding agents",
-      SUPPORTED_SKILL_AGENTS.map((agent) => ({
-        value: agent.id,
-        label: agent.selector,
-      }))
+      SKILL_AGENT_OPTIONS
     );
     if (agents.length === 0) {
       throw new Error("Select at least one supported agent.");
@@ -632,18 +643,7 @@ async function resolveSkillSelection(
     (await selectChoice<SkillInstallScope>(
       io,
       "Skill installation scope",
-      [
-        {
-          value: "project",
-          label: "Project",
-          hint: "Install for this repository",
-        },
-        {
-          value: "global",
-          label: "Global",
-          hint: "Install for your user account",
-        },
-      ],
+      SKILL_SCOPE_OPTIONS,
       "project"
     ));
   return { agents, scope };

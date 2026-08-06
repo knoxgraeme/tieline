@@ -56,6 +56,11 @@ const agentIdBySelector = new Map<string, SkillAgentId>(
   SUPPORTED_SKILL_AGENTS.map((agent) => [agent.selector, agent.id])
 );
 
+interface NormalizedSkillAgent {
+  id: SkillAgentId;
+  selector: string;
+}
+
 const SAFE_CHILD_ENV_KEYS = [
   "PATH",
   "Path",
@@ -126,12 +131,11 @@ const skillfishOutputSchema = z
   })
   .strict();
 
-function normalizedAgents(agentIds: readonly string[]): Array<{
-  id: SkillAgentId;
-  selector: string;
-}> {
+function normalizedAgents(
+  agentIds: readonly string[]
+): NormalizedSkillAgent[] {
   const seen = new Set<SkillAgentId>();
-  const agents: Array<{ id: SkillAgentId; selector: string }> = [];
+  const agents: NormalizedSkillAgent[] = [];
   for (const candidate of agentIds) {
     const agent = agentById.get(candidate as SkillAgentId);
     if (!agent) throw new Error(`Unsupported agent '${candidate}'.`);
@@ -160,10 +164,10 @@ function sanitizedChildEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return sanitized;
 }
 
-export function buildSkillfishInvocation(
-  options: SkillInstallOptions
+function skillfishInvocation(
+  options: SkillInstallOptions,
+  agents: readonly NormalizedSkillAgent[]
 ): SkillfishInvocation {
-  const agents = normalizedAgents(options.agentIds);
   const platform = options.platform ?? process.platform;
   const args = [
     "--yes",
@@ -185,16 +189,22 @@ export function buildSkillfishInvocation(
   };
 }
 
+export function buildSkillfishInvocation(
+  options: SkillInstallOptions
+): SkillfishInvocation {
+  return skillfishInvocation(options, normalizedAgents(options.agentIds));
+}
+
 function quoteShellArgument(value: string, platform: NodeJS.Platform): string {
   if (/^[A-Za-z0-9_./:\\-]+$/.test(value)) return value;
   if (platform === "win32") return `"${value.replaceAll('"', '""')}"`;
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-export function renderSkillInstallRetryCommand(
-  options: SkillInstallOptions
+function skillInstallRetryCommand(
+  options: SkillInstallOptions,
+  agents: readonly NormalizedSkillAgent[]
 ): string {
-  const agents = normalizedAgents(options.agentIds);
   const platform = options.platform ?? process.platform;
   const args = [
     "tieline",
@@ -205,6 +215,12 @@ export function renderSkillInstallRetryCommand(
   for (const agent of agents) args.push("--agent", agent.id);
   args.push("--skill-scope", options.scope);
   return args.map((value) => quoteShellArgument(value, platform)).join(" ");
+}
+
+export function renderSkillInstallRetryCommand(
+  options: SkillInstallOptions
+): string {
+  return skillInstallRetryCommand(options, normalizedAgents(options.agentIds));
 }
 
 export function skippedSkillInstall(): SkillInstallOutcome {
@@ -259,11 +275,10 @@ export async function installTielineAuthor(
   options: SkillInstallOptions,
   runner: SkillfishProcessRunner = runSkillfishProcess
 ): Promise<SkillInstallOutcome> {
-  const requestedAgents = normalizedAgents(options.agentIds).map(
-    (agent) => agent.id
-  );
-  const retryCommand = renderSkillInstallRetryCommand(options);
-  const invocation = buildSkillfishInvocation(options);
+  const agents = normalizedAgents(options.agentIds);
+  const requestedAgents = agents.map((agent) => agent.id);
+  const retryCommand = skillInstallRetryCommand(options, agents);
+  const invocation = skillfishInvocation(options, agents);
   let processResult: SkillfishProcessResult;
   try {
     processResult = await runner(invocation);
