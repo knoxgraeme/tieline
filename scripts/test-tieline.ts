@@ -266,6 +266,29 @@ try {
     /escapes the target repository/
   );
 
+  const repositoryContextTarget = resolve(root, "Repository Context Checkout");
+  mkdirSync(resolve(repositoryContextTarget, "src"), { recursive: true });
+  assert.equal(
+    await runCli(
+      ["init", repositoryContextTarget, "--yes", "--context", "."],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "repository-context-config") }
+    ),
+    0
+  );
+  const repositoryContextWorkspace = findTielineWorkspace(
+    repositoryContextTarget
+  );
+  assert.ok(repositoryContextWorkspace);
+  assert.equal(
+    repositoryContextWorkspace.config.context.sources[0]?.type,
+    "local"
+  );
+  assert.equal(
+    repositoryContextWorkspace.config.context.sources[0]?.location,
+    "."
+  );
+
   const interactiveTarget = resolve(root, "Interactive Checkout");
   const interactiveConfigHome = resolve(root, "interactive-config");
   mkdirSync(resolve(interactiveTarget, "src"), { recursive: true });
@@ -274,8 +297,6 @@ try {
     text: [
       "Interactive Product",
       "interactive-repo",
-      "A useful product",
-      "src",
     ],
     confirm: [true],
     select: ["offline", "local", "project"],
@@ -287,6 +308,8 @@ try {
       [
         "init",
         interactiveTarget,
+        "--description",
+        "A useful product",
         "--context",
         "README.md",
         "--context",
@@ -325,21 +348,30 @@ try {
     interactiveWorkspace.config.context.sources[2]?.location,
     "https://mcpmarket.com/hub"
   );
-  assert.deepEqual(interactive.prompts.slice(0, 6), [
+  assert.deepEqual(interactive.prompts.slice(0, 4), [
     "Company/product name",
     "Stable repository name",
-    "Product description (optional)",
-    "Source roots (comma-separated)",
     "Database mode",
     "Embedding provider",
   ]);
   assert.equal(
-    interactive.prompts.some((prompt) => prompt.includes("context files")),
+    interactive.prompts.some((prompt) =>
+      [
+        "Product description (optional)",
+        "Source roots (comma-separated)",
+      ].includes(prompt)
+    ),
     false
   );
   assert.deepEqual(
     interactive.choices["Embedding provider"]?.map((option) => option.value),
     ["local", "openai", "supabase-edge"]
+  );
+  assert.equal(
+    interactive.choices["Embedding provider"]?.find(
+      (option) => option.value === "supabase-edge"
+    )?.label,
+    "Supabase Edge Function"
   );
   assert.equal(
     interactive.choices["Database mode"]?.find(
@@ -363,7 +395,7 @@ try {
   );
   assert.match(
     interactive.prompts.find((prompt) => prompt.startsWith("Review:")) ?? "",
-    /Context: product description, README\.md, https:\/\/mcpmarket\.com\/hub/
+    /Context: product description, README\.md, https:\/\/mcpmarket\.com\/hub.*Code scope: src/s
   );
   assert.match(
     interactive.output.join(""),
@@ -374,7 +406,7 @@ try {
   const cancelledTarget = resolve(root, "Cancelled Checkout");
   mkdirSync(resolve(cancelledTarget, "src"), { recursive: true });
   const cancelled = interactiveIo({
-    text: ["", "", "", ""],
+    text: ["", ""],
     confirm: [],
     select: ["offline", "local"],
     multiselect: [],
@@ -596,7 +628,7 @@ try {
   const firstOutput = first.output.join("");
   assert.match(firstOutput, /workspace: ready/i);
   assert.match(firstOutput, /runtime: offline.*local contract authoring ready/i);
-  assert.match(firstOutput, /source roots: src/i);
+  assert.match(firstOutput, /code scope: src/i);
   assert.match(firstOutput, /optional capabilities:.*duplicate checks/i);
   assert.match(firstOutput, /skill: not installed/i);
   assert.match(firstOutput, /install later: tieline init \./i);
@@ -666,6 +698,7 @@ try {
       [
         "Company/product name",
         "Stable repository name",
+        "Product description (optional)",
         "Source roots (comma-separated)",
         "Database mode",
         "Embedding provider",
@@ -886,6 +919,7 @@ capability:
         ownerUrl:
           "postgresql://owner:private@127.0.0.1:5432/tieline",
         container: "tieline-test",
+        waitUntilReady: async () => undefined,
       };
     },
     migrateDatabase: async () => {
@@ -911,7 +945,15 @@ capability:
     embeddingProvider: "hash",
     installLocalEmbedder: false,
     skipMigrate: true,
-    env: { TIELINE_CONFIG_HOME: configHome },
+    env: {
+      TIELINE_CONFIG_HOME: configHome,
+      DATABASE_URL:
+        "postgresql://stale-reader@example.test/tieline",
+      DATABASE_URL_WRITE:
+        "postgresql://stale-writer@example.test/tieline",
+      DATABASE_URL_SYNC:
+        "postgresql://stale-sync@example.test/tieline",
+    },
     io: { write: () => undefined },
     dependencies: localDependencies,
   });
@@ -933,6 +975,74 @@ capability:
     })?.profile.env.DATABASE_URL_ADMIN,
     "postgresql://owner:private@127.0.0.1:5432/tieline"
   );
+  const pendingLocalProfile = readWorkspaceProfile(workspace, {
+    TIELINE_CONFIG_HOME: configHome,
+  });
+  assert.equal(pendingLocalProfile?.profile.env.DATABASE_URL, undefined);
+  assert.equal(
+    pendingLocalProfile?.profile.env.DATABASE_URL_WRITE,
+    undefined
+  );
+  assert.equal(
+    pendingLocalProfile?.profile.env.DATABASE_URL_SYNC,
+    undefined
+  );
+
+  const interruptedConfigHome = resolve(root, "interrupted-local-config");
+  const interruptedOwnerUrl =
+    "postgresql://owner:pending@127.0.0.1:5433/tieline";
+  await assert.rejects(
+    configureWorkspaceRuntime({
+      workspace: workspace as TielineWorkspace,
+      databaseMode: "local",
+      embeddingProvider: "hash",
+      installLocalEmbedder: false,
+      skipMigrate: false,
+      env: {
+        TIELINE_CONFIG_HOME: interruptedConfigHome,
+        DATABASE_URL:
+          "postgresql://stale-reader@example.test/tieline",
+        DATABASE_URL_WRITE:
+          "postgresql://stale-writer@example.test/tieline",
+        DATABASE_URL_SYNC:
+          "postgresql://stale-sync@example.test/tieline",
+      },
+      io: { write: () => undefined },
+      dependencies: {
+        startLocalDatabase: async () => ({
+          ownerUrl: interruptedOwnerUrl,
+          container: "tieline-interrupted-test",
+          waitUntilReady: async () => {
+            assert.equal(
+              readWorkspaceProfile(workspace, {
+                TIELINE_CONFIG_HOME: interruptedConfigHome,
+              })?.profile.env.DATABASE_URL_ADMIN,
+              interruptedOwnerUrl,
+              "container ownership must be durable before readiness checks"
+            );
+            throw new Error("simulated local database readiness timeout");
+          },
+        }),
+      },
+    }),
+    /simulated local database readiness timeout/
+  );
+  assert.equal(
+    readWorkspaceProfile(workspace, {
+      TIELINE_CONFIG_HOME: interruptedConfigHome,
+    })?.profile.runtime.setup_completed_at,
+    null
+  );
+  const interruptedProfile = readWorkspaceProfile(workspace, {
+    TIELINE_CONFIG_HOME: interruptedConfigHome,
+  });
+  assert.equal(
+    interruptedProfile?.profile.env.DATABASE_URL_ADMIN,
+    interruptedOwnerUrl
+  );
+  assert.equal(interruptedProfile?.profile.env.DATABASE_URL, undefined);
+  assert.equal(interruptedProfile?.profile.env.DATABASE_URL_WRITE, undefined);
+  assert.equal(interruptedProfile?.profile.env.DATABASE_URL_SYNC, undefined);
 
   calls.length = 0;
   await configureWorkspaceRuntime({

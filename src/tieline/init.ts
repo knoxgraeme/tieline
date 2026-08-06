@@ -210,7 +210,6 @@ function normalizedPath(targetPath: string, candidate: string): string {
 }
 
 function contextSources(
-  targetPath: string,
   description: string | undefined,
   locations: string[]
 ): TielineContextSource[] {
@@ -224,17 +223,12 @@ function contextSources(
       allow_external_fetch: false,
     });
   }
-  for (const location of normalizeContextLocations(targetPath, locations)) {
+  for (const location of locations) {
     const website = /^https?:\/\//i.test(location);
     sources.push({
       id: `source-${sources.length + 1}`,
       type: website ? "website" : "local",
-      location: website
-        ? location
-        : relative(targetPath, resolve(targetPath, location)).replaceAll(
-            "\\",
-            "/"
-          ),
+      location,
       content: null,
       allow_external_fetch: website,
     });
@@ -308,11 +302,7 @@ export function initWorkspace(
       ],
     },
     context: {
-      sources: contextSources(
-        targetPath,
-        options.description,
-        contextLocations
-      ),
+      sources: contextSources(options.description, contextLocations),
     },
     runtime: {
       default_embedding_provider: provider,
