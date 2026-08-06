@@ -775,7 +775,7 @@ function buildProgram(
     )
     .option(
       "--agent <id>",
-      "install tieline-author for a supported agent (repeatable)",
+      `install tieline-author for a supported agent (repeatable: ${SUPPORTED_SKILL_AGENTS.map((agent) => agent.id).join(", ")})`,
       collect,
       []
     )

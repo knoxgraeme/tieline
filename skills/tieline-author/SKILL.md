@@ -10,10 +10,10 @@ separate draft, proposal, or semantic-approval record.
 
 Read [contract.md](references/contract.md) before editing contract YAML.
 
-When invoked from the agent handoff printed by `tieline init`, start with
-semantic onboarding below. The CLI has already captured deterministic setup;
-do not ask the user to repeat product, repository, source-root, or context
-answers that are present in `.tieline/config.json`.
+When invoked after `tieline init` as an installed skill or MCP prompt, start
+with semantic onboarding below. The CLI has already captured deterministic
+setup; do not ask the user to repeat product, repository, source-root, or
+context answers that are present in `.tieline/config.json`.
 
 ## Orient to this repository
 

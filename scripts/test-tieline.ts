@@ -895,7 +895,19 @@ capability:
   assert.match(authorSkill, /local YAML.*manifest/i);
   assert.match(authorSkill, /semantic matching.*unavailable/i);
   assert.match(authorSkill, /after `tieline init`/i);
+  assert.match(authorSkill, /installed skill or MCP prompt/i);
   assert.match(authorSkill, /semantic onboarding/i);
+  assert.doesNotMatch(authorSkill, /agent handoff printed/i);
+
+  const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
+  assert.match(
+    readme,
+    /npx --yes --package=skillfish@latest skillfish add knoxgraeme\/tieline/
+  );
+  assert.match(readme, /--agent codex[\s\S]*--agent claude-code/);
+  assert.match(readme, /--skill-scope project/);
+  assert.doesNotMatch(readme, /agent_onboarding_prompt/);
+  assert.doesNotMatch(readme, /copyable,? self-contained prompt/i);
 
   for (const removed of ["merge", "review", "import", "context"]) {
     await assert.rejects(
