@@ -237,35 +237,33 @@ try {
 
   const invalidContextTarget = resolve(root, "Invalid Context Checkout");
   mkdirSync(resolve(invalidContextTarget, "src"), { recursive: true });
-  const invalidContext = interactiveIo({
-    text: [
-      "Context Product",
-      "context-repo",
-      "",
-      "product.md",
-    ],
-    confirm: [],
-    select: [],
-    multiselect: [],
-  });
   await assert.rejects(
-    runCli(["init", invalidContextTarget], invalidContext.adapter, {
-      TIELINE_CONFIG_HOME: resolve(root, "invalid-context-config"),
-    }),
-    /Context source does not exist: product\.md/
+    runCli(
+      ["init", invalidContextTarget, "--yes", "--context", "product.md"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "invalid-context-config") }
+    ),
+    /existing repository path or explicit HTTP\(S\) URL: product\.md/
   );
   assert.equal(existsSync(resolve(invalidContextTarget, ".tieline")), false);
-  assert.equal(
-    invalidContext.prompts.some((prompt) => prompt.startsWith("Review:")),
-    false
+  assert.throws(
+    () =>
+      normalizeContextLocations(invalidContextTarget, ["mcpmarket.com/hub"]),
+    /explicit HTTP\(S\) URL/
   );
   assert.deepEqual(
-    normalizeContextLocations(invalidContextTarget, ["example.com"]),
-    ["https://example.com/"]
+    normalizeContextLocations(invalidContextTarget, [
+      "https://mcpmarket.com/hub",
+    ]),
+    ["https://mcpmarket.com/hub"]
   );
-  assert.deepEqual(
-    normalizeContextLocations(invalidContextTarget, ["https://product.md"]),
-    ["https://product.md/"]
+  writeFileSync(resolve(root, "outside-context.md"), "outside\n");
+  assert.throws(
+    () =>
+      normalizeContextLocations(invalidContextTarget, [
+        "../outside-context.md",
+      ]),
+    /escapes the target repository/
   );
 
   const interactiveTarget = resolve(root, "Interactive Checkout");
@@ -277,7 +275,6 @@ try {
       "Interactive Product",
       "interactive-repo",
       "A useful product",
-      "README.md, mcpmarket.com/hub",
       "src",
     ],
     confirm: [true],
@@ -287,7 +284,14 @@ try {
   const interactiveInvocations: SkillfishInvocation[] = [];
   assert.equal(
     await runCli(
-      ["init", interactiveTarget],
+      [
+        "init",
+        interactiveTarget,
+        "--context",
+        "README.md",
+        "--context",
+        "https://mcpmarket.com/hub",
+      ],
       interactive.adapter,
       { TIELINE_CONFIG_HOME: interactiveConfigHome },
       {
@@ -321,15 +325,18 @@ try {
     interactiveWorkspace.config.context.sources[2]?.location,
     "https://mcpmarket.com/hub"
   );
-  assert.deepEqual(interactive.prompts.slice(0, 7), [
+  assert.deepEqual(interactive.prompts.slice(0, 6), [
     "Company/product name",
     "Stable repository name",
     "Product description (optional)",
-    "Additional context files or websites (comma-separated)",
     "Source roots (comma-separated)",
     "Database mode",
     "Embedding provider",
   ]);
+  assert.equal(
+    interactive.prompts.some((prompt) => prompt.includes("context files")),
+    false
+  );
   assert.deepEqual(
     interactive.choices["Embedding provider"]?.map((option) => option.value),
     ["local", "openai", "supabase-edge"]
@@ -367,7 +374,7 @@ try {
   const cancelledTarget = resolve(root, "Cancelled Checkout");
   mkdirSync(resolve(cancelledTarget, "src"), { recursive: true });
   const cancelled = interactiveIo({
-    text: ["", "", "", "", ""],
+    text: ["", "", "", ""],
     confirm: [],
     select: ["offline", "local"],
     multiselect: [],
@@ -966,6 +973,13 @@ capability:
     resolve(process.cwd(), "skills/tieline-author/SKILL.md"),
     "utf8"
   );
+  const onboardingReference = readFileSync(
+    resolve(
+      process.cwd(),
+      "skills/tieline-author/references/onboarding.md"
+    ),
+    "utf8"
+  );
   assert.match(authorSkill, /\.tieline\/config\.json/);
   assert.match(authorSkill, /allow_external_fetch/);
   assert.match(authorSkill, /local YAML.*manifest/i);
@@ -973,6 +987,12 @@ capability:
   assert.match(authorSkill, /after `tieline init`/i);
   assert.match(authorSkill, /installed skill or MCP prompt/i);
   assert.match(authorSkill, /semantic onboarding/i);
+  assert.match(authorSkill, /references\/onboarding\.md/);
+  assert.match(
+    onboardingReference,
+    /Discover these repository sources directly/
+  );
+  assert.match(onboardingReference, /Ask focused questions only/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");

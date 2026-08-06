@@ -13,7 +13,11 @@ function authoringInstructions(): string {
     resolve(packageRoot, "skills/tieline-author/references/contract.md"),
     "utf8"
   );
-  return `${skill}\n\n${contract}`;
+  const onboarding = readFileSync(
+    resolve(packageRoot, "skills/tieline-author/references/onboarding.md"),
+    "utf8"
+  );
+  return `${skill}\n\n${contract}\n\n${onboarding}`;
 }
 
 export function registerPrompts(server: McpServer): void {

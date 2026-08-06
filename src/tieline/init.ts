@@ -48,29 +48,6 @@ const SOURCE_ROOT_CANDIDATES = [
   "services",
   "functions",
 ];
-const CONTEXT_FILE_EXTENSIONS = new Set([
-  "adoc",
-  "asciidoc",
-  "csv",
-  "doc",
-  "docx",
-  "htm",
-  "html",
-  "json",
-  "jsonc",
-  "markdown",
-  "md",
-  "mdx",
-  "pdf",
-  "rst",
-  "toml",
-  "tsv",
-  "txt",
-  "xml",
-  "yaml",
-  "yml",
-]);
-
 export interface InitWorkspaceOptions {
   targetPath: string;
   productName: string;
@@ -178,31 +155,10 @@ export function detectSourceRoots(targetPath: string): string[] {
 }
 
 function normalizedWebsiteLocation(location: string): string | undefined {
-  const explicitScheme = /^https?:\/\//i.test(location);
-  const candidate = explicitScheme ? location : `https://${location}`;
+  if (!/^https?:\/\//i.test(location)) return undefined;
   try {
-    const website = new URL(candidate);
+    const website = new URL(location);
     if (website.protocol !== "http:" && website.protocol !== "https:") {
-      return undefined;
-    }
-    if (
-      !explicitScheme &&
-      website.hostname !== "localhost" &&
-      !website.hostname.includes(".")
-    ) {
-      return undefined;
-    }
-    const extension = website.hostname.split(".").at(-1)?.toLowerCase();
-    const explicitWebsiteShape =
-      website.hostname.startsWith("www.") ||
-      Boolean(website.port) ||
-      /[/?#]/.test(location);
-    if (
-      !explicitScheme &&
-      !explicitWebsiteShape &&
-      extension &&
-      CONTEXT_FILE_EXTENSIONS.has(extension)
-    ) {
       return undefined;
     }
     return website.toString();
@@ -219,10 +175,25 @@ export function normalizeContextLocations(
     .map((value) => value.trim())
     .filter(Boolean)
     .map((location) => {
-      if (existsSync(resolve(targetPath, location))) return location;
       const website = normalizedWebsiteLocation(location);
       if (website) return website;
-      throw new Error(`Context source does not exist: ${location}`);
+      const absolute = resolve(targetPath, location);
+      const relativeLocation = relative(targetPath, absolute).replaceAll(
+        "\\",
+        "/"
+      );
+      if (
+        relativeLocation === ".." ||
+        relativeLocation.startsWith("../")
+      ) {
+        throw new Error(
+          `Context source path escapes the target repository: ${location}`
+        );
+      }
+      if (existsSync(absolute)) return relativeLocation || ".";
+      throw new Error(
+        `Context source must be an existing repository path or explicit HTTP(S) URL: ${location}`
+      );
     });
 }
 

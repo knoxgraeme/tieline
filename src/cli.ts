@@ -529,14 +529,7 @@ async function runInit(
     (richInteractive
       ? await askOptional(io, "Product description (optional)")
       : undefined);
-  let context = parsed.context;
-  if (context.length === 0 && richInteractive) {
-    context = await askList(
-      io,
-      "Additional context files or websites (comma-separated)"
-    );
-  }
-  context = normalizeContextLocations(parsed.target, context);
+  const context = normalizeContextLocations(parsed.target, parsed.context);
   const detectedRoots = detectSourceRoots(parsed.target);
   let sourceRoots = parsed.sourceRoots;
   if (sourceRoots.length === 0) {

@@ -196,15 +196,16 @@ tieline init /path/to/product-repository \
   --skill-scope project
 ```
 
-The context file is supplied by the repository; init records its repo-relative
-location rather than generating or copying it. A durable product-context file
-can hold business purpose, actors, domain terms, invariants, and glossary
-entries. It should describe the business, not ideas, feature requests, or a
-second backlog. Website context can be entered with or without an `https://`
-prefix; Tieline normalizes scheme-less websites to HTTPS and validates all
-context sources before the final review. An absent root-level document name
-such as `product.md` remains a missing file; use an explicit scheme if a real
-website has a document-like hostname.
+Context sources are optional and explicit: provide each one with a repeatable
+`--context` flag. A local source must already exist in the repository, while a
+website must use an explicit `http://` or `https://` URL. Init records local
+sources by repository-relative location rather than generating or copying
+them. Interactive init does not ask the user to enumerate context; the
+installed `tieline-author` skill discovers README, product documentation,
+public code entry points, and tests during semantic onboarding. A durable
+product-context file can still hold business purpose, actors, domain terms,
+invariants, and glossary entries. It should describe the business, not ideas,
+feature requests, or a second backlog.
 
 Choose the database mode based on the workflow:
 
