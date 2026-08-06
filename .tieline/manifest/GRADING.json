@@ -378,7 +378,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "420d5666fdfc79256a163408fb0fc79c89cc8d2b24c9d8ab9403d71fdf1ee52e",
+                "reviewed_content_hash": "654234d4cbda25f3fdb818fea99afb11eec3fe64a197dfb73b8a08221e6bbbc2",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline-grade/SKILL.md",

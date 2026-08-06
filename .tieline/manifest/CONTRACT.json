@@ -861,7 +861,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cf449a59d5a0abb879e6fb298c11c8557a0897edb0d546aefed506b1259c897e",
+                "reviewed_content_hash": "ea7de680a6b3be42fe07a562fce47e52f63f2b0958a0b4f0ccb3bfd84b4c2280",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",

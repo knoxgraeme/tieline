@@ -435,7 +435,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cf449a59d5a0abb879e6fb298c11c8557a0897edb0d546aefed506b1259c897e",
+                "reviewed_content_hash": "ea7de680a6b3be42fe07a562fce47e52f63f2b0958a0b4f0ccb3bfd84b4c2280",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",
@@ -539,7 +539,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0451f7da677c969573d5e0b444190b00807d1794ae3126123a3f5f9f79bea1e1",
+                "reviewed_content_hash": "7a690bbba97f5b53e6d1a5a612598e9702f734f72d16148e01877153b191331c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -617,7 +617,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cf449a59d5a0abb879e6fb298c11c8557a0897edb0d546aefed506b1259c897e",
+                "reviewed_content_hash": "ea7de680a6b3be42fe07a562fce47e52f63f2b0958a0b4f0ccb3bfd84b4c2280",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",

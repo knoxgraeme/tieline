@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "../src/config.js";
 import { createHttpApp, isAllowedMcpOrigin } from "../src/http.js";
+import { SERVER_VERSION } from "../src/server.js";
+
+const packageVersion = (
+  JSON.parse(
+    readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../package.json"),
+      "utf8"
+    )
+  ) as { version: string }
+).version;
 
 let passed = 0;
 function test(name: string, fn: () => void): void {
@@ -31,6 +44,9 @@ test("health route remains outside MCP origin middleware", () => {
   const stack = (createHttpApp() as unknown as { _router: { stack: Array<{ route?: { path?: string } }> } })
     ._router.stack;
   assert.equal(stack.some((layer) => layer.route?.path === "/health"), true);
+});
+test("server metadata reports the package version", () => {
+  assert.equal(SERVER_VERSION, packageVersion);
 });
 test("remote bind needs both gateway acknowledgement and origins", () => {
   assert.throws(() => loadConfig({ HTTP_HOST: "0.0.0.0" }), /Refusing non-loopback/);

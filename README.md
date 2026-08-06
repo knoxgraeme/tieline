@@ -137,8 +137,15 @@ converges definitions without deleting history.
   Supabase Edge function, or the optional local runtime adds vector similarity;
   full-text and identifier search remain available without one.
 
-The architecture in this repository is newer than the package currently
-published to npm. To exercise this version, install it from source:
+Install the published CLI from npm:
+
+```bash
+npm install --global tieline
+tieline --help
+```
+
+Contributors, or users who specifically need the current `main` branch, can
+instead install from source:
 
 ```bash
 git clone https://github.com/knoxgraeme/tieline.git
@@ -149,9 +156,9 @@ npm link
 tieline --help
 ```
 
-`npm link` makes the repository's compiled `tieline` command available on the
+`npm link` makes that checkout's compiled `tieline` command available on the
 current machine. Without it, replace `tieline` in the examples below with
-`node dist/cli.js`.
+`node dist/cli.js` from the checkout.
 
 ## Initialize and onboard a repository
 
@@ -376,6 +383,23 @@ asking for attention, not that the links are correct. Missing files are left to
 `tieline check` and are reported as skipped rather than scored. The command is
 advisory and exits zero.
 
+Ask an agent to judge the branch's contract evidence:
+
+```bash
+tieline contract grade . --base <base-ref> --emit-scope --json
+tieline contract grade . --base <base-ref> --verify <verdicts.json>
+```
+
+The first command deterministically emits every diff-scoped acceptance-
+criterion link to grade and the exact symbol citations allowed for it. The
+agent inspects the artifacts and assigns `supported`, `partial`, or
+`unsupported`; the second command verifies that every verdict belongs to the
+scope and that every claimed citation came from its allow-list. Tieline does
+not call a model, database, or network for this workflow. Verification is
+advisory by default, including negative results; add `--strict` to the verify
+command only when unsupported evidence should fail the gate. The packaged
+`tieline-grade` skill leads an agent through the full workflow.
+
 Generate a human-readable browser review of the accepted YAML:
 
 ```bash
@@ -387,27 +411,36 @@ navigation, Story and AC cards, scenario steps, evidence links, search,
 lifecycle filters, and a print layout. Open the file directly in a browser.
 Use `--output <path>` to write it elsewhere.
 
-CI can warn about affected ACs:
+CI can check affected ACs:
 
 ```bash
-tieline check --base origin/main .
+tieline check --base <base-ref> .
 ```
+
+Use the comparison ref supplied by the caller when available. Otherwise,
+agents should determine it from repository metadata, preferring the
+remote-tracking default branch, and ask only when it cannot be determined;
+do not assume every repository uses `origin/main`.
 
 The check compares changed, renamed, and deleted paths with manifest locators and
 reports each affected AC plus its freshness. It also sweeps every link for broken
 targets, whether or not the diff touched them, because a link can rot without the
-change under review going near it. Two kinds of finding are distinguished:
+change under review going near it. The check treats these integrity states
+differently:
 
-| Finding | Cause | Effect |
+| State | Cause | Effect |
 | --- | --- | --- |
 | stale | The linked file changed since it was reviewed, or was never reviewed against a recorded hash. Whether the AC still holds needs a human. | Warning, exit 0 |
 | broken | The linked path is missing, is not a file, or resolves outside the repository. | Error, exit 1 |
+| stale manifest | The committed manifest differs from what the current contract compiles to. | Error, exit 1 |
 
 Broken links fail the check because deciding they are wrong needs no judgement:
-the manifest points at evidence that is not there. Everything else stays
-warn-only. Pass `--no-fail-on-broken` to downgrade broken links to warnings and
-exit zero. Invalid YAML or an unreadable manifest fails because no trustworthy
-result can be computed. See
+the manifest points at evidence that is not there. Pass `--no-fail-on-broken`
+to downgrade broken links to warnings and exit zero. A stale manifest also
+fails by default: run `tieline contract compile .`, review the semantic diff,
+and commit the result. Use `--no-fail-on-stale-manifest` only when intentionally
+downgrading that integrity gate to a warning. Invalid YAML or an unreadable
+manifest fails because no trustworthy result can be computed. See
 [the GitHub Actions example](docs/examples/tieline-check.yml).
 
 After merge, run:
@@ -714,6 +747,7 @@ earlier model must be recreated rather than upgraded in place.
 | `migrations/` | PostgreSQL/pgvector schema and role baseline |
 | `scripts/` | Contract, retrieval, transport, and integration verification |
 | `skills/tieline-author/` | Packaged semantic authoring workflow |
+| `skills/tieline-grade/` | Packaged agent workflow for grading diff-scoped contract evidence |
 | `.tieline/` | This repository's own accepted contract and compiled manifest |
 
 ## License
