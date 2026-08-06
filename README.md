@@ -253,9 +253,10 @@ npx --yes --package=skillfish@latest skillfish add knoxgraeme/tieline \
   --json
 ```
 
-If the optional install fails, the workspace and private runtime profile remain
-ready. `init` exits non-zero and prints a retry command using Tieline's stable
-agent IDs, for example:
+If the optional install fails or does not finish within two minutes, the
+workspace and private runtime profile remain ready. Tieline terminates the
+installer, exits non-zero, and prints a retry command using its stable agent
+IDs, for example:
 
 ```bash
 tieline init . --yes --agent codex --skill-scope project

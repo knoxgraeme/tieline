@@ -15,17 +15,22 @@ export const SUPPORTED_SKILL_AGENTS = [
 export type SkillAgentId = (typeof SUPPORTED_SKILL_AGENTS)[number]["id"];
 export type SkillInstallScope = "project" | "global";
 
+export const SKILL_INSTALL_TIMEOUT_MS = 120_000;
+const SKILL_INSTALL_FORCE_KILL_GRACE_MS = 1_000;
+
 export interface SkillfishInvocation {
   command: string;
   args: string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
+  timeoutMs: number;
 }
 
 export interface SkillfishProcessResult {
   code: number;
   stdout: string;
   stderr: string;
+  timedOut: boolean;
 }
 
 export type SkillfishProcessRunner = (
@@ -186,6 +191,7 @@ function skillfishInvocation(
     args,
     cwd: resolve(options.workspaceRoot),
     env: sanitizedChildEnvironment(options.env ?? process.env),
+    timeoutMs: SKILL_INSTALL_TIMEOUT_MS,
   };
 }
 
@@ -234,7 +240,7 @@ export function skippedSkillInstall(): SkillInstallOutcome {
   };
 }
 
-async function runSkillfishProcess(
+export async function runSkillfishProcess(
   invocation: SkillfishInvocation
 ): Promise<SkillfishProcessResult> {
   return new Promise((resolveResult, reject) => {
@@ -245,12 +251,32 @@ async function runSkillfishProcess(
     });
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+    let forceKillTimer: NodeJS.Timeout | undefined;
+    const timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      forceKillTimer = setTimeout(
+        () => child.kill("SIGKILL"),
+        SKILL_INSTALL_FORCE_KILL_GRACE_MS
+      );
+      forceKillTimer.unref();
+    }, invocation.timeoutMs);
+    timeoutTimer.unref();
+    const clearTimers = () => {
+      clearTimeout(timeoutTimer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
+    };
     child.stdout.on("data", (chunk) => (stdout += String(chunk)));
     child.stderr.on("data", (chunk) => (stderr += String(chunk)));
-    child.on("error", reject);
-    child.on("close", (code) =>
-      resolveResult({ code: code ?? 1, stdout, stderr })
-    );
+    child.on("error", (error) => {
+      clearTimers();
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimers();
+      resolveResult({ code: code ?? 1, stdout, stderr, timedOut });
+    });
   });
 }
 
@@ -287,6 +313,13 @@ export async function installTielineAuthor(
       requestedAgents,
       retryCommand,
       "Skillfish could not start. Ensure Node.js and npx are available."
+    );
+  }
+  if (processResult.timedOut) {
+    return failedOutcome(
+      requestedAgents,
+      retryCommand,
+      `Skillfish did not finish within ${invocation.timeoutMs / 1_000} seconds.`
     );
   }
   if (processResult.code !== 0) {

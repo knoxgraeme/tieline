@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import {
   SUPPORTED_SKILL_AGENTS,
+  SKILL_INSTALL_TIMEOUT_MS,
   buildSkillfishInvocation,
   installTielineAuthor,
   renderSkillInstallRetryCommand,
+  runSkillfishProcess,
   skippedSkillInstall,
   type SkillfishProcessRunner,
 } from "../src/tieline/skill-install.js";
@@ -49,6 +51,7 @@ const invocation = buildSkillfishInvocation({
 });
 assert.equal(invocation.command, "npx");
 assert.equal(invocation.cwd, workspaceRoot);
+assert.equal(invocation.timeoutMs, SKILL_INSTALL_TIMEOUT_MS);
 assert.deepEqual(invocation.args, [
   "--yes",
   "--package=skillfish@latest",
@@ -74,6 +77,17 @@ assert.deepEqual(invocation.env, {
   DO_NOT_TRACK: sourceEnv.DO_NOT_TRACK,
   CI: sourceEnv.CI,
 });
+
+const timeoutStartedAt = Date.now();
+const timedOutProcess = await runSkillfishProcess({
+  command: process.execPath,
+  args: ["-e", "setInterval(() => {}, 1_000)"],
+  cwd: process.cwd(),
+  env: process.env,
+  timeoutMs: 25,
+});
+assert.equal(timedOutProcess.timedOut, true);
+assert.ok(Date.now() - timeoutStartedAt < 2_000);
 
 const windowsInvocation = buildSkillfishInvocation({
   workspaceRoot,
@@ -145,6 +159,7 @@ const successRunner: SkillfishProcessRunner = async (received) => {
       skills_found: ["tieline-author"],
     }),
     stderr: "",
+    timedOut: false,
   };
 };
 const success = await installTielineAuthor(
@@ -176,18 +191,43 @@ const failureCases: Array<{
     reason: /could not start/i,
   },
   {
+    name: "timeout",
+    runner: async () => ({
+      code: 1,
+      stdout: "",
+      stderr: "",
+      timedOut: true,
+    }),
+    reason: /did not finish within 120 seconds/i,
+  },
+  {
     name: "non-zero exit",
-    runner: async () => ({ code: 3, stdout: "", stderr: "network failed" }),
+    runner: async () => ({
+      code: 3,
+      stdout: "",
+      stderr: "network failed",
+      timedOut: false,
+    }),
     reason: /exited with code 3/i,
   },
   {
     name: "empty output",
-    runner: async () => ({ code: 0, stdout: "", stderr: "" }),
+    runner: async () => ({
+      code: 0,
+      stdout: "",
+      stderr: "",
+      timedOut: false,
+    }),
     reason: /did not return JSON/i,
   },
   {
     name: "malformed output",
-    runner: async () => ({ code: 0, stdout: "not-json", stderr: "" }),
+    runner: async () => ({
+      code: 0,
+      stdout: "not-json",
+      stderr: "",
+      timedOut: false,
+    }),
     reason: /valid JSON/i,
   },
   {
@@ -202,6 +242,7 @@ const failureCases: Array<{
         skipped: [],
       }),
       stderr: "",
+      timedOut: false,
     }),
     reason: /reported an unsuccessful installation/i,
   },
@@ -217,6 +258,7 @@ const failureCases: Array<{
         skipped: [],
       }),
       stderr: "",
+      timedOut: false,
     }),
     reason: /did not account for every requested agent/i,
   },
