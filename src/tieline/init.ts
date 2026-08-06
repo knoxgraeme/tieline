@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -6,11 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, relative, resolve } from "node:path";
-import {
-  resolveEmbeddingProvider,
-  runInitPreflight,
-  type PreflightCheck,
-} from "./preflight.js";
+import { resolveEmbeddingProvider } from "./preflight.js";
 import {
   TIELINE_CONFIG_FILE,
   TIELINE_DIRECTORY,
@@ -68,7 +65,6 @@ export interface InitWorkspaceOptions {
 export interface InitWorkspaceResult {
   created: boolean;
   workspace: TielineWorkspace;
-  preflight: PreflightCheck[];
 }
 
 export function slugifyRepoName(value: string): string {
@@ -102,6 +98,53 @@ export function detectProductName(targetPath: string): string {
     }
   }
   return basename(resolve(targetPath));
+}
+
+function repositoryNameFromRemote(remote: string): string | undefined {
+  const value = remote.trim().replace(/[\\/]+$/, "");
+  if (!value) return undefined;
+  let path: string;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
+    try {
+      path = new URL(value).pathname;
+    } catch {
+      return undefined;
+    }
+  } else {
+    const scpLike = value.match(/^[^@/\s]+@[^:\s]+:(.+)$/);
+    if (scpLike) path = scpLike[1]!;
+    else if (
+      value.startsWith("/") ||
+      value.startsWith("./") ||
+      value.startsWith("../") ||
+      /^[A-Za-z]:[\\/]/.test(value)
+    ) {
+      path = value;
+    } else {
+      return undefined;
+    }
+  }
+  const candidate = basename(path).replace(/\.git$/i, "");
+  if (!candidate) return undefined;
+  try {
+    return slugifyRepoName(candidate);
+  } catch {
+    return undefined;
+  }
+}
+
+export function detectRepositoryName(targetPath: string): string {
+  const target = resolve(targetPath);
+  const remote = spawnSync(
+    "git",
+    ["-C", target, "remote", "get-url", "origin"],
+    { encoding: "utf8", timeout: 2_000, windowsHide: true }
+  );
+  if (remote.status === 0) {
+    const detected = repositoryNameFromRemote(remote.stdout);
+    if (detected) return detected;
+  }
+  return slugifyRepoName(basename(target));
 }
 
 export function detectSourceRoots(targetPath: string): string[] {
@@ -194,13 +237,8 @@ export function initWorkspace(
   }
   const existing = findTielineWorkspace(targetPath);
   const provider = resolveEmbeddingProvider(options.env ?? process.env);
-  const preflight = runInitPreflight(
-    targetPath,
-    provider,
-    options.env ?? process.env
-  );
   if (existing && existing.root === targetPath) {
-    return { created: false, workspace: existing, preflight };
+    return { created: false, workspace: existing };
   }
 
   const productName = options.productName.trim();
@@ -249,5 +287,5 @@ export function initWorkspace(
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
   const workspace = workspaceFromConfig(configPath);
   writeWorkspaceMcpConfig(workspace);
-  return { created: true, workspace, preflight };
+  return { created: true, workspace };
 }

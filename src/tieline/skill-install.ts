@@ -145,6 +145,12 @@ function normalizedAgents(agentIds: readonly string[]): Array<{
   return agents;
 }
 
+export function normalizeSkillAgentIds(
+  agentIds: readonly string[]
+): SkillAgentId[] {
+  return normalizedAgents(agentIds).map((agent) => agent.id);
+}
+
 function sanitizedChildEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const sanitized: NodeJS.ProcessEnv = {};
   for (const key of SAFE_CHILD_ENV_KEYS) {

@@ -34,20 +34,13 @@ export interface TielineStatus {
     manifest_exists: boolean;
   };
   next_action: string;
-  agent_onboarding_prompt: string | null;
+  onboarding: {
+    required: true;
+    skill: "tieline-author";
+    instruction: "Use $tieline-author to onboard this repository.";
+    install_command: "tieline init .";
+  } | null;
 }
-
-const TIELINE_AGENT_ONBOARDING_PROMPT = [
-  "Onboard this repository with Tieline.",
-  "Use the bundled `tieline-author` skill or load the MCP prompt `tieline_author` when available; otherwise continue directly from this brief.",
-  "Read `.tieline/config.json` and every configured context source, then inspect the configured source roots, README and product documentation, public code entry points, and tests.",
-  "Run `tieline status --json`; before creating stable IDs, search local YAML and the compiled manifest for IDs, aliases, and related criteria, and disclose when database-backed organization-wide duplicate checking is unavailable.",
-  "If `.tieline/spec/` is empty, author strict YAML under `.tieline/spec/` using repository-specific capabilities and Stories with separate actor, goal, and benefit fields; write each acceptance criterion as one observable `<subject> must <outcome>` and put code, test, or help links on the most specific criterion.",
-  "Do not add generic starter content.",
-  "Determine an available comparison base from repository metadata, preferring the remote-tracking default branch; ask the user only if repository metadata cannot identify a usable base, then replace `<base-ref>` in the commands below.",
-  "Run `tieline contract validate .`, `tieline contract compile .`, `tieline contract coverage .`, `tieline contract reconcile . --base <base-ref>`, and `tieline check --base <base-ref>`.",
-  "Summarize the sources used, proposed semantic boundaries, likely duplicates, mapping gaps, and changes for pull-request review.",
-].join(" ");
 
 function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());
@@ -99,14 +92,21 @@ export function getTielineStatus(
   // recoverable and sends each of those states through the existing compile
   // action instead of throwing.
   const manifestExists = readableManifest(workspace.manifestPath);
-  const agentOnboardingPrompt =
-    stories.length === 0 ? TIELINE_AGENT_ONBOARDING_PROMPT : null;
+  const onboarding =
+    stories.length === 0
+      ? ({
+          required: true,
+          skill: "tieline-author",
+          instruction: "Use $tieline-author to onboard this repository.",
+          install_command: "tieline init .",
+        } as const)
+      : null;
   const nextAction =
-    agentOnboardingPrompt
-      ? "Register `.tieline/mcp.json` if your agent host does not load repository MCP configuration automatically, then give `agent_onboarding_prompt` to your coding agent."
+    onboarding
+      ? onboarding.instruction
       : !manifestExists
         ? "Run `tieline contract compile .` and review the semantic diff."
-        : "Use /tieline-author to reconcile branch work; the pull request is the approval boundary.";
+        : "Use $tieline-author to reconcile branch work; the pull request is the approval boundary.";
   return {
     initialized: true,
     root: workspace.root,
@@ -136,7 +136,7 @@ export function getTielineStatus(
       manifest_exists: manifestExists,
     },
     next_action: nextAction,
-    agent_onboarding_prompt: agentOnboardingPrompt,
+    onboarding,
   };
 }
 
