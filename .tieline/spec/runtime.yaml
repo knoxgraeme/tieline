@@ -221,6 +221,50 @@ capability:
                 repository: tieline
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
+        - key: RUNTIME-001-AC9
+          criterion: Tieline interactive initialization must auto-detect code scope and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/init.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC10
+          criterion: Tieline local database setup must persist the container owner credential before waiting for PostgreSQL readiness.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/setup.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/profile.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
     - key: RUNTIME-002
       title: Serve lifecycle-aware tools through MCP
       actor: agent

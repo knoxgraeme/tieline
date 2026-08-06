@@ -36,6 +36,7 @@ export interface SetupOptions {
 interface LocalDatabase {
   ownerUrl: string;
   container: string;
+  waitUntilReady(): Promise<void>;
 }
 
 export interface SetupDependencies {
@@ -141,7 +142,11 @@ async function provisionLocalRoles(ownerUrl: string): Promise<Record<string, str
   };
 }
 
-async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.ProcessEnv, io: SetupIO) {
+async function startLocalDatabase(
+  workspace: TielineWorkspace,
+  env: NodeJS.ProcessEnv,
+  io: SetupIO
+): Promise<LocalDatabase> {
   const profileSuffix = profileIdForWorkspace(workspace).slice(-12);
   const container = `tieline-postgres-${workspace.config.product.repo_name.slice(0, 28)}-${profileSuffix}`;
   const version = await runProcess("docker", ["version", "--format", "{{.Server.Version}}"], env);
@@ -171,8 +176,12 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
         );
       }
       io.write(`Reusing local PostgreSQL container '${container}'.\n`);
-      await waitForPostgres(env.DATABASE_URL_ADMIN);
-      return { ownerUrl: env.DATABASE_URL_ADMIN, container };
+      const ownerUrl = env.DATABASE_URL_ADMIN;
+      return {
+        ownerUrl,
+        container,
+        waitUntilReady: () => waitForPostgres(ownerUrl),
+      };
     }
     throw new Error(
       `Docker container '${container}' already exists, but its owner credential is unavailable. ` +
@@ -208,8 +217,11 @@ async function startLocalDatabase(workspace: TielineWorkspace, env: NodeJS.Proce
   );
   if (started.code !== 0) throw new Error(`Could not start local PostgreSQL: ${started.stderr.trim()}`);
   const ownerUrl = `postgresql://postgres:${encodeURIComponent(ownerPassword)}@127.0.0.1:${hostPort}/tieline`;
-  await waitForPostgres(ownerUrl);
-  return { ownerUrl, container };
+  return {
+    ownerUrl,
+    container,
+    waitUntilReady: () => waitForPostgres(ownerUrl),
+  };
 }
 
 function localEmbedderAvailable(root: string): boolean {
@@ -284,7 +296,11 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
   } else if (options.databaseMode === "local") {
     const local = await dependencies.startLocalDatabase(workspace, env, io);
     env.DATABASE_URL_ADMIN = local.ownerUrl;
+    delete env.DATABASE_URL;
+    delete env.DATABASE_URL_WRITE;
+    delete env.DATABASE_URL_SYNC;
     writeWorkspaceProfile(workspace, env, pendingRuntime);
+    await local.waitUntilReady();
     if (!options.skipMigrate) {
       io.write("Applying packaged Tieline migrations to the local database...\n");
       await dependencies.migrateDatabase(local.ownerUrl);
