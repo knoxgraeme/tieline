@@ -401,7 +401,10 @@ try {
     interactive.output.join(""),
     /Skill: tieline-author installed for Codex and Claude Code \(project\)/
   );
-  assert.match(interactive.output.join(""), /use \$tieline-author/i);
+  assert.match(
+    interactive.output.join(""),
+    /paste this prompt to your agent to finish onboarding: "Use the tieline-author skill to onboard this repository to Tieline\."/
+  );
 
   const cancelledTarget = resolve(root, "Cancelled Checkout");
   mkdirSync(resolve(cancelledTarget, "src"), { recursive: true });
@@ -777,12 +780,13 @@ try {
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
   assert.equal(
     parsedStatus.next_action,
-    "Use $tieline-author to onboard this repository."
+    'Paste this prompt to your agent to finish onboarding: "Use the tieline-author skill to onboard this repository to Tieline."'
   );
   assert.deepEqual(parsedStatus.onboarding, {
     required: true,
     skill: "tieline-author",
-    instruction: "Use $tieline-author to onboard this repository.",
+    instruction:
+      "Use the tieline-author skill to onboard this repository to Tieline.",
     install_command: "tieline init .",
   });
   assert.equal("agent_onboarding_prompt" in parsedStatus, false);
@@ -796,7 +800,7 @@ try {
   );
   assert.match(
     humanStatus.output.join(""),
-    /Next: Use \$tieline-author to onboard this repository\./
+    /Next: Paste this prompt to your agent to finish onboarding: "Use the tieline-author skill to onboard this repository to Tieline\."/
   );
   assert.match(humanStatus.output.join(""), /Install skill: tieline init \./);
   assert.doesNotMatch(humanStatus.output.join(""), /Agent handoff prompt:/);

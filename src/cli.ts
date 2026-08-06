@@ -56,6 +56,7 @@ import {
 } from "./tieline/skill-install.js";
 import {
   getTielineStatus,
+  ONBOARDING_AGENT_PROMPT,
   statusFromPath,
   type TielineStatus,
 } from "./tieline/status.js";
@@ -302,7 +303,7 @@ function renderInitSummary(
     ].join("; ");
     lines.push(
       `Skill: tieline-author ${skillState} (${skillScope})`,
-      `${ui.cyan("Next:")} Restart or reload ${joinLabels(labels)}, then use $tieline-author to onboard this repository.`
+      `${ui.cyan("Next:")} Restart or reload ${joinLabels(labels)}, then paste this prompt to your agent to finish onboarding: "${ONBOARDING_AGENT_PROMPT}"`
     );
   } else if (skill.status === "failed") {
     lines.push(
