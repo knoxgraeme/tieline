@@ -18,7 +18,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -28,7 +28,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "803c711d35c955601ec9edf8a25a2dd64099b45e125f4a0f1d25c572b284f064",
+                "reviewed_content_hash": "34d13b415bb68d8ba0d494d38ad98f8ef9d5f06487f005f7887bcb005f38c958",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -71,6 +71,50 @@
             "rationale": null,
             "scenarios": [],
             "stable_id": "RUNTIME-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "94f7d85db8eb57f7a06d1bf152873f475a1cb3b4b5085b09d85cb15c5ac761ae",
+            "criterion": "Tieline local database setup must persist the container owner credential before waiting for PostgreSQL readiness.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "6453abe79100aad8774a580b49d3684b890a9e03d14851e0e7814458bd6d5b9f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/profile.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2b840637657c7785f1da2300ff41ebe252b27cb5e9bccaeea9a17be74bcd622b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/setup.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 9,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-001-AC10",
             "supersedes": null
           },
           {
@@ -92,7 +136,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8124daf81c62a307a05f0b381795e92d8493fe4f637848192aaab37f8b377cc3",
+                "reviewed_content_hash": "2b840637657c7785f1da2300ff41ebe252b27cb5e9bccaeea9a17be74bcd622b",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/setup.ts",
@@ -112,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -136,7 +180,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -146,7 +190,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "803c711d35c955601ec9edf8a25a2dd64099b45e125f4a0f1d25c572b284f064",
+                "reviewed_content_hash": "34d13b415bb68d8ba0d494d38ad98f8ef9d5f06487f005f7887bcb005f38c958",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -156,7 +200,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -180,7 +224,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -211,7 +255,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -235,7 +279,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -255,7 +299,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -279,7 +323,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -299,7 +343,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -323,7 +367,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -354,7 +398,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -378,7 +422,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "499e44f8fb15334780e788f235b03ff4e642937e89dbc19d6240a68ed52fdb3f",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -388,7 +432,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "803c711d35c955601ec9edf8a25a2dd64099b45e125f4a0f1d25c572b284f064",
+                "reviewed_content_hash": "34d13b415bb68d8ba0d494d38ad98f8ef9d5f06487f005f7887bcb005f38c958",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/init.ts",
@@ -398,7 +442,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -411,6 +455,50 @@
             "rationale": null,
             "scenarios": [],
             "stable_id": "RUNTIME-001-AC8",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3bd91d37fd117d257524572bcf9c70daf84f4bc60384fd6ad6d098d6a4df9dd7",
+            "criterion": "Tieline interactive initialization must auto-detect code scope and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ed6211d10b6d478e75b5d3f915380b41b16d069547cb4ca0736fc849ed54227a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "34d13b415bb68d8ba0d494d38ad98f8ef9d5f06487f005f7887bcb005f38c958",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/init.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 8,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RUNTIME-001-AC9",
             "supersedes": null
           }
         ],
@@ -651,7 +739,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "95fc20485f924bfbf43379fd4f44530a84344635a4a5174a9b7fa9484a8bfd1d",
+                "reviewed_content_hash": "1522feeb141a978c470eef3b797535bab7b461579a30f9d0ce6893873b7972e2",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline-author/SKILL.md",
@@ -692,7 +780,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a83459f6d79563b2581ae0a729c77fbd5287fa628fa26123e2c2a96b38fc861d",
+                "reviewed_content_hash": "83c49bbcfa6374d91138fc603ddddc1b0ffab14ca6cce637848140d41f7c6e3b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -779,6 +867,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "ed06bdea21ace5f2be9c0a34e0af944202a1d09879c78b1ee5a7c5c0722e380b"
+    "sha256": "6ad61aa6bfd2d57ae6bc53a26a753e3083a1260c3952bc5d3fdffc38d1f6497e"
   }
 }

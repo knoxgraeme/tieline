@@ -134,7 +134,7 @@ converges definitions without deleting history.
 - A hosted or remote PostgreSQL database with pgvector when using
   `--database existing`.
 - Embeddings are optional for retrieval. An OpenAI-compatible provider,
-  Supabase Edge function, or the optional local runtime adds vector similarity;
+  Supabase Edge Function, or the optional local runtime adds vector similarity;
   full-text and identifier search remain available without one.
 
 Install the published CLI from npm:
@@ -163,9 +163,8 @@ current machine. Without it, replace `tieline` in the examples below with
 ## Initialize and onboard a repository
 
 For an interactive setup, run Tieline from the repository and confirm the
-detected product, remote-derived repository name, context, source roots,
-database, embedding settings, and coding agents that should receive the
-onboarding skill:
+detected product, remote-derived repository name, database, embedding settings,
+and coding agents that should receive the onboarding skill:
 
 ```bash
 cd /path/to/product-repository
@@ -196,16 +195,23 @@ tieline init /path/to/product-repository \
   --skill-scope project
 ```
 
-Context sources are optional and explicit: provide each one with a repeatable
+Interactive init does not ask for a product description or context inventory;
+the installed `tieline-author` skill discovers README, product documentation,
+public code entry points, and tests during semantic onboarding. Automation can
+still provide known product framing with `--description`. Additional context
+sources are optional and explicit: provide each one with a repeatable
 `--context` flag. A local source must already exist in the repository, while a
 website must use an explicit `http://` or `https://` URL. Init records local
 sources by repository-relative location rather than generating or copying
-them. Interactive init does not ask the user to enumerate context; the
-installed `tieline-author` skill discovers README, product documentation,
-public code entry points, and tests during semantic onboarding. A durable
-product-context file can still hold business purpose, actors, domain terms,
-invariants, and glossary entries. It should describe the business, not ideas,
-feature requests, or a second backlog.
+them. A durable product-context file can hold business purpose, actors, domain
+terms, invariants, and glossary entries. It should describe the business, not
+ideas, feature requests, or a second backlog.
+
+Tieline also auto-detects the code directories used for mapping coverage and
+shows them as the **Code scope**—for example, `apps` and `packages`. Most users
+do not need to configure this. Use a repeatable `--source-root` only when the
+repository uses code directories Tieline did not detect. The stored
+configuration name for this code scope is `repository.source_roots`.
 
 Choose the database mode based on the workflow:
 
@@ -227,10 +233,11 @@ RDS, or any other managed Postgres with pgvector enabled works. It reads
 `DATABASE_URL_ADMIN` from the environment or a local `.env`; credentials are
 never accepted as CLI arguments. Provisioning tools that synchronize `.env`
 files are picked up automatically.
-Init writes shared product context, source roots, contract paths, and runtime
-defaults to `.tieline/config.json`. Clone-local setup state and credentials live
-in a private profile outside the repository, so a new clone completes its own
-runtime setup instead of inheriting another machine's "ready" state.
+Init writes shared product identity, configured context, code scope, contract
+paths, and runtime defaults to `.tieline/config.json`. Clone-local setup state
+and credentials live in a private profile outside the repository, so a new
+clone completes its own runtime setup instead of inheriting another machine's
+"ready" state.
 
 On a new repository, the only Tieline command a user needs to begin onboarding
 is `tieline init`. It captures deterministic setup, then asks which coding
@@ -297,8 +304,8 @@ semantic workflow. That workflow can:
   mapping-coverage changes.
 
 An empty `.tieline/spec/` immediately after init is intentional: init does not
-invent generic capabilities. Review the detected `repository.source_roots`
-before onboarding or claiming coverage. While the spec has no Stories,
+invent generic capabilities. The authoring skill validates the detected code
+scope against the repository before claiming coverage. While the spec has no Stories,
 `tieline status --json` exposes `onboarding.required`, the `tieline-author`
 skill name, the concise instruction `Use $tieline-author to onboard this
 repository.`, and `tieline init .` as the install command. `onboarding` becomes
@@ -615,9 +622,10 @@ Freshness compares linked repository content with the reviewed manifest hash.
 It does not claim that a test ran or passed. Test execution receipts are
 deliberately deferred beyond the MVP.
 
-Repository mapping coverage uses `.tieline/config.json` source roots and
-exclusions as its denominator. Reports include both the percentage and every
-unmapped eligible file. Path coverage and behavioral correctness remain separate.
+Repository mapping coverage uses the configured code scope
+(`repository.source_roots`) and exclusions as its denominator. Reports include
+both the percentage and every unmapped eligible file. Path coverage and
+behavioral correctness remain separate.
 When no eligible files exist, coverage is `null` with
 `status=no_eligible_files`; it is never reported as 100%.
 
@@ -647,7 +655,7 @@ Choose one embedding provider:
 | --- | --- |
 | `local` | Keeps text local; install the optional runtime during init with `--install-local-embedder` |
 | `openai` | Set `EMBEDDING_BASE_URL` and `EMBEDDING_API_KEY`; the endpoint must return 384-dimensional vectors |
-| `supabase-edge` | Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` |
+| Supabase Edge Function (`supabase-edge`) | Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` |
 | `hash` | Deterministic development/test provider; do not use for semantic quality |
 
 When Tieline is already initialized, rerun init with

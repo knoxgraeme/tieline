@@ -11,8 +11,6 @@ import { Command, CommanderError, Option } from "commander";
 import type { EmbeddingProvider } from "./config.js";
 import {
   ask,
-  askList,
-  askOptional,
   confirmChoice,
   createPalette,
   intro,
@@ -162,7 +160,7 @@ const DATABASE_MODE_OPTIONS = [
 const EMBEDDING_PROVIDER_OPTIONS = [
   { value: "local", label: "Local gte-small" },
   { value: "openai", label: "OpenAI" },
-  { value: "supabase-edge", label: "Supabase Edge" },
+  { value: "supabase-edge", label: "Supabase Edge Function" },
 ] as const;
 
 const SKILL_AGENT_OPTIONS = SUPPORTED_SKILL_AGENTS.map((agent) => ({
@@ -208,9 +206,16 @@ function databaseModeLabel(database: DatabaseMode): string {
 
 function embeddingProviderLabel(provider: EmbeddingProvider): string {
   if (provider === "local") return "local gte-small";
-  if (provider === "supabase-edge") return "Supabase Edge";
-  if (provider === "openai") return "OpenAI";
-  return "hash (development only)";
+  return (
+    EMBEDDING_PROVIDER_OPTIONS.find((option) => option.value === provider)
+      ?.label ?? "hash (development only)"
+  );
+}
+
+function codeScopeLabel(sourceRoots: readonly string[]): string {
+  return sourceRoots.length === 1 && sourceRoots[0] === "."
+    ? "entire repository"
+    : sourceRoots.join(", ");
 }
 
 function joinLabels(values: readonly string[]): string {
@@ -264,9 +269,6 @@ function renderInitSummary(
     optional.push("semantic search");
   }
   const notes: string[] = [];
-  if (workspace.config.repository.source_roots.join(",") === ".") {
-    notes.push("review the detected source root before claiming coverage");
-  }
   if (
     preflight.some(
       (check) => check.key === "repository" && check.status === "warning"
@@ -277,7 +279,7 @@ function renderInitSummary(
   const lines = [
     `${ui.green("Workspace:")} ready at ${workspace.directory}`,
     `${ui.green("Runtime:")} ${runtimeDescription}`,
-    `Source roots: ${workspace.config.repository.source_roots.join(", ")}`,
+    `Code scope: ${codeScopeLabel(workspace.config.repository.source_roots)}`,
   ];
   if (optional.length > 0) {
     lines.push(
@@ -524,19 +526,11 @@ async function runInit(
         ? detectedRepo
         : await ask(io, "Stable repository name", detectedRepo))
   );
-  const description =
-    parsed.description ??
-    (richInteractive
-      ? await askOptional(io, "Product description (optional)")
-      : undefined);
+  const description = parsed.description;
   const context = normalizeContextLocations(parsed.target, parsed.context);
   const detectedRoots = detectSourceRoots(parsed.target);
-  let sourceRoots = parsed.sourceRoots;
-  if (sourceRoots.length === 0) {
-    sourceRoots = richInteractive
-      ? await askList(io, "Source roots (comma-separated)", detectedRoots)
-      : detectedRoots;
-  }
+  const sourceRoots =
+    parsed.sourceRoots.length > 0 ? parsed.sourceRoots : detectedRoots;
   let database = parsed.database;
   if (!parsed.databaseExplicit && richInteractive) {
     database = await selectChoice<DatabaseMode>(
@@ -571,8 +565,8 @@ async function runInit(
       io,
       [
         `Workspace: create .tieline for ${product} (${repoName})`,
-        `Context: ${contextReview.length > 0 ? contextReview.join(", ") : "none"}`,
-        `Source roots: ${sourceRoots.join(", ")}`,
+        `Context: ${contextReview.length > 0 ? contextReview.join(", ") : "discover during semantic onboarding"}`,
+        `Code scope: ${codeScopeLabel(sourceRoots)}${parsed.sourceRoots.length === 0 ? " (auto-detected)" : ""}`,
         `Runtime: ${databaseModeLabel(database)} with ${embeddingProviderLabel(embedding)} embeddings`,
         ...renderRuntimeRequirements(database, env),
         ...renderSkillReview(skillSelection),
@@ -758,7 +752,12 @@ function buildProgram(
     .option("--repo-name <name>", "stable repository name")
     .option("--description <text>", "product description")
     .option("--context <location>", "context source (repeatable)", collect, [])
-    .option("--source-root <path>", "source root (repeatable)", collect, [])
+    .option(
+      "--source-root <path>",
+      "code directory included in coverage (repeatable)",
+      collect,
+      []
+    )
     .option("--ignore <pattern>", "ignore pattern (repeatable)", collect, [])
     .addOption(
       new Option("--database <mode>", "database mode").choices([

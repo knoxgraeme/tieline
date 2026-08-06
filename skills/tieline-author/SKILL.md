@@ -26,8 +26,9 @@ source-root answers that are present in `.tieline/config.json`.
    - Fetch a `website` only when its `allow_external_fetch` value is `true`.
 3. Report which sources informed the work and which were unavailable. A source
    locator is not evidence that its content was actually inspected.
-4. Review `repository.source_roots` and confirm they describe the code whose
-   mapping coverage will be measured.
+4. Review `repository.source_roots` against the discovered code. Treat these
+   paths as mapping-coverage scope rather than product context, correct obvious
+   detection gaps before claiming coverage, and disclose any correction.
 
 ## Choose the flow
 
