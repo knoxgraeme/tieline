@@ -4,6 +4,9 @@
  * server per request.
  */
 
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerFindRelated } from "./tools/find_related.js";
 import { registerQueryStories } from "./tools/query_stories.js";
@@ -21,7 +24,14 @@ import { registerPrompts } from "./prompts.js";
 import { registerHandoffConflictTools } from "./tools/handoff-conflicts.js";
 
 export const SERVER_NAME = "tieline";
-export const SERVER_VERSION = "0.1.2";
+export const SERVER_VERSION = (
+  JSON.parse(
+    readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../package.json"),
+      "utf8"
+    )
+  ) as { version: string }
+).version;
 
 export function createServer(): McpServer {
   installSemanticAdvisors();

@@ -10,10 +10,12 @@ citations. Supply the semantic judgment the deterministic tooling cannot make.
 
 ## Emit the work list
 
-Use the caller's base ref, or `origin/main` when none was supplied:
+Use the caller's base ref when supplied. Otherwise, determine the comparison
+ref from repository metadata, preferring the remote-tracking default branch.
+Ask the caller only when it cannot be determined; do not assume a branch name.
 
 ```sh
-tieline contract grade . --base origin/main --emit-scope --json
+tieline contract grade . --base <base-ref> --emit-scope --json
 ```
 
 This command is offline and database-free. Each entry contains:
@@ -90,7 +92,7 @@ path, and link scope.
 Use the same base ref that produced the scope:
 
 ```sh
-tieline contract grade . --base origin/main --verify <verdicts.json>
+tieline contract grade . --base <base-ref> --verify <verdicts.json>
 ```
 
 Add `--strict` only when the caller explicitly requested a gate. Advisory mode
