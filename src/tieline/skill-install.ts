@@ -23,6 +23,7 @@ export interface SkillfishInvocation {
   args: string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
+  shell: boolean;
   timeoutMs: number;
 }
 
@@ -191,6 +192,7 @@ function skillfishInvocation(
     args,
     cwd: resolve(options.workspaceRoot),
     env: sanitizedChildEnvironment(options.env ?? process.env),
+    shell: platform === "win32",
     timeoutMs: SKILL_INSTALL_TIMEOUT_MS,
   };
 }
@@ -247,6 +249,7 @@ export async function runSkillfishProcess(
     const child = spawn(invocation.command, invocation.args, {
       cwd: invocation.cwd,
       env: invocation.env,
+      shell: invocation.shell,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";

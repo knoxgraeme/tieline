@@ -51,6 +51,7 @@ const invocation = buildSkillfishInvocation({
 });
 assert.equal(invocation.command, "npx");
 assert.equal(invocation.cwd, workspaceRoot);
+assert.equal(invocation.shell, false);
 assert.equal(invocation.timeoutMs, SKILL_INSTALL_TIMEOUT_MS);
 assert.deepEqual(invocation.args, [
   "--yes",
@@ -84,6 +85,7 @@ const timedOutProcess = await runSkillfishProcess({
   args: ["-e", "setInterval(() => {}, 1_000)"],
   cwd: process.cwd(),
   env: process.env,
+  shell: false,
   timeoutMs: 25,
 });
 assert.equal(timedOutProcess.timedOut, true);
@@ -97,6 +99,7 @@ const windowsInvocation = buildSkillfishInvocation({
   platform: "win32",
 });
 assert.equal(windowsInvocation.command, "npx.cmd");
+assert.equal(windowsInvocation.shell, true);
 assert.ok(windowsInvocation.args.includes("--global"));
 assert.equal(windowsInvocation.args.includes("--project"), false);
 assert.equal(windowsInvocation.env.Path, "C:\\Windows\\System32");
