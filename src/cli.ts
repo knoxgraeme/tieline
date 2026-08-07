@@ -46,8 +46,16 @@ import {
   type DatabaseMode,
 } from "./tieline/setup.js";
 import {
+  plannedMcpTargets,
+  registerCodexMcpServer,
+  writeMcpClientConfigs,
+  type CodexMcpOutcome,
+  type McpConfigOutcome,
+} from "./tieline/mcp-config.js";
+import {
   installTielineAuthor,
   normalizeSkillAgentIds,
+  runSkillfishProcess,
   skippedSkillInstall,
   SUPPORTED_SKILL_AGENTS,
   type SkillAgentId,
@@ -134,6 +142,8 @@ interface InitOptions {
 
 export interface TielineCliDependencies {
   skillfishRunner?: SkillfishProcessRunner;
+  /** Runs agent registration CLIs such as `codex mcp add`. */
+  mcpCliRunner?: SkillfishProcessRunner;
 }
 
 interface SkillInstallSelection {
@@ -234,7 +244,7 @@ function renderStatus(status: TielineStatus, ui: Palette): string {
     `  root: ${status.root}`,
     `  runtime: profile=${state(status.runtime.profile_present, "present", "missing")}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${state(status.runtime.setup_complete, "complete", "incomplete")}`,
     `  optional capabilities: organization_matching=${state(status.capabilities.semantic_matching_configured, "configured", "not configured")}, planning_writes=${state(status.capabilities.planning_writes_configured, "configured", "not configured")}`,
-    `  integration: mcp_template=${state(status.integration.mcp_template_present, "present", "missing")}`,
+    `  integration: mcp=${state(status.integration.mcp_clients.length > 0, status.integration.mcp_clients.join(", "), "not registered (rerun `tieline init .`)")}`,
     `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${state(status.contract.manifest_exists, "present", "missing")}`,
   ];
   if (status.onboarding) {
@@ -250,11 +260,72 @@ function renderStatus(status: TielineStatus, ui: Palette): string {
   return lines.join("\n");
 }
 
+function renderMcpSummary(
+  mcp: McpConfigOutcome,
+  codex: CodexMcpOutcome | null,
+  ui: Palette
+): string[] {
+  const merged = mcp.writes.filter((write) => write.status !== "failed");
+  const failed = mcp.writes.filter((write) => write.status === "failed");
+  const lines: string[] = [];
+  if (merged.length > 0) {
+    lines.push(
+      `MCP server: ${merged
+        .map((write) => `${write.path} ${write.status}`)
+        .join("; ")}`
+    );
+  }
+  for (const write of failed) {
+    lines.push(
+      ui.yellow(
+        `MCP server: ${write.path} was left untouched (${write.reason}); add the 'tieline' entry manually.`
+      )
+    );
+  }
+  if (codex?.status === "registered") {
+    lines.push(
+      "MCP server: Codex registered globally via 'codex mcp add'"
+    );
+  } else if (codex) {
+    lines.push(
+      ui.yellow(
+        `MCP server: Codex registration failed (${codex.reason}); run: ${codex.retryCommand}`
+      )
+    );
+  }
+  if (mcp.manualAgents.length > 0) {
+    lines.push(
+      `MCP server: ${joinLabels(mcp.manualAgents.map(agentLabel))} ${mcp.manualAgents.length === 1 ? "keeps" : "keep"} MCP configuration outside the repository; register 'npx -y tieline serve' there manually.`
+    );
+  }
+  return lines;
+}
+
+async function registerMcpClients(
+  root: string,
+  selection: SkillInstallSelection | null,
+  env: NodeJS.ProcessEnv,
+  dependencies: TielineCliDependencies
+): Promise<{ mcp: McpConfigOutcome; codex: CodexMcpOutcome | null }> {
+  const agents = selection?.agents ?? [];
+  const mcp = writeMcpClientConfigs(root, agents);
+  const codex = agents.includes("codex")
+    ? await registerCodexMcpServer(
+        root,
+        dependencies.mcpCliRunner ?? runSkillfishProcess,
+        env
+      )
+    : null;
+  return { mcp, codex };
+}
+
 function renderInitSummary(
   workspace: TielineWorkspace,
   preflight: PreflightCheck[],
   skill: SkillInstallOutcome,
   skillScope: SkillInstallScope | undefined,
+  mcp: McpConfigOutcome,
+  codex: CodexMcpOutcome | null,
   io: TielineCliIO,
   env: NodeJS.ProcessEnv
 ): void {
@@ -288,6 +359,7 @@ function renderInitSummary(
     `${ui.green("Workspace:")} ready at ${workspace.directory}`,
     `${ui.green("Runtime:")} ${runtimeDescription}`,
     `Code scope: ${codeScopeLabel(workspace.config.repository.source_roots)}`,
+    ...renderMcpSummary(mcp, codex, ui),
   ];
   if (optional.length > 0) {
     lines.push(
@@ -480,6 +552,7 @@ async function runInit(
           : "Runtime: keep completed setup",
         ...renderRuntimeRequirements(databaseMode, env),
         ...renderSkillReview(skillSelection),
+        ...renderMcpReview(skillSelection),
       ].join("\n");
       await confirmInitReview(io, review);
     }
@@ -497,13 +570,27 @@ async function runInit(
       await reloadRuntimeConfig(env);
     }
     if (!shouldConfigure && !skillSelection) {
+      const ui = paletteFor(io);
+      const { mcp } = await registerMcpClients(
+        existing.root,
+        null,
+        env,
+        dependencies
+      );
+      const mcpLines = renderMcpSummary(mcp, null, ui);
       io.write(
-        `Tieline is already initialized at ${existing.directory}.\n${renderStatus(existingStatus, paletteFor(io))}\n`
+        `Tieline is already initialized at ${existing.directory}.\n${mcpLines.length > 0 ? `${mcpLines.join("\n")}\n` : ""}${renderStatus(getTielineStatus(existing, env), ui)}\n`
       );
       return 0;
     }
     const skill = await runSkillInstall(
       existing,
+      skillSelection,
+      env,
+      dependencies
+    );
+    const { mcp, codex } = await registerMcpClients(
+      existing.root,
       skillSelection,
       env,
       dependencies
@@ -519,6 +606,8 @@ async function runInit(
       ),
       skill,
       skillSelection?.scope,
+      mcp,
+      codex,
       io,
       env
     );
@@ -590,6 +679,7 @@ async function runInit(
         `Runtime: ${databaseModeLabel(database)} with ${embeddingProviderLabel(embedding)} embeddings`,
         ...renderRuntimeRequirements(database, env),
         ...renderSkillReview(skillSelection),
+        ...renderMcpReview(skillSelection),
       ].join("\n")
     );
   }
@@ -625,6 +715,12 @@ async function runInit(
     env,
     dependencies
   );
+  const { mcp, codex } = await registerMcpClients(
+    result.workspace.root,
+    skillSelection,
+    env,
+    dependencies
+  );
   // Close the Clack flow before the summary so the paste-ready prompt is the
   // last thing on screen rather than trailing into the flow's end cap.
   if (richInteractive) await outro(io, "Tieline workspace ready");
@@ -633,6 +729,8 @@ async function runInit(
     runInitPreflight(result.workspace.root, embedding, initEnv),
     skill,
     skillSelection?.scope,
+    mcp,
+    codex,
     io,
     env
   );
@@ -681,6 +779,26 @@ function renderSkillReview(
     `Skill targets: ${joinLabels(selection.agents.map(agentLabel))}`,
     `Skill scope: ${selection.scope}`,
   ];
+}
+
+function renderMcpReview(
+  selection: SkillInstallSelection | null
+): string[] {
+  const planned = plannedMcpTargets(selection?.agents ?? []);
+  const lines = [
+    `MCP: register the 'tieline' server (npx -y tieline serve) in ${planned.paths.join(", ")}`,
+  ];
+  if (planned.codex) {
+    lines.push(
+      "MCP: register with Codex globally via 'codex mcp add' (~/.codex/config.toml)"
+    );
+  }
+  if (planned.manualAgents.length > 0) {
+    lines.push(
+      `MCP: ${joinLabels(planned.manualAgents.map(agentLabel))} require${planned.manualAgents.length === 1 ? "s" : ""} manual MCP registration`
+    );
+  }
+  return lines;
 }
 
 function renderRuntimeRequirements(

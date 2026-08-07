@@ -234,7 +234,17 @@ RDS, or any other managed Postgres with pgvector enabled works. It reads
 never accepted as CLI arguments. Provisioning tools that synchronize `.env`
 files are picked up automatically.
 Init writes shared product identity, configured context, code scope, contract
-paths, and runtime defaults to `.tieline/config.json`. Clone-local setup state
+paths, and runtime defaults to `.tieline/config.json`. It also registers the
+`tieline` MCP server with each selected coding agent: `.mcp.json` at the
+repository root is always created or updated, and Claude Code and compatible
+hosts load it automatically on the next session. Selecting Cursor, GitHub
+Copilot, Gemini CLI, or OpenCode additionally maintains `.cursor/mcp.json`,
+`.vscode/mcp.json`, `.gemini/settings.json`, or `opencode.json`. Unrelated
+server entries in those files are preserved, and a file that fails to parse is
+left untouched and reported instead. Codex keeps MCP configuration in a global
+`~/.codex/config.toml`, so selecting Codex runs `codex mcp add` with the
+absolute repository path; if the Codex CLI is unavailable, init prints the
+exact command to run later. Clone-local setup state
 and credentials live in a private profile outside the repository, so a new
 clone completes its own runtime setup instead of inheriting another machine's
 "ready" state.
@@ -287,10 +297,27 @@ IDs, for example:
 tieline init . --yes --agent codex --skill-scope project
 ```
 
-The generated `.tieline/mcp.json` is a portable, repository-relative template.
-Register it with your MCP host when the host does not load repository MCP
-configuration automatically, and ensure the `tieline` command resolves this
-package. The installed `$tieline-author` skill and the equivalent
+The MCP server is registered as `npx -y tieline serve`, so hosts resolve the
+published package (or a local install when one exists) without requiring a
+global install. The checked-in configs keep `TIELINE_WORKSPACE` at `"."`,
+which resolves against the host's working directory. Hosts that keep MCP
+configuration outside the repository and have no registration CLI
+(Claude Desktop, Windsurf) need a manual entry with the absolute repository
+path:
+
+```json
+{
+  "mcpServers": {
+    "tieline": {
+      "command": "npx",
+      "args": ["-y", "tieline", "serve"],
+      "env": { "TIELINE_WORKSPACE": "/absolute/path/to/repository" }
+    }
+  }
+}
+```
+
+The installed `$tieline-author` skill and the equivalent
 `tieline_author` MCP prompt are two delivery surfaces for the same maintained
 semantic workflow. That workflow can:
 

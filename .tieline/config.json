@@ -34,8 +34,7 @@
   },
   "files": {
     "spec_directory": "spec",
-    "manifest": "manifest",
-    "mcp_config": "mcp.json"
+    "manifest": "manifest"
   },
   "created_at": "2026-07-29T00:00:00.000Z",
   "updated_at": "2026-07-30T07:06:06.000Z"

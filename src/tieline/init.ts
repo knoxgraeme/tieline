@@ -12,7 +12,6 @@ import {
   TIELINE_CONFIG_FILE,
   TIELINE_DIRECTORY,
   TIELINE_MANIFEST_DIRECTORY,
-  TIELINE_MCP_FILE,
   TIELINE_SPEC_DIRECTORY,
   findTielineWorkspace,
   type TielineConfig,
@@ -236,31 +235,6 @@ function contextSources(
   return sources;
 }
 
-function renderMcpConfig(): string {
-  return `${JSON.stringify(
-    {
-      mcpServers: {
-        tieline: {
-          command: "tieline",
-          args: ["serve"],
-          env: { TIELINE_WORKSPACE: "." },
-        },
-      },
-    },
-    null,
-    2
-  )}\n`;
-}
-
-export function writeWorkspaceMcpConfig(
-  workspace: TielineWorkspace
-): void {
-  writeFileSync(
-    workspace.mcpConfigPath,
-    renderMcpConfig()
-  );
-}
-
 export function initWorkspace(
   options: InitWorkspaceOptions
 ): InitWorkspaceResult {
@@ -311,14 +285,11 @@ export function initWorkspace(
     files: {
       spec_directory: TIELINE_SPEC_DIRECTORY,
       manifest: TIELINE_MANIFEST_DIRECTORY,
-      mcp_config: TIELINE_MCP_FILE,
     },
     created_at: now,
     updated_at: now,
   };
   const configPath = resolve(directory, TIELINE_CONFIG_FILE);
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
-  const workspace = workspaceFromConfig(configPath);
-  writeWorkspaceMcpConfig(workspace);
-  return { created: true, workspace };
+  return { created: true, workspace: workspaceFromConfig(configPath) };
 }

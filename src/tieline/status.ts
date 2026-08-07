@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import type { EmbeddingProvider } from "../config.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import { readContractManifest } from "../contract/manifest.js";
+import { detectMcpClientConfigs } from "./mcp-config.js";
 import {
   findTielineWorkspace,
   type TielineWorkspace,
@@ -25,7 +26,8 @@ export interface TielineStatus {
     planning_writes_configured: boolean;
   };
   integration: {
-    mcp_template_present: boolean;
+    /** Repository-relative client config files that register the MCP server. */
+    mcp_clients: string[];
   };
   contract: {
     documents: number;
@@ -134,7 +136,7 @@ export function getTielineStatus(
       ),
     },
     integration: {
-      mcp_template_present: existsSync(workspace.mcpConfigPath),
+      mcp_clients: detectMcpClientConfigs(workspace.root),
     },
     contract: {
       documents: loaded.documents.length,
