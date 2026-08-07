@@ -18,6 +18,7 @@ import {
   outro,
   paletteFor,
   renderBanner,
+  renderCopyCallout,
   selectChoice,
   showNote,
 } from "./cli-ui.js";
@@ -235,10 +236,16 @@ function renderStatus(status: TielineStatus, ui: Palette): string {
     `  optional capabilities: organization_matching=${state(status.capabilities.semantic_matching_configured, "configured", "not configured")}, planning_writes=${state(status.capabilities.planning_writes_configured, "configured", "not configured")}`,
     `  integration: mcp_template=${state(status.integration.mcp_template_present, "present", "missing")}`,
     `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${state(status.contract.manifest_exists, "present", "missing")}`,
-    `${ui.cyan("Next:")} ${status.next_action}`,
   ];
   if (status.onboarding) {
-    lines.push(`${ui.cyan("Install skill:")} ${status.onboarding.install_command}`);
+    lines.push(
+      `${ui.cyan("Next:")} Copy the prompt below and paste it to your agent to finish onboarding.`,
+      `${ui.cyan("Install skill:")} ${status.onboarding.install_command}`,
+      "",
+      ...renderCopyCallout(ui, status.onboarding.instruction)
+    );
+  } else {
+    lines.push(`${ui.cyan("Next:")} ${status.next_action}`);
   }
   return lines.join("\n");
 }
@@ -290,7 +297,6 @@ function renderInitSummary(
   if (notes.length > 0) lines.push(`Readiness notes: ${joinLabels(notes)}`);
 
   if (skill.status === "installed") {
-    const labels = skill.requestedAgents.map(agentLabel);
     const installed = skill.installedAgents.map(agentLabel);
     const alreadyPresent = skill.alreadyPresentAgents.map(agentLabel);
     const skillState = [
@@ -303,18 +309,31 @@ function renderInitSummary(
     ].join("; ");
     lines.push(
       `Skill: tieline-author ${skillState} (${skillScope})`,
-      `${ui.cyan("Next:")} Restart or reload ${joinLabels(labels)}, then paste this prompt to your agent to finish onboarding: "${ONBOARDING_AGENT_PROMPT}"`
+      "",
+      ui.bold("Next steps"),
+      "  1. Restart or reload your agent.",
+      "  2. Copy the prompt below and paste it to your agent.",
+      "",
+      ...renderCopyCallout(ui, ONBOARDING_AGENT_PROMPT)
     );
   } else if (skill.status === "failed") {
     lines.push(
       ui.yellow("Skill: tieline-author installation incomplete"),
       `Reason: ${skill.reason}`,
-      `${ui.cyan("Retry:")} ${skill.retryCommand}`
+      "",
+      ui.bold("Next step"),
+      "  Retry the install by running:",
+      "",
+      ...renderCopyCallout(ui, skill.retryCommand ?? "tieline init .")
     );
   } else {
     lines.push(
       "Skill: not installed",
-      `${ui.cyan("Install later:")} tieline init .`
+      "",
+      ui.bold("Next step"),
+      "  Install the tieline-author skill by running:",
+      "",
+      ...renderCopyCallout(ui, "tieline init .")
     );
   }
   io.write(`${lines.join("\n")}\n`);
@@ -606,6 +625,9 @@ async function runInit(
     env,
     dependencies
   );
+  // Close the Clack flow before the summary so the paste-ready prompt is the
+  // last thing on screen rather than trailing into the flow's end cap.
+  if (richInteractive) await outro(io, "Tieline workspace ready");
   renderInitSummary(
     result.workspace,
     runInitPreflight(result.workspace.root, embedding, initEnv),
@@ -614,7 +636,6 @@ async function runInit(
     io,
     env
   );
-  if (richInteractive) await outro(io, "Tieline workspace ready");
   return skill.status === "failed" ? 1 : 0;
 }
 

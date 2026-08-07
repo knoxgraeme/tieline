@@ -401,9 +401,11 @@ try {
     interactive.output.join(""),
     /Skill: tieline-author installed for Codex and Claude Code \(project\)/
   );
+  // The onboarding prompt has to stand alone on its own line so it is
+  // obviously the thing to copy; keep it out of the surrounding prose.
   assert.match(
     interactive.output.join(""),
-    /paste this prompt to your agent to finish onboarding: "Use the tieline-author skill to onboard this repository to Tieline\."/
+    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Copy the prompt below and paste it to your agent\.\n\n─+\nUse the tieline-author skill to onboard this repository to Tieline\.\n─+/
   );
 
   const cancelledTarget = resolve(root, "Cancelled Checkout");
@@ -553,7 +555,7 @@ try {
   assert.match(failedOutput, /installation incomplete/i);
   assert.match(
     failedOutput,
-    /Retry: tieline init .*Failed Install Checkout.*--yes --agent codex --skill-scope project/
+    /Retry the install by running:\n\n─+\ntieline init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
   );
   assert.doesNotMatch(failedOutput, /private nested output|Agent handoff prompt/);
 
@@ -634,7 +636,10 @@ try {
   assert.match(firstOutput, /code scope: src/i);
   assert.match(firstOutput, /optional capabilities:.*duplicate checks/i);
   assert.match(firstOutput, /skill: not installed/i);
-  assert.match(firstOutput, /install later: tieline init \./i);
+  assert.match(
+    firstOutput,
+    /Install the tieline-author skill by running:\n\n─+\ntieline init \.\n─+/
+  );
   assert.doesNotMatch(firstOutput, /Warning \[/);
   assert.doesNotMatch(firstOutput, /Agent handoff prompt:/);
   assert.doesNotMatch(firstOutput, /otherwise continue directly from this brief/i);
@@ -800,7 +805,11 @@ try {
   );
   assert.match(
     humanStatus.output.join(""),
-    /Next: Paste this prompt to your agent to finish onboarding: "Use the tieline-author skill to onboard this repository to Tieline\."/
+    /Next: Copy the prompt below and paste it to your agent to finish onboarding\./
+  );
+  assert.match(
+    humanStatus.output.join(""),
+    /─+\nUse the tieline-author skill to onboard this repository to Tieline\.\n─+/
   );
   assert.match(humanStatus.output.join(""), /Install skill: tieline init \./);
   assert.doesNotMatch(humanStatus.output.join(""), /Agent handoff prompt:/);
