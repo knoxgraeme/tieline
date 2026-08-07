@@ -259,7 +259,12 @@ server entries in those files are preserved, and a file that fails to parse is
 left untouched and reported instead. Codex keeps MCP configuration in a global
 `~/.codex/config.toml`, so selecting Codex runs `codex mcp add` with the
 absolute repository path; if the Codex CLI is unavailable, init prints the
-exact command to run later. Clone-local setup state
+exact command to run later.
+Init also writes `.tieline/review.html`, a self-contained page for browsing
+the authored capabilities, Stories, and Acceptance Criteria in a browser
+instead of raw YAML. `tieline contract compile` regenerates it whenever the
+contract changes, and a nested `.tieline/.gitignore` keeps the derived page
+out of commits. Clone-local setup state
 and credentials live in a private profile outside the repository, so a new
 clone completes its own runtime setup instead of inheriting another machine's
 "ready" state.

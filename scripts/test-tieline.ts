@@ -798,8 +798,22 @@ try {
       },
     }
   );
+  const reviewPage = readFileSync(
+    resolve(target, ".tieline/review.html"),
+    "utf8"
+  );
+  assert.match(reviewPage, /No capabilities yet/);
+  assert.match(
+    reviewPage,
+    /Use the tieline-author skill to onboard this repository to Tieline\./
+  );
+  assert.equal(
+    readFileSync(resolve(target, ".tieline/.gitignore"), "utf8"),
+    "review.html\n"
+  );
   const firstOutput = first.output.join("");
   assert.match(firstOutput, /MCP server: \.mcp\.json written/);
+  assert.match(firstOutput, /Review: open \.tieline\/review\.html/);
   assert.match(firstOutput, /workspace: ready/i);
   assert.match(firstOutput, /runtime: offline.*local contract authoring ready/i);
   assert.match(firstOutput, /code scope: src/i);

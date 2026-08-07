@@ -23,6 +23,10 @@ import {
   loadAcceptedContractWithSources,
 } from "../contract/load.js";
 import { renderContractReviewPage } from "../contract/review-page.js";
+import {
+  TIELINE_REVIEW_PAGE,
+  writeWorkspaceReviewPage,
+} from "../tieline/review.js";
 import { syncContractManifest } from "../contract/sync.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
 import { contractEmbeddingDocuments } from "../derived/embedding-documents.js";
@@ -749,6 +753,11 @@ export async function runContractCommand(
 
   if (parsed.action === "compile") {
     const written = writeContractManifest(parsed.outputPath, compiled);
+    writeWorkspaceReviewPage(
+      parsed.repositoryRoot,
+      parsed.repositoryKey,
+      parsed.specDirectory
+    );
     const response = {
       output: parsed.outputPath,
       files: written.files,
@@ -757,6 +766,7 @@ export async function runContractCommand(
       // by reading the output.
       removed_files: written.removed,
       bytes: written.bytes,
+      review_page: TIELINE_REVIEW_PAGE,
       repository: manifest.repository,
       ...coverage(manifest),
       mapping_coverage: mappingCoverage,
@@ -768,7 +778,7 @@ export async function runContractCommand(
             written.removed.length
               ? `; removed ${written.removed.length} file(s) for capabilities the contract no longer declares: ${written.removed.join(", ")}`
               : ""
-          }.\n`
+          }. Review page: ${TIELINE_REVIEW_PAGE}.\n`
     );
     return 0;
   }

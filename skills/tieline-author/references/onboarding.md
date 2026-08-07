@@ -57,4 +57,6 @@ a human first sees them. Verify, do not re-ask.
    reader should be graded down, not argued for.
 9. Summarize the sources used, inferred semantic boundaries, likely
    duplicates, mapping gaps, grade findings, and proposed contract changes for
-   normal pull-request review.
+   normal pull-request review. Point the user at `.tieline/review.html` —
+   compiling refreshed it — for a browsable version of the authored
+   capabilities, Stories, and ACs.

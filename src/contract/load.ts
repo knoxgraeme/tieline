@@ -31,6 +31,18 @@ function yamlFiles(directory: string): string[] {
   return files.sort((a, b) => a.localeCompare(b));
 }
 
+/** True when the spec directory holds at least one YAML document. */
+export function hasAcceptedContractSources(
+  repositoryRoot: string,
+  specDirectory = ".tieline/spec"
+): boolean {
+  const directory = resolve(resolve(repositoryRoot), specDirectory);
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) {
+    return false;
+  }
+  return yamlFiles(directory).length > 0;
+}
+
 export function loadAcceptedContractWithSources(
   repositoryRoot: string,
   specDirectory = ".tieline/spec"
