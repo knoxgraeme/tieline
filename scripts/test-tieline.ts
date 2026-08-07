@@ -837,11 +837,19 @@ try {
   );
   const firstOutput = first.output.join("");
   assert.match(firstOutput, /MCP server: \.mcp\.json written/);
-  assert.match(firstOutput, /Review: open \.tieline\/review\.html/);
-  assert.match(firstOutput, /workspace: ready/i);
-  assert.match(firstOutput, /runtime: offline.*local contract authoring ready/i);
+  assert.match(firstOutput, /Workspace: ready at \.tieline\//);
+  assert.doesNotMatch(
+    firstOutput,
+    new RegExp(target.replaceAll("\\", "\\\\")),
+    "the summary must not print absolute paths"
+  );
+  assert.match(firstOutput, /Mode: offline.*local contract authoring ready/i);
   assert.match(firstOutput, /code scope: src/i);
-  assert.match(firstOutput, /optional capabilities:.*duplicate checks/i);
+  assert.doesNotMatch(
+    firstOutput,
+    /Optional capabilities|Review: open/,
+    "the summary leads to the paste prompt without optional-feature or review noise"
+  );
   assert.match(firstOutput, /skill: not installed/i);
   assert.match(
     firstOutput,
@@ -964,7 +972,7 @@ try {
   );
   assert.match(
     resumed.output.join(""),
-    /Runtime: offline.*local contract authoring ready/i
+    /Mode: offline.*local contract authoring ready/i
   );
   assert.ok(
     readWorkspaceProfile(workspace, {
