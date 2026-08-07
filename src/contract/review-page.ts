@@ -17,6 +17,11 @@ export interface ContractReviewPageOptions {
   repositoryKey: string;
   documents: ContractReviewDocument[];
   warnings?: string[];
+  /**
+   * Rendered in the empty state so a page generated before onboarding tells
+   * the reader how to author the first capabilities.
+   */
+  onboardingPrompt?: string;
 }
 
 function escapeHtml(value: string): string {
@@ -276,7 +281,20 @@ export function renderContractReviewPage(
         firstEntry.capability.description,
         firstEntry.story
       )
-    : `<p class="empty-document">No stories found.</p>`;
+    : `<div class="empty-state">
+        <h1>No capabilities yet</h1>
+        <p>This page lists the product's capabilities, user stories, and
+        acceptance criteria once semantic onboarding authors them under
+        <code>.tieline/spec/</code>.</p>
+        ${
+          options.onboardingPrompt
+            ? `<p>Paste this prompt to your coding agent to begin:</p>
+              <pre class="prompt">${escapeHtml(options.onboardingPrompt)}</pre>`
+            : ""
+        }
+        <p><code>tieline contract compile .</code> refreshes this page
+        whenever the contract changes.</p>
+      </div>`;
 
   const warnings =
     options.warnings && options.warnings.length > 0
@@ -647,6 +665,20 @@ export function renderContractReviewPage(
       overflow-wrap: anywhere;
     }
     .empty-document { color: var(--muted); }
+    .empty-state { max-width: 58ch; margin: 3rem auto 0; }
+    .empty-state h1 { font-size: 1.4rem; letter-spacing: -.015em; }
+    .empty-state p { color: var(--muted); font-size: .86rem; }
+    .empty-state .prompt {
+      padding: .8rem .95rem;
+      color: var(--ink);
+      background: #f7f8fa;
+      border: 1px solid #e3e5e9;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 4px 4px 0;
+      font: .78rem/1.5 var(--mono);
+      white-space: pre-wrap;
+      user-select: all;
+    }
     @media (max-width: 980px) {
       .issue-layout { grid-template-columns: 1fr; }
       .issue-details { position: static; }

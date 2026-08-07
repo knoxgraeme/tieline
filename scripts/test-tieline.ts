@@ -192,15 +192,6 @@ try {
   mkdirSync(resolve(validationTarget, "src"), { recursive: true });
   await assert.rejects(
     runCli(
-      ["init", validationTarget, "--yes", "--agent", "codex"],
-      io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
-    ),
-    /--skill-scope/
-  );
-  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
-  await assert.rejects(
-    runCli(
       ["init", validationTarget, "--yes", "--skill-scope", "project"],
       io().adapter,
       { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
@@ -303,12 +294,9 @@ try {
   mkdirSync(resolve(interactiveTarget, "src"), { recursive: true });
   writeFileSync(resolve(interactiveTarget, "README.md"), "# Interactive\n");
   const interactive = interactiveIo({
-    text: [
-      "Interactive Product",
-      "interactive-repo",
-    ],
+    text: [],
     confirm: [true],
-    select: ["offline", "local", "project"],
+    select: [],
     multiselect: [["codex", "claude-code"]],
   });
   const interactiveInvocations: SkillfishInvocation[] = [];
@@ -347,6 +335,14 @@ try {
   assert.equal(interactiveInvocations.length, 1);
   const interactiveWorkspace = findTielineWorkspace(interactiveTarget);
   assert.ok(interactiveWorkspace);
+  assert.equal(
+    interactiveWorkspace.config.product.name,
+    "Interactive Checkout"
+  );
+  assert.equal(
+    interactiveWorkspace.config.product.repo_name,
+    "interactive-checkout"
+  );
   assert.deepEqual(interactiveWorkspace.config.repository.source_roots, [
     "src",
   ]);
@@ -358,54 +354,35 @@ try {
     interactiveWorkspace.config.context.sources[2]?.location,
     "https://mcpmarket.com/hub"
   );
-  assert.deepEqual(interactive.prompts.slice(0, 4), [
-    "Company/product name",
-    "Stable repository name",
-    "Database mode",
-    "Embedding provider",
-  ]);
+  assert.equal(
+    interactive.prompts[0],
+    "Where should Tieline install its onboarding and authoring skill?",
+    "the agent selector must be the only interactive question"
+  );
   assert.equal(
     interactive.prompts.some((prompt) =>
       [
+        "Company/product name",
+        "Stable repository name",
+        "Database mode",
+        "Embedding provider",
+        "Onboarding skill installation scope",
         "Product description (optional)",
         "Source roots (comma-separated)",
       ].includes(prompt)
     ),
-    false
+    false,
+    "identity and runtime must be detected, not asked"
   );
-  assert.deepEqual(
-    interactive.choices["Embedding provider"]?.map((option) => option.value),
-    ["local", "openai", "supabase-edge"]
-  );
-  assert.equal(
-    interactive.choices["Embedding provider"]?.find(
-      (option) => option.value === "supabase-edge"
-    )?.label,
-    "Supabase Edge Function"
-  );
-  assert.equal(
-    interactive.choices["Database mode"]?.find(
-      (option) => option.value === "existing"
-    )?.label,
-    "Hosted / remote PostgreSQL"
-  );
-  assert.ok(
-    interactive.prompts.includes(
-      "Where should Tieline install its onboarding and authoring skill?"
-    )
-  );
-  assert.ok(
-    interactive.prompts.includes("Onboarding skill installation scope")
-  );
-  assert.equal(
-    interactive.prompts.some((prompt) =>
-      prompt.includes("Install tieline-author for coding agents?")
-    ),
-    false
+  const interactiveReview =
+    interactive.prompts.find((prompt) => prompt.startsWith("Review:")) ?? "";
+  assert.match(
+    interactiveReview,
+    /Context: product description, README\.md, https:\/\/mcpmarket\.com\/hub.*Code scope: src/s
   );
   assert.match(
-    interactive.prompts.find((prompt) => prompt.startsWith("Review:")) ?? "",
-    /Context: product description, README\.md, https:\/\/mcpmarket\.com\/hub.*Code scope: src/s
+    interactiveReview,
+    /create \.tieline for Interactive Checkout \(interactive-checkout\) \(auto-detected\)/
   );
   assert.match(
     interactive.output.join(""),
@@ -421,9 +398,9 @@ try {
   const cancelledTarget = resolve(root, "Cancelled Checkout");
   mkdirSync(resolve(cancelledTarget, "src"), { recursive: true });
   const cancelled = interactiveIo({
-    text: ["", ""],
+    text: [],
     confirm: [],
-    select: ["offline", "local"],
+    select: [],
     multiselect: [],
   });
   await assert.rejects(
@@ -433,6 +410,24 @@ try {
     /Cancelled/
   );
   assert.equal(existsSync(resolve(cancelledTarget, ".tieline")), false);
+
+  const noAgentTarget = resolve(root, "No Agent Checkout");
+  mkdirSync(resolve(noAgentTarget, "src"), { recursive: true });
+  const noAgent = interactiveIo({
+    text: [],
+    confirm: [true],
+    select: [],
+    multiselect: [[]],
+  });
+  assert.equal(
+    await runCli(["init", noAgentTarget], noAgent.adapter, {
+      TIELINE_CONFIG_HOME: resolve(root, "no-agent-config"),
+    }),
+    0,
+    "deselecting every agent must skip the skill install, not fail"
+  );
+  assert.match(noAgent.output.join(""), /Skill: not installed/);
+  assert.ok(existsSync(resolve(noAgentTarget, ".mcp.json")));
 
   const automatedTarget = resolve(root, "Automated Checkout");
   const automatedConfigHome = resolve(root, "automated-config");
@@ -609,8 +604,6 @@ try {
         "codex",
         "--agent",
         "opencode",
-        "--skill-scope",
-        "project",
       ],
       mcpMerge.adapter,
       { TIELINE_CONFIG_HOME: mcpMergeConfigHome },
@@ -675,6 +668,11 @@ try {
     }
   );
   const mcpMergeOutput = mcpMerge.output.join("");
+  assert.match(
+    mcpMergeOutput,
+    /Skill: tieline-author installed for Cursor, Codex, and OpenCode \(project\)/,
+    "--agent without --skill-scope must default to the project scope"
+  );
   assert.match(
     mcpMergeOutput,
     /MCP server: \.mcp\.json updated; \.cursor\/mcp\.json written; opencode\.json written/
@@ -800,8 +798,22 @@ try {
       },
     }
   );
+  const reviewPage = readFileSync(
+    resolve(target, ".tieline/review.html"),
+    "utf8"
+  );
+  assert.match(reviewPage, /No capabilities yet/);
+  assert.match(
+    reviewPage,
+    /Use the tieline-author skill to onboard this repository to Tieline\./
+  );
+  assert.equal(
+    readFileSync(resolve(target, ".tieline/.gitignore"), "utf8"),
+    "review.html\n"
+  );
   const firstOutput = first.output.join("");
   assert.match(firstOutput, /MCP server: \.mcp\.json written/);
+  assert.match(firstOutput, /Review: open \.tieline\/review\.html/);
   assert.match(firstOutput, /workspace: ready/i);
   assert.match(firstOutput, /runtime: offline.*local contract authoring ready/i);
   assert.match(firstOutput, /code scope: src/i);
@@ -853,7 +865,7 @@ try {
   const existingInteractive = interactiveIo({
     text: [],
     confirm: [true],
-    select: ["project"],
+    select: [],
     multiselect: [["codex"]],
   });
   let existingInstallCalls = 0;
@@ -867,6 +879,7 @@ try {
           existingInstallCalls++;
           return successfulSkillfish(invocation);
         },
+        mcpCliRunner: successfulMcpCli,
       }
     ),
     0
@@ -1287,6 +1300,16 @@ capability:
     /Discover these repository sources directly/
   );
   assert.match(onboardingReference, /Ask focused questions only/);
+  assert.match(
+    onboardingReference,
+    /Do not enumerate the authored Stories or acceptance\s+criteria inline/,
+    "onboarding must deliver the review page, not an inline listing"
+  );
+  assert.match(
+    authorSkill,
+    /pointing at `\.tieline\/review\.html`/,
+    "the skill must present contract content through the review page"
+  );
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
@@ -1321,7 +1344,7 @@ capability:
     "node",
     [cliBin, "init", pipedTarget, "--embedding", "hash"],
     {
-      input: "Piped Product\npiped-repo\n",
+      input: "",
       encoding: "utf8",
       env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
     }
@@ -1329,22 +1352,12 @@ capability:
   assert.equal(piped.status, 0, piped.stderr);
   const pipedWorkspace = findTielineWorkspace(pipedTarget);
   assert.ok(pipedWorkspace);
-  assert.equal(pipedWorkspace.config.product.name, "Piped Product");
-  assert.equal(pipedWorkspace.config.product.repo_name, "piped-repo");
-
-  const eofTarget = resolve(root, "eof-init");
-  mkdirSync(resolve(eofTarget, "src"), { recursive: true });
-  const eof = spawnSync(
-    "node",
-    [cliBin, "init", eofTarget, "--embedding", "hash"],
-    {
-      input: "",
-      encoding: "utf8",
-      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
-    }
+  assert.equal(
+    pipedWorkspace.config.product.name,
+    "piped-product",
+    "piped init must auto-detect identity instead of reading stdin answers"
   );
-  assert.equal(eof.status, 1);
-  assert.match(eof.stderr, /Input ended before a response was received/);
+  assert.equal(pipedWorkspace.config.product.repo_name, "piped-init");
 
   // Bare group commands print clean help on stderr, not a "Tieline error:".
   const bareContract = spawnSync("node", [cliBin, "contract"], {

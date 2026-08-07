@@ -137,7 +137,17 @@ converges definitions without deleting history.
   Supabase Edge Function, or the optional local runtime adds vector similarity;
   full-text and identifier search remain available without one.
 
-Install the published CLI from npm:
+No install is required: every command runs through `npx -y tieline <command>`,
+which is also how the registered MCP configuration launches the server. In a
+Node repository, pin the CLI as a dev dependency so the whole team resolves
+one version locally:
+
+```bash
+npm install --save-dev tieline
+npx tieline --help
+```
+
+A global install also works when a bare `tieline` command is preferred:
 
 ```bash
 npm install --global tieline
@@ -162,13 +172,17 @@ current machine. Without it, replace `tieline` in the examples below with
 
 ## Initialize and onboard a repository
 
-For an interactive setup, run Tieline from the repository and confirm the
-detected product, remote-derived repository name, database, embedding settings,
-and coding agents that should receive the onboarding skill:
+Run init from the repository. It auto-detects the product name, repository
+name, and code scope, defaults the runtime to offline, and asks one question:
+which coding agents should receive the onboarding skill (preselected from the
+agents detected on the machine). Everything else — product description,
+context sources, database upgrades — is gathered conversationally by the
+agent during semantic onboarding, where it can read the repository first and
+verify instead of interrogate:
 
 ```bash
 cd /path/to/product-repository
-tieline init
+npx -y tieline init
 ```
 
 The same setup remains prompt-free for automation:
@@ -182,8 +196,9 @@ tieline init /path/to/product-repository \
   --yes
 ```
 
-`--yes` never installs an agent skill unless both the target agents and scope
-are explicit. To initialize and install `tieline-author` for multiple agents:
+`--yes` installs an agent skill only when `--agent` is explicit;
+`--skill-scope` defaults to `project`. To initialize and install
+`tieline-author` for multiple agents:
 
 ```bash
 tieline init /path/to/product-repository \
@@ -244,7 +259,12 @@ server entries in those files are preserved, and a file that fails to parse is
 left untouched and reported instead. Codex keeps MCP configuration in a global
 `~/.codex/config.toml`, so selecting Codex runs `codex mcp add` with the
 absolute repository path; if the Codex CLI is unavailable, init prints the
-exact command to run later. Clone-local setup state
+exact command to run later.
+Init also writes `.tieline/review.html`, a self-contained page for browsing
+the authored capabilities, Stories, and Acceptance Criteria in a browser
+instead of raw YAML. `tieline contract compile` regenerates it whenever the
+contract changes, and a nested `.tieline/.gitignore` keeps the derived page
+out of commits. Clone-local setup state
 and credentials live in a private profile outside the repository, so a new
 clone completes its own runtime setup instead of inheriting another machine's
 "ready" state.
