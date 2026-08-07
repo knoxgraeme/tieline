@@ -1300,6 +1300,16 @@ capability:
     /Discover these repository sources directly/
   );
   assert.match(onboardingReference, /Ask focused questions only/);
+  assert.match(
+    onboardingReference,
+    /Do not enumerate the authored Stories or acceptance\s+criteria inline/,
+    "onboarding must deliver the review page, not an inline listing"
+  );
+  assert.match(
+    authorSkill,
+    /pointing at `\.tieline\/review\.html`/,
+    "the skill must present contract content through the review page"
+  );
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");

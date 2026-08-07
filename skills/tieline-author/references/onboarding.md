@@ -55,8 +55,10 @@ a human first sees them. Verify, do not re-ask.
    batched by artifact path, passing only the emitted scope entries and never
    the authoring rationale; a link none of your reasoning can defend to a cold
    reader should be graded down, not argued for.
-9. Summarize the sources used, inferred semantic boundaries, likely
-   duplicates, mapping gaps, grade findings, and proposed contract changes for
-   normal pull-request review. Point the user at `.tieline/review.html` —
-   compiling refreshed it — for a browsable version of the authored
-   capabilities, Stories, and ACs.
+9. Deliver the result as `.tieline/review.html`: tell the user to open it in
+   a browser (compiling refreshed it) to review the authored capabilities,
+   Stories, and ACs. Do not enumerate the authored Stories or acceptance
+   criteria inline — a full listing in chat is harder to review than the
+   page. Keep the reply at the capability level: counts, a one-line boundary
+   per capability, sources used, likely duplicates, mapping gaps, and grade
+   findings.
