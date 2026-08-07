@@ -50,10 +50,7 @@ import {
   type CodexMcpOutcome,
   type McpConfigOutcome,
 } from "./tieline/mcp-config.js";
-import {
-  TIELINE_REVIEW_PAGE,
-  writeWorkspaceReviewPage,
-} from "./tieline/review.js";
+import { writeWorkspaceReviewPage } from "./tieline/review.js";
 import {
   detectRepositoryAgents,
   installTielineAuthor,
@@ -74,6 +71,7 @@ import {
 } from "./tieline/status.js";
 import {
   findTielineWorkspace,
+  TIELINE_DIRECTORY,
   type TielineWorkspace,
 } from "./tieline/workspace.js";
 
@@ -305,22 +303,10 @@ function renderInitSummary(
 ): void {
   const ui = paletteFor(io);
   const status = getTielineStatus(workspace, env);
-  const runtimeDescription =
+  const modeDescription =
     status.runtime.database_mode === "offline"
       ? "offline — local contract authoring ready"
       : `${databaseModeLabel(status.runtime.database_mode)} — ${status.runtime.setup_complete ? "setup complete" : "setup incomplete"}`;
-  const optional: string[] = [];
-  if (!status.capabilities.semantic_matching_configured) {
-    optional.push("organization-wide duplicate checks");
-  }
-  if (
-    preflight.some(
-      (check) =>
-        check.key === "embedding_provider" && check.status === "warning"
-    )
-  ) {
-    optional.push("semantic search");
-  }
   const notes: string[] = [];
   if (
     preflight.some(
@@ -330,17 +316,11 @@ function renderInitSummary(
     notes.push("Git metadata was not detected");
   }
   const lines = [
-    `${ui.green("Workspace:")} ready at ${workspace.directory}`,
-    `${ui.green("Runtime:")} ${runtimeDescription}`,
+    `${ui.green("Workspace:")} ready at ${TIELINE_DIRECTORY}/`,
+    `${ui.green("Mode:")} ${modeDescription}`,
     `Code scope: ${codeScopeLabel(workspace.config.repository.source_roots)}`,
     ...renderMcpSummary(mcp, codex, ui),
-    `Review: open ${TIELINE_REVIEW_PAGE} in a browser to browse capabilities as they are authored.`,
   ];
-  if (optional.length > 0) {
-    lines.push(
-      `Optional capabilities: ${joinLabels(optional)} ${optional.length === 1 ? "is" : "are"} not configured`
-    );
-  }
   if (notes.length > 0) lines.push(`Readiness notes: ${joinLabels(notes)}`);
 
   if (skill.status === "installed") {
