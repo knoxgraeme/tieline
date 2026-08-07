@@ -3,6 +3,8 @@ import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   unlinkSync,
@@ -22,7 +24,9 @@ import {
 import {
   compileContractManifest,
   compileContractManifestWithSources,
+  parseContractManifestSnapshot,
   writeContractManifest,
+  type ContractManifest,
 } from "../src/contract/manifest.js";
 
 const REPOSITORY = "grade-fixture";
@@ -129,11 +133,15 @@ capability:
     repositoryKey: REPOSITORY,
     specDirectory: ".tieline/spec",
   });
-  const scopeFor = (changes: RepositoryPathChange[]) =>
+  const scopeFor = (
+    changes: RepositoryPathChange[],
+    baseManifest: ContractManifest | null = manifest
+  ) =>
     buildGradeScope({
       repositoryRoot: root,
       base: "HEAD",
       manifest,
+      baseManifest,
       changes,
       sourceRoots: ["src"],
       ignore: [".git", ".tieline"],
@@ -192,6 +200,67 @@ capability:
   assert.deepEqual(
     scopeFor([{ status: "modified", path: "src/unlinked.ts" }]).entries,
     []
+  );
+
+  // With no base manifest — the initial contract — every local link is a new
+  // claim, so onboarding is graded even though not one artifact changed.
+  const initial = scopeFor([], null);
+  assert.equal(initial.scoped_links, 7);
+  assert.equal(new Set(initial.entries.map((entry) => entry.id)).size, 7);
+  for (const entry of initial.entries) {
+    assert.equal(entry.reason, "link_added");
+    assert.equal(entry.previous_path, null);
+    assert.equal(entry.linked_path, entry.path);
+  }
+  assert.deepEqual(
+    initial.entries.map((entry) => [
+      entry.acceptance_criterion_stable_id,
+      entry.link_scope,
+      entry.path,
+    ]),
+    [
+      ["FEATURE-001-AC1", "direct", "src/feature.ts"],
+      ["FEATURE-001-AC1", "direct", "src/renamed.ts"],
+      ["FEATURE-001-AC1", "direct", "src/shared.ts"],
+      ["FEATURE-001-AC1", "story_fallback", "src/shared.ts"],
+      ["FEATURE-001-AC2", "direct", "src/deleted.ts"],
+      ["FEATURE-001-AC2", "direct", "src/notes.md"],
+      ["FEATURE-001-AC2", "story_fallback", "src/shared.ts"],
+    ]
+  );
+  assert.deepEqual(initial.entries[0]?.symbols, [
+    "const:featureLocal",
+    "function:computeFeature",
+  ]);
+
+  // A re-worded criterion re-opens every link it claims, including inherited
+  // story fallbacks, without touching any artifact. Grading judges the current
+  // sentence, so the entry carries it rather than the base's.
+  const rewordedBase = structuredClone(manifest);
+  rewordedBase.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.criterion =
+    "Tieline must emit only relevant changed links.";
+  const reworded = scopeFor([], rewordedBase);
+  assert.equal(reworded.scoped_links, 4);
+  for (const entry of reworded.entries) {
+    assert.equal(entry.reason, "criterion_changed");
+    assert.equal(entry.acceptance_criterion_stable_id, "FEATURE-001-AC1");
+    assert.equal(
+      entry.acceptance_criterion,
+      "Tieline must emit every changed link without relevance filtering."
+    );
+  }
+
+  // A claim that is both diff-scoped and claim-side changed yields exactly one
+  // entry, carrying the diff's reason.
+  const overlapping = scopeFor(
+    [{ status: "modified", path: "src/feature.ts" }],
+    null
+  );
+  assert.equal(overlapping.scoped_links, 7);
+  assert.equal(
+    overlapping.entries.find((entry) => entry.path === "src/feature.ts")
+      ?.reason,
+    "modified"
   );
 
   unlinkSync(resolve(root, "src/deleted.ts"));
@@ -318,6 +387,46 @@ capability:
       specDirectory: ".tieline/spec",
     })
   );
+
+  // A snapshot parse of the directory just written yields the manifest the
+  // compiler produced, so a base-ref read compares like with like; and a
+  // snapshot that was never a compiled manifest is refused, not guessed at.
+  const manifestDirectory = resolve(root, ".tieline/manifest");
+  const snapshotFiles = readdirSync(manifestDirectory).map((name) => ({
+    name,
+    content: readFileSync(resolve(manifestDirectory, name), "utf8"),
+  }));
+  assert.deepEqual(
+    parseContractManifestSnapshot(snapshotFiles, "ref 'TEST'"),
+    manifest
+  );
+  assert.throws(
+    () =>
+      parseContractManifestSnapshot(
+        snapshotFiles.filter((file) => file.name !== "index.json"),
+        "ref 'TEST'"
+      ),
+    /has no 'index\.json'/
+  );
+  assert.throws(
+    () =>
+      parseContractManifestSnapshot(
+        snapshotFiles.filter((file) => file.name === "index.json"),
+        "ref 'TEST'"
+      ),
+    /index but no capabilities/
+  );
+  assert.throws(
+    () =>
+      parseContractManifestSnapshot(
+        snapshotFiles.map((file) =>
+          file.name === "index.json" ? file : { ...file, name: "WRONG.json" }
+        ),
+        "ref 'TEST'"
+      ),
+    /belongs in/
+  );
+
   execFileSync("git", ["init"], { cwd: root, stdio: "ignore" });
   execFileSync("git", ["config", "user.email", "test@example.test"], {
     cwd: root,
@@ -647,6 +756,83 @@ capability:
       {}
     ),
     /cannot be used with option '--verify(?: <verdicts\.json>)?'/
+  );
+
+  // Re-wording a criterion is claim-side scope over real git history; the
+  // artifact the branch also changed keeps its diff reason.
+  const specPath = resolve(root, ".tieline/spec/feature.yaml");
+  writeFileSync(
+    specPath,
+    readFileSync(specPath, "utf8").replace(
+      "Tieline must emit every changed link without relevance filtering.",
+      "Tieline must emit every changed link and every changed claim."
+    )
+  );
+  writeContractManifest(
+    resolve(root, ".tieline/manifest"),
+    compileContractManifestWithSources({
+      repositoryRoot: root,
+      repositoryKey: REPOSITORY,
+      specDirectory: ".tieline/spec",
+    })
+  );
+  output = "";
+  assert.equal(
+    await runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--emit-scope", "--json"],
+      io,
+      {}
+    ),
+    0
+  );
+  const rewordedScope = JSON.parse(output) as GradeScope;
+  assert.equal(rewordedScope.scoped_links, 4);
+  assert.deepEqual(
+    rewordedScope.entries.map((entry) => [entry.path, entry.reason]),
+    [
+      ["src/feature.ts", "modified"],
+      ["src/renamed.ts", "criterion_changed"],
+      ["src/shared.ts", "criterion_changed"],
+      ["src/shared.ts", "criterion_changed"],
+    ]
+  );
+  for (const entry of rewordedScope.entries) {
+    assert.equal(entry.acceptance_criterion_stable_id, "FEATURE-001-AC1");
+    assert.equal(
+      entry.acceptance_criterion,
+      "Tieline must emit every changed link and every changed claim."
+    );
+  }
+  execFileSync("git", ["checkout", "--", ".tieline"], { cwd: root });
+
+  // An init-style base — no manifest at the ref — grades the entire contract:
+  // the changed artifact keeps its diff reason and every other link is a new
+  // claim.
+  execFileSync("git", ["rm", "-r", "--cached", "--quiet", ".tieline"], {
+    cwd: root,
+  });
+  execFileSync("git", ["commit", "-m", "untrack contract"], {
+    cwd: root,
+    stdio: "ignore",
+  });
+  output = "";
+  assert.equal(
+    await runCli(
+      ["contract", "grade", root, "--base", "HEAD", "--emit-scope", "--json"],
+      io,
+      {}
+    ),
+    0
+  );
+  const initScope = JSON.parse(output) as GradeScope;
+  assert.equal(initScope.scoped_links, 7);
+  assert.equal(
+    initScope.entries.filter((entry) => entry.reason === "link_added").length,
+    6
+  );
+  assert.equal(
+    initScope.entries.find((entry) => entry.path === "src/feature.ts")?.reason,
+    "modified"
   );
 
   rmSync(resolve(root, ".tieline/manifest"), {

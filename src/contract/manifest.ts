@@ -590,6 +590,102 @@ export function readContractManifest(directory: string): ContractManifest {
   };
 }
 
+/** A manifest file from somewhere other than the working tree: its name within the manifest directory and its raw JSON content. */
+export interface ContractManifestSnapshotFile {
+  name: string;
+  content: string;
+}
+
+/**
+ * Reassembles a manifest from file contents rather than from disk, applying
+ * the same structural checks as `readContractManifest`.
+ *
+ * This exists for readers holding a historical manifest — grading reads the
+ * base ref's manifest out of git to learn which contract links the branch
+ * added or re-worded. History cannot be recompiled, so unlike the disk
+ * reader the errors name the snapshot's origin instead of advising a
+ * regeneration: a snapshot failing these checks was never something a
+ * compilation wrote, and the caller must surface that rather than guess.
+ *
+ * `origin` is a human description of where the files came from, e.g.
+ * `ref 'main'`.
+ */
+export function parseContractManifestSnapshot(
+  files: ContractManifestSnapshotFile[],
+  origin: string
+): ContractManifest {
+  const parseJson = (file: ContractManifestSnapshotFile): unknown => {
+    try {
+      return JSON.parse(file.content);
+    } catch (error) {
+      throw new ContractManifestError(
+        `Cannot parse the contract manifest file '${file.name}' at ${origin}: ${describeError(error)}`
+      );
+    }
+  };
+  const index = files.find(
+    (file) => file.name === CONTRACT_MANIFEST_INDEX_FILE
+  );
+  if (!index) {
+    throw new ContractManifestError(
+      `The contract manifest at ${origin} has no '${CONTRACT_MANIFEST_INDEX_FILE}'.`
+    );
+  }
+  const parsedIndex = parseManifestPart(
+    contractManifestIndexSchema,
+    parseJson(index),
+    "The contract manifest index",
+    `${index.name} (${origin})`
+  );
+
+  const inputs: ManifestInput[] = [];
+  const capabilities: ManifestCapability[] = [];
+  const claimedInputs = new Map<string, string>();
+  const shards = files
+    .filter(
+      (file) =>
+        file.name !== CONTRACT_MANIFEST_INDEX_FILE &&
+        file.name.endsWith(SHARD_EXTENSION)
+    )
+    .sort((left, right) => left.name.localeCompare(right.name));
+  for (const file of shards) {
+    const shard = parseManifestPart(
+      contractManifestShardSchema,
+      parseJson(file),
+      "The contract manifest capability",
+      `${file.name} (${origin})`
+    ) as ContractManifestShard;
+    const expected = shardFileName(shard.capability.stable_id);
+    if (file.name !== expected) {
+      throw new ContractManifestError(
+        `The contract manifest file '${file.name}' at ${origin} holds capability '${shard.capability.stable_id}', which belongs in '${expected}'.`
+      );
+    }
+    const claimedBy = claimedInputs.get(shard.input.path);
+    if (claimedBy) {
+      throw new ContractManifestError(
+        `The contract manifest at ${origin} records spec file '${shard.input.path}' under capabilities '${claimedBy}' and '${shard.capability.stable_id}'. Each spec file declares exactly one capability.`
+      );
+    }
+    claimedInputs.set(shard.input.path, shard.capability.stable_id);
+    inputs.push(shard.input);
+    capabilities.push(shard.capability);
+  }
+  if (capabilities.length === 0) {
+    throw new ContractManifestError(
+      `The contract manifest at ${origin} has an index but no capabilities.`
+    );
+  }
+  return {
+    schema_version: parsedIndex.schema_version,
+    repository: parsedIndex.repository,
+    inputs: inputs.sort((left, right) => left.path.localeCompare(right.path)),
+    capabilities: capabilities.sort((left, right) =>
+      left.stable_id.localeCompare(right.stable_id)
+    ),
+  };
+}
+
 /**
  * Writes the manifest directory and returns what it did.
  *

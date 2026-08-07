@@ -21,6 +21,13 @@ first authoring pass, not a separate approval or handoff process.
    manifest plus organization-wide semantic matching when available.
 6. Author the initial capabilities, Stories, and ACs under `.tieline/spec/`.
    Never create generic starter content merely to make the directory non-empty.
-7. Validate and compile the contract, then summarize the sources used,
-   inferred semantic boundaries, likely duplicates, mapping gaps, and proposed
-   contract changes for normal pull-request review.
+7. Validate and compile the contract.
+8. Grade the initial contract with the tieline-grade skill. With no manifest
+   at the comparison base, every authored link enters the grading scope as
+   `link_added`. You authored every one of them, so dispatch fresh subagents
+   batched by artifact path, passing only the emitted scope entries and never
+   the authoring rationale; a link none of your reasoning can defend to a cold
+   reader should be graded down, not argued for.
+9. Summarize the sources used, inferred semantic boundaries, likely
+   duplicates, mapping gaps, grade findings, and proposed contract changes for
+   normal pull-request review.

@@ -2,8 +2,18 @@
  * Deterministic scaffolding for a semantic judgment Tieline does not make.
  *
  * The host agent decides whether an artifact supports an acceptance criterion.
- * Tieline owns the complete diff scope and the closed citation vocabulary, so a
+ * Tieline owns the complete scope and the closed citation vocabulary, so a
  * grader may refuse support but cannot silently skip work or invent evidence.
+ *
+ * A contract link is a claim with two sides, and the scope covers a change to
+ * either one. The artifact side comes from the branch diff: a linked file that
+ * moved re-opens the claim over it. The claim side comes from comparing the
+ * branch manifest against the base ref's manifest: a link the base does not
+ * carry verbatim — new, inherited by a new criterion, or belonging to a
+ * re-worded criterion — is a judgment nobody has made yet, even when its
+ * artifact is untouched. The initial contract is the degenerate case: with no
+ * manifest at the base, every link is claim-side scope, so onboarding is
+ * graded by the same mechanism as drift.
  */
 
 import { createHash } from "node:crypto";
@@ -14,6 +24,7 @@ import type { RepositoryPathChange } from "./impact.js";
 import type { ContractManifest } from "./manifest.js";
 import {
   analyzeContractReconciliation,
+  buildContractClaimIndex,
   type ClaimingCriterion,
   type ReconciliationChangeStatus,
   type ReconciliationLinkScope,
@@ -27,6 +38,18 @@ import {
 } from "./selector.js";
 
 const BINARY_SNIFF_BYTES = 8_000;
+
+/**
+ * Why a link is in the grading scope. A diff status means the artifact side
+ * moved. `link_added` means the base manifest does not carry this claim at
+ * all; `criterion_changed` means it does, but under a different
+ * acceptance-criterion sentence, so the judgment on record was made against
+ * prose that no longer exists.
+ */
+export type GradeScopeReason =
+  | ReconciliationChangeStatus
+  | "link_added"
+  | "criterion_changed";
 
 export interface GradeScopeEntry {
   /** Opaque identity the verdict must echo exactly. */
@@ -45,7 +68,7 @@ export interface GradeScopeEntry {
   path: string;
   /** The path before a rename, otherwise null. */
   previous_path: string | null;
-  reason: ReconciliationChangeStatus;
+  reason: GradeScopeReason;
   /** Complete, sorted allow-list for a supported verdict's citation. */
   symbols: string[];
 }
@@ -71,6 +94,14 @@ export interface BuildGradeScopeInput {
   repositoryRoot: string;
   base: string;
   manifest: ContractManifest;
+  /**
+   * The manifest as committed at `base`, or null when that ref carries none —
+   * the initial contract, whose every link is then claim-side scope. Required
+   * rather than defaulted: a caller must state what the base said, because
+   * omitting it would silently drop claim-side work from the scope, and the
+   * scope may never be narrowed.
+   */
+  baseManifest: ContractManifest | null;
   changes: RepositoryPathChange[];
   sourceRoots: string[];
   ignore?: string[];
@@ -135,6 +166,57 @@ function scopeId(input: {
   return `grade:${createHash("sha256").update(identity).digest("hex")}`;
 }
 
+/**
+ * The fields that make two claims the same assertion. Criterion text is
+ * deliberately absent — a re-worded criterion is the same claim with a
+ * changed sentence, which is its own scope reason rather than a new claim.
+ */
+function claimIdentity(claim: ClaimingCriterion): string {
+  return [
+    claim.acceptance_criterion_stable_id,
+    claim.relation,
+    claim.linked_path,
+    claim.link_scope,
+  ].join("\0");
+}
+
+type ClaimChangeReason = Extract<
+  GradeScopeReason,
+  "link_added" | "criterion_changed"
+>;
+
+/**
+ * Claims the current manifest carries that the base manifest does not carry
+ * verbatim. Removal has no entry on purpose: a deleted link leaves no claim to
+ * judge, and a deleted criterion takes its links with it.
+ */
+function changedContractClaims(
+  manifest: ContractManifest,
+  baseManifest: ContractManifest | null
+): Array<{ claim: ClaimingCriterion; reason: ClaimChangeReason }> {
+  const baseClaims = new Map<string, ClaimingCriterion>();
+  if (baseManifest) {
+    for (const claims of buildContractClaimIndex(baseManifest).values()) {
+      for (const claim of claims) baseClaims.set(claimIdentity(claim), claim);
+    }
+  }
+  const changed: Array<{
+    claim: ClaimingCriterion;
+    reason: ClaimChangeReason;
+  }> = [];
+  for (const claims of buildContractClaimIndex(manifest).values()) {
+    for (const claim of claims) {
+      const base = baseClaims.get(claimIdentity(claim));
+      if (!base) {
+        changed.push({ claim, reason: "link_added" });
+      } else if (base.acceptance_criterion !== claim.acceptance_criterion) {
+        changed.push({ claim, reason: "criterion_changed" });
+      }
+    }
+  }
+  return changed;
+}
+
 function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
   return (
     left.acceptance_criterion_stable_id.localeCompare(
@@ -149,7 +231,8 @@ function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
 
 /**
  * Derives the grading work list from reconciliation's shared contract-claim
- * index. Every changed local claim survives; relevance scores never participate.
+ * index plus a claim diff against the base manifest. Every changed local claim
+ * survives, whichever side of it changed; relevance scores never participate.
  */
 export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
   const reconciliation = analyzeContractReconciliation({
@@ -161,15 +244,21 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
     specDirectory: input.specDirectory,
   });
   const symbolCache = new Map<string, string[]>();
+  const symbolsFor = (path: string): string[] => {
+    let symbols = symbolCache.get(path);
+    if (!symbols) {
+      symbols = citableSymbolsForPath(input.repositoryRoot, path);
+      symbolCache.set(path, symbols);
+    }
+    return symbols;
+  };
   const entries = new Map<string, GradeScopeEntry>();
+  const diffScopedClaims = new Set<string>();
 
   for (const change of reconciliation.claimed_changes) {
-    let symbols = symbolCache.get(change.path);
-    if (!symbols) {
-      symbols = citableSymbolsForPath(input.repositoryRoot, change.path);
-      symbolCache.set(change.path, symbols);
-    }
+    const symbols = symbolsFor(change.path);
     for (const claim of change.claimed_by) {
+      diffScopedClaims.add(claimIdentity(claim));
       const id = scopeId({
         acceptanceCriterionStableId: claim.acceptance_criterion_stable_id,
         relation: claim.relation,
@@ -198,6 +287,39 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
     }
   }
 
+  // A claim both diff-scoped and claim-side changed yields the diff entry: it
+  // carries the change status and rename lineage a claim-side reason cannot.
+  for (const { claim, reason } of changedContractClaims(
+    input.manifest,
+    input.baseManifest
+  )) {
+    if (diffScopedClaims.has(claimIdentity(claim))) continue;
+    const id = scopeId({
+      acceptanceCriterionStableId: claim.acceptance_criterion_stable_id,
+      relation: claim.relation,
+      linkedPath: claim.linked_path,
+      path: claim.linked_path,
+      linkScope: claim.link_scope,
+    });
+    if (entries.has(id)) continue;
+    entries.set(id, {
+      id,
+      capability_stable_id: claim.capability_stable_id,
+      story_stable_id: claim.story_stable_id,
+      story_title: claim.story_title,
+      acceptance_criterion_stable_id: claim.acceptance_criterion_stable_id,
+      acceptance_criterion: claim.acceptance_criterion,
+      relation: claim.relation,
+      provenance: claim.provenance,
+      link_scope: claim.link_scope,
+      linked_path: claim.linked_path,
+      path: claim.linked_path,
+      previous_path: null,
+      reason,
+      symbols: [...symbolsFor(claim.linked_path)],
+    });
+  }
+
   const ordered = [...entries.values()].sort(compareEntries);
   return {
     base: input.base,
@@ -212,7 +334,9 @@ export function renderGradeScopeText(scope: GradeScope): string {
     `Grading scope: ${scope.scoped_links} changed contract link(s) against ${scope.base}.\n`,
   ];
   if (scope.entries.length === 0) {
-    lines.push("  No changed path is claimed by a contract evidence link.\n");
+    lines.push(
+      "  No contract link changed: no changed path is claimed by an evidence link, and no link or criterion is new or re-worded against the base.\n"
+    );
     return lines.join("");
   }
   for (const entry of scope.entries) {

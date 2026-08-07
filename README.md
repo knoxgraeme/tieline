@@ -409,11 +409,16 @@ tieline contract grade . --base <base-ref> --emit-scope --json
 tieline contract grade . --base <base-ref> --verify <verdicts.json>
 ```
 
-The first command deterministically emits every diff-scoped acceptance-
-criterion link to grade and the exact symbol citations allowed for it. The
-agent inspects the artifacts and assigns `supported`, `partial`, or
-`unsupported`; the second command verifies that every verdict belongs to the
-scope and that every claimed citation came from its allow-list. Tieline does
+The first command deterministically emits every changed acceptance-criterion
+link to grade and the exact symbol citations allowed for it. A link enters the
+scope when either of its sides changed against the base: the artifact side —
+the linked file was modified, added, renamed, or deleted — or the claim side —
+the link is new, belongs to a new criterion, or its criterion was re-worded,
+even when the linked file is untouched. A base with no manifest is the initial
+contract, so onboarding's links are all in scope as `link_added`. The agent
+inspects the artifacts and assigns `supported`, `partial`, or `unsupported`;
+the second command verifies that every verdict belongs to the scope and that
+every claimed citation came from its allow-list. Tieline does
 not call a model, database, or network for this workflow. Verification is
 advisory by default, including negative results; add `--strict` to the verify
 command only when unsupported evidence should fail the gate. The packaged
@@ -767,7 +772,7 @@ earlier model must be recreated rather than upgraded in place.
 | `migrations/` | PostgreSQL/pgvector schema and role baseline |
 | `scripts/` | Contract, retrieval, transport, and integration verification |
 | `skills/tieline-author/` | Packaged semantic authoring workflow |
-| `skills/tieline-grade/` | Packaged agent workflow for grading diff-scoped contract evidence |
+| `skills/tieline-grade/` | Packaged agent workflow for grading changed contract evidence |
 | `.tieline/` | This repository's own accepted contract and compiled manifest |
 
 ## License
