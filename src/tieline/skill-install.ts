@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { z } from "zod";
 
 export const SUPPORTED_SKILL_AGENTS = [
@@ -14,6 +16,40 @@ export const SUPPORTED_SKILL_AGENTS = [
 
 export type SkillAgentId = (typeof SUPPORTED_SKILL_AGENTS)[number]["id"];
 export type SkillInstallScope = "project" | "global";
+
+/**
+ * Filesystem markers that suggest an agent is installed or already used in
+ * this repository. Detection only preselects the interactive agent choice;
+ * a wrong guess costs one keypress, so weak markers are acceptable.
+ */
+const AGENT_INSTALL_MARKERS: Record<
+  SkillAgentId,
+  { home: string[]; repo: string[] }
+> = {
+  "claude-code": { home: [".claude"], repo: [".claude"] },
+  codex: { home: [".codex"], repo: [".codex"] },
+  cursor: { home: [".cursor"], repo: [".cursor"] },
+  "gemini-cli": { home: [".gemini"], repo: [".gemini"] },
+  "github-copilot": { home: [".vscode"], repo: [".vscode"] },
+  opencode: {
+    home: [join(".config", "opencode"), join(".local", "share", "opencode")],
+    repo: ["opencode.json"],
+  },
+  windsurf: { home: [join(".codeium", "windsurf")], repo: [] },
+};
+
+export function detectInstalledAgents(
+  root: string,
+  home: string = homedir()
+): SkillAgentId[] {
+  return SUPPORTED_SKILL_AGENTS.filter((agent) => {
+    const markers = AGENT_INSTALL_MARKERS[agent.id];
+    return (
+      markers.home.some((marker) => existsSync(join(home, marker))) ||
+      markers.repo.some((marker) => existsSync(resolve(root, marker)))
+    );
+  }).map((agent) => agent.id);
+}
 
 export const SKILL_INSTALL_TIMEOUT_MS = 120_000;
 const SKILL_INSTALL_FORCE_KILL_GRACE_MS = 1_000;

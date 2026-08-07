@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import { Command, CommanderError, Option } from "commander";
 import type { EmbeddingProvider } from "./config.js";
 import {
-  ask,
   confirmChoice,
   createPalette,
   intro,
@@ -19,7 +18,6 @@ import {
   paletteFor,
   renderBanner,
   renderCopyCallout,
-  selectChoice,
   showNote,
 } from "./cli-ui.js";
 import type { Palette } from "./cli-ui.js";
@@ -53,6 +51,7 @@ import {
   type McpConfigOutcome,
 } from "./tieline/mcp-config.js";
 import {
+  detectInstalledAgents,
   installTielineAuthor,
   normalizeSkillAgentIds,
   runSkillfishProcess,
@@ -99,7 +98,8 @@ export interface TielineCliPrompts {
   ): Promise<string | null>;
   multiselect(
     message: string,
-    options: readonly TielineCliPromptOption[]
+    options: readonly TielineCliPromptOption[],
+    initialValues?: readonly string[]
   ): Promise<string[] | null>;
   note(title: string, message: string): void;
 }
@@ -151,24 +151,6 @@ interface SkillInstallSelection {
   scope: SkillInstallScope;
 }
 
-const DATABASE_MODE_OPTIONS = [
-  {
-    value: "offline",
-    label: "Offline",
-    hint: "Local authoring without organization-wide matching",
-  },
-  {
-    value: "local",
-    label: "Local PostgreSQL",
-    hint: "Docker PostgreSQL with pgvector",
-  },
-  {
-    value: "existing",
-    label: "Hosted / remote PostgreSQL",
-    hint: "Connect using operator-provided URLs",
-  },
-] as const;
-
 const EMBEDDING_PROVIDER_OPTIONS = [
   { value: "local", label: "Local gte-small" },
   { value: "openai", label: "OpenAI" },
@@ -179,19 +161,6 @@ const SKILL_AGENT_OPTIONS = SUPPORTED_SKILL_AGENTS.map((agent) => ({
   value: agent.id,
   label: agent.selector,
 }));
-
-const SKILL_SCOPE_OPTIONS = [
-  {
-    value: "project",
-    label: "Project",
-    hint: "Install for this repository",
-  },
-  {
-    value: "global",
-    label: "Global",
-    hint: "Install for your user account",
-  },
-] as const;
 
 function withoutDatabaseEnvironment(
   env: NodeJS.ProcessEnv
@@ -272,7 +241,8 @@ function renderMcpSummary(
     lines.push(
       `MCP server: ${merged
         .map((write) => `${write.path} ${write.status}`)
-        .join("; ")}`
+        .join("; ")}`,
+      "MCP tools load when your client starts its next session; the tieline CLI works immediately."
     );
   }
   for (const write of failed) {
@@ -510,15 +480,6 @@ async function runInit(
     throw new Error("--skill-scope requires at least one --agent.");
   }
   if (parsed.agents.length > 0) normalizeSkillAgentIds(parsed.agents);
-  if (
-    parsed.agents.length > 0 &&
-    !parsed.skillScope &&
-    (parsed.yes || !io.interactive)
-  ) {
-    throw new Error(
-      "--agent requires --skill-scope project|global for non-interactive initialization."
-    );
-  }
 
   const existing = findTielineWorkspace(parsed.target);
   let skillSelection: SkillInstallSelection | null = null;
@@ -615,49 +576,22 @@ async function runInit(
   }
 
   const richInteractive = Boolean(io.interactive && !parsed.yes);
-  const legacyPrompt = Boolean(
-    !io.interactive && !parsed.yes && (!parsed.product || !parsed.repoName)
-  );
   if (richInteractive) {
     io.write(`${renderBanner(paletteFor(io))}\n\n`);
+    await intro(io, "tieline init");
   }
-  if (richInteractive || legacyPrompt) await intro(io, "tieline init");
-  const detectedProduct = detectProductName(parsed.target);
-  const product =
-    parsed.product ??
-    (parsed.yes
-      ? detectedProduct
-      : await ask(io, "Company/product name", detectedProduct));
-  const detectedRepo = detectRepositoryName(parsed.target);
+  const product = parsed.product ?? detectProductName(parsed.target);
   const repoName = slugifyRepoName(
-    parsed.repoName ??
-      (parsed.yes
-        ? detectedRepo
-        : await ask(io, "Stable repository name", detectedRepo))
+    parsed.repoName ?? detectRepositoryName(parsed.target)
   );
   const description = parsed.description;
   const context = normalizeContextLocations(parsed.target, parsed.context);
-  const detectedRoots = detectSourceRoots(parsed.target);
   const sourceRoots =
-    parsed.sourceRoots.length > 0 ? parsed.sourceRoots : detectedRoots;
-  let database = parsed.database;
-  if (!parsed.databaseExplicit && richInteractive) {
-    database = await selectChoice<DatabaseMode>(
-      io,
-      "Database mode",
-      DATABASE_MODE_OPTIONS,
-      database
-    );
-  }
-  let embedding = parsed.embedding;
-  if (!parsed.embeddingExplicit && richInteractive) {
-    embedding = await selectChoice<EmbeddingProvider>(
-      io,
-      "Embedding provider",
-      EMBEDDING_PROVIDER_OPTIONS,
-      embedding === "hash" ? "local" : embedding
-    );
-  }
+    parsed.sourceRoots.length > 0
+      ? parsed.sourceRoots
+      : detectSourceRoots(parsed.target);
+  const database = parsed.database;
+  const embedding = parsed.embedding;
 
   skillSelection = await resolveSkillSelection(
     parsed,
@@ -673,7 +607,7 @@ async function runInit(
     await confirmInitReview(
       io,
       [
-        `Workspace: create .tieline for ${product} (${repoName})`,
+        `Workspace: create .tieline for ${product} (${repoName})${parsed.product ? "" : " (auto-detected)"}`,
         `Context: ${contextReview.length > 0 ? contextReview.join(", ") : "discover during semantic onboarding"}`,
         `Code scope: ${codeScopeLabel(sourceRoots)}${parsed.sourceRoots.length === 0 ? " (auto-detected)" : ""}`,
         `Runtime: ${databaseModeLabel(database)} with ${embeddingProviderLabel(embedding)} embeddings`,
@@ -752,21 +686,14 @@ async function resolveSkillSelection(
     agents = await multiselectChoice<SkillAgentId>(
       io,
       "Where should Tieline install its onboarding and authoring skill?",
-      SKILL_AGENT_OPTIONS
+      SKILL_AGENT_OPTIONS,
+      detectInstalledAgents(parsed.target)
     );
-    if (agents.length === 0) {
-      throw new Error("Select at least one supported agent.");
-    }
+    // Deselecting everything is a choice, not an error: initialize the
+    // workspace without pushing the skill into any agent.
+    if (agents.length === 0) return null;
   }
-  const scope =
-    parsed.skillScope ??
-    (await selectChoice<SkillInstallScope>(
-      io,
-      "Onboarding skill installation scope",
-      SKILL_SCOPE_OPTIONS,
-      "project"
-    ));
-  return { agents, scope };
+  return { agents, scope: parsed.skillScope ?? "project" };
 }
 
 function renderSkillReview(

@@ -175,11 +175,16 @@ export async function selectChoice<T extends string>(
 export async function multiselectChoice<T extends string>(
   io: TielineCliIO,
   message: string,
-  options: readonly TielineCliPromptOption[]
+  options: readonly TielineCliPromptOption[],
+  initialValues: readonly T[] = []
 ): Promise<T[]> {
   if (!io.interactive) return [];
   if (io.prompts) {
-    const value = await io.prompts.multiselect(message, options);
+    const value = await io.prompts.multiselect(
+      message,
+      options,
+      initialValues
+    );
     if (value === null) throw new Error("Cancelled.");
     return value as T[];
   }
@@ -187,7 +192,8 @@ export async function multiselectChoice<T extends string>(
   const value = await clack.multiselect({
     message,
     options: [...options],
-    required: true,
+    initialValues: [...initialValues],
+    required: false,
   });
   if (clack.isCancel(value)) {
     clack.cancel("Cancelled.");

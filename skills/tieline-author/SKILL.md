@@ -10,12 +10,19 @@ separate draft, proposal, or semantic-approval record.
 
 Read [contract.md](references/contract.md) before editing contract YAML.
 
+If `.tieline/config.json` does not exist, bootstrap deterministic setup first:
+run `npx -y tieline init . --yes --agent <this-agent-id>` and continue once it
+succeeds. Never wait for tieline MCP tools mid-session — registered servers
+load when the client starts its next session, and every workflow here also
+works through the CLI (`npx -y tieline <command>`).
+
 When invoked after `tieline init` as an installed skill or MCP prompt, inspect
 `.tieline/spec/`. If it has no YAML, read
 [onboarding.md](references/onboarding.md) and perform semantic onboarding
-before choosing a normal authoring flow. The CLI has already captured
-deterministic setup; do not ask the user to repeat product, repository, or
-source-root answers that are present in `.tieline/config.json`.
+before choosing a normal authoring flow. Init records auto-detected values, so
+verify rather than interrogate: confirm detected identity with the user and
+correct `.tieline/config.json` when a detection is wrong, but never ask for
+anything the repository can answer.
 
 ## Orient to this repository
 
