@@ -26,9 +26,10 @@ import {
   readWorkspaceProfile,
 } from "../src/tieline/profile.js";
 import { configureWorkspaceRuntime } from "../src/tieline/setup.js";
-import type {
-  SkillfishInvocation,
-  SkillfishProcessResult,
+import {
+  detectRepositoryAgents,
+  type SkillfishInvocation,
+  type SkillfishProcessResult,
 } from "../src/tieline/skill-install.js";
 import type { TielineStatus } from "../src/tieline/status.js";
 import {
@@ -187,6 +188,29 @@ try {
     0
   );
   assert.equal(detectRepositoryName(remoteTarget), "remote-checkout");
+
+  const detectionTarget = resolve(root, "agent-detection");
+  mkdirSync(resolve(detectionTarget, ".cursor"), { recursive: true });
+  mkdirSync(resolve(detectionTarget, ".agents", "skills"), {
+    recursive: true,
+  });
+  assert.deepEqual(
+    detectRepositoryAgents(detectionTarget, {}),
+    ["codex", "cursor"],
+    "preselection must come from repository evidence, not machine installs"
+  );
+  assert.deepEqual(
+    detectRepositoryAgents(detectionTarget, { CLAUDECODE: "1" }),
+    ["claude-code", "codex", "cursor"],
+    "an agent session running init preselects that agent"
+  );
+  const bareTarget = resolve(detectionTarget, "bare");
+  mkdirSync(bareTarget, { recursive: true });
+  assert.deepEqual(
+    detectRepositoryAgents(bareTarget, {}),
+    [],
+    "a repository without agent evidence preselects nothing"
+  );
 
   const validationTarget = resolve(root, "validation-target");
   mkdirSync(resolve(validationTarget, "src"), { recursive: true });
@@ -1302,7 +1326,7 @@ capability:
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
-    /Do not enumerate the authored Stories or acceptance\s+criteria inline/,
+    /Do not enumerate the authored\s+Stories or acceptance\s+criteria inline/,
     "onboarding must deliver the review page, not an inline listing"
   );
   assert.match(
@@ -1310,6 +1334,23 @@ capability:
     /pointing at `\.tieline\/review\.html`/,
     "the skill must present contract content through the review page"
   );
+  const reportReference = readFileSync(
+    resolve(
+      process.cwd(),
+      "skills/tieline-author/references/report.md"
+    ),
+    "utf8"
+  );
+  assert.match(reportReference, /Deliverable first/);
+  assert.match(reportReference, /Fifteen lines or fewer/);
+  assert.match(
+    reportReference,
+    /Never\s+describe it as stale and never tell the user to regenerate it by\s+hand/,
+    "compile keeps the page current; the report must not claim otherwise"
+  );
+  assert.match(reportReference, /pull-request body/);
+  assert.match(authorSkill, /references\/report\.md/);
+  assert.match(onboardingReference, /references\/report\.md/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
