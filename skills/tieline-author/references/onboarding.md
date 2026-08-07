@@ -55,10 +55,11 @@ a human first sees them. Verify, do not re-ask.
    batched by artifact path, passing only the emitted scope entries and never
    the authoring rationale; a link none of your reasoning can defend to a cold
    reader should be graded down, not argued for.
-9. Deliver the result as `.tieline/review.html`: tell the user to open it in
-   a browser (compiling refreshed it) to review the authored capabilities,
-   Stories, and ACs. Do not enumerate the authored Stories or acceptance
-   criteria inline — a full listing in chat is harder to review than the
-   page. Keep the reply at the capability level: counts, a one-line boundary
-   per capability, sources used, likely duplicates, mapping gaps, and grade
-   findings.
+9. Close with the completion report shaped by
+   [report.md](references/report.md): `.tieline/review.html` is the
+   deliverable and leads the reply, followed by at most three
+   needs-your-review bullets and two caveats. Do not enumerate the authored
+   Stories or acceptance criteria inline — a full listing in chat is harder
+   to review than the page. The detailed narrative (sources inspected,
+   config corrections, link fixes, verification results) belongs in the
+   pull-request body, not in chat.

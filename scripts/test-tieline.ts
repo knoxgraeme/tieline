@@ -1326,7 +1326,7 @@ capability:
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
-    /Do not enumerate the authored Stories or acceptance\s+criteria inline/,
+    /Do not enumerate the authored\s+Stories or acceptance\s+criteria inline/,
     "onboarding must deliver the review page, not an inline listing"
   );
   assert.match(
@@ -1334,6 +1334,23 @@ capability:
     /pointing at `\.tieline\/review\.html`/,
     "the skill must present contract content through the review page"
   );
+  const reportReference = readFileSync(
+    resolve(
+      process.cwd(),
+      "skills/tieline-author/references/report.md"
+    ),
+    "utf8"
+  );
+  assert.match(reportReference, /Deliverable first/);
+  assert.match(reportReference, /Fifteen lines or fewer/);
+  assert.match(
+    reportReference,
+    /Never\s+describe it as stale and never tell the user to regenerate it by\s+hand/,
+    "compile keeps the page current; the report must not claim otherwise"
+  );
+  assert.match(reportReference, /pull-request body/);
+  assert.match(authorSkill, /references\/report\.md/);
+  assert.match(onboardingReference, /references\/report\.md/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
