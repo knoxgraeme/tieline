@@ -1345,7 +1345,7 @@ capability:
   assert.match(reportReference, /Fifteen lines or fewer/);
   assert.match(
     reportReference,
-    /Never describe it as stale and never tell the user to regenerate it by\s+hand/,
+    /Never\s+describe it as stale and never tell the user to regenerate it by\s+hand/,
     "compile keeps the page current; the report must not claim otherwise"
   );
   assert.match(reportReference, /pull-request body/);
