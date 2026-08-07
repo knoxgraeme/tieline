@@ -212,6 +212,7 @@ try {
     readdirSync(manifestPath)
       .sort()
       .map((name) => [name, readFileSync(resolve(manifestPath, name), "utf8")]);
+  rmSync(resolve(root, ".tieline/review.html"));
   output = "";
   const compileExit = await runCli(
     [
@@ -243,6 +244,16 @@ try {
     "REVIEW.json",
   ]);
   assert.deepEqual(compileResult.removed_files, []);
+  assert.equal(compileResult.review_page, ".tieline/review.html");
+  assert.match(
+    readFileSync(resolve(root, ".tieline/review.html"), "utf8"),
+    /BEHAVIOR/,
+    "compile must regenerate the review page"
+  );
+  assert.equal(
+    readFileSync(resolve(root, ".tieline/.gitignore"), "utf8"),
+    "review.html\n"
+  );
   // The index carries only what belongs to the repository as a whole; each
   // capability is its own file, so branches that touch different capabilities
   // have nothing in common to conflict over.

@@ -51,6 +51,10 @@ import {
   type McpConfigOutcome,
 } from "./tieline/mcp-config.js";
 import {
+  TIELINE_REVIEW_PAGE,
+  writeWorkspaceReviewPage,
+} from "./tieline/review.js";
+import {
   detectInstalledAgents,
   installTielineAuthor,
   normalizeSkillAgentIds,
@@ -330,6 +334,7 @@ function renderInitSummary(
     `${ui.green("Runtime:")} ${runtimeDescription}`,
     `Code scope: ${codeScopeLabel(workspace.config.repository.source_roots)}`,
     ...renderMcpSummary(mcp, codex, ui),
+    `Review: open ${TIELINE_REVIEW_PAGE} in a browser to browse capabilities as they are authored.`,
   ];
   if (optional.length > 0) {
     lines.push(
@@ -538,6 +543,10 @@ async function runInit(
         env,
         dependencies
       );
+      writeWorkspaceReviewPage(
+        existing.root,
+        existing.config.product.repo_name
+      );
       const mcpLines = renderMcpSummary(mcp, null, ui);
       io.write(
         `Tieline is already initialized at ${existing.directory}.\n${mcpLines.length > 0 ? `${mcpLines.join("\n")}\n` : ""}${renderStatus(getTielineStatus(existing, env), ui)}\n`
@@ -555,6 +564,10 @@ async function runInit(
       skillSelection,
       env,
       dependencies
+    );
+    writeWorkspaceReviewPage(
+      existing.root,
+      existing.config.product.repo_name
     );
     renderInitSummary(
       existing,
@@ -654,6 +667,10 @@ async function runInit(
     skillSelection,
     env,
     dependencies
+  );
+  writeWorkspaceReviewPage(
+    result.workspace.root,
+    result.workspace.config.product.repo_name
   );
   // Close the Clack flow before the summary so the paste-ready prompt is the
   // last thing on screen rather than trailing into the flow's end cap.
