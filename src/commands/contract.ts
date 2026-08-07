@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
 import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
@@ -11,6 +11,7 @@ import {
 import {
   attachCurrentArtifactHashes,
   compileContractManifestWithSources,
+  parseContractManifestSnapshot,
   readContractManifest,
   writeContractManifest,
   CONTRACT_MANIFEST_INDEX_FILE,
@@ -196,6 +197,11 @@ function runGrade(
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
+    baseManifest: manifestAtBase(
+      parsed.repositoryRoot,
+      parsed.base,
+      parsed.manifestPath
+    ),
     changes: changesSince(parsed.repositoryRoot, parsed.base),
     sourceRoots: parsed.sourceRoots,
     ignore: parsed.ignore,
@@ -243,6 +249,51 @@ function changesSince(repositoryRoot: string, base: string) {
       ["diff", "--name-status", "--find-renames", base],
       { cwd: repositoryRoot, encoding: "utf8" }
     )
+  );
+}
+
+/**
+ * The manifest as committed at `base`, or null when that ref carries none —
+ * the initial contract, whose every link is then claim-side grading scope.
+ *
+ * Only a manifest inside the repository can have a version at a ref, so a
+ * manifest configured elsewhere is refused: treating it as absent would grade
+ * the whole contract as newly claimed, which is a fabricated scope.
+ */
+function manifestAtBase(
+  repositoryRoot: string,
+  base: string,
+  manifestPath: string
+): ContractManifest | null {
+  const directory = relative(resolve(repositoryRoot), resolve(manifestPath))
+    .split(sep)
+    .join("/");
+  if (
+    directory === ".." ||
+    directory.startsWith("../") ||
+    isAbsolute(directory)
+  ) {
+    throw new Error(
+      `Cannot derive claim-side grading scope: the manifest at '${manifestPath}' is outside the repository, so '${base}' cannot hold a version of it.`
+    );
+  }
+  const names = execFileSync(
+    "git",
+    ["ls-tree", "-r", "--name-only", base, "--", directory],
+    { cwd: repositoryRoot, encoding: "utf8" }
+  )
+    .split("\n")
+    .filter(Boolean);
+  if (names.length === 0) return null;
+  return parseContractManifestSnapshot(
+    names.map((name) => ({
+      name: name.slice(`${directory}/`.length),
+      content: execFileSync("git", ["show", `${base}:${name}`], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      }),
+    })),
+    `ref '${base}'`
   );
 }
 

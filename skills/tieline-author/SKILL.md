@@ -109,8 +109,14 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
    tieline check --base <base-ref>
    ```
 
-9. Summarize the semantic diff, impacted ACs, freshness warnings, coverage
-   delta, likely duplicates, unresolved conflicts, and unmapped source files.
+9. Grade the contract change with the tieline-grade skill. The grading scope
+   covers both sides of every link — artifacts the branch moved, and links or
+   criteria the branch added or re-worded against unchanged code. You authored
+   these links, so dispatch fresh subagents batched by artifact path and give
+   them only the emitted scope entries, never your authoring rationale.
+10. Summarize the semantic diff, impacted ACs, grade findings, freshness
+    warnings, coverage delta, likely duplicates, unresolved conflicts, and
+    unmapped source files.
 
 Do not mutate a repository-owned Story through MCP. Change its YAML on the
 branch and let normal PR review accept or reject it.

@@ -45,6 +45,18 @@ export function renderBanner(ui: Palette): string {
   }).join("\n");
 }
 
+const CALLOUT_MAX_WIDTH = 72;
+
+/**
+ * Sets a copy-me value apart from the report around it. The value sits alone
+ * on its own line between rules so a triple-click selects exactly the text to
+ * paste — a prefix, indent, or box border would be selected along with it.
+ */
+export function renderCopyCallout(ui: Palette, value: string): string[] {
+  const rule = ui.dim("─".repeat(Math.min(value.length, CALLOUT_MAX_WIDTH)));
+  return [rule, ui.bold(ui.cyan(value)), rule];
+}
+
 /**
  * Ask for a single value with a default. Uses a Clack prompt on an
  * interactive terminal and falls back to the injected io.question

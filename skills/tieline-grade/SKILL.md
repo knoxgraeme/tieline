@@ -1,6 +1,6 @@
 ---
 name: tieline-grade
-description: Judge whether the Tieline acceptance-criterion links touched by a branch are supported by their artifacts, then verify every judgment against a deterministic citation fence. Use when asked to grade, judge, audit, or check the evidence quality of changed Tieline contract links, or to confirm that linked code and tests still support their criteria before a pull request merges.
+description: Judge whether the Tieline acceptance-criterion links touched by a branch — artifacts that moved, links that were added, criteria that were re-worded, or an entire initial contract — are supported by their artifacts, then verify every judgment against a deterministic citation fence. Use when asked to grade, judge, audit, or check the evidence quality of changed Tieline contract links, to grade a freshly onboarded contract, or to confirm that linked code and tests still support their criteria before a pull request merges.
 ---
 
 # Tieline grade
@@ -24,11 +24,17 @@ This command is offline and database-free. Each entry contains:
 - the acceptance-criterion ID and exact `acceptance_criterion` text;
 - `relation`, `linked_path`, and `link_scope`, describing the contract link;
 - `path`, the current artifact to inspect;
-- `reason` and `previous_path`, describing the diff; and
+- `reason` and `previous_path`, describing why the link is in scope: a diff
+  status when the artifact side moved, or `link_added` / `criterion_changed`
+  when the claim side is new or re-worded against the base manifest; and
 - `symbols`, the complete allow-list of citations for that artifact.
 
-An empty scope is a stated answer: report that no changed path is claimed by a
-contract evidence link, then stop.
+A base ref with no contract manifest — the initial contract — puts every link
+in scope as `link_added`, so onboarding is graded by this same workflow.
+
+An empty scope is a stated answer: report that no contract link changed
+against the base — no claimed artifact moved and no link or criterion is new
+or re-worded — then stop.
 
 ## Judge every entry
 
@@ -36,7 +42,9 @@ Read the artifact and relevant diff for every scope entry. For a rename,
 `linked_path` is the exact old-path or new-path target named by the contract;
 read the current `path` and use `previous_path` for context. For a deletion,
 inspect the diff or base version; its empty symbol list means it cannot receive
-`supported`.
+`supported`. For `link_added` and `criterion_changed`, the artifact may be
+untouched by the branch and there may be no diff hunk to lean on; judge the
+artifact as it stands against the entry's criterion sentence.
 
 Choose exactly one grade per entry:
 
@@ -57,6 +65,28 @@ Apply these rules:
    `partial` or `unsupported`. Do not stretch the nearest plausible name.
 5. Treat `unsupported` as useful evidence, not a failed grading run. Never omit
    a difficult entry; omission is normalized to `unsupported`.
+
+## Dispatch fresh subagents for self-authored or bulk scopes
+
+When the scope contains links authored in this session — onboarding grades the
+entire initial contract this way — or is too large to judge in one context, do
+not judge the entries yourself. A context holding the rationale that produced
+a link cannot judge that link independently; what makes a grade independent is
+what the judge cannot see.
+
+1. Group the scope entries by `path`, one batch per artifact.
+2. Dispatch one subagent per batch. Give it only the batch's scope entries —
+   `id`, `acceptance_criterion`, `relation`, `linked_path`, `path`, `reason`,
+   and `symbols` — plus the judgment rules above, and have it read the
+   artifact and return exactly one verdict per entry. Never pass authoring
+   notes, rationale, or surrounding conversation.
+3. Collect the returned verdicts into the single verdicts document yourself,
+   then verify as below.
+
+The fence extends the subagents no trust: a fabricated citation is downgraded
+and an unreturned verdict is normalized to `unsupported` either way. When
+grading self-authored links directly instead, disclose in the report that the
+grades are author-graded.
 
 ## Show the judgment before verification
 
