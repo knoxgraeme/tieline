@@ -26,9 +26,10 @@ import {
   readWorkspaceProfile,
 } from "../src/tieline/profile.js";
 import { configureWorkspaceRuntime } from "../src/tieline/setup.js";
-import type {
-  SkillfishInvocation,
-  SkillfishProcessResult,
+import {
+  detectRepositoryAgents,
+  type SkillfishInvocation,
+  type SkillfishProcessResult,
 } from "../src/tieline/skill-install.js";
 import type { TielineStatus } from "../src/tieline/status.js";
 import {
@@ -187,6 +188,29 @@ try {
     0
   );
   assert.equal(detectRepositoryName(remoteTarget), "remote-checkout");
+
+  const detectionTarget = resolve(root, "agent-detection");
+  mkdirSync(resolve(detectionTarget, ".cursor"), { recursive: true });
+  mkdirSync(resolve(detectionTarget, ".agents", "skills"), {
+    recursive: true,
+  });
+  assert.deepEqual(
+    detectRepositoryAgents(detectionTarget, {}),
+    ["codex", "cursor"],
+    "preselection must come from repository evidence, not machine installs"
+  );
+  assert.deepEqual(
+    detectRepositoryAgents(detectionTarget, { CLAUDECODE: "1" }),
+    ["claude-code", "codex", "cursor"],
+    "an agent session running init preselects that agent"
+  );
+  const bareTarget = resolve(detectionTarget, "bare");
+  mkdirSync(bareTarget, { recursive: true });
+  assert.deepEqual(
+    detectRepositoryAgents(bareTarget, {}),
+    [],
+    "a repository without agent evidence preselects nothing"
+  );
 
   const validationTarget = resolve(root, "validation-target");
   mkdirSync(resolve(validationTarget, "src"), { recursive: true });

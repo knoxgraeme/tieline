@@ -55,7 +55,7 @@ import {
   writeWorkspaceReviewPage,
 } from "./tieline/review.js";
 import {
-  detectInstalledAgents,
+  detectRepositoryAgents,
   installTielineAuthor,
   normalizeSkillAgentIds,
   runSkillfishProcess,
@@ -494,7 +494,8 @@ async function runInit(
     skillSelection = await resolveSkillSelection(
       parsed,
       io,
-      Boolean(io.interactive && !parsed.yes && existingStatus.onboarding)
+      Boolean(io.interactive && !parsed.yes && existingStatus.onboarding),
+      env
     );
     const stored = readWorkspaceProfile(existing, env);
     const databaseMode = parsed.databaseExplicit
@@ -609,7 +610,8 @@ async function runInit(
   skillSelection = await resolveSkillSelection(
     parsed,
     io,
-    richInteractive
+    richInteractive,
+    env
   );
 
   if (richInteractive) {
@@ -691,7 +693,8 @@ async function runInit(
 async function resolveSkillSelection(
   parsed: InitOptions,
   io: TielineCliIO,
-  offerInteractive: boolean
+  offerInteractive: boolean,
+  env: NodeJS.ProcessEnv
 ): Promise<SkillInstallSelection | null> {
   if (parsed.skipSkillInstall) return null;
   let agents =
@@ -704,7 +707,7 @@ async function resolveSkillSelection(
       io,
       "Where should Tieline install its onboarding and authoring skill?",
       SKILL_AGENT_OPTIONS,
-      detectInstalledAgents(parsed.target)
+      detectRepositoryAgents(parsed.target, env)
     );
     // Deselecting everything is a choice, not an error: initialize the
     // workspace without pushing the skill into any agent.

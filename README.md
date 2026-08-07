@@ -174,8 +174,10 @@ current machine. Without it, replace `tieline` in the examples below with
 
 Run init from the repository. It auto-detects the product name, repository
 name, and code scope, defaults the runtime to offline, and asks one question:
-which coding agents should receive the onboarding skill (preselected from the
-agents detected on the machine). Everything else — product description,
+which coding agents should receive the onboarding skill. Agents the
+repository already shows evidence of (`.claude/`, `.agents/`, `.cursor/`, and
+similar), or the agent whose session is running init, arrive preselected;
+nothing else does. Everything else — product description,
 context sources, database upgrades — is gathered conversationally by the
 agent during semantic onboarding, where it can read the repository first and
 verify instead of interrogate:

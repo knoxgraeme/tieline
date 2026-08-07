@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { z } from "zod";
 
 export const SUPPORTED_SKILL_AGENTS = [
@@ -18,35 +17,42 @@ export type SkillAgentId = (typeof SUPPORTED_SKILL_AGENTS)[number]["id"];
 export type SkillInstallScope = "project" | "global";
 
 /**
- * Filesystem markers that suggest an agent is installed or already used in
- * this repository. Detection only preselects the interactive agent choice;
- * a wrong guess costs one keypress, so weak markers are acceptable.
+ * Repository files that show which agents this project already uses. Home
+ * directories are deliberately not consulted: on a machine with several
+ * agents installed every home marker matches, and a preselection of
+ * everything is indistinguishable from no detection at all. `.agents/` maps
+ * to Codex because Codex resolves repository skills from `.agents/skills`.
  */
-const AGENT_INSTALL_MARKERS: Record<
-  SkillAgentId,
-  { home: string[]; repo: string[] }
-> = {
-  "claude-code": { home: [".claude"], repo: [".claude"] },
-  codex: { home: [".codex"], repo: [".codex"] },
-  cursor: { home: [".cursor"], repo: [".cursor"] },
-  "gemini-cli": { home: [".gemini"], repo: [".gemini"] },
-  "github-copilot": { home: [".vscode"], repo: [".vscode"] },
-  opencode: {
-    home: [join(".config", "opencode"), join(".local", "share", "opencode")],
-    repo: ["opencode.json"],
-  },
-  windsurf: { home: [join(".codeium", "windsurf")], repo: [] },
+const AGENT_REPO_MARKERS: Record<SkillAgentId, string[]> = {
+  "claude-code": [".claude"],
+  codex: [".codex", ".agents"],
+  cursor: [".cursor"],
+  "gemini-cli": [".gemini"],
+  "github-copilot": [".vscode"],
+  opencode: ["opencode.json"],
+  windsurf: [".windsurf"],
 };
 
-export function detectInstalledAgents(
+/**
+ * Environment variables an agent sets in the shells it spawns; when init
+ * runs inside an agent session, that agent is the surest candidate.
+ */
+const AGENT_ENV_MARKERS: Partial<Record<SkillAgentId, string[]>> = {
+  "claude-code": ["CLAUDECODE"],
+};
+
+export function detectRepositoryAgents(
   root: string,
-  home: string = homedir()
+  env: NodeJS.ProcessEnv = process.env
 ): SkillAgentId[] {
   return SUPPORTED_SKILL_AGENTS.filter((agent) => {
-    const markers = AGENT_INSTALL_MARKERS[agent.id];
-    return (
-      markers.home.some((marker) => existsSync(join(home, marker))) ||
-      markers.repo.some((marker) => existsSync(resolve(root, marker)))
+    if (
+      AGENT_ENV_MARKERS[agent.id]?.some((name) => env[name]?.trim())
+    ) {
+      return true;
+    }
+    return AGENT_REPO_MARKERS[agent.id].some((marker) =>
+      existsSync(resolve(root, marker))
     );
   }).map((agent) => agent.id);
 }
