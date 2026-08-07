@@ -11,7 +11,6 @@ export const TIELINE_SPEC_DIRECTORY = "spec";
  * repository-level fields and one file per capability.
  */
 export const TIELINE_MANIFEST_DIRECTORY = "manifest";
-export const TIELINE_MCP_FILE = "mcp.json";
 
 const contextSourceSchema = z
   .object({
@@ -59,7 +58,6 @@ export const tielineConfigSchema = z
       .object({
         spec_directory: z.string().min(1),
         manifest: z.string().min(1),
-        mcp_config: z.string().min(1),
       })
       .strict(),
     // Optional so existing configurations stay valid. The block is read
@@ -82,7 +80,6 @@ export interface TielineWorkspace {
   specDirectoryPath: string;
   /** Directory holding the compiled manifest, not a single file. */
   manifestPath: string;
-  mcpConfigPath: string;
 }
 
 function resolveWorkspaceFile(directory: string, path: string): string {
@@ -109,7 +106,6 @@ export function workspaceFromConfig(configPath: string): TielineWorkspace {
       config.files.spec_directory
     ),
     manifestPath: resolveWorkspaceFile(directory, config.files.manifest),
-    mcpConfigPath: resolveWorkspaceFile(directory, config.files.mcp_config),
   };
 }
 

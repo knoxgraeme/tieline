@@ -161,7 +161,9 @@ export function normalizeSkillAgentIds(
   return normalizedAgents(agentIds).map((agent) => agent.id);
 }
 
-function sanitizedChildEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+export function sanitizedChildEnvironment(
+  env: NodeJS.ProcessEnv
+): NodeJS.ProcessEnv {
   const sanitized: NodeJS.ProcessEnv = {};
   for (const key of SAFE_CHILD_ENV_KEYS) {
     const value = env[key];
@@ -203,7 +205,10 @@ export function buildSkillfishInvocation(
   return skillfishInvocation(options, normalizedAgents(options.agentIds));
 }
 
-function quoteShellArgument(value: string, platform: NodeJS.Platform): string {
+export function quoteShellArgument(
+  value: string,
+  platform: NodeJS.Platform
+): string {
   if (/^[A-Za-z0-9_./:\\-]+$/.test(value)) return value;
   if (platform === "win32") return `"${value.replaceAll('"', '""')}"`;
   return `'${value.replaceAll("'", "'\\''")}'`;

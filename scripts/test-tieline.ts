@@ -107,6 +107,15 @@ function interactiveIo(responses: InteractiveResponses): {
   };
 }
 
+function successfulMcpCli(): Promise<SkillfishProcessResult> {
+  return Promise.resolve({
+    code: 0,
+    stdout: "",
+    stderr: "",
+    timedOut: false,
+  });
+}
+
 function successfulSkillfish(
   invocation: SkillfishInvocation
 ): Promise<SkillfishProcessResult> {
@@ -330,6 +339,7 @@ try {
           );
           return successfulSkillfish(invocation);
         },
+        mcpCliRunner: successfulMcpCli,
       }
     ),
     0
@@ -456,6 +466,7 @@ try {
           );
           return successfulSkillfish(invocation);
         },
+        mcpCliRunner: successfulMcpCli,
       }
     ),
     0
@@ -500,6 +511,7 @@ try {
           }),
           stderr: "",
         }),
+        mcpCliRunner: successfulMcpCli,
       }
     ),
     0
@@ -538,6 +550,13 @@ try {
           code: 7,
           stdout: "",
           stderr: "private nested output",
+          timedOut: false,
+        }),
+        mcpCliRunner: async () => ({
+          code: 3,
+          stdout: "",
+          stderr: "",
+          timedOut: false,
         }),
       }
     ),
@@ -555,9 +574,159 @@ try {
   assert.match(failedOutput, /installation incomplete/i);
   assert.match(
     failedOutput,
+    /Codex registration failed \(codex mcp add exited with code 3\); run: codex mcp add tieline --env/
+  );
+  assert.match(
+    failedOutput,
     /Retry the install by running:\n\n─+\ntieline init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
   );
   assert.doesNotMatch(failedOutput, /private nested output|Agent handoff prompt/);
+
+  const mcpMergeTarget = resolve(root, "Mcp Merge Checkout");
+  const mcpMergeConfigHome = resolve(root, "mcp-merge-config");
+  mkdirSync(resolve(mcpMergeTarget, "src"), { recursive: true });
+  writeFileSync(
+    resolve(mcpMergeTarget, ".mcp.json"),
+    `${JSON.stringify(
+      { mcpServers: { other: { command: "other-server" } } },
+      null,
+      2
+    )}\n`
+  );
+  const mcpMerge = io();
+  const codexInvocations: SkillfishInvocation[] = [];
+  assert.equal(
+    await runCli(
+      [
+        "init",
+        mcpMergeTarget,
+        "--yes",
+        "--embedding",
+        "hash",
+        "--agent",
+        "cursor",
+        "--agent",
+        "codex",
+        "--agent",
+        "opencode",
+        "--skill-scope",
+        "project",
+      ],
+      mcpMerge.adapter,
+      { TIELINE_CONFIG_HOME: mcpMergeConfigHome },
+      {
+        skillfishRunner: successfulSkillfish,
+        mcpCliRunner: async (invocation) => {
+          codexInvocations.push(invocation);
+          return successfulMcpCli();
+        },
+      }
+    ),
+    0
+  );
+  assert.equal(codexInvocations.length, 1);
+  assert.equal(codexInvocations[0]!.command, "codex");
+  assert.deepEqual(codexInvocations[0]!.args, [
+    "mcp",
+    "add",
+    "tieline",
+    "--env",
+    `TIELINE_WORKSPACE=${mcpMergeTarget}`,
+    "--",
+    "npx",
+    "-y",
+    "tieline",
+    "serve",
+  ]);
+  const tielineServerEntry = {
+    command: "npx",
+    args: ["-y", "tieline", "serve"],
+    env: { TIELINE_WORKSPACE: "." },
+  };
+  assert.deepEqual(
+    JSON.parse(readFileSync(resolve(mcpMergeTarget, ".mcp.json"), "utf8")),
+    {
+      mcpServers: {
+        other: { command: "other-server" },
+        tieline: tielineServerEntry,
+      },
+    },
+    "registration must preserve unrelated MCP servers"
+  );
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(resolve(mcpMergeTarget, ".cursor/mcp.json"), "utf8")
+    ),
+    { mcpServers: { tieline: tielineServerEntry } }
+  );
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(resolve(mcpMergeTarget, "opencode.json"), "utf8")
+    ),
+    {
+      mcp: {
+        tieline: {
+          type: "local",
+          command: ["npx", "-y", "tieline", "serve"],
+          enabled: true,
+          environment: { TIELINE_WORKSPACE: "." },
+        },
+      },
+    }
+  );
+  const mcpMergeOutput = mcpMerge.output.join("");
+  assert.match(
+    mcpMergeOutput,
+    /MCP server: \.mcp\.json updated; \.cursor\/mcp\.json written; opencode\.json written/
+  );
+  assert.match(
+    mcpMergeOutput,
+    /MCP server: Codex registered globally via 'codex mcp add'/
+  );
+  const mergedRootBody = readFileSync(
+    resolve(mcpMergeTarget, ".mcp.json"),
+    "utf8"
+  );
+  const mcpRepeat = io();
+  assert.equal(
+    await runCli(["init", mcpMergeTarget, "--yes"], mcpRepeat.adapter, {
+      TIELINE_CONFIG_HOME: mcpMergeConfigHome,
+    }),
+    0
+  );
+  assert.equal(
+    readFileSync(resolve(mcpMergeTarget, ".mcp.json"), "utf8"),
+    mergedRootBody,
+    "re-running init must not rewrite an up-to-date MCP config"
+  );
+  assert.match(mcpRepeat.output.join(""), /\.mcp\.json unchanged/);
+
+  const mcpInvalidTarget = resolve(root, "Mcp Invalid Checkout");
+  mkdirSync(resolve(mcpInvalidTarget, "src"), { recursive: true });
+  writeFileSync(resolve(mcpInvalidTarget, ".mcp.json"), "{ not json\n");
+  const mcpInvalid = io();
+  assert.equal(
+    await runCli(
+      ["init", mcpInvalidTarget, "--yes", "--embedding", "hash"],
+      mcpInvalid.adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "mcp-invalid-config") },
+      {
+        skillfishRunner: async () => {
+          throw new Error("--yes without agents must not invoke Skillfish");
+        },
+      }
+    ),
+    0
+  );
+  assert.equal(
+    readFileSync(resolve(mcpInvalidTarget, ".mcp.json"), "utf8"),
+    "{ not json\n",
+    "an unparseable MCP config must never be overwritten"
+  );
+  assert.match(
+    mcpInvalid.output.join(""),
+    /\.mcp\.json was left untouched \(the existing file is not valid JSON\)/
+  );
 
   const target = resolve(root, "Product");
   const configHome = resolve(root, "config-home");
@@ -600,7 +769,8 @@ try {
   assert.equal(workspace.config.product.repo_name, "example-repository");
   assert.equal(workspace.config.context.sources[0]?.type, "description");
   assert.ok(statSync(workspace.specDirectoryPath).isDirectory());
-  assert.ok(existsSync(workspace.mcpConfigPath));
+  assert.ok(existsSync(resolve(target, ".mcp.json")));
+  assert.equal(existsSync(resolve(target, ".tieline/mcp.json")), false);
 
   for (const obsolete of [
     ".tieline/drafts",
@@ -619,18 +789,19 @@ try {
     default_database_mode: "offline",
   });
   assert.deepEqual(
-    JSON.parse(readFileSync(workspace.mcpConfigPath, "utf8")),
+    JSON.parse(readFileSync(resolve(target, ".mcp.json"), "utf8")),
     {
       mcpServers: {
         tieline: {
-          command: "tieline",
-          args: ["serve"],
+          command: "npx",
+          args: ["-y", "tieline", "serve"],
           env: { TIELINE_WORKSPACE: "." },
         },
       },
     }
   );
   const firstOutput = first.output.join("");
+  assert.match(firstOutput, /MCP server: \.mcp\.json written/);
   assert.match(firstOutput, /workspace: ready/i);
   assert.match(firstOutput, /runtime: offline.*local contract authoring ready/i);
   assert.match(firstOutput, /code scope: src/i);
