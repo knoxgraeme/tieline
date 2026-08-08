@@ -1498,8 +1498,8 @@ capability:
   );
   assert.match(
     provisioningReference,
-    /Consent first, in one line/,
-    "consent stays brief; the option list already explained Neon"
+    /provision option in the database question is the consent/,
+    "picking the menu option is the consent; no double-ask"
   );
   assert.match(provisioningReference, /neonctl projects create/);
   assert.match(provisioningReference, /--provision-roles/);
