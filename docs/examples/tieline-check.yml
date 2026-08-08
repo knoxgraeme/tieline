@@ -13,7 +13,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
-      - run: npm run build
-      - run: node dist/cli.js contract validate .
-      - run: node dist/cli.js check --base origin/${{ github.base_ref }} .
+      - run: npx --yes tieline contract validate .
+      - run: npx --yes tieline check --base origin/${{ github.base_ref }} .
