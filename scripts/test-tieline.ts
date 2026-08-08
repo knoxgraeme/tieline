@@ -216,6 +216,15 @@ try {
   mkdirSync(resolve(validationTarget, "src"), { recursive: true });
   await assert.rejects(
     runCli(
+      ["init", validationTarget, "--yes", "--provision-roles"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+    ),
+    /--provision-roles requires --database existing/
+  );
+  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+  await assert.rejects(
+    runCli(
       ["init", validationTarget, "--yes", "--skill-scope", "project"],
       io().adapter,
       { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
@@ -1154,7 +1163,7 @@ capability:
     migrateDatabase: async () => {
       calls.push("migrate");
     },
-    provisionLocalRoles: async () => {
+    provisionDatabaseRoles: async () => {
       calls.push("roles");
       return {
         DATABASE_URL:
@@ -1290,6 +1299,54 @@ capability:
       TIELINE_CONFIG_HOME: configHome,
     })?.profile.runtime.setup_completed_at
   );
+
+  const provisionCalls: string[] = [];
+  const provisionConfigHome = resolve(root, "provision-config-home");
+  await configureWorkspaceRuntime({
+    workspace: workspace as TielineWorkspace,
+    databaseMode: "existing",
+    embeddingProvider: "hash",
+    installLocalEmbedder: false,
+    skipMigrate: false,
+    provisionRoles: true,
+    env: {
+      TIELINE_CONFIG_HOME: provisionConfigHome,
+      DATABASE_URL_ADMIN:
+        "postgresql://neon-owner:private@example.neon.tech/neondb",
+    },
+    io: { write: () => undefined },
+    dependencies: {
+      migrateDatabase: async () => {
+        provisionCalls.push("migrate");
+      },
+      provisionDatabaseRoles: async (ownerUrl: string) => {
+        provisionCalls.push(`roles:${ownerUrl}`);
+        return {
+          DATABASE_URL:
+            "postgresql://reader:private@example.neon.tech/neondb",
+          DATABASE_URL_WRITE:
+            "postgresql://writer:private@example.neon.tech/neondb",
+        };
+      },
+    },
+  });
+  assert.deepEqual(
+    provisionCalls,
+    [
+      "migrate",
+      "roles:postgresql://neon-owner:private@example.neon.tech/neondb",
+    ],
+    "existing mode with --provision-roles must provision after migrating"
+  );
+  const provisionedProfile = readWorkspaceProfile(workspace, {
+    TIELINE_CONFIG_HOME: provisionConfigHome,
+  });
+  assert.ok(provisionedProfile?.profile.runtime.setup_completed_at);
+  assert.match(provisionedProfile?.profile.env.DATABASE_URL ?? "", /reader/);
+  assert.match(
+    provisionedProfile?.profile.env.DATABASE_URL_WRITE ?? "",
+    /writer/
+  );
   const serveEnv: NodeJS.ProcessEnv = {
     TIELINE_CONFIG_HOME: configHome,
     DATABASE_URL_SYNC: "postgresql://explicit-sync@example.test/tieline",
@@ -1359,6 +1416,22 @@ capability:
   assert.match(reportReference, /pull-request body/);
   assert.match(authorSkill, /references\/report\.md/);
   assert.match(onboardingReference, /references\/report\.md/);
+  const provisioningReference = readFileSync(
+    resolve(
+      process.cwd(),
+      "skills/tieline-author/references/provisioning.md"
+    ),
+    "utf8"
+  );
+  assert.match(provisioningReference, /Consent first/);
+  assert.match(provisioningReference, /neonctl projects create/);
+  assert.match(provisioningReference, /--provision-roles/);
+  assert.match(
+    provisioningReference,
+    /never write it into any\s+repository file/,
+    "provisioning must keep provider artifacts out of the repository"
+  );
+  assert.match(onboardingReference, /provisioning\.md/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");

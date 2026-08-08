@@ -28,6 +28,12 @@ export interface SetupOptions {
   embeddingProvider: EmbeddingProvider;
   installLocalEmbedder: boolean;
   skipMigrate: boolean;
+  /**
+   * In existing mode, assign generated login passwords to the
+   * migration-created tieline roles instead of expecting operator-managed
+   * login roles. Local mode always provisions its own roles.
+   */
+  provisionRoles?: boolean;
   env: NodeJS.ProcessEnv;
   io: SetupIO;
   dependencies?: Partial<SetupDependencies>;
@@ -47,7 +53,7 @@ export interface SetupDependencies {
     io: SetupIO
   ): Promise<LocalDatabase>;
   migrateDatabase(dbUrl: string): Promise<void>;
-  provisionLocalRoles(ownerUrl: string): Promise<Record<string, string>>;
+  provisionDatabaseRoles(ownerUrl: string): Promise<Record<string, string>>;
 }
 
 interface ProcessResult {
@@ -122,7 +128,7 @@ async function waitForPostgres(url: string): Promise<void> {
   );
 }
 
-async function provisionLocalRoles(ownerUrl: string): Promise<Record<string, string>> {
+async function provisionDatabaseRoles(ownerUrl: string): Promise<Record<string, string>> {
   const reader = credential();
   const writer = credential();
   const sync = credential();
@@ -264,7 +270,7 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
     installLocalEmbedder,
     startLocalDatabase,
     migrateDatabase: (dbUrl) => migrateDatabase(dbUrl),
-    provisionLocalRoles,
+    provisionDatabaseRoles,
     ...options.dependencies,
   };
   env.EMBEDDING_PROVIDER = options.embeddingProvider;
@@ -292,6 +298,13 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
     if (!options.skipMigrate) {
       io.write("Applying packaged Tieline migrations to the configured database...\n");
       await dependencies.migrateDatabase(env.DATABASE_URL_ADMIN);
+      if (options.provisionRoles) {
+        io.write("Assigning login credentials to the tieline database roles...\n");
+        Object.assign(
+          env,
+          await dependencies.provisionDatabaseRoles(env.DATABASE_URL_ADMIN)
+        );
+      }
     }
   } else if (options.databaseMode === "local") {
     const local = await dependencies.startLocalDatabase(workspace, env, io);
@@ -304,7 +317,7 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
     if (!options.skipMigrate) {
       io.write("Applying packaged Tieline migrations to the local database...\n");
       await dependencies.migrateDatabase(local.ownerUrl);
-      Object.assign(env, await dependencies.provisionLocalRoles(local.ownerUrl));
+      Object.assign(env, await dependencies.provisionDatabaseRoles(local.ownerUrl));
     } else {
       env.DATABASE_URL_ADMIN = local.ownerUrl;
     }

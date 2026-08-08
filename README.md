@@ -244,7 +244,11 @@ deployment, choose `local`, `openai`, or `supabase-edge`. In `existing`
 (hosted / remote) mode, the baseline defines the least-privilege roles as
 `NOLOGIN`. Before init, provide URLs for operator-managed login roles that
 inherit `tieline_reader`, `tieline_planning_writer`, and
-`tieline_repository_sync`; init does not create or rotate passwords.
+`tieline_repository_sync`; init does not create or rotate passwords unless
+`--provision-roles` explicitly asks it to. That flag assigns generated login
+passwords to the tieline roles directly, which is how the agent-driven
+provisioning path (a freshly created Neon project, for example) reaches a
+working setup from `DATABASE_URL_ADMIN` alone.
 Tieline is provider-neutral: a local Postgres installation, Neon, Supabase,
 RDS, or any other managed Postgres with pgvector enabled works. It reads
 `DATABASE_URL_ADMIN` from the environment or a local `.env`; credentials are

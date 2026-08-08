@@ -17,12 +17,15 @@ a human first sees them. Verify, do not re-ask.
    with the user, and record it in `.tieline/config.json` under
    `context.sources` as
    `{ "id": "source-<n>", "type": "description", "location": null, "content": "<text>", "allow_external_fetch": false }`.
-3. Ask at most one setup question: stay in the default offline mode, or
-   connect PostgreSQL now. On request run
-   `npx -y tieline init . --yes --database local` (Docker) or
-   `npx -y tieline init . --yes --database existing` (hosted; requires
-   `DATABASE_URL_ADMIN` in the environment). Offline is a complete answer for
-   repository-local authoring — do not present it as a degraded mode.
+3. Ask at most one setup question, with three answers: stay in the default
+   offline mode, connect an existing PostgreSQL, or provision a new hosted
+   database now. Offline is a complete answer for repository-local
+   authoring — do not present it as a degraded mode.
+   - Existing: requires `DATABASE_URL_ADMIN` in the environment; run
+     `npx -y tieline init . --yes --database existing`. Docker users can
+     choose `--database local` instead.
+   - Provision new: follow [provisioning.md](provisioning.md) to create a
+     Neon Postgres in the user's own account and connect it.
 4. In a repository with a `package.json`, offer to pin the CLI with
    `npm install --save-dev tieline` so the team shares one version and
    `npx tieline` resolves locally. Skip this for non-Node repositories; `npx`
