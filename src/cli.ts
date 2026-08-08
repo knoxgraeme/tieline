@@ -137,6 +137,7 @@ interface InitOptions {
   yes: boolean;
   skipMigrate: boolean;
   installLocalEmbedder: boolean;
+  provisionRoles: boolean;
   agents: string[];
   skillScope?: SkillInstallScope;
   skipSkillInstall: boolean;
@@ -464,6 +465,12 @@ async function runInit(
   if (parsed.skillScope && parsed.agents.length === 0) {
     throw new Error("--skill-scope requires at least one --agent.");
   }
+  if (
+    parsed.provisionRoles &&
+    !(parsed.databaseExplicit && parsed.database === "existing")
+  ) {
+    throw new Error("--provision-roles requires --database existing.");
+  }
   if (parsed.agents.length > 0) normalizeSkillAgentIds(parsed.agents);
 
   const existing = findTielineWorkspace(parsed.target);
@@ -511,6 +518,7 @@ async function runInit(
         embeddingProvider,
         installLocalEmbedder: parsed.installLocalEmbedder,
         skipMigrate: parsed.skipMigrate,
+        provisionRoles: parsed.provisionRoles,
         env,
         io,
       });
@@ -634,6 +642,7 @@ async function runInit(
     embeddingProvider: embedding,
     installLocalEmbedder: parsed.installLocalEmbedder,
     skipMigrate: parsed.skipMigrate,
+    provisionRoles: parsed.provisionRoles,
     env,
     io,
   });
@@ -868,6 +877,10 @@ function buildProgram(
       "--install-local-embedder",
       "install the optional local embedding runtime"
     )
+    .option(
+      "--provision-roles",
+      "assign generated login passwords to the tieline database roles (requires --database existing)"
+    )
     .action(async (repository: string, opts) => {
       setExit(
         await runInit(
@@ -890,6 +903,7 @@ function buildProgram(
             yes: Boolean(opts.yes),
             skipMigrate: Boolean(opts.skipMigrate),
             installLocalEmbedder: Boolean(opts.installLocalEmbedder),
+            provisionRoles: Boolean(opts.provisionRoles),
             agents: opts.agent,
             skillScope: opts.skillScope as SkillInstallScope | undefined,
             skipSkillInstall: Boolean(opts.skipSkillInstall),

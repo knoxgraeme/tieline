@@ -234,7 +234,15 @@ Choose the database mode based on the workflow:
 
 | Mode | Behavior |
 | --- | --- |
-| `offline` | Writes the workspace and supports local YAML/manifest authoring without organization-wide matching |
+| `offline` | Writes the workspace and supports local YAML/manifest authoring; Observations, Backlog Items, planning Stories, and semantic matching need a database |
+
+What lives where:
+
+| Location | Contents |
+| --- | --- |
+| `.tieline/` in the repository (committed, PR-reviewed) | Product identity and context (`config.json`), the contract YAML (`spec/`), the compiled manifest (`manifest/`) |
+| PostgreSQL (optional: local Docker, existing, or provisioned) | A synced, queryable copy of the accepted contract, plus Observations (feature requests, ideas, bugs), Backlog Items, planning Stories and revisions, and semantic search embeddings |
+| Private profile outside the repository (`~/.config/tieline/`) | Database credentials and clone-local setup state — never committed, never shared through git |
 | `local` | Creates or reuses a dedicated Docker PostgreSQL + pgvector database and stores clone-local credentials privately |
 | `existing` (hosted / remote) | Connects a hosted or remote Postgres 16 + pgvector database identified by `DATABASE_URL_ADMIN`; no Docker container is required |
 
@@ -244,7 +252,11 @@ deployment, choose `local`, `openai`, or `supabase-edge`. In `existing`
 (hosted / remote) mode, the baseline defines the least-privilege roles as
 `NOLOGIN`. Before init, provide URLs for operator-managed login roles that
 inherit `tieline_reader`, `tieline_planning_writer`, and
-`tieline_repository_sync`; init does not create or rotate passwords.
+`tieline_repository_sync`; init does not create or rotate passwords unless
+`--provision-roles` explicitly asks it to. That flag assigns generated login
+passwords to the tieline roles directly, which is how the agent-driven
+provisioning path (a freshly created Neon project, for example) reaches a
+working setup from `DATABASE_URL_ADMIN` alone.
 Tieline is provider-neutral: a local Postgres installation, Neon, Supabase,
 RDS, or any other managed Postgres with pgvector enabled works. It reads
 `DATABASE_URL_ADMIN` from the environment or a local `.env`; credentials are
