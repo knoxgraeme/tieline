@@ -1408,7 +1408,10 @@ capability:
   assert.ok(
     onboardingReference.indexOf("source of truth") <
       onboardingReference.indexOf(
-        "Where should Tieline keep this planning data?"
+        "Where should Tieline keep your Observations?"
+      ) &&
+      onboardingReference.includes(
+        "Where should Tieline keep your Observations?"
       ),
     "explanation must come before the question"
   );

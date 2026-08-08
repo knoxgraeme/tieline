@@ -46,7 +46,7 @@ a human first sees them. Verify, do not re-ask.
    > query it for planning, investigation, and research. Observations and
    > credentials never land in your repository.
    >
-   > **Where should Tieline keep this planning data?**
+   > **Where should Tieline keep your Observations?**
    >
    > 1. **Start offline** — contract only for now; connect a database any
    >    time
