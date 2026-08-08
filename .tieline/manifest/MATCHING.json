@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "266ddb411c0d793bd65f0d5b37f86c63f01d570491de6d4051878ee9f92e7a0e",
+                "reviewed_content_hash": "393351feb35e496c760b7b1b16a953d4d54b4e4c69eb8ad85721857faf6df4a6",
                 "target": {
                   "kind": "code",
                   "path": "src/embeddings.ts",
@@ -48,7 +48,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ef95b8f1115a2fe335c81f73aca5025e9f8e77d91cd4bab0d5f099c97f8ab0d5",
+                "reviewed_content_hash": "75d01de4f34f725a3bcaf087a630462a192ed62b2f531764e789c3ebd11f9540",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -66,7 +66,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "d95eb9a78b478aa142f95c863673f56c13627f724f867929d43f5af6b4b42b53",
+            "contract_hash": "8c6bbdfe72b3d858ff83a110bb00e8d6350c6f5fd51f1d41444f4de85a96e573",
             "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
             "links": [
               {
@@ -112,7 +112,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "53c35cd5b09b6f63a9ad5e2a8a018664427bf1ff1c5333c63fe851df515a417d",
+                "reviewed_content_hash": "dd57d0290687561fecea7ec636672f45efce9f11050dd92356e0213d34cf2ac1",
                 "target": {
                   "kind": "code",
                   "path": "src/ranking.ts",
@@ -125,7 +125,7 @@
                 "reviewed_content_hash": "4945ef4e73ce620eaed6afe073d023f9cf3aa6e4ba998b890c36f6cf7476af86",
                 "target": {
                   "kind": "code",
-                  "path": "src/tools/find_related.ts",
+                  "path": "src/tools/find-related.ts",
                   "repository": "tieline"
                 }
               },
@@ -164,7 +164,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -186,7 +186,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1c04f923b3e18cec73ec907ff2035d147b7574c66bb40ca9e5e8c0b18e935934",
+                "reviewed_content_hash": "680c134e360d5b24238cde2ad102d27503ba716437e3c017aa87368ae51b0cf8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -225,7 +225,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e3170f9d59b0083c35cb98ba4a198b52e869193293b310dab6f73e08d3f9fc9c",
+                "reviewed_content_hash": "ef3f2d7040cc9cae5b674b6e95c99882c90450eea7950c4f36a5f6ffeecf4d6f",
                 "target": {
                   "kind": "code",
                   "path": "src/backlog-advisor.ts",
@@ -245,7 +245,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "71ad6de042cc2478a586ebebab37efc7c7d279d0353c9488be3741982fd920ba",
+                "reviewed_content_hash": "9811052e203ab09e95c54fdcdf44e33a49393828c5e84b8c87c77e2a0ffa520f",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/attributions.ts",
@@ -255,7 +255,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -287,7 +287,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "53c35cd5b09b6f63a9ad5e2a8a018664427bf1ff1c5333c63fe851df515a417d",
+                "reviewed_content_hash": "dd57d0290687561fecea7ec636672f45efce9f11050dd92356e0213d34cf2ac1",
                 "target": {
                   "kind": "code",
                   "path": "src/ranking.ts",
@@ -307,7 +307,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1c04f923b3e18cec73ec907ff2035d147b7574c66bb40ca9e5e8c0b18e935934",
+                "reviewed_content_hash": "680c134e360d5b24238cde2ad102d27503ba716437e3c017aa87368ae51b0cf8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -367,6 +367,6 @@
   },
   "input": {
     "path": ".tieline/spec/matching.yaml",
-    "sha256": "351a98fc9ea9f7c6ee1167858e7e0397ec1df18a562b426d4d003b4e96fdf737"
+    "sha256": "2e101c599400120123fb3040c2d65aa2346db2175bd856ee2f6425c5bba090aa"
   }
 }

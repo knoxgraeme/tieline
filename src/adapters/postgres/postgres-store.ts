@@ -1,6 +1,6 @@
 import type { KnowledgeStore } from "../../domain/knowledge-store.js";
 import { PostgresBacklogRepository } from "./backlog-repository.js";
-import { closeConnections, getReadSql } from "./connections.js";
+import { closeConnections, getReadSql, getWriteSql } from "./connections.js";
 import { PostgresContractReadRepository } from "./contract-read-repository.js";
 import * as help from "./help-repository.js";
 import { PostgresObservationRepository } from "./observation-repository.js";
@@ -13,6 +13,7 @@ export class PostgresStore implements KnowledgeStore {
   private readonly backlog = new PostgresBacklogRepository();
   private readonly backlogReads = new PostgresBacklogRepository(getReadSql);
   private readonly semantic = new PostgresSemanticRepository();
+  private readonly semanticWrites = new PostgresSemanticRepository(getWriteSql);
   private readonly planning = new PostgresPlanningStoryRepository();
 
   queryContractStories =
@@ -37,6 +38,10 @@ export class PostgresStore implements KnowledgeStore {
   resolveRetrievalProfile =
     this.semantic.resolveRetrievalProfile.bind(this.semantic);
   searchSemantic = this.semantic.searchSemantic.bind(this.semantic);
+  listAttributionSuggestions =
+    this.semantic.listAttributionSuggestions.bind(this.semantic);
+  decideAttributionSuggestion =
+    this.semanticWrites.decideAttributionSuggestion.bind(this.semanticWrites);
 
   createPlanningStory =
     this.planning.createPlanningStory.bind(this.planning);

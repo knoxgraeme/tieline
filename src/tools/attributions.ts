@@ -1,10 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
-import {
-  getReadSql,
-  getWriteSql,
-} from "../adapters/postgres/connections.js";
+import { getEvidenceWriteStore, getReadStore } from "../store.js";
 import {
   errorResult,
   formatError,
@@ -44,8 +40,8 @@ export function registerAttributionTools(server: McpServer): void {
     },
     async (input): Promise<ToolResult> => {
       try {
-        const repository = new PostgresSemanticRepository(getReadSql);
-        const suggestions = await repository.listAttributionSuggestions(input);
+        const suggestions =
+          await getReadStore().listAttributionSuggestions(input);
         return jsonResult({ suggestions });
       } catch (error) {
         return errorResult(formatError(error));
@@ -72,9 +68,8 @@ export function registerAttributionTools(server: McpServer): void {
     },
     async (input): Promise<ToolResult> => {
       try {
-        const repository = new PostgresSemanticRepository(getWriteSql);
         const suggestion =
-          await repository.decideAttributionSuggestion(input);
+          await getEvidenceWriteStore().decideAttributionSuggestion(input);
         if (!suggestion) {
           return errorResult(
             `Unknown attribution suggestion '${input.suggestion_id}'.`

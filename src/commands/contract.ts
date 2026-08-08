@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
 import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
@@ -18,17 +18,11 @@ import {
   type CompiledContractManifest,
   type ContractManifest,
 } from "../contract/manifest.js";
-import {
-  loadAcceptedContract,
-  loadAcceptedContractWithSources,
-} from "../contract/load.js";
-import { renderContractReviewPage } from "../contract/review-page.js";
+import { loadAcceptedContract } from "../contract/load.js";
 import {
   TIELINE_REVIEW_PAGE,
   writeWorkspaceReviewPage,
 } from "../tieline/review.js";
-import { syncContractManifest } from "../contract/sync.js";
-import { findTielineWorkspace } from "../tieline/workspace.js";
 import { contractEmbeddingDocuments } from "../derived/embedding-documents.js";
 import { getEmbedder, mapWithConcurrency } from "../embeddings.js";
 import {
@@ -38,9 +32,10 @@ import {
 } from "../contract/coverage.js";
 import {
   analyzeLinkPlausibility,
+  toLinkReviewSuggestion,
   type LinkPlausibilityReport,
 } from "../contract/link-plausibility.js";
-import { parseNameStatus } from "../contract/impact.js";
+import { changesSince } from "../contract/impact.js";
 import {
   lookupPathCriteria,
   renderPathCriteriaText,
@@ -57,10 +52,7 @@ import {
   renderGradeScopeText,
   verifyGradeVerdicts,
 } from "../contract/grade.js";
-
-interface ContractCommandIO {
-  write(message: string): void;
-}
+import { resolveCommandContext, wrap, type CommandIO } from "./shared.js";
 
 export type ContractAction =
   | "validate"
@@ -87,6 +79,8 @@ export interface ContractCommandOptions {
   strict?: boolean;
   json?: boolean;
   paths?: string[];
+  /** `link-review` only: persist review candidates as attribution suggestions. */
+  save?: boolean;
 }
 
 interface ParsedContractCommand {
@@ -106,6 +100,7 @@ interface ParsedContractCommand {
   strict: boolean;
   json: boolean;
   paths: string[];
+  save: boolean;
 }
 
 function gitCommit(repositoryRoot: string): string {
@@ -126,31 +121,21 @@ function resolveContractCommand(
   action: ContractAction,
   options: ContractCommandOptions
 ): ParsedContractCommand {
-  const requestedRoot = resolve(options.repository ?? process.cwd());
-  const workspace = findTielineWorkspace(requestedRoot);
-  const repositoryRoot = workspace?.root ?? requestedRoot;
-  const repositoryKey =
-    options.repo ?? workspace?.config.product.repo_name ?? basename(repositoryRoot);
-  const specDirectory =
-    options.spec ??
-    (workspace
-      ? workspace.config.files.spec_directory.startsWith(".tieline/")
-        ? workspace.config.files.spec_directory
-        : `.tieline/${workspace.config.files.spec_directory}`
-      : ".tieline/spec");
+  const { root, workspace, repositoryKey, specDirectory } =
+    resolveCommandContext(options);
   const resolvedOutput = options.output
     ? isAbsolute(options.output)
       ? options.output
-      : resolve(repositoryRoot, options.output)
+      : resolve(root, options.output)
     : resolve(
-        repositoryRoot,
+        root,
         // `review` writes one HTML page; everything else reads or writes the
         // manifest, which is a directory of per-capability files.
-        action === "review" ? ".tieline/review.html" : ".tieline/manifest"
+        action === "review" ? TIELINE_REVIEW_PAGE : ".tieline/manifest"
       );
   return {
     action,
-    repositoryRoot,
+    repositoryRoot: root,
     repositoryKey,
     commit: options.commit,
     outputPath: resolvedOutput,
@@ -165,12 +150,13 @@ function resolveContractCommand(
     strict: options.strict === true,
     json: options.json === true,
     paths: options.paths ?? [],
+    save: options.save === true,
   };
 }
 
 function runGrade(
   parsed: ParsedContractCommand,
-  io: ContractCommandIO
+  io: CommandIO
 ): number {
   const selectedModes = Number(parsed.emitScope) + Number(parsed.verify !== undefined);
   if (selectedModes !== 1) {
@@ -246,16 +232,6 @@ function runGrade(
   return report.strict_failure ? 1 : 0;
 }
 
-function changesSince(repositoryRoot: string, base: string) {
-  return parseNameStatus(
-    execFileSync(
-      "git",
-      ["diff", "--name-status", "--find-renames", base],
-      { cwd: repositoryRoot, encoding: "utf8" }
-    )
-  );
-}
-
 /**
  * The manifest as committed at `base`, or null when that ref carries none —
  * the initial contract, whose every link is then claim-side grading scope.
@@ -321,23 +297,6 @@ function readReviewedManifest(
   }
 }
 
-function wrap(text: string, columns: number, indent: string): string {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.replace(/\s+/g, " ").trim().split(" ")) {
-    if (!line) {
-      line = word;
-    } else if (`${line} ${word}`.length > columns) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = `${line} ${word}`;
-    }
-  }
-  if (line) lines.push(line);
-  return lines.map((entry) => `${indent}${entry}\n`).join("");
-}
-
 /**
  * One line per confidence tier. Every mapped file appears in exactly one tier,
  * and a tier whose input was not supplied is reported as unavailable rather
@@ -366,7 +325,7 @@ function renderConfidenceTiers(
  */
 function renderLinkReview(
   report: LinkPlausibilityReport,
-  io: ContractCommandIO
+  io: CommandIO
 ): void {
   io.write(
     `Link review (${report.method}): ${report.scored_links} link(s) scored, ${report.review_candidates.length} candidate(s) for human review, ${report.skipped.length} link(s) not scored.\n`
@@ -425,7 +384,7 @@ function changeLabel(change: { status: string; old_path?: string }): string {
 function renderReconciliation(
   report: ContractReconciliation,
   base: string,
-  io: ContractCommandIO
+  io: CommandIO
 ): void {
   io.write(
     `Reconciliation against ${base}: ${report.summary.changed_paths} changed path(s); ${report.summary.claimed} already claimed by acceptance criteria, ${report.summary.unclaimed} unclaimed source file(s), ${report.summary.excluded} set aside.\n`
@@ -461,6 +420,55 @@ function renderReconciliation(
   }
 }
 
+/**
+ * Persists review candidates as "suggested" attribution rows, so a later
+ * attribution pass can surface them instead of the report scrolling away. A
+ * candidate whose acceptance criterion has never been synced has no database
+ * identity to attach to, so it is counted rather than dropped silently.
+ */
+async function saveLinkReviewSuggestions(
+  repositoryKey: string,
+  report: LinkPlausibilityReport
+): Promise<{ saved: number; without_synced_criterion: number }> {
+  try {
+    const reads = new PostgresContractReadRepository(getSyncSql);
+    const projected = await reads.queryContractStories({
+      filters: {
+        repositories: [repositoryKey],
+        authorities: ["repository"],
+        include_inactive_criteria: true,
+      },
+      limit: 10_000,
+    });
+    const criterionIds = new Map<string, string>();
+    if (projected.mode === "records") {
+      for (const record of projected.records) {
+        for (const criterion of record.acceptance_criteria) {
+          criterionIds.set(criterion.stable_id, criterion.id);
+        }
+      }
+    }
+    const semantic = new PostgresSemanticRepository(getSyncSql, getEmbedder);
+    let saved = 0;
+    for (const candidate of report.review_candidates) {
+      const acceptanceCriterionId = criterionIds.get(
+        candidate.acceptance_criterion_stable_id
+      );
+      if (!acceptanceCriterionId) continue;
+      await semantic.saveAttributionSuggestion(
+        toLinkReviewSuggestion({ candidate, acceptanceCriterionId })
+      );
+      saved += 1;
+    }
+    return {
+      saved,
+      without_synced_criterion: report.review_candidates.length - saved,
+    };
+  } finally {
+    await closeConnections();
+  }
+}
+
 function coverage(manifest: ContractManifest): {
   stories: number;
   acceptance_criteria: number;
@@ -488,7 +496,7 @@ function coverage(manifest: ContractManifest): {
 export async function runContractCommand(
   action: ContractAction,
   options: ContractCommandOptions,
-  io: ContractCommandIO
+  io: CommandIO
 ): Promise<number> {
   const parsed = resolveContractCommand(action, options);
   if (parsed.action === "validate") {
@@ -521,44 +529,24 @@ export async function runContractCommand(
   }
 
   if (parsed.action === "review") {
-    const result = loadAcceptedContractWithSources(
+    const result = writeWorkspaceReviewPage(
       parsed.repositoryRoot,
-      parsed.specDirectory
+      parsed.repositoryKey,
+      parsed.specDirectory,
+      parsed.outputPath
     );
-    const serialized = renderContractReviewPage({
-      repositoryKey: parsed.repositoryKey,
-      documents: result.documents.map((document, index) => ({
-        path: result.sources[index]!.path,
-        document,
-      })),
-      warnings: result.warnings,
-    });
-    mkdirSync(dirname(parsed.outputPath), { recursive: true });
-    writeFileSync(parsed.outputPath, serialized);
     const response = {
-      output: parsed.outputPath,
-      bytes: Buffer.byteLength(serialized),
-      capabilities: result.documents.length,
-      stories: result.documents.reduce(
-        (total, document) => total + document.capability.stories.length,
-        0
-      ),
-      acceptance_criteria: result.documents.reduce(
-        (total, document) =>
-          total +
-          document.capability.stories.reduce(
-            (storyTotal, story) =>
-              storyTotal + story.acceptance_criteria.length,
-            0
-          ),
-        0
-      ),
+      output: result.path,
+      bytes: result.bytes,
+      capabilities: result.capabilities,
+      stories: result.stories,
+      acceptance_criteria: result.acceptance_criteria,
       warnings: result.warnings,
     };
     io.write(
       parsed.json
         ? `${JSON.stringify(response, null, 2)}\n`
-        : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${parsed.outputPath}.\n`
+        : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${result.path}.\n`
     );
     return 0;
   }
@@ -609,8 +597,7 @@ export async function runContractCommand(
       parsed.repositoryRoot
     );
     try {
-      const result = await syncContractManifest(
-        new PostgresContractSyncRepository(getSyncSql()),
+      const result = await new PostgresContractSyncRepository(getSyncSql).sync(
         manifest,
         { commit, expectedPreviousCommit: parsed.expectedPreviousCommit }
       );
@@ -689,16 +676,32 @@ export async function runContractCommand(
       repositoryRoot: parsed.repositoryRoot,
       manifest,
     });
+    const saved = parsed.save
+      ? await saveLinkReviewSuggestions(manifest.repository.key, report)
+      : null;
     if (parsed.json) {
       io.write(
         `${JSON.stringify(
-          { repository: manifest.repository, ...report },
+          {
+            repository: manifest.repository,
+            ...report,
+            ...(saved ? { saved_suggestions: saved } : {}),
+          },
           null,
           2
         )}\n`
       );
     } else {
       renderLinkReview(report, io);
+      if (saved) {
+        io.write(
+          `Saved ${saved.saved} suggestion(s) for attribution review${
+            saved.without_synced_criterion
+              ? `; ${saved.without_synced_criterion} candidate(s) skipped because their acceptance criteria have not been synced`
+              : ""
+          }.\n`
+        );
+      }
     }
     // Advisory only. A review candidate is never a verdict and never fails a build.
     return 0;

@@ -13,8 +13,8 @@ import {
   attachCurrentArtifactHashes,
   compileContractManifest,
 } from "../src/contract/manifest.js";
-import { syncContractManifest } from "../src/contract/sync.js";
 import { prepareObservation } from "../src/domain/evidence-write-store.js";
+import { withRole } from "./lib/db.js";
 
 const adminUrl = process.env.DATABASE_URL_ADMIN;
 if (!adminUrl) {
@@ -48,20 +48,8 @@ const observations = new PostgresObservationRepository(() => sql);
 const backlog = new PostgresBacklogRepository(() => sql);
 const planning = new PostgresPlanningStoryRepository(() => sql);
 const reads = new PostgresContractReadRepository(() => sql);
-const sync = new PostgresContractSyncRepository(sql);
+const sync = new PostgresContractSyncRepository(() => sql);
 const root = mkdtempSync(resolve(tmpdir(), "tieline-lifecycle-"));
-
-async function withRole<T>(
-  role: "tieline_planning_writer" | "tieline_reader" | "tieline_repository_sync",
-  operation: () => Promise<T>
-): Promise<T> {
-  await sql.unsafe(`set role ${role}`);
-  try {
-    return await operation();
-  } finally {
-    await sql.unsafe("reset role");
-  }
-}
 
 function contractYaml(input: {
   planningRecordId: string;
@@ -136,7 +124,7 @@ try {
       'Move evidence and planned intent into repository authority.'
     )`;
 
-  const observation = await withRole("tieline_planning_writer", () =>
+  const observation = await withRole(sql, "tieline_planning_writer", () =>
     observations.recordObservation(
       prepareObservation({
         kind: "bug",
@@ -161,7 +149,7 @@ try {
   );
   assert.equal(observation.outcome, "created");
 
-  const backlogItem = await withRole("tieline_planning_writer", () =>
+  const backlogItem = await withRole(sql, "tieline_planning_writer", () =>
     backlog.createBacklogItem({
       stable_id: backlogKey,
       title: "Preserve evidence through delivery",
@@ -169,7 +157,7 @@ try {
         "Carry the originating Observation into the accepted product contract.",
     })
   );
-  const observationLink = await withRole("tieline_planning_writer", () =>
+  const observationLink = await withRole(sql, "tieline_planning_writer", () =>
     backlog.setBacklogItemLinks({
       stable_id: backlogItem.stable_id,
       expected_revision: backlogItem.revision,
@@ -185,7 +173,7 @@ try {
     throw new Error("Expected the Observation to be linked to the Backlog Item.");
   }
 
-  const planningStory = await withRole("tieline_planning_writer", () =>
+  const planningStory = await withRole(sql, "tieline_planning_writer", () =>
     planning.createPlanningStory({
       repository: repositoryKey,
       capability_stable_id: capabilityKey,
@@ -208,7 +196,7 @@ try {
   assert.equal(planningStory.authority, "planning");
   assert.equal(planningStory.lifecycle, "backlog");
 
-  const plannedLinks = await withRole("tieline_planning_writer", () =>
+  const plannedLinks = await withRole(sql, "tieline_planning_writer", () =>
     backlog.setBacklogItemLinks({
       stable_id: backlogItem.stable_id,
       expected_revision: observationLink.item.revision,
@@ -226,7 +214,7 @@ try {
     throw new Error("Expected the planning targets to be linked.");
   }
 
-  const attribution = await withRole("tieline_planning_writer", () =>
+  const attribution = await withRole(sql, "tieline_planning_writer", () =>
     observations.decideAttribution({
       observation_id: observation.id,
       target_kind: "acceptance_criterion",
@@ -256,15 +244,15 @@ try {
   const materializedStory = manifest.capabilities[0]!.stories[0]!;
   assert.equal(materializedStory.planning_origin?.record_id, planningStory.id);
 
-  const syncResult = await withRole("tieline_repository_sync", () =>
-    syncContractManifest(sync, manifest, {
+  const syncResult = await withRole(sql, "tieline_repository_sync", () =>
+    sync.sync(manifest, {
       commit: "accepted-lifecycle-contract",
     })
   );
   assert.equal(syncResult.outcome, "synced");
   assert.deepEqual(syncResult.conflicts, []);
 
-  const accepted = await withRole("tieline_reader", () =>
+  const accepted = await withRole(sql, "tieline_reader", () =>
     reads.queryContractStories({
       filters: {
         repositories: [repositoryKey],
@@ -291,7 +279,7 @@ try {
   assert.equal(acceptedStory.coverage.test, "complete");
   assert.equal(acceptedStory.freshness, "current");
 
-  const preservedBacklog = await withRole("tieline_reader", () =>
+  const preservedBacklog = await withRole(sql, "tieline_reader", () =>
     backlog.getBacklogItem({ stable_id: backlogKey })
   );
   assert.deepEqual(preservedBacklog?.links, plannedLinks.links);
@@ -318,6 +306,7 @@ try {
   );
 
   const rejectedPlanningWrite = await withRole(
+    sql,
     "tieline_planning_writer",
     () =>
       planning.updatePlanningStory({
@@ -329,7 +318,7 @@ try {
   );
   assert.equal(rejectedPlanningWrite.outcome, "not_found");
 
-  const completedBacklog = await withRole("tieline_planning_writer", () =>
+  const completedBacklog = await withRole(sql, "tieline_planning_writer", () =>
     backlog.updateBacklogItem({
       stable_id: backlogKey,
       expected_revision: plannedLinks.item.revision,

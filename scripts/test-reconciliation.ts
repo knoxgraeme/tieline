@@ -10,6 +10,7 @@ import {
   analyzeContractReconciliation,
   type ContractReconciliation,
 } from "../src/contract/reconciliation.js";
+import { tielineConfigJson } from "./lib/fixtures.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = mkdtempSync(resolve(tmpdir(), "tieline-reconciliation-"));
@@ -32,33 +33,10 @@ try {
   writeFileSync(resolve(root, "docs/guide.md"), "# Guide\n");
   writeFileSync(
     resolve(root, ".tieline/config.json"),
-    `${JSON.stringify(
-      {
-        version: 1,
-        product: {
-          name: "Reconciliation fixture",
-          repo_name: "reconciliation-fixture",
-        },
-        repository: {
-          root: "..",
-          source_roots: ["src"],
-          ignore: [".git", ".tieline", "src/generated"],
-        },
-        context: { sources: [] },
-        runtime: {
-          default_embedding_provider: "hash",
-          default_database_mode: "offline",
-        },
-        files: {
-          spec_directory: "contract",
-          manifest: "manifest",
-        },
-        created_at: "2026-08-01T00:00:00.000Z",
-        updated_at: "2026-08-01T00:00:00.000Z",
-      },
-      null,
-      2
-    )}\n`
+    tielineConfigJson({
+      name: "Reconciliation fixture",
+      repoName: "reconciliation-fixture",
+    })
   );
   writeFileSync(
     resolve(root, ".tieline/contract/reconciliation.yaml"),

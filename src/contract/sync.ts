@@ -30,6 +30,7 @@ export interface ContractSyncResult {
 }
 
 export interface ContractSyncRepository {
+  /** Implementations trim `options.commit` and reject an empty value. */
   sync(
     manifest: ContractManifest,
     options: ContractSyncOptions
@@ -48,16 +49,4 @@ export class ContractSyncCheckpointError extends Error {
     super(message);
     this.name = "ContractSyncCheckpointError";
   }
-}
-
-export async function syncContractManifest(
-  repository: ContractSyncRepository,
-  manifest: ContractManifest,
-  options: ContractSyncOptions
-): Promise<ContractSyncResult> {
-  const commit = options.commit.trim();
-  if (!commit) {
-    throw new Error("Repository sync commit cannot be empty.");
-  }
-  return repository.sync(manifest, { ...options, commit });
 }

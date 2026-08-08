@@ -82,7 +82,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/tools/find_related.ts
+                path: src/tools/find-related.ts
             - relation: implements
               provenance: authored
               target:

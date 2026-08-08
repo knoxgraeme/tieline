@@ -22,7 +22,7 @@ export interface SemanticDocumentCandidate {
   metadata: Record<string, unknown>;
 }
 
-export function clamp01(value: number): number {
+function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
@@ -53,7 +53,7 @@ export interface RankedSemanticDocument extends SemanticDocumentCandidate {
   why: string[];
 }
 
-export function reciprocalRankFusion(
+function reciprocalRankFusion(
   rows: Array<Record<RankingSignal, number>>,
   k = 60
 ): number[] {

@@ -1,5 +1,3 @@
-import { execFileSync } from "node:child_process";
-import { basename, relative, resolve, sep } from "node:path";
 import {
   compileContractManifest,
   readContractManifest,
@@ -7,18 +5,14 @@ import {
 } from "../contract/manifest.js";
 import {
   analyzeContractImpact,
+  changesSince,
   describeBrokenCause,
   isBrokenImpact,
-  parseNameStatus,
   type AcceptanceCriterionImpact,
   type RepositoryPathChange,
 } from "../contract/impact.js";
 import { isEligibleSourcePath } from "../contract/coverage.js";
-import { findTielineWorkspace } from "../tieline/workspace.js";
-
-interface CheckIO {
-  write(message: string): void;
-}
+import { resolveCommandContext, wrap, type CommandIO } from "./shared.js";
 
 export interface CheckCommandOptions {
   base: string;
@@ -128,7 +122,7 @@ function unclaimedChanges(input: {
 
 function renderUnclaimedChanges(
   unclaimed: UnclaimedChange[],
-  io: CheckIO
+  io: CommandIO
 ): void {
   if (!unclaimed.length) return;
   io.write(
@@ -159,25 +153,6 @@ function truncate(text: string, max: number): string {
   return `${collapsed.slice(0, max - 1).trimEnd()}…`;
 }
 
-function wrap(text: string, columns: number): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(" ")) {
-    if (!line) {
-      line = word;
-      continue;
-    }
-    if (`${line} ${word}`.length > columns) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = `${line} ${word}`;
-    }
-  }
-  if (line) lines.push(line);
-  return lines.length ? lines : [""];
-}
-
 function findingLine(impact: AcceptanceCriterionImpact): string {
   const level = isBrokenImpact(impact) ? "error" : "warn ";
   const detail = impact.broken_cause
@@ -200,7 +175,7 @@ function groupByCriterion(
 
 function renderGroup(
   group: AcceptanceCriterionImpact[],
-  io: CheckIO
+  io: CommandIO
 ): void {
   const head = group[0];
   io.write(
@@ -209,12 +184,13 @@ function renderGroup(
       80
     )})\n`
   );
-  for (const line of wrap(
-    truncate(head.acceptance_criterion, CRITERION_MAX_CHARS),
-    CRITERION_WRAP_COLUMNS
-  )) {
-    io.write(`    ${line}\n`);
-  }
+  io.write(
+    wrap(
+      truncate(head.acceptance_criterion, CRITERION_MAX_CHARS),
+      CRITERION_WRAP_COLUMNS,
+      "    "
+    )
+  );
   const needsJudgement = group.some((impact) => !isBrokenImpact(impact));
   if (needsJudgement) {
     io.write("    Does this change still satisfy this criterion?\n");
@@ -229,23 +205,13 @@ function renderGroup(
 
 export async function runCheckCommand(
   options: CheckCommandOptions,
-  io: CheckIO
+  io: CommandIO
 ): Promise<number> {
   const base = options.base;
   const failOnBroken = options.failOnBroken !== false;
   const failOnStaleManifest = options.failOnStaleManifest !== false;
-  const requestedRoot = resolve(options.repository ?? process.cwd());
-  const workspace = findTielineWorkspace(requestedRoot);
-  const root = workspace?.root ?? requestedRoot;
-  const repositoryKey =
-    options.repo ??
-    workspace?.config.product.repo_name ??
-    basename(root);
-  const manifestPath =
-    workspace?.manifestPath ?? resolve(root, ".tieline/manifest");
-  const specDirectory = workspace
-    ? relative(root, workspace.specDirectoryPath).split(sep).join("/")
-    : ".tieline/spec";
+  const { root, workspace, repositoryKey, manifestPath, specDirectory } =
+    resolveCommandContext(options);
   let manifest;
   try {
     manifest = readContractManifest(manifestPath);
@@ -254,12 +220,7 @@ export async function runCheckCommand(
       `Cannot evaluate semantic impact because the contract manifest in ${manifestPath} is unreadable: ${error instanceof Error ? error.message : String(error)}`
     );
   }
-  const nameStatus = execFileSync(
-    "git",
-    ["diff", "--name-status", "--find-renames", base],
-    { cwd: root, encoding: "utf8" }
-  );
-  const changes = parseNameStatus(nameStatus);
+  const changes = changesSince(root, base);
   // Recompiling refuses to run while a link points at absent evidence, so a
   // failure here is itself a finding rather than a reason to abort the check.
   let manifestCurrent = false;

@@ -15,19 +15,9 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "c571e20cef23af005a0ebc65cde9affce6f7f61e2b4d319eb804e4e1a9c8c50d",
+            "contract_hash": "d11814c21b365fb2ddafd6e944c5fcbef3d89948f688e4fecf9d0f2d154902c9",
             "criterion": "Tieline must reject repository contract documents that violate the accepted Story and Acceptance Criterion schema.",
             "links": [
-              {
-                "provenance": "authored",
-                "relation": "implements",
-                "reviewed_content_hash": "4230230485eb6a0349638ad6219079cf0c0b3738957ecd8477dab399d3b61ca6",
-                "target": {
-                  "kind": "code",
-                  "path": "src/contract/index.ts",
-                  "repository": "tieline"
-                }
-              },
               {
                 "provenance": "authored",
                 "relation": "implements",
@@ -41,7 +31,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5292a67f6107ac2dd74195cbd8815babb8c5a0910be48d10d437fe53b0f7f78b",
+                "reviewed_content_hash": "7fa2e347130ea3854cb0aba35bb0c76915f23a0d7ac05fa55172fbed95fc695c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/schema.ts",
@@ -61,7 +51,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "850186d50b17c7d97433e6ef7e844c6cf83122f5ba6d06f88d4e24cb3d5a3248",
+                "reviewed_content_hash": "193a2c2b610334db9b434380e91c67a0360999b0acfc4d67688e1242d894e05b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -85,7 +75,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -95,7 +85,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fbea3757e99fae29e4c35a29ac13eba324b8967637328ce23b0cd7942f2dab67",
+                "reviewed_content_hash": "0cae6274a4ac15f61559318871bba35484a0b836275ab6ce17ca0927fee07699",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/coverage.ts",
@@ -105,7 +95,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f3a1bb318ce2c4f298ce86c62abf89dea4ac6982bd677f0f794ef2e7357fb621",
+                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -126,7 +116,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "850186d50b17c7d97433e6ef7e844c6cf83122f5ba6d06f88d4e24cb3d5a3248",
+                "reviewed_content_hash": "193a2c2b610334db9b434380e91c67a0360999b0acfc4d67688e1242d894e05b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -137,7 +127,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "848dd1b69f5b7d16e5fc3b43cf138881ef592aa1da8d366d4321766f9cd93647",
+                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -176,7 +166,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9a281f760ef57eed4ef071751e7b664d40ce75d585456b15550319486b03fe69",
+                "reviewed_content_hash": "5d76189525dd8cb4d0888d989b25ac4acd5692c9c8a841e17200afdf0d4473dd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -186,7 +176,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d7e3812f62cea10c903bd16a2380c465ea8a04b516d89fbde965ee7c6653b2ed",
+                "reviewed_content_hash": "53451c67a9bfaebc0ee1bfec0e2b6131d79e92b2d3ed4b702589a17d31630b7c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/impact.ts",
@@ -196,7 +186,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e240deaf451398a8a68525948b2d12da6d4e7a3855126e88ec5442414a3b5ff3",
+                "reviewed_content_hash": "291981754646153196e9d1d980991c50525287a2ebaa635e79e83a40137ddde1",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -228,7 +218,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -272,7 +262,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -282,7 +272,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f3a1bb318ce2c4f298ce86c62abf89dea4ac6982bd677f0f794ef2e7357fb621",
+                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -303,7 +293,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "848dd1b69f5b7d16e5fc3b43cf138881ef592aa1da8d366d4321766f9cd93647",
+                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -342,7 +332,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "9a281f760ef57eed4ef071751e7b664d40ce75d585456b15550319486b03fe69",
+                "reviewed_content_hash": "5d76189525dd8cb4d0888d989b25ac4acd5692c9c8a841e17200afdf0d4473dd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -352,7 +342,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "aa47b9f2e652be811dd432dc4370a7a628e42a0028570eb394a04b8f1dc70202",
+                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -362,7 +352,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e240deaf451398a8a68525948b2d12da6d4e7a3855126e88ec5442414a3b5ff3",
+                "reviewed_content_hash": "291981754646153196e9d1d980991c50525287a2ebaa635e79e83a40137ddde1",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -418,7 +408,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "5292a67f6107ac2dd74195cbd8815babb8c5a0910be48d10d437fe53b0f7f78b",
+                "reviewed_content_hash": "7fa2e347130ea3854cb0aba35bb0c76915f23a0d7ac05fa55172fbed95fc695c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/schema.ts",
@@ -438,7 +428,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "80e52aca071017a7a1c7451f4d54abe6316ec090f2e6519b20e01ef5e5bf5d87",
+                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -448,7 +438,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "30eb256e64525dd8c8e5b9a4086b5b7037ad4cde42ca7285f34cb9438e0954f8",
+                "reviewed_content_hash": "8738fdc06528d372fadf2618648b8d9e116959d2b43e09f8926741dc7c3053ef",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/link-plausibility.ts",
@@ -458,7 +448,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f3a1bb318ce2c4f298ce86c62abf89dea4ac6982bd677f0f794ef2e7357fb621",
+                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -468,7 +458,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1095a4924b5c6dfdd436d4d526dff24055003a111bc6004b8db07981591a1abb",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -479,7 +469,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "850186d50b17c7d97433e6ef7e844c6cf83122f5ba6d06f88d4e24cb3d5a3248",
+                "reviewed_content_hash": "193a2c2b610334db9b434380e91c67a0360999b0acfc4d67688e1242d894e05b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -490,7 +480,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "848dd1b69f5b7d16e5fc3b43cf138881ef592aa1da8d366d4321766f9cd93647",
+                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -530,7 +520,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "c13e8199f8a250daf0da3ed54b24e2232b92a38c8858c5c26f5a254aa5fa4cbf",
+            "contract_hash": "42b68fb2b12ae0124214790488894f75e2a80f0da627230459dfa394c715c717",
             "criterion": "Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.",
             "links": [
               {
@@ -546,7 +536,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "9a281f760ef57eed4ef071751e7b664d40ce75d585456b15550319486b03fe69",
+                "reviewed_content_hash": "5d76189525dd8cb4d0888d989b25ac4acd5692c9c8a841e17200afdf0d4473dd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -556,7 +546,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "80e52aca071017a7a1c7451f4d54abe6316ec090f2e6519b20e01ef5e5bf5d87",
+                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -566,7 +556,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "aa47b9f2e652be811dd432dc4370a7a628e42a0028570eb394a04b8f1dc70202",
+                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -576,7 +566,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -586,7 +576,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f3a1bb318ce2c4f298ce86c62abf89dea4ac6982bd677f0f794ef2e7357fb621",
+                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -596,7 +586,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0862d9f55e918ac7b472158440088d3502df62b36aae9c3b501baf8a2c45c7c0",
+                "reviewed_content_hash": "f0f08d39b9b5ec9d48366fa8787168bdbabc4eb59ad33294db9bdbc4c4dda045",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/path-criteria.ts",
@@ -606,7 +596,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "240cd259d2bb285e16c05d2dc733404c789c879d021331eb97f54005cf130cab",
+                "reviewed_content_hash": "bd211a9aeb20714859f7a88a676cb02ebe2be04e32fd563f59b2dd2c79c9a203",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/sync.ts",
@@ -616,17 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "07cbd663e6602180679f28f406211d98162e7a87261d1fafc2c8c214b3d2a605",
-                "target": {
-                  "kind": "code",
-                  "path": "src/domain/repository-sync-store.ts",
-                  "repository": "tieline"
-                }
-              },
-              {
-                "provenance": "authored",
-                "relation": "implements",
-                "reviewed_content_hash": "43316d7cf3e3fe7dc5f72be0a19b5ac4800d3a21134f40e833a752481157fe32",
+                "reviewed_content_hash": "18f675ff3549e7b3e1d77b012ad92e7f5d6370557c56c04d18c6943bd9d16f59",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -656,7 +636,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1095a4924b5c6dfdd436d4d526dff24055003a111bc6004b8db07981591a1abb",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -678,7 +658,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "848dd1b69f5b7d16e5fc3b43cf138881ef592aa1da8d366d4321766f9cd93647",
+                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -689,7 +669,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "faca8f7468b0bf0739a4aa75667aab9a31ecb607607dd479983e3ba5493a1cce",
+                "reviewed_content_hash": "0c6fd9b95ccd2e17bb0539c59197e479263d1c5107bc91b71df81a6d0a80f8f7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -700,7 +680,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7117f25b3f74b15477b8f654ebb473972a3d0bd966cf3e314056fa941032fa23",
+                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -765,7 +745,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "aa47b9f2e652be811dd432dc4370a7a628e42a0028570eb394a04b8f1dc70202",
+                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -775,7 +755,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -785,7 +765,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0862d9f55e918ac7b472158440088d3502df62b36aae9c3b501baf8a2c45c7c0",
+                "reviewed_content_hash": "f0f08d39b9b5ec9d48366fa8787168bdbabc4eb59ad33294db9bdbc4c4dda045",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/path-criteria.ts",
@@ -795,7 +775,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0ea67f77e3f48f0ee06e46b0715cc60fda317bc8d05f8fea83d928fdd8f33495",
+                "reviewed_content_hash": "e0112ee0b32b7a24f89f2302102adfb223be339bef4c2af2b61f56af942ab0df",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/reconciliation.ts",
@@ -805,7 +785,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "faca8f7468b0bf0739a4aa75667aab9a31ecb607607dd479983e3ba5493a1cce",
+                "reviewed_content_hash": "0c6fd9b95ccd2e17bb0539c59197e479263d1c5107bc91b71df81a6d0a80f8f7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -851,7 +831,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "43316d7cf3e3fe7dc5f72be0a19b5ac4800d3a21134f40e833a752481157fe32",
+                "reviewed_content_hash": "18f675ff3549e7b3e1d77b012ad92e7f5d6370557c56c04d18c6943bd9d16f59",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -861,7 +841,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ea7de680a6b3be42fe07a562fce47e52f63f2b0958a0b4f0ccb3bfd84b4c2280",
+                "reviewed_content_hash": "aedae71097a5d7e46e775aaaba1798b55b2b20cdd436f91e2ad71e3386417442",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",
@@ -881,7 +861,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "faca8f7468b0bf0739a4aa75667aab9a31ecb607607dd479983e3ba5493a1cce",
+                "reviewed_content_hash": "0c6fd9b95ccd2e17bb0539c59197e479263d1c5107bc91b71df81a6d0a80f8f7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -934,6 +914,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "eb96330fc1f88d49dbd3b400655f0dc5db430d81241a417c757990ef547d1120"
+    "sha256": "a05bda29b720f44c5b577c1de546dbfaf3f74e8cc58fb08fb2792ab0bdd89f7b"
   }
 }

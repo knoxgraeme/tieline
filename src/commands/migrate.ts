@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { config } from "../config.js";
+import { stderrIO, type CommandIO } from "./shared.js";
 
 const MIGRATIONS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../migrations");
 const BASELINE_MIGRATION = "0001_baseline.sql";
@@ -51,7 +52,11 @@ function packagedBaseline(): { content: string; checksum: string } {
   };
 }
 
-export async function migrateDatabase(dbUrl: string, verifyOnly = false): Promise<void> {
+export async function migrateDatabase(
+  dbUrl: string,
+  verifyOnly = false,
+  io: CommandIO = stderrIO
+): Promise<void> {
   const baseline = packagedBaseline();
   const sql = postgres(dbUrl, {
     max: 1,
@@ -73,35 +78,36 @@ export async function migrateDatabase(dbUrl: string, verifyOnly = false): Promis
 
     if (verifyOnly) {
       if (pending) throw new Error(`${BASELINE_MIGRATION} has not been applied.`);
-      process.stderr.write(`Verified ${BASELINE_MIGRATION}; no checksum drift.\n`);
+      io.write(`Verified ${BASELINE_MIGRATION}; no checksum drift.\n`);
       return;
     }
     if (!pending) {
-      process.stderr.write(`${BASELINE_MIGRATION} is already applied; no changes.\n`);
+      io.write(`${BASELINE_MIGRATION} is already applied; no changes.\n`);
       return;
     }
 
-    process.stderr.write(`  ${BASELINE_MIGRATION} ... `);
+    io.write(`  ${BASELINE_MIGRATION} ... `);
     await sql.begin(async (tx) => {
       await tx.unsafe(baseline.content);
       await tx`
         insert into schema_migrations (filename, checksum)
         values (${BASELINE_MIGRATION}, ${baseline.checksum})`;
     });
-    process.stderr.write("ok\nApplied the clean baseline; schema is current.\n");
+    io.write("ok\nApplied the clean baseline; schema is current.\n");
   } finally {
     await sql.end({ timeout: 5 });
   }
 }
 
-export async function runMigrateCommand(options: {
-  verify?: boolean;
-}): Promise<number> {
+export async function runMigrateCommand(
+  options: { verify?: boolean },
+  io: CommandIO = stderrIO
+): Promise<number> {
   if (!config.dbAdminUrl) {
     throw new Error(
       "Set DATABASE_URL_ADMIN to the database owner used for DDL; the MCP server never loads this connection."
     );
   }
-  await migrateDatabase(config.dbAdminUrl, options.verify === true);
+  await migrateDatabase(config.dbAdminUrl, options.verify === true, io);
   return 0;
 }

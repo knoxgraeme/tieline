@@ -2,7 +2,11 @@ import type { ContractReadStore } from "./contract-read-store.js";
 import type { EvidenceWriteStore } from "./evidence-write-store.js";
 import type { BacklogReadStore } from "./evidence-write-store.js";
 import type { PlanningContractWriteStore } from "./planning-contract-write-store.js";
-import type { SemanticSearchStore } from "./semantic-search-store.js";
+import type {
+  AttributionSuggestionRecord,
+  SemanticSearchStore,
+} from "./semantic-search-store.js";
+import type { EmbeddingDocumentKind } from "../derived/embedding-documents.js";
 import type {
   ContractAuthority,
   StoryLifecycle,
@@ -54,10 +58,28 @@ export interface HelpReadStore {
   ): Promise<{ articles: HelpArticleRecord[]; not_found: HelpArticleRef[] }>;
 }
 
+export interface AttributionSuggestionReadStore {
+  listAttributionSuggestions(input?: {
+    source_kind?: EmbeddingDocumentKind;
+    source_id?: string;
+    state?: Array<"suggested" | "confirmed" | "dismissed">;
+    limit?: number;
+  }): Promise<AttributionSuggestionRecord[]>;
+}
+
+export interface AttributionSuggestionDecisionStore {
+  decideAttributionSuggestion(input: {
+    suggestion_id: string;
+    decision: "confirmed" | "dismissed";
+  }): Promise<AttributionSuggestionRecord | null>;
+}
+
 export interface KnowledgeStore
   extends ContractReadStore,
     BacklogReadStore,
     SemanticSearchStore,
+    AttributionSuggestionReadStore,
+    AttributionSuggestionDecisionStore,
     PlanningContractWriteStore,
     EvidenceWriteStore,
     HelpReadStore {

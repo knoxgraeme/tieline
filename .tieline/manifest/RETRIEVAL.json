@@ -12,7 +12,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "a7f4ab92747947a6f39ffc10d5f98e200d22d312bd49a08d07911d8f260124fb",
+            "contract_hash": "de3bc54d5b094b13196a8c4a8d8452f37ff591842a27f129ffcf6e68a6ad593c",
             "criterion": "Tieline must return structured Stories with ordered Acceptance Criteria, direct and fallback links, coverage, freshness, lifecycle, and authority.",
             "links": [
               {
@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "43316d7cf3e3fe7dc5f72be0a19b5ac4800d3a21134f40e833a752481157fe32",
+                "reviewed_content_hash": "18f675ff3549e7b3e1d77b012ad92e7f5d6370557c56c04d18c6943bd9d16f59",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -51,7 +51,7 @@
                 "reviewed_content_hash": "58fd53a2cf5de05f2f34872cb5207948e6b38a3ff65a6c209b3e96d1f6d666ee",
                 "target": {
                   "kind": "code",
-                  "path": "src/tools/query_stories.ts",
+                  "path": "src/tools/query-stories.ts",
                   "repository": "tieline"
                 }
               },
@@ -119,7 +119,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "03156259c3016f0b25c5e066d90cc4a8b4fc8ad4f2c5407c1f07d80d2e797c19",
+                "reviewed_content_hash": "17710e74ff29c6d3501b4f4074b0f3ebe7819f34fa020ddfe3330c344d64350c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/profile.ts",
@@ -139,7 +139,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -193,6 +193,6 @@
   },
   "input": {
     "path": ".tieline/spec/retrieval.yaml",
-    "sha256": "374b78c2519251ab401a436f3306fe145dd19a14137b166348a6e3da58abe0d6"
+    "sha256": "f7b02f89987dd9438cd7e30e92f22bf8db6ace223c3b529e93e00e33f356d6af"
   }
 }

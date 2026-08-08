@@ -48,6 +48,7 @@ import type {
   ManifestLink,
   ManifestStory,
 } from "./manifest.js";
+import { scanSource } from "./source-scan.js";
 
 export const LINK_PLAUSIBILITY_METHOD = "lexical_token_overlap_v1";
 
@@ -278,77 +279,6 @@ export function meaningfulTokens(values: Iterable<string>): string[] {
     }
   }
   return [...tokens].sort();
-}
-
-interface ScannedSource {
-  /** Source with comments and string bodies removed, so name patterns cannot match inside them. */
-  code: string;
-  comments: string[];
-  strings: string[];
-}
-
-function readLiteral(
-  content: string,
-  start: number,
-  quote: string
-): { literal: string; next: number } {
-  let index = start + 1;
-  let literal = "";
-  while (index < content.length) {
-    const char = content[index];
-    if (char === "\\") {
-      index += 2;
-      continue;
-    }
-    if (char === quote) return { literal, next: index + 1 };
-    // An unterminated quote must not swallow the rest of the file. Template
-    // literals legitimately span lines; the other two do not.
-    if (char === "\n" && quote !== "`") return { literal, next: index };
-    literal += char;
-    index += 1;
-  }
-  return { literal, next: content.length };
-}
-
-/**
- * A single left-to-right character scan that separates comments, string
- * literals, and remaining code. Deliberately not a parser: template
- * interpolations are treated as opaque string bodies and regex literals are
- * left in the code stream. Both are acceptable for a lexical smell signal.
- */
-function scanSource(content: string): ScannedSource {
-  const comments: string[] = [];
-  const strings: string[] = [];
-  let code = "";
-  let index = 0;
-  while (index < content.length) {
-    const char = content[index];
-    const next = content[index + 1];
-    if (char === "/" && next === "/") {
-      const end = content.indexOf("\n", index);
-      const stop = end === -1 ? content.length : end;
-      comments.push(content.slice(index + 2, stop));
-      index = stop;
-      continue;
-    }
-    if (char === "/" && next === "*") {
-      const end = content.indexOf("*/", index + 2);
-      const stop = end === -1 ? content.length : end;
-      comments.push(content.slice(index + 2, stop));
-      index = end === -1 ? stop : stop + 2;
-      continue;
-    }
-    if (char === '"' || char === "'" || char === "`") {
-      const literal = readLiteral(content, index, char);
-      strings.push(literal.literal);
-      code += " ";
-      index = literal.next;
-      continue;
-    }
-    code += char;
-    index += 1;
-  }
-  return { code, comments, strings };
 }
 
 const DECLARATION_PATTERNS: readonly RegExp[] = [

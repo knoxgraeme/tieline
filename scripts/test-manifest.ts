@@ -22,19 +22,7 @@ import {
   writeContractManifest,
   type CompiledContractManifest,
 } from "../src/contract/manifest.js";
-
-let passed = 0;
-
-async function test(name: string, fn: () => void | Promise<void>): Promise<void> {
-  try {
-    await fn();
-    passed++;
-    console.log(`  ok  - ${name}`);
-  } catch (error) {
-    console.error(`  not ok - ${name}`);
-    throw error;
-  }
-}
+import { report, test } from "./lib/harness.js";
 
 function fixture(): string {
   const root = mkdtempSync(resolve(tmpdir(), "tieline-manifest-"));
@@ -681,4 +669,4 @@ await test("emits stable ordering independent of YAML file discovery order", () 
   }
 });
 
-console.log(`\n${passed} passed, 0 failed`);
+report();

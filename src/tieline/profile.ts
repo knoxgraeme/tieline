@@ -89,7 +89,7 @@ export function tielineConfigHome(env: NodeJS.ProcessEnv = process.env): string 
   );
 }
 
-export function workspaceProfileId(repoName: string, repositoryRoot: string): string {
+function workspaceProfileId(repoName: string, repositoryRoot: string): string {
   const fingerprint = createHash("sha256").update(resolve(repositoryRoot)).digest("hex").slice(0, 12);
   return `${repoName}-${fingerprint}`;
 }
@@ -106,7 +106,7 @@ export function profileIdForWorkspace(workspace: TielineWorkspace): string {
   );
 }
 
-export function selectProfileEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
+function selectProfileEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
   const selected: Record<string, string> = {};
   for (const key of PROFILE_ENV_KEYS) {
     const value = env[key]?.trim();

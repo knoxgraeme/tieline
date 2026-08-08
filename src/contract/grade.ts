@@ -18,10 +18,11 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { extname, resolve } from "node:path";
 import { z } from "zod";
 import type { RepositoryPathChange } from "./impact.js";
 import type { ContractManifest } from "./manifest.js";
+import { withinRepository } from "./paths.js";
 import {
   analyzeContractReconciliation,
   buildContractClaimIndex,
@@ -108,17 +109,12 @@ export interface BuildGradeScopeInput {
   specDirectory?: string;
 }
 
-function withinRepository(repositoryRoot: string, target: string): boolean {
-  const path = relative(repositoryRoot, target);
-  return path !== ".." && !path.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) && !isAbsolute(path);
-}
-
 /**
  * Uses selector.ts as the sole declaration extractor. File checks mirror its
  * conservative resolver: unreadable or unsupported artifacts have no legal
  * citation rather than producing a guessed vocabulary.
  */
-export function citableSymbolsForPath(
+function citableSymbolsForPath(
   repositoryRoot: string,
   path: string
 ): string[] {

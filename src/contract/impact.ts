@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import type {
   ContractManifest,
   ManifestAcceptanceCriterion,
@@ -331,4 +332,17 @@ export function parseNameStatus(
             : "modified";
       return { status, path: first };
     });
+}
+
+/** The working tree's changes since `base`, rename detection included. */
+export function changesSince(
+  repositoryRoot: string,
+  base: string
+): RepositoryPathChange[] {
+  return parseNameStatus(
+    execFileSync("git", ["diff", "--name-status", "--find-renames", base], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })
+  );
 }

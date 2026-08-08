@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import postgres from "postgres";
 import { migrateDatabase } from "../src/commands/migrate.js";
 import { PostgresPlanningStoryRepository } from "../src/adapters/postgres/planning-story-repository.js";
+import { withRole } from "./lib/db.js";
 
 const adminUrl = process.env.DATABASE_URL_ADMIN;
 if (!adminUrl) {
@@ -15,14 +16,8 @@ await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });
 const planning = new PostgresPlanningStoryRepository(() => sql);
 
-async function asPlanningWriter<T>(operation: () => Promise<T>): Promise<T> {
-  await sql.unsafe("set role tieline_planning_writer");
-  try {
-    return await operation();
-  } finally {
-    await sql.unsafe("reset role");
-  }
-}
+const asPlanningWriter = <T>(operation: () => Promise<T>): Promise<T> =>
+  withRole(sql, "tieline_planning_writer", operation);
 
 try {
   const [repository] = await sql<{ id: string }[]>`

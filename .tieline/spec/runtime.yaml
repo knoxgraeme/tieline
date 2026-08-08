@@ -344,7 +344,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/loadEnv.ts
+                path: src/load-env.ts
             - relation: implements
               provenance: authored
               target:

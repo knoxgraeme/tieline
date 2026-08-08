@@ -13,18 +13,7 @@ import {
 import type { ContractStoryRecord } from "../src/domain/contract-read-store.js";
 import type { ObservationRecord } from "../src/domain/evidence-write-store.js";
 import { prepareObservation } from "../src/domain/evidence-write-store.js";
-
-let passed = 0;
-let failed = 0;
-function check(name: string, condition: boolean, detail = ""): void {
-  if (condition) {
-    passed++;
-    console.log(`  ok  - ${name}`);
-  } else {
-    failed++;
-    console.error(`  FAIL- ${name} ${detail}`);
-  }
-}
+import { check, report } from "./lib/harness.js";
 
 async function withFetch(
   implementation: typeof fetch,
@@ -320,8 +309,7 @@ async function main(): Promise<void> {
       !remoteBody.includes("provider-secret")
   );
 
-  console.log(`\n${passed} passed, ${failed} failed`);
-  process.exit(failed === 0 ? 0 : 1);
+  report();
 }
 
 void main();

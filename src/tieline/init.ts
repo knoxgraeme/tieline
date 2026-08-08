@@ -1,11 +1,5 @@
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
 import { resolveEmbeddingProvider } from "./preflight.js";
 import {
@@ -18,6 +12,7 @@ import {
   type TielineContextSource,
   type TielineWorkspace,
   workspaceFromConfig,
+  writeTielineConfig,
 } from "./workspace.js";
 
 const DEFAULT_IGNORE = [
@@ -290,6 +285,6 @@ export function initWorkspace(
     updated_at: now,
   };
   const configPath = resolve(directory, TIELINE_CONFIG_FILE);
-  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  writeTielineConfig(configPath, config);
   return { created: true, workspace: workspaceFromConfig(configPath) };
 }

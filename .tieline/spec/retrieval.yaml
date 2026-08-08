@@ -43,7 +43,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/tools/query_stories.ts
+                path: src/tools/query-stories.ts
             - relation: tests
               provenance: authored
               target:

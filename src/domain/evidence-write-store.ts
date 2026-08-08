@@ -159,7 +159,7 @@ function schemaIdentity(schemaKey: string, version: number): string {
   return `${schemaKey}@${version}`;
 }
 
-export function registerObservationSchema(
+function registerObservationSchema(
   definition: ObservationSchemaDefinition
 ): void {
   const identity = schemaIdentity(definition.schema_key, definition.version);
@@ -284,7 +284,7 @@ const outboundObservationRedactions: Array<{
 ];
 
 /** Keep likely contact, payment, URL, and credential values out of remote embedding text. */
-export function sanitizeObservationSearchText(value: string): string {
+function sanitizeObservationSearchText(value: string): string {
   return outboundObservationRedactions.reduce(
     (sanitized, redaction) =>
       sanitized.replace(redaction.pattern, redaction.replacement),
