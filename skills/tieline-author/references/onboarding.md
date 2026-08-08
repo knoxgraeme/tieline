@@ -5,7 +5,9 @@ first authoring pass, not a separate approval or handoff process.
 
 ## Set expectations first
 
-Open with a short orientation before asking anything — the user just pasted
+The orientation is the first visible thing that happens: send it before
+reading repository files or running commands, and do not narrate loading
+the skill or inspecting configuration first — the user just pasted
 a prompt and may not know what Tieline is or what happens next. In one short
 paragraph: Tieline maintains a living contract of the product's user Stories
 and acceptance criteria, grounded in this repository's code and tests, and —
@@ -68,6 +70,11 @@ a human first sees them. Verify, do not re-ask.
    `npm install --save-dev tieline` so the team shares one version and
    `npx tieline` resolves locally. Skip this for non-Node repositories; `npx`
    alone is sufficient.
+5. Close the conversation with a handoff so the coming silence is expected:
+   setup is complete, the rest runs without input, and the next thing the
+   user sees is the completion report with the review page. Everything after
+   this point is autonomous — do not ask further questions unless unresolved
+   product meaning materially changes a capability boundary.
 
 ## Author the initial contract
 

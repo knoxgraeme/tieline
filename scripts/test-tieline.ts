@@ -1394,6 +1394,21 @@ capability:
     /Set expectations first/,
     "onboarding must open by orienting the user before asking questions"
   );
+  assert.match(
+    onboardingReference,
+    /send it before\s+reading repository files or running commands/,
+    "the orientation must precede repository work, not follow it"
+  );
+  assert.match(
+    onboardingReference,
+    /handoff so the coming silence is expected/,
+    "setup must end with a handoff into the autonomous phase"
+  );
+  assert.match(
+    authorSkill,
+    /starts with a\s+conversation, not with repository reading/,
+    "the skill dispatch must order conversation before orientation steps"
+  );
   assert.match(onboardingReference, /merge\s+is the approval/);
   assert.match(
     onboardingReference,

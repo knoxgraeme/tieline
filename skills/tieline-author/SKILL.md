@@ -19,7 +19,12 @@ works through the CLI (`npx -y tieline <command>`).
 When invoked after `tieline init` as an installed skill or MCP prompt, inspect
 `.tieline/spec/`. If it has no YAML, read
 [onboarding.md](references/onboarding.md) and perform semantic onboarding
-before choosing a normal authoring flow. Init records auto-detected values, so
+before choosing a normal authoring flow. Onboarding starts with a
+conversation, not with repository reading: after the silent checks that
+choose this flow (`.tieline/spec/` and `.tieline/config.json`), the first
+visible action is the orientation and setup exchange in onboarding.md — the
+"Orient to this repository" steps below run after that conversation ends,
+not before it. Init records auto-detected values, so
 verify rather than interrogate: confirm detected identity with the user and
 correct `.tieline/config.json` when a detection is wrong, but never ask for
 anything the repository can answer.
