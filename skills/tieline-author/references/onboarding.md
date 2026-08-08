@@ -3,6 +3,19 @@
 Use this workflow only when `.tieline/spec/` has no YAML. Onboarding is the
 first authoring pass, not a separate approval or handoff process.
 
+## Set expectations first
+
+Open with a short orientation before asking anything — the user just pasted
+a prompt and may not know what Tieline is or what happens next. In one short
+paragraph: Tieline maintains a living contract of the product's user Stories
+and acceptance criteria, grounded in this repository's code and tests. Then
+the plan: confirm a few detected settings, ask one or two questions, author
+the initial capabilities, Stories, and ACs from repository evidence, and
+finish with a browsable review page on a branch for normal pull-request
+review. State plainly that nothing is accepted without their review — merge
+is the approval. Keep it to that one paragraph, not a feature tour, and move
+straight into the first confirmation.
+
 ## Gather and verify configuration
 
 Init writes auto-detected values without asking questions; this phase is where

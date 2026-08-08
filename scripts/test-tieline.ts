@@ -1391,6 +1391,12 @@ capability:
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
+    /Set expectations first/,
+    "onboarding must open by orienting the user before asking questions"
+  );
+  assert.match(onboardingReference, /merge\s+is the approval/);
+  assert.match(
+    onboardingReference,
     /Do not enumerate the authored\s+Stories or acceptance\s+criteria inline/,
     "onboarding must deliver the review page, not an inline listing"
   );
@@ -1430,6 +1436,11 @@ capability:
     provisioningReference,
     /never write it into any\s+repository file/,
     "provisioning must keep provider artifacts out of the repository"
+  );
+  assert.match(
+    provisioningReference,
+    /at most once per database/,
+    "provisioning must warn about credential rotation on re-run"
   );
   assert.match(onboardingReference, /provisioning\.md/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);

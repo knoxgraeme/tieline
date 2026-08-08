@@ -32,6 +32,9 @@ Tieline's private profile outside the checkout.
    `--provision-roles` assigns login credentials to the migration-created
    tieline roles so semantic matching and planning writes work immediately.
    Omit it only when the organization manages database login roles itself.
+   Run it at most once per database: re-running rotates the generated
+   passwords and invalidates the credentials every other clone's profile
+   already holds.
 5. Verify with `npx -y tieline status --json`: `runtime.setup_complete`
    must be true and the capability flags should report semantic matching
    and planning writes configured. On any provider failure, report the
