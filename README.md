@@ -234,7 +234,7 @@ Choose the database mode based on the workflow:
 
 | Mode | Behavior |
 | --- | --- |
-| `offline` | Writes the workspace and supports local YAML/manifest authoring without organization-wide matching |
+| `offline` | Writes the workspace and supports local YAML/manifest authoring; Observations, Backlog Items, planning Stories, and organization-wide matching need a database |
 | `local` | Creates or reuses a dedicated Docker PostgreSQL + pgvector database and stores clone-local credentials privately |
 | `existing` (hosted / remote) | Connects a hosted or remote Postgres 16 + pgvector database identified by `DATABASE_URL_ADMIN`; no Docker container is required |
 

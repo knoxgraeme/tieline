@@ -8,7 +8,9 @@ first authoring pass, not a separate approval or handoff process.
 Open with a short orientation before asking anything — the user just pasted
 a prompt and may not know what Tieline is or what happens next. In one short
 paragraph: Tieline maintains a living contract of the product's user Stories
-and acceptance criteria, grounded in this repository's code and tests. Then
+and acceptance criteria, grounded in this repository's code and tests, and —
+once a database is connected — carries requests from Observation to planning
+Story to production behavior. Then
 the plan: confirm a few detected settings, ask one or two questions, author
 the initial capabilities, Stories, and ACs from repository evidence, and
 finish with a browsable review page on a branch for normal pull-request
@@ -30,10 +32,15 @@ a human first sees them. Verify, do not re-ask.
    with the user, and record it in `.tieline/config.json` under
    `context.sources` as
    `{ "id": "source-<n>", "type": "description", "location": null, "content": "<text>", "allow_external_fetch": false }`.
-3. Ask at most one setup question, with three answers: stay in the default
-   offline mode, connect an existing PostgreSQL, or provision a new hosted
-   database now. Offline is a complete answer for repository-local
-   authoring — do not present it as a degraded mode.
+3. Ask at most one setup question, with three answers: stay offline for
+   now, connect an existing PostgreSQL, or provision a new hosted database.
+   Frame the choice by what the database unlocks: it is where Observations
+   (bug reports, feature requests), Backlog Items, and planning Stories
+   live, so a request can be captured and followed from planning to
+   production, and it powers organization-wide duplicate checking across
+   repositories. Offline authors, validates, and reviews the repository
+   contract completely — present it as "start here, connect later", never
+   as the whole product.
    - Existing: requires `DATABASE_URL_ADMIN` in the environment; run
      `npx -y tieline init . --yes --database existing`. Docker users can
      choose `--database local` instead.

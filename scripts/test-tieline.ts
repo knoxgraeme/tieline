@@ -1397,6 +1397,11 @@ capability:
   assert.match(onboardingReference, /merge\s+is the approval/);
   assert.match(
     onboardingReference,
+    /start here, connect later.*never\s+as the whole product/s,
+    "the database question must sell what the database unlocks, not settle for offline"
+  );
+  assert.match(
+    onboardingReference,
     /Do not enumerate the authored\s+Stories or acceptance\s+criteria inline/,
     "onboarding must deliver the review page, not an inline listing"
   );
