@@ -24,26 +24,11 @@ import {
   createPlanningStorySchema,
   searchKnowledgeSchema,
 } from "../src/schemas.js";
-
-let passed = 0;
-function test(name: string, run: () => void): void {
-  run();
-  passed += 1;
-  console.log(`  ok  - ${name}`);
-}
-
-async function asyncTest(
-  name: string,
-  run: () => Promise<void>
-): Promise<void> {
-  await run();
-  passed += 1;
-  console.log(`  ok  - ${name}`);
-}
+import { report, test } from "./lib/harness.js";
 
 console.log("hierarchical semantic ranking");
 
-test("applicability breaks a close semantic tie", () => {
+await test("applicability breaks a close semantic tie", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "inapplicable",
@@ -73,7 +58,7 @@ test("applicability breaks a close semantic tie", () => {
   assert.equal(ranked[0]?.document_id, "applicable");
 });
 
-test("artifact and graph context break a close semantic tie", () => {
+await test("artifact and graph context break a close semantic tie", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "semantic-only",
@@ -105,7 +90,7 @@ test("artifact and graph context break a close semantic tie", () => {
   assert.equal(ranked[0]?.features.graph, 0.75);
 });
 
-test("RRF rewards candidates supported by both lexical and vector signals", () => {
+await test("RRF rewards candidates supported by both lexical and vector signals", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "consistent",
@@ -135,7 +120,7 @@ test("RRF rewards candidates supported by both lexical and vector signals", () =
   assert.match(ranked[0]?.why.join(" ") ?? "", /vector.*lexical/i);
 });
 
-test("lexical-only candidates remain useful without an embedding", () => {
+await test("lexical-only candidates remain useful without an embedding", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "lexical",
@@ -154,7 +139,7 @@ test("lexical-only candidates remain useful without an embedding", () => {
   assert.match(ranked[0]?.why.join(" ") ?? "", /lexical/i);
 });
 
-await asyncTest(
+await test(
   "planning advice admits a strong lexical-only candidate without an embedding",
   async () => {
     const previousEmbedder = getEmbedder();
@@ -226,7 +211,7 @@ await asyncTest(
   }
 );
 
-await asyncTest(
+await test(
   "an admissible lexical sibling survives same-criterion grouping",
   async () => {
     const previousEmbedder = getEmbedder();
@@ -327,7 +312,7 @@ await asyncTest(
   }
 );
 
-test("Scenario and AC hits collapse around the same AC", () => {
+await test("Scenario and AC hits collapse around the same AC", () => {
   const grouped = groupSemanticHitsAroundAcceptanceCriteria(
     rankSemanticDocuments([
       {
@@ -358,7 +343,7 @@ test("Scenario and AC hits collapse around the same AC", () => {
   assert.equal(grouped[0]?.matched_level, "scenario");
 });
 
-test("a weak top-ranked candidate is withheld by raw magnitude", () => {
+await test("a weak top-ranked candidate is withheld by raw magnitude", () => {
   const [weak] = rankSemanticDocuments([
     {
       document_id: "weak",
@@ -376,7 +361,7 @@ test("a weak top-ranked candidate is withheld by raw magnitude", () => {
   assert.equal(isPresentableSemanticMatch(weak!), false);
 });
 
-test("a weak candidate stays withheld when ranked behind stronger ones", () => {
+await test("a weak candidate stays withheld when ranked behind stronger ones", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "strong-a",
@@ -420,7 +405,7 @@ test("a weak candidate stays withheld when ranked behind stronger ones", () => {
   );
 });
 
-test("a strong candidate clears raw-magnitude admission", () => {
+await test("a strong candidate clears raw-magnitude admission", () => {
   const [strong] = rankSemanticDocuments([
     {
       document_id: "strong",
@@ -438,7 +423,7 @@ test("a strong candidate clears raw-magnitude admission", () => {
   assert.equal(isPresentableSemanticMatch(strong!), true);
 });
 
-test("an exact alias match survives a low similarity score", () => {
+await test("an exact alias match survives a low similarity score", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "strong",
@@ -472,7 +457,7 @@ test("an exact alias match survives a low similarity score", () => {
   assert.match(alias.why.join(" "), /alias/i);
 });
 
-test("the magnitude floor removes candidates without reordering survivors", () => {
+await test("the magnitude floor removes candidates without reordering survivors", () => {
   const ranked = rankSemanticDocuments([
     {
       document_id: "weak",
@@ -532,7 +517,7 @@ test("the magnitude floor removes candidates without reordering survivors", () =
   );
 });
 
-test("caller filters can narrow but not broaden a profile", () => {
+await test("caller filters can narrow but not broaden a profile", () => {
   const narrowed = narrowSemanticFilters(
     {
       authorities: ["repository"],
@@ -570,7 +555,7 @@ test("caller filters can narrow but not broaden a profile", () => {
   );
 });
 
-test("empty retrieval filters and profile predicates are rejected", () => {
+await test("empty retrieval filters and profile predicates are rejected", () => {
   assert.equal(
     searchKnowledgeSchema.safeParse({
       query: "production behavior",
@@ -590,7 +575,7 @@ test("empty retrieval filters and profile predicates are rejected", () => {
   );
 });
 
-test("knowledge search accepts bounded typed retrieval context", () => {
+await test("knowledge search accepts bounded typed retrieval context", () => {
   const parsed = searchKnowledgeSchema.parse({
     query: "find the affected production behavior",
     profile: "engineering",
@@ -638,7 +623,7 @@ test("knowledge search accepts bounded typed retrieval context", () => {
   );
 });
 
-test("create schemas accept machine candidate selection tokens", () => {
+await test("create schemas accept machine candidate selection tokens", () => {
   const token = "candidate:00000000-0000-4000-8000-000000000001";
   assert.equal(
     createBacklogItemSchema.safeParse({
@@ -658,4 +643,4 @@ test("create schemas accept machine candidate selection tokens", () => {
   );
 });
 
-console.log(`\n${passed} passed, 0 failed`);
+report();

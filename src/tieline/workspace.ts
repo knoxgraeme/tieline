@@ -127,10 +127,10 @@ export function findTielineWorkspace(
   }
 }
 
-export function writeTielineConfig(workspace: TielineWorkspace): void {
-  workspace.config.updated_at = new Date().toISOString();
-  writeFileSync(
-    workspace.configPath,
-    `${JSON.stringify(workspace.config, null, 2)}\n`
-  );
+export function writeTielineConfig(
+  configPath: string,
+  config: TielineConfig
+): void {
+  config.updated_at = new Date().toISOString();
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }

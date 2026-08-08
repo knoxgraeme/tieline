@@ -62,7 +62,7 @@ export const findRelatedShape = {
   include_inactive: z.boolean().optional(),
   limit: z.number().int().min(1).max(20).default(5),
 };
-export const findRelatedSchema = z.object(findRelatedShape).strict();
+const findRelatedSchema = z.object(findRelatedShape).strict();
 export type FindRelatedInput = z.infer<typeof findRelatedSchema>;
 export const findRelatedOutputShape = {
   query: z.object({
@@ -190,7 +190,7 @@ export const findHelpShape = {
   source: z.array(z.string().trim().min(1)).optional(),
   limit: z.number().int().min(1).max(20).default(5),
 };
-export const findHelpSchema = z.object(findHelpShape).strict();
+const findHelpSchema = z.object(findHelpShape).strict();
 export type FindHelpInput = z.infer<typeof findHelpSchema>;
 export const findHelpOutputShape = {
   query: z.object({
@@ -221,7 +221,7 @@ const helpArticleRef = () =>
 export const getHelpArticleShape = {
   articles: z.array(helpArticleRef()).min(1).max(10),
 };
-export const getHelpArticleSchema = z
+const getHelpArticleSchema = z
   .object(getHelpArticleShape)
   .strict();
 export type GetHelpArticleInput = z.infer<typeof getHelpArticleSchema>;
@@ -239,7 +239,7 @@ export const getHelpArticleOutputShape = {
 export const getPathCriteriaShape = {
   paths: z.array(z.string().trim().min(1).max(1_000)).min(1).max(50),
 };
-export const getPathCriteriaSchema = z
+const getPathCriteriaSchema = z
   .object(getPathCriteriaShape)
   .strict();
 export type GetPathCriteriaInput = z.infer<typeof getPathCriteriaSchema>;
@@ -326,7 +326,7 @@ export const recordObservationShape = {
   payload: z.record(z.unknown()).default({}),
   supersedes_observation_id: z.string().uuid().nullish(),
 };
-export const recordObservationSchema = z
+const recordObservationSchema = z
   .object(recordObservationShape)
   .strict();
 export type RecordObservationInput = z.infer<
@@ -357,7 +357,7 @@ export const decideAttributionShape = {
   decision: z.enum(["confirmed", "dismissed"]),
   decided_by: z.string().min(1).nullish(),
 };
-export const decideAttributionSchema = z
+const decideAttributionSchema = z
   .object(decideAttributionShape)
   .strict();
 export type DecideAttributionInput = z.infer<
@@ -382,7 +382,7 @@ const backlogItem = () =>
 export const getBacklogItemShape = {
   stable_id: stableId,
 };
-export const getBacklogItemSchema = z
+const getBacklogItemSchema = z
   .object(getBacklogItemShape)
   .strict();
 export type GetBacklogItemInput = z.infer<
@@ -432,7 +432,7 @@ export const updateBacklogItemShape = {
   stage: backlogStage.optional(),
   superseded_by: stableId.nullish(),
 };
-export const updateBacklogItemSchema = z
+const updateBacklogItemSchema = z
   .object(updateBacklogItemShape)
   .strict();
 export type UpdateBacklogItemInput = z.infer<
@@ -536,7 +536,7 @@ export const updatePlanningStoryShape = {
   superseded_by: stableId.nullish(),
   acceptance_criteria: z.array(planningCriterion()).optional(),
 };
-export const updatePlanningStorySchema = z
+const updatePlanningStorySchema = z
   .object(updatePlanningStoryShape)
   .strict();
 export type UpdatePlanningStoryToolInput = z.infer<
@@ -556,7 +556,7 @@ export const listHandoffConflictsShape = {
   include_resolved: z.boolean().default(false),
   limit: z.number().int().min(1).max(200).default(50),
 };
-export const listHandoffConflictsSchema = z
+const listHandoffConflictsSchema = z
   .object(listHandoffConflictsShape)
   .strict();
 export type ListHandoffConflictsInput = z.infer<

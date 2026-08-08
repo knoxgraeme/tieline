@@ -1516,6 +1516,7 @@ capability:
   assert.match(onboardingReference, /provisioning\.md/);
   assert.doesNotMatch(authorSkill, /agent handoff printed/i);
 
+  // README wording is under test: editing the install instructions there breaks test:tieline unless these assertions move with it.
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
   assert.match(
     readme,

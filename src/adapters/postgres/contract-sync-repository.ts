@@ -10,10 +10,11 @@ import {
   ContractSyncCheckpointError,
   ContractSyncCollisionError,
   type ContractSyncOptions,
+  type ContractSyncRepository,
   type ContractSyncResult,
   type HandoffConflict,
 } from "../../contract/sync.js";
-import type { RepositorySyncStore } from "../../domain/repository-sync-store.js";
+import { getSyncSql } from "./connections.js";
 
 interface RepositoryRow {
   id: string;
@@ -894,9 +895,9 @@ async function applySupersession(
 }
 
 export class PostgresContractSyncRepository
-  implements RepositorySyncStore
+  implements ContractSyncRepository
 {
-  constructor(private readonly sql: Sql<Record<string, never>>) {}
+  constructor(private readonly sqlProvider: () => Sql = getSyncSql) {}
 
   async sync(
     manifest: ContractManifest,
@@ -905,7 +906,8 @@ export class PostgresContractSyncRepository
     const commit = options.commit.trim();
     if (!commit) throw new Error("Repository sync commit cannot be empty.");
     const counts = manifestCounts(manifest);
-    return this.sql.begin(async (tx) => {
+    const sql = this.sqlProvider();
+    return sql.begin(async (tx) => {
       await tx`
         select pg_advisory_xact_lock(
           hashtext('tieline-repository-sync'),

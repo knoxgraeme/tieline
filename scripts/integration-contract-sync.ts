@@ -18,7 +18,6 @@ import {
   ContractSyncCheckpointError,
   ContractSyncCollisionError,
   type ContractSyncOptions,
-  syncContractManifest,
 } from "../src/contract/sync.js";
 import type { ContractManifest } from "../src/contract/manifest.js";
 
@@ -185,7 +184,7 @@ try {
     })
   );
 
-  const store = new PostgresContractSyncRepository(sql);
+  const store = new PostgresContractSyncRepository(() => sql);
   const reads = new PostgresContractReadRepository(() => sql);
   const syncAsRepositoryRole = async (
     manifest: ContractManifest,
@@ -193,8 +192,6 @@ try {
   ) => {
     await sql.unsafe("set role tieline_repository_sync");
     try {
-      // Calls the adapter directly so the reconciliation diagnostic it reports
-      // beyond ContractSyncResult stays typed.
       return await store.sync(manifest, options);
     } finally {
       await sql.unsafe("reset role");
@@ -206,10 +203,6 @@ try {
   });
   await assert.rejects(
     store.sync(reviewedFirstManifest, { commit: "  " }),
-    /Repository sync commit cannot be empty/
-  );
-  await assert.rejects(
-    syncContractManifest(store, reviewedFirstManifest, { commit: "  " }),
     /Repository sync commit cannot be empty/
   );
   writeFileSync(
@@ -224,8 +217,7 @@ try {
     const syncSql = postgres(adminUrl, { max: 1, prepare: false });
     try {
       await syncSql.unsafe("set role tieline_repository_sync");
-      return await syncContractManifest(
-        new PostgresContractSyncRepository(syncSql),
+      return await new PostgresContractSyncRepository(() => syncSql).sync(
         firstManifest,
         { commit: "commit-one" }
       );

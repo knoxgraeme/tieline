@@ -7,7 +7,9 @@ import { prepareObservation } from "../src/domain/evidence-write-store.js";
 import { PostgresSemanticRepository } from "../src/adapters/postgres/semantic-repository.js";
 import { observationEmbeddingDocument } from "../src/derived/embedding-documents.js";
 import { backlogEmbeddingDocument } from "../src/derived/embedding-documents.js";
+import { HashEmbedder } from "../src/embeddings.js";
 import { createHash } from "node:crypto";
+import { withRole } from "./lib/db.js";
 
 const adminUrl = process.env.DATABASE_URL_ADMIN;
 if (!adminUrl) {
@@ -21,46 +23,16 @@ await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });
 const observations = new PostgresObservationRepository(() => sql);
 const backlog = new PostgresBacklogRepository(() => sql);
-const deterministicEmbedder = {
-  provider: "hash" as const,
-  dim: 384,
-  async embed(text: string) {
-    const vector = new Array(384).fill(0);
-    for (const token of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
-      let index = 0;
-      for (const character of token) {
-        index = (index * 31 + character.charCodeAt(0)) % vector.length;
-      }
-      vector[index] += 1;
-    }
-    const norm =
-      Math.sqrt(vector.reduce((total, value) => total + value * value, 0)) ||
-      1;
-    return vector.map((value) => value / norm);
-  },
-};
+const deterministicEmbedder = new HashEmbedder();
 const semantics = new PostgresSemanticRepository(
   () => sql,
   () => deterministicEmbedder
 );
 
-async function asPlanningWriter<T>(operation: () => Promise<T>): Promise<T> {
-  await sql.unsafe("set role tieline_planning_writer");
-  try {
-    return await operation();
-  } finally {
-    await sql.unsafe("reset role");
-  }
-}
-
-async function asReader<T>(operation: () => Promise<T>): Promise<T> {
-  await sql.unsafe("set role tieline_reader");
-  try {
-    return await operation();
-  } finally {
-    await sql.unsafe("reset role");
-  }
-}
+const asPlanningWriter = <T>(operation: () => Promise<T>): Promise<T> =>
+  withRole(sql, "tieline_planning_writer", operation);
+const asReader = <T>(operation: () => Promise<T>): Promise<T> =>
+  withRole(sql, "tieline_reader", operation);
 
 try {
   const [repository] = await sql<{ id: string }[]>`

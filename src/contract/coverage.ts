@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import { createArtifactHashResolver } from "./manifest.js";
 import type { ArtifactHashResolver, ContractManifest } from "./manifest.js";
+import { wildcardPattern, withinRepository } from "./paths.js";
 
 /**
  * How much is known about a mapped file, beyond the fact that someone linked it.
@@ -78,15 +79,6 @@ function normalizePath(path: string): string {
   return path.split(sep).join("/");
 }
 
-function wildcardPattern(pattern: string): RegExp {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "\0")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\0/g, ".*");
-  return new RegExp(`^${escaped}(?:/.*)?$`);
-}
-
 function ignored(path: string, patterns: string[]): boolean {
   const normalized = normalizePath(path).replace(/^\.\//, "");
   return patterns.some((entry) => {
@@ -135,11 +127,6 @@ export function isEligibleSourcePath(
   return !ignored(normalized, options.ignore ?? []);
 }
 
-function withinRoot(root: string, target: string): boolean {
-  const path = relative(root, target);
-  return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
-}
-
 function walkFiles(
   path: string,
   repositoryRoot: string,
@@ -153,7 +140,7 @@ function walkFiles(
     return [];
   }
   const realPath = realpathSync(path);
-  if (!withinRoot(repositoryRoot, realPath)) {
+  if (!withinRepository(repositoryRoot, realPath)) {
     throw new Error(`Path '${path}' resolves outside the repository.`);
   }
   const stat = statSync(realPath);
@@ -265,7 +252,7 @@ export function computeRepositoryMappingCoverage(
       throw new Error(`Configured source root '${configuredRoot}' does not exist.`);
     }
     const realSourceRoot = realpathSync(sourceRoot);
-    if (!withinRoot(root, realSourceRoot)) {
+    if (!withinRepository(root, realSourceRoot)) {
       throw new Error(
         `Configured source root '${configuredRoot}' resolves outside the repository.`
       );

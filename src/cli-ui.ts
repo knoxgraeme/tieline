@@ -57,76 +57,6 @@ export function renderCopyCallout(ui: Palette, value: string): string[] {
   return [rule, ui.bold(ui.cyan(value)), rule];
 }
 
-/**
- * Ask for a single value with a default. Uses a Clack prompt on an
- * interactive terminal and falls back to the injected io.question
- * elsewhere (tests, pipes, agents).
- */
-export async function ask(
-  io: TielineCliIO,
-  message: string,
-  defaultValue: string
-): Promise<string> {
-  if (io.interactive) {
-    if (io.prompts) {
-      const value = await io.prompts.text(message, defaultValue);
-      if (value === null) throw new Error("Cancelled.");
-      return value.trim() || defaultValue;
-    }
-    const clack = await import("@clack/prompts");
-    const value = await clack.text({
-      message,
-      placeholder: defaultValue,
-      defaultValue,
-    });
-    if (clack.isCancel(value)) {
-      clack.cancel("Cancelled.");
-      throw new Error("Cancelled.");
-    }
-    return value.trim() || defaultValue;
-  }
-  return (
-    (await io.question(`${message} [${defaultValue}]: `)).trim() ||
-    defaultValue
-  );
-}
-
-export async function askOptional(
-  io: TielineCliIO,
-  message: string,
-  defaultValue = ""
-): Promise<string> {
-  if (!io.interactive) return defaultValue;
-  if (io.prompts) {
-    const value = await io.prompts.text(message, defaultValue);
-    if (value === null) throw new Error("Cancelled.");
-    return value.trim();
-  }
-  const clack = await import("@clack/prompts");
-  const value = await clack.text({
-    message,
-    placeholder: defaultValue || "Optional",
-    defaultValue,
-  });
-  if (clack.isCancel(value)) {
-    clack.cancel("Cancelled.");
-    throw new Error("Cancelled.");
-  }
-  return value.trim();
-}
-
-export async function askList(
-  io: TielineCliIO,
-  message: string,
-  defaultValues: readonly string[] = []
-): Promise<string[]> {
-  const value = await askOptional(io, message, defaultValues.join(", "));
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 export async function confirmChoice(
   io: TielineCliIO,
   message: string,
@@ -145,31 +75,6 @@ export async function confirmChoice(
     throw new Error("Cancelled.");
   }
   return value;
-}
-
-export async function selectChoice<T extends string>(
-  io: TielineCliIO,
-  message: string,
-  options: readonly TielineCliPromptOption[],
-  initialValue: T
-): Promise<T> {
-  if (!io.interactive) return initialValue;
-  if (io.prompts) {
-    const value = await io.prompts.select(message, options, initialValue);
-    if (value === null) throw new Error("Cancelled.");
-    return value as T;
-  }
-  const clack = await import("@clack/prompts");
-  const value = await clack.select({
-    message,
-    options: [...options],
-    initialValue,
-  });
-  if (clack.isCancel(value)) {
-    clack.cancel("Cancelled.");
-    throw new Error("Cancelled.");
-  }
-  return value as T;
 }
 
 export async function multiselectChoice<T extends string>(

@@ -28,7 +28,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ce4738531f00a323c5371fa0632f6dc0c334bb75eb6e16f905ea20ca60c9e08d",
+                "reviewed_content_hash": "193c1bd6db39da3f0f24d4c359cf3e49b4921b61eb44d38a628d747d5a64fc11",
                 "target": {
                   "kind": "code",
                   "path": "src/domain/evidence-write-store.ts",
@@ -48,7 +48,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -128,7 +128,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "0abce4d686d4317e1348c8864b3c8d9161cb8c948bf0ecff92be273442366980",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -163,7 +163,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8bc2245658060e07b74bb0abf722b8491c1f3af4edf7f896b256bb7cca2b56a8",
+            "contract_hash": "5965bbcbbfddf1f8db081c0c037be4fb84b4b9400ef28debb9d80ec179ce9075",
             "criterion": "Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.",
             "links": [
               {
@@ -189,7 +189,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee6149d24121327462dfca0d6620be890989ed2e7f2fd2343669e2fdb41b200f",
+                "reviewed_content_hash": "ea9f9094ff3afd1a0e448210b9a98bfb6a225f7546379041d5fd4e08d22f7e77",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/import-help.ts",
@@ -202,7 +202,7 @@
                 "reviewed_content_hash": "7a1704bdea68bdda8ee5749630fdf3d423a752a749157bf74633ece4837bb18a",
                 "target": {
                   "kind": "code",
-                  "path": "src/tools/find_help.ts",
+                  "path": "src/tools/find-help.ts",
                   "repository": "tieline"
                 }
               },
@@ -212,14 +212,14 @@
                 "reviewed_content_hash": "741227ce2f0875a4fcce49899819335e7aa48684d02aabbad298b7fe1ac9f280",
                 "target": {
                   "kind": "code",
-                  "path": "src/tools/get_help_article.ts",
+                  "path": "src/tools/get-help-article.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1095a4924b5c6dfdd436d4d526dff24055003a111bc6004b8db07981591a1abb",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -254,6 +254,6 @@
   },
   "input": {
     "path": ".tieline/spec/evidence.yaml",
-    "sha256": "1d36522a8c0c45233cf4d4042fe033499d917cb7b198034b5ed282ebe5746f92"
+    "sha256": "0c9f1fb15ffa1af20a4d3da1ff5d0a76f26f02fa778034400613a2ca21b6b730"
   }
 }

@@ -6,6 +6,7 @@ import {
 } from "../authoring/help-schema.js";
 import { importHelpArticles } from "../adapters/postgres/help-repository.js";
 import { closeConnections } from "../adapters/postgres/connections.js";
+import { stderrIO, type CommandIO } from "./shared.js";
 
 function parseInput(path: string): ReturnType<typeof helpArticleImportPayloadSchema.parse> {
   const body = readFileSync(path, "utf8");
@@ -27,7 +28,8 @@ function parseInput(path: string): ReturnType<typeof helpArticleImportPayloadSch
 
 export async function runImportHelpCommand(
   input: string,
-  options: { batchSize: number }
+  options: { batchSize: number },
+  io: CommandIO = stderrIO
 ): Promise<number> {
   const batchSize = options.batchSize;
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 200) {
@@ -44,7 +46,7 @@ export async function runImportHelpCommand(
       reportPath,
       `${JSON.stringify({ source: path, status: "complete", ...result }, null, 2)}\n`
     );
-    process.stderr.write(
+    io.write(
       `Imported ${result.articles} help article(s) in ${result.batches.length} batch(es).\n` +
         `Report: ${reportPath}\n`
     );

@@ -21,7 +21,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "13c35a5f1f4a706d427a1d5d2a07a322fc3c6d7aa6928dd34ea8f7327fdf7811",
+                "reviewed_content_hash": "4ed74c173fce1b86922173bf6065b57f28fe5e3b9b0de11202cf4fbae0ed8dc9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -32,7 +32,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0ea67f77e3f48f0ee06e46b0715cc60fda317bc8d05f8fea83d928fdd8f33495",
+                "reviewed_content_hash": "e0112ee0b32b7a24f89f2302102adfb223be339bef4c2af2b61f56af942ab0df",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/reconciliation.ts",
@@ -89,7 +89,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "13c35a5f1f4a706d427a1d5d2a07a322fc3c6d7aa6928dd34ea8f7327fdf7811",
+                "reviewed_content_hash": "4ed74c173fce1b86922173bf6065b57f28fe5e3b9b0de11202cf4fbae0ed8dc9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -100,7 +100,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee6be06bcab7fdd68a1ae729dadb5e760212c8add5bf481a8e75067a2fa11c9e",
+                "reviewed_content_hash": "2117edaf12ef698e28e238989bb942ba97b21af38310b465f2214dbe8709e275",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/selector.ts",
@@ -150,7 +150,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "aa47b9f2e652be811dd432dc4370a7a628e42a0028570eb394a04b8f1dc70202",
+                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -161,7 +161,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -213,7 +213,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "13c35a5f1f4a706d427a1d5d2a07a322fc3c6d7aa6928dd34ea8f7327fdf7811",
+                "reviewed_content_hash": "4ed74c173fce1b86922173bf6065b57f28fe5e3b9b0de11202cf4fbae0ed8dc9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -224,7 +224,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "13c35a5f1f4a706d427a1d5d2a07a322fc3c6d7aa6928dd34ea8f7327fdf7811",
+                "reviewed_content_hash": "4ed74c173fce1b86922173bf6065b57f28fe5e3b9b0de11202cf4fbae0ed8dc9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -267,7 +267,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "13c35a5f1f4a706d427a1d5d2a07a322fc3c6d7aa6928dd34ea8f7327fdf7811",
+                "reviewed_content_hash": "4ed74c173fce1b86922173bf6065b57f28fe5e3b9b0de11202cf4fbae0ed8dc9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -317,7 +317,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "906b49e9dcc11f0f8d013ff6eb2bf15fdea04cfe4b6f320895e246f81a9906e1",
+                "reviewed_content_hash": "dc81497c2a107cdf5b61e7289a7dcc1fefb7f98526753323600d894fffeaedfc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -328,7 +328,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "13c35a5f1f4a706d427a1d5d2a07a322fc3c6d7aa6928dd34ea8f7327fdf7811",
+                "reviewed_content_hash": "4ed74c173fce1b86922173bf6065b57f28fe5e3b9b0de11202cf4fbae0ed8dc9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",

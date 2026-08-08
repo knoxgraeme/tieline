@@ -798,18 +798,16 @@ connection.
 
 ```bash
 npm run build
-npm run test:contract
-npm run test:contract-read
-npm run test:impact
-npm run test:evidence
-npm run test:embeddings
-npm run test:ranking
-npm run test:retrieval
-npm run test:http
+npm test
 npm run test:tieline
-npm run test:smoke
-npm run test:baseline
 ```
+
+`npm test` runs every offline suite: contract schema, manifest, contract
+command, impact, link plausibility, reconciliation, path criteria, grading,
+ranking, retrieval, embeddings, HTTP transport, MCP smoke, evidence, contract
+reads, and the migration baseline. `npm run test:tieline` builds the CLI and
+exercises workspace onboarding end to end. Individual suites remain available
+as `npm run test:<name>`.
 
 Database integration tests require a disposable blank Postgres database with
 pgvector and an administrative URL with the migration privileges described

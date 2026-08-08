@@ -8,8 +8,8 @@ import {
   type SkillfishProcessRunner,
 } from "./skill-install.js";
 
-export const TIELINE_MCP_SERVER_NAME = "tieline";
-export const CODEX_MCP_TIMEOUT_MS = 30_000;
+const TIELINE_MCP_SERVER_NAME = "tieline";
+const CODEX_MCP_TIMEOUT_MS = 30_000;
 
 const TIELINE_SERVE_COMMAND = ["npx", "-y", "tieline", "serve"] as const;
 
@@ -21,7 +21,7 @@ interface McpClientTarget {
   entry: () => Record<string, unknown>;
 }
 
-export function tielineMcpServerEntry(
+function tielineMcpServerEntry(
   extras: Record<string, unknown> = {}
 ): Record<string, unknown> {
   const [command, ...args] = TIELINE_SERVE_COMMAND;

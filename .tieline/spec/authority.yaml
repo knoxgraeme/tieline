@@ -58,12 +58,6 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/domain/repository-sync-store.ts
-            - relation: implements
-              provenance: authored
-              target:
-                kind: code
-                repository: tieline
                 path: src/contract/sync.ts
             - relation: implements
               provenance: authored

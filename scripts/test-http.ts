@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "../src/config.js";
 import { createHttpApp, isAllowedMcpOrigin } from "../src/http.js";
 import { SERVER_VERSION } from "../src/server.js";
+import { report, test } from "./lib/harness.js";
 
 const packageVersion = (
   JSON.parse(
@@ -15,40 +16,28 @@ const packageVersion = (
   ) as { version: string }
 ).version;
 
-let passed = 0;
-function test(name: string, fn: () => void): void {
-  try {
-    fn();
-    passed += 1;
-    console.log(`  ok  - ${name}`);
-  } catch (error) {
-    console.error(`  not ok - ${name}`);
-    throw error;
-  }
-}
-
 console.log("HTTP boundary");
-test("defaults to loopback", () => {
+await test("defaults to loopback", () => {
   assert.equal(loadConfig({}).httpHost, "127.0.0.1");
 });
-test("non-browser clients without Origin are allowed", () => {
+await test("non-browser clients without Origin are allowed", () => {
   assert.equal(isAllowedMcpOrigin(undefined, []), true);
 });
-test("configured browser Origin is allowed", () => {
+await test("configured browser Origin is allowed", () => {
   assert.equal(isAllowedMcpOrigin("https://mcp.example.test", ["https://mcp.example.test"]), true);
 });
-test("unconfigured browser Origin is denied", () => {
+await test("unconfigured browser Origin is denied", () => {
   assert.equal(isAllowedMcpOrigin("https://evil.example", ["https://mcp.example.test"]), false);
 });
-test("health route remains outside MCP origin middleware", () => {
+await test("health route remains outside MCP origin middleware", () => {
   const stack = (createHttpApp() as unknown as { _router: { stack: Array<{ route?: { path?: string } }> } })
     ._router.stack;
   assert.equal(stack.some((layer) => layer.route?.path === "/health"), true);
 });
-test("server metadata reports the package version", () => {
+await test("server metadata reports the package version", () => {
   assert.equal(SERVER_VERSION, packageVersion);
 });
-test("remote bind needs both gateway acknowledgement and origins", () => {
+await test("remote bind needs both gateway acknowledgement and origins", () => {
   assert.throws(() => loadConfig({ HTTP_HOST: "0.0.0.0" }), /Refusing non-loopback/);
   assert.throws(
     () => loadConfig({ HTTP_HOST: "0.0.0.0", HTTP_TRUST_PROXY: "true" }),
@@ -61,10 +50,10 @@ test("remote bind needs both gateway acknowledgement and origins", () => {
   });
   assert.equal(config.httpTrustProxy, true);
 });
-test("invalid numeric config fails fast", () => {
+await test("invalid numeric config fails fast", () => {
   assert.throws(() => loadConfig({ PORT: "banana" }), /Invalid PORT/);
   assert.throws(() => loadConfig({ PORT: "70000" }), /Invalid PORT/);
   assert.throws(() => loadConfig({ CHARACTER_LIMIT: "1.5" }), /Invalid/);
 });
 
-console.log(`\n${passed} passed, 0 failed`);
+report();

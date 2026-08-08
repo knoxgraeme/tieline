@@ -15,19 +15,27 @@ export const TIELINE_REVIEW_PAGE = ".tieline/review.html";
 
 export interface ReviewPageResult {
   path: string;
+  bytes: number;
+  capabilities: number;
   stories: number;
+  acceptance_criteria: number;
+  warnings: string[];
 }
 
 /**
  * Renders the browsable contract page. An empty spec renders the onboarding
  * empty state instead of failing, and a spec that no longer validates renders
  * its issues, so the page can be written at any point in the workspace
- * lifecycle without gating on contract health.
+ * lifecycle without gating on contract health. The page lands at
+ * `.tieline/review.html` unless `outputPath` says otherwise; only the default
+ * location is added to the workspace's ignore file, because a caller-chosen
+ * path is the caller's to manage.
  */
 export function writeWorkspaceReviewPage(
   root: string,
   repositoryKey: string,
-  specDirectory = ".tieline/spec"
+  specDirectory = ".tieline/spec",
+  outputPath?: string
 ): ReviewPageResult {
   let documents: ContractReviewDocument[] = [];
   let warnings: string[] = [];
@@ -44,24 +52,30 @@ export function writeWorkspaceReviewPage(
       warnings = error.issues;
     }
   }
-  const path = resolve(root, TIELINE_REVIEW_PAGE);
+  const defaultPath = resolve(root, TIELINE_REVIEW_PAGE);
+  const path = outputPath ?? defaultPath;
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(
-    path,
-    renderContractReviewPage({
-      repositoryKey,
-      documents,
-      warnings,
-      onboardingPrompt: ONBOARDING_AGENT_PROMPT,
-    })
+  const serialized = renderContractReviewPage({
+    repositoryKey,
+    documents,
+    warnings,
+    onboardingPrompt: ONBOARDING_AGENT_PROMPT,
+  });
+  writeFileSync(path, serialized);
+  if (path === defaultPath) ensureReviewPageIgnored(root);
+  const stories = documents.flatMap(
+    (entry) => entry.document.capability.stories
   );
-  ensureReviewPageIgnored(root);
   return {
     path,
-    stories: documents.reduce(
-      (total, entry) => total + entry.document.capability.stories.length,
+    bytes: Buffer.byteLength(serialized),
+    capabilities: documents.length,
+    stories: stories.length,
+    acceptance_criteria: stories.reduce(
+      (total, story) => total + story.acceptance_criteria.length,
       0
     ),
+    warnings,
   };
 }
 

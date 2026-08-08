@@ -2,14 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PostgresProfileRepository } from "../adapters/postgres/profile-repository.js";
 import { closeConnections } from "../adapters/postgres/connections.js";
-
-interface ProfileIO {
-  write(message: string): void;
-}
+import type { CommandIO } from "./shared.js";
 
 export async function runProfileListCommand(
   options: { json?: boolean },
-  io: ProfileIO
+  io: CommandIO
 ): Promise<number> {
   const repository = new PostgresProfileRepository();
   try {
@@ -31,7 +28,7 @@ export async function runProfileListCommand(
 
 export async function runProfilePutCommand(
   options: { key: string; file: string; createdBy: string },
-  io: ProfileIO
+  io: CommandIO
 ): Promise<number> {
   const repository = new PostgresProfileRepository();
   try {

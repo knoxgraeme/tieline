@@ -21,6 +21,7 @@ import {
   parseNameStatus,
 } from "../src/contract/impact.js";
 import { runCheckCommand } from "../src/commands/check.js";
+import { tielineConfigJson } from "./lib/fixtures.js";
 
 const root = mkdtempSync(resolve(tmpdir(), "tieline-impact-"));
 const outsideRoot = mkdtempSync(resolve(tmpdir(), "tieline-outside-"));
@@ -34,30 +35,11 @@ try {
   writeFileSync(resolve(root, "scripts/feature.test.ts"), "assert(feature);\n");
   writeFileSync(
     resolve(root, ".tieline/config.json"),
-    `${JSON.stringify(
-      {
-        version: 1,
-        product: { name: "Impact fixture", repo_name: "impact-fixture" },
-        repository: {
-          root: "..",
-          source_roots: ["src"],
-          ignore: [".git", ".tieline", "src/generated"],
-        },
-        context: { sources: [] },
-        runtime: {
-          default_embedding_provider: "hash",
-          default_database_mode: "offline",
-        },
-        files: {
-          spec_directory: "contract",
-          manifest: "manifest",
-        },
-        created_at: "2026-07-29T00:00:00.000Z",
-        updated_at: "2026-07-29T00:00:00.000Z",
-      },
-      null,
-      2
-    )}\n`
+    tielineConfigJson({
+      name: "Impact fixture",
+      repoName: "impact-fixture",
+      timestamp: "2026-07-29T00:00:00.000Z",
+    })
   );
   writeFileSync(
     resolve(root, ".tieline/contract/feature.yaml"),

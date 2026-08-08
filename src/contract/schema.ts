@@ -205,9 +205,7 @@ export type LinkProvenance = z.infer<typeof linkProvenanceSchema>;
 export type ContractLink = z.infer<typeof contractLinkSchema>;
 export type ContractTarget = ContractLink["target"];
 export type AcceptanceCriterion = z.infer<typeof acceptanceCriterionSchema>;
-export type PlanningAcceptanceCriterion = z.infer<typeof planningAcceptanceCriterionSchema>;
 export type AcceptedStory = z.infer<typeof acceptedStorySchema>;
-export type PlanningStory = z.infer<typeof planningStorySchema>;
 export type Capability = z.infer<typeof capabilitySchema>;
 export type AcceptedContractDocument = z.infer<typeof acceptedContractDocumentSchema>;
 

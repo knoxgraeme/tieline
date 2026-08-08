@@ -32,14 +32,8 @@ jobs:
       - name: Evaluate semantic impact
         run: npx tsx src/cli.ts check . --base origin/main
 
-      - name: Contract tests
-        run: |
-          npx tsx scripts/test-contract.ts
-          npx tsx scripts/test-manifest.ts
-          npx tsx scripts/test-contract-command.ts
-          npx tsx scripts/test-impact.ts
-          npx tsx scripts/test-grade.ts
-          npx tsx scripts/test-ranking.ts
+      - name: Offline test suites
+        run: npm test
 
       - name: Workspace onboarding tests
         run: npm run test:tieline

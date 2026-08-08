@@ -54,7 +54,7 @@ export type SelectorKindDeclarationConfig = z.infer<
 >;
 export type SelectorConfig = z.infer<typeof selectorConfigSchema>;
 
-export const EMPTY_SELECTOR_CONFIG: SelectorConfig = { kinds: [] };
+const EMPTY_SELECTOR_CONFIG: SelectorConfig = { kinds: [] };
 
 /**
  * Reads the `selectors` block out of an already-parsed `.tieline/config.json`
@@ -128,7 +128,7 @@ function enabled(value: string | undefined): boolean {
   return value === "true" || value === "1";
 }
 
-export function isLoopbackHost(host: string): boolean {
+function isLoopbackHost(host: string): boolean {
   const normalized = host.trim().toLowerCase();
   return (
     normalized === "127.0.0.1" ||

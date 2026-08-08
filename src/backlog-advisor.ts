@@ -32,7 +32,7 @@ export interface BacklogCreateAdvisor {
 
 let advisor: BacklogCreateAdvisor | null = null;
 
-/** U7 installs semantic match-before-create behavior through this seam. */
+/** semantic-matching.ts installs match-before-create behavior through this seam. */
 export function setBacklogCreateAdvisor(
   next: BacklogCreateAdvisor | null
 ): void {

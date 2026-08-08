@@ -48,7 +48,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c8be46a2a078683df069c428779f8e99aa4ed461de66bd2400bb3b4aeff1246b",
+                "reviewed_content_hash": "1dc85039a1d303f08df5caec0e718d0c2b53e33dcb3bb8e6dc92c5aaa4ecbf06",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -83,13 +83,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "73063136f0f591ff1ddaa47106495eab634a216fb6f49bf38c80b4d72fac00e3",
+            "contract_hash": "35518988fd6acf52a1f8b08f5a9c5076bdcc1ffa1dcbf178287a6709c42ac1ef",
             "criterion": "Tieline must preserve matching planning Story and Acceptance Criterion identities when a repository contract is synchronized.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "80e52aca071017a7a1c7451f4d54abe6316ec090f2e6519b20e01ef5e5bf5d87",
+                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -99,20 +99,10 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "240cd259d2bb285e16c05d2dc733404c789c879d021331eb97f54005cf130cab",
+                "reviewed_content_hash": "bd211a9aeb20714859f7a88a676cb02ebe2be04e32fd563f59b2dd2c79c9a203",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/sync.ts",
-                  "repository": "tieline"
-                }
-              },
-              {
-                "provenance": "authored",
-                "relation": "implements",
-                "reviewed_content_hash": "07cbd663e6602180679f28f406211d98162e7a87261d1fafc2c8c214b3d2a605",
-                "target": {
-                  "kind": "code",
-                  "path": "src/domain/repository-sync-store.ts",
                   "repository": "tieline"
                 }
               },
@@ -129,7 +119,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1095a4924b5c6dfdd436d4d526dff24055003a111bc6004b8db07981591a1abb",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -171,7 +161,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "8c5db15ee31587c3ef2de4b10fabcea91c166deca9c49ddcc8ddd61ee3921fae",
+                "reviewed_content_hash": "0d497306d807319b0a8236eea423961cfdf2d68546a9ceee91f1b7450275f4ca",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/migrate.ts",
@@ -191,7 +181,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "6453abe79100aad8774a580b49d3684b890a9e03d14851e0e7814458bd6d5b9f",
+                "reviewed_content_hash": "c4147e41492e0413175a814dd8ab9892a07962e057c085e0b1560e1bad7ead30",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/profile.ts",
@@ -201,7 +191,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2b840637657c7785f1da2300ff41ebe252b27cb5e9bccaeea9a17be74bcd622b",
+                "reviewed_content_hash": "45d8408fefdabf81fd7fc16fce047fc566671664173d114f9b08cc1c90bf00b0",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/setup.ts",
@@ -246,7 +236,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "80e52aca071017a7a1c7451f4d54abe6316ec090f2e6519b20e01ef5e5bf5d87",
+                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -256,7 +246,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1095a4924b5c6dfdd436d4d526dff24055003a111bc6004b8db07981591a1abb",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -299,6 +289,6 @@
   },
   "input": {
     "path": ".tieline/spec/authority.yaml",
-    "sha256": "d7995bd2145a316b7b841a5644627d1880a9e37500596f697472a7b488f6cd1f"
+    "sha256": "a0f9b1b2eea907a9da8da49739443a0f5cbee1d5d6d718febd5c64c403069a38"
   }
 }

@@ -41,6 +41,7 @@
  */
 import { readFileSync, statSync } from "node:fs";
 import { extname, resolve } from "node:path";
+import { scanSource } from "./source-scan.js";
 
 /**
  * Kinds this module can resolve to a symbol. Closed on purpose: every member
@@ -58,7 +59,7 @@ export type CoreSelectorKind = (typeof CORE_SELECTOR_KINDS)[number];
 
 const CORE_KIND_SET: ReadonlySet<string> = new Set(CORE_SELECTOR_KINDS);
 
-export function isCoreSelectorKind(kind: string): kind is CoreSelectorKind {
+function isCoreSelectorKind(kind: string): kind is CoreSelectorKind {
   return CORE_KIND_SET.has(kind);
 }
 
@@ -348,9 +349,7 @@ export function validateSelector(
   return { ok: true, selector: parsed.selector };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Resolution                                                                  */
-/* -------------------------------------------------------------------------- */
+// Resolution
 
 /**
  * Extensions the extraction regexes below actually understand. Anything else is
@@ -373,72 +372,6 @@ export interface SymbolIndex {
   kinds: Record<CoreSelectorKind, string[]>;
   /** Every name found under any kind, for kind-agnostic lookups. */
   all: string[];
-}
-
-/**
- * Replicated (not imported) from `link-plausibility.ts`, whose scanner and
- * declaration patterns are module-private there. Only the minimum is copied: the
- * comment/string stripping scan and the shape of the declaration regexes. The
- * token pipeline is deliberately NOT copied — it lowercases and splits
- * identifiers, which destroys the exact names this module has to match.
- */
-function readLiteral(
-  content: string,
-  start: number,
-  quote: string
-): { next: number } {
-  let index = start + 1;
-  while (index < content.length) {
-    const char = content[index];
-    if (char === "\\") {
-      index += 2;
-      continue;
-    }
-    if (char === quote) return { next: index + 1 };
-    if (char === "\n" && quote !== "`") return { next: index };
-    index += 1;
-  }
-  return { next: content.length };
-}
-
-/**
- * Blanks comments and string bodies so a declaration pattern cannot match inside
- * prose or data. Line structure is preserved, because two of the patterns are
- * line-anchored. Not a parser: template interpolations are treated as opaque
- * strings and regex literals stay in the code stream, both acceptable for a
- * heuristic whose errors must fall on the "found something extra" side.
- */
-function stripCommentsAndStrings(content: string): string {
-  let code = "";
-  let index = 0;
-  const blank = (slice: string): string => slice.replace(/[^\n]/g, " ");
-  while (index < content.length) {
-    const char = content[index];
-    const next = content[index + 1];
-    if (char === "/" && next === "/") {
-      const end = content.indexOf("\n", index);
-      const stop = end === -1 ? content.length : end;
-      code += blank(content.slice(index, stop));
-      index = stop;
-      continue;
-    }
-    if (char === "/" && next === "*") {
-      const end = content.indexOf("*/", index + 2);
-      const stop = end === -1 ? content.length : end + 2;
-      code += blank(content.slice(index, stop));
-      index = stop;
-      continue;
-    }
-    if (char === '"' || char === "'" || char === "`") {
-      const literal = readLiteral(content, index, char);
-      code += blank(content.slice(index, literal.next));
-      index = literal.next;
-      continue;
-    }
-    code += char;
-    index += 1;
-  }
-  return code;
 }
 
 const FUNCTION_PATTERNS: readonly RegExp[] = [
@@ -515,9 +448,13 @@ function collect(
  * errs toward finding extra names rather than missing real ones, because a false
  * `resolved` merely fails to raise a suggestion while a false `unresolved` would
  * accuse a correct contract of being stale.
+ *
+ * Works over the scan's blanked view rather than its token surface: the token
+ * pipeline lowercases and splits identifiers, which would destroy the exact
+ * names this module has to match, and two of the patterns are line-anchored.
  */
 export function indexSourceSymbols(content: string): SymbolIndex {
-  const code = stripCommentsAndStrings(content);
+  const code = scanSource(content).blankedCode;
   const sets: Record<CoreSelectorKind, Set<string>> = {
     class: new Set(),
     const: new Set(),
@@ -747,9 +684,9 @@ export function resolveSelectorInSource(
  * Reads the linked file and resolves the selector against it.
  *
  * Pure with respect to contract state: it takes a root, a path and a selector,
- * touches nothing else, and returns a value. No command wires this in yet — see
- * the module header for why `not_checked` must survive every aggregation that
- * eventually does.
+ * touches nothing else, and returns a value. Callers aggregating results must
+ * preserve `not_checked` — see the module header for why it must never be
+ * reported as `unresolved`.
  */
 export function resolveSelector(
   options: ResolveSelectorOptions

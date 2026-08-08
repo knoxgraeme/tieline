@@ -8,11 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import {
-  ContractValidationError,
-  loadAcceptedContract,
-  validateAcceptedContractDocuments,
-} from "../src/contract/index.js";
+import { loadAcceptedContract } from "../src/contract/load.js";
 import {
   contractLinkSchema,
   planningStorySchema,
@@ -21,7 +17,11 @@ import {
 } from "../src/contract/schema.js";
 import { computeRepositoryMappingCoverage } from "../src/contract/coverage.js";
 import { compileContractManifest } from "../src/contract/manifest.js";
-import { selectorVocabularyForRepository } from "../src/contract/validate.js";
+import {
+  ContractValidationError,
+  selectorVocabularyForRepository,
+  validateAcceptedContractDocuments,
+} from "../src/contract/validate.js";
 import { readSelectorConfig } from "../src/config.js";
 import {
   createSelectorVocabulary,
@@ -32,19 +32,7 @@ import {
   SelectorError,
   validateSelector,
 } from "../src/contract/selector.js";
-
-let passed = 0;
-
-async function test(name: string, fn: () => void | Promise<void>): Promise<void> {
-  try {
-    await fn();
-    passed++;
-    console.log(`  ok  - ${name}`);
-  } catch (error) {
-    console.error(`  not ok - ${name}`);
-    throw error;
-  }
-}
+import { report, test } from "./lib/harness.js";
 
 function document(overrides: Partial<AcceptedContractDocument> = {}): AcceptedContractDocument {
   return {
@@ -768,4 +756,4 @@ await test("treats an unusable selector as not_checked rather than a missing sym
   }
 });
 
-console.log(`\n${passed} passed, 0 failed`);
+report();

@@ -28,6 +28,7 @@ import {
   resolvePathCriteria,
 } from "../src/tools/path-criteria.js";
 import type { ToolResult } from "../src/tools/shared.js";
+import { tielineConfigJson } from "./lib/fixtures.js";
 
 for (const key of [
   "DATABASE_URL",
@@ -43,33 +44,12 @@ delete process.env.TIELINE_WORKSPACE;
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function workspaceConfig(): string {
-  return `${JSON.stringify(
-    {
-      version: 1,
-      product: {
-        name: "Path criteria fixture",
-        repo_name: "path-criteria-fixture",
-      },
-      repository: {
-        root: "..",
-        source_roots: ["src"],
-        ignore: [".git", ".tieline"],
-      },
-      context: { sources: [] },
-      runtime: {
-        default_embedding_provider: "hash",
-        default_database_mode: "offline",
-      },
-      files: {
-        spec_directory: "spec",
-        manifest: "manifest",
-      },
-      created_at: "2026-08-01T00:00:00.000Z",
-      updated_at: "2026-08-01T00:00:00.000Z",
-    },
-    null,
-    2
-  )}\n`;
+  return tielineConfigJson({
+    name: "Path criteria fixture",
+    repoName: "path-criteria-fixture",
+    ignore: [".git", ".tieline"],
+    specDirectory: "spec",
+  });
 }
 
 const SPEC = `version: 1

@@ -31,11 +31,13 @@ import type {
   UpdatePlanningStoryInput,
 } from "../planning-contract-write-store.js";
 import type {
+  AttributionSuggestionRecord,
   ResolvedRetrievalProfile,
   SemanticSearchCandidate,
   SemanticSearchContext,
   SemanticSearchFilters,
 } from "../semantic-search-store.js";
+import type { EmbeddingDocumentKind } from "../../derived/embedding-documents.js";
 import type {
   ContractAuthority,
   StoryLifecycle,
@@ -211,6 +213,20 @@ export class FakeKnowledgeStore implements KnowledgeStore {
     limit: number;
   }): Promise<SemanticSearchCandidate[]> {
     return Promise.reject(unconfigured("searchSemantic"));
+  }
+  listAttributionSuggestions(_input?: {
+    source_kind?: EmbeddingDocumentKind;
+    source_id?: string;
+    state?: Array<"suggested" | "confirmed" | "dismissed">;
+    limit?: number;
+  }): Promise<AttributionSuggestionRecord[]> {
+    return Promise.reject(unconfigured("listAttributionSuggestions"));
+  }
+  decideAttributionSuggestion(_input: {
+    suggestion_id: string;
+    decision: "confirmed" | "dismissed";
+  }): Promise<AttributionSuggestionRecord | null> {
+    return Promise.reject(unconfigured("decideAttributionSuggestion"));
   }
   createPlanningStory(
     _input: CreatePlanningStoryInput

@@ -38,6 +38,7 @@ import type {
   ManifestLink,
   ManifestStory,
 } from "./manifest.js";
+import { wildcardPattern } from "./paths.js";
 
 export const RECONCILIATION_DISCLAIMER =
   "This is authoring input, not a verdict. A claimed change means an acceptance criterion may need re-reading; an unclaimed change means a human should consider whether behavior changed at all. Many changes are refactors that need no acceptance criterion, and nothing here should be authored merely to shrink a count.";
@@ -153,10 +154,9 @@ const EXCLUSION_REASONS: readonly ExclusionReason[] = [
 ];
 
 /**
- * Replicated from `coverage.ts`, which owns eligibility for coverage
- * measurement but exports none of its matching helpers. Only the smallest
- * necessary part is copied — separator normalization and the `*`/`**` pattern
- * match — so both modules answer "is this path ignored?" the same way.
+ * Separator normalization mirroring `coverage.ts`, which owns eligibility for
+ * coverage measurement, so both modules answer "is this path ignored?" the
+ * same way.
  *
  * The one deliberate difference: `coverage.ts` decides eligibility by walking
  * the working tree, which cannot see a path a change deleted. Eligibility here
@@ -168,15 +168,6 @@ export function normalizeContractPath(path: string): string {
     .join("/")
     .replace(/^\.\//, "")
     .replace(/\/+$/, "");
-}
-
-function wildcardPattern(pattern: string): RegExp {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "\0")
-    .replace(/\*/g, "[^/]*")
-    .replace(/\0/g, ".*");
-  return new RegExp(`^${escaped}(?:/.*)?$`);
 }
 
 /** The first configured pattern that matches, or `null`. */

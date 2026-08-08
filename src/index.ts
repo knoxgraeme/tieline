@@ -5,7 +5,7 @@
  * standalone HTTP server.
  */
 
-import "./loadEnv.js";
+import "./load-env.js";
 import { removePrivilegedDatabaseEnvironment } from "./tieline/profile.js";
 
 async function main(): Promise<void> {

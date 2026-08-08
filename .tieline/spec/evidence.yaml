@@ -112,13 +112,13 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/tools/find_help.ts
+                path: src/tools/find-help.ts
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
-                path: src/tools/get_help_article.ts
+                path: src/tools/get-help-article.ts
             - relation: tests
               provenance: authored
               target:

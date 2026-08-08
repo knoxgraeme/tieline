@@ -16,6 +16,7 @@ import {
   type ReconciliationRelation,
 } from "./reconciliation.js";
 import { manifestDigest, type ContractManifest } from "./manifest.js";
+import { withinRepository } from "./paths.js";
 
 export interface PathCriterion {
   path: string;
@@ -97,11 +98,6 @@ function repositoryRelativePath(
     : requested;
   const normalized = normalizeContractPath(relativePath);
   return normalized.length > 0 ? normalized : ".";
-}
-
-function withinRepository(root: string, target: string): boolean {
-  const path = relative(root, target);
-  return path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 }
 
 /**
