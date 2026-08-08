@@ -1417,23 +1417,30 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /source of truth for what's in[\s>]+production/,
-    "the locked phrasing explains the model before asking"
+    /Great — let's get you set up with Tieline\./,
+    "the orientation script is locked verbatim"
+  );
+  assert.match(
+    onboardingReference,
+    /production source of[\s>]+truth lives in this repository/,
+    "the orientation explains the model before any question"
   );
   assert.ok(
-    onboardingReference.indexOf("source of truth") <
+    onboardingReference.indexOf(
+      "Great — let's get you set up with Tieline."
+    ) <
       onboardingReference.indexOf(
         "Where should Tieline keep your Observations?"
       ) &&
       onboardingReference.includes(
         "Where should Tieline keep your Observations?"
       ),
-    "explanation must come before the question"
+    "orientation must come before the database question"
   );
   assert.match(
     onboardingReference,
-    /Production Stories sync to that database/,
-    "the locked phrasing must explain the contract syncs to the database"
+    /production Stories synced alongside/,
+    "the orientation must explain the contract syncs to the database"
   );
   assert.match(
     onboardingReference,
