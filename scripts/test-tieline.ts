@@ -1402,17 +1402,24 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /Where should Tieline keep its planning data\?/,
-    "the database question phrasing is locked; agents must not rewrite it"
+    /source of truth for what's in[\s>]+production/,
+    "the locked phrasing explains the model before asking"
+  );
+  assert.ok(
+    onboardingReference.indexOf("source of truth") <
+      onboardingReference.indexOf(
+        "Where should Tieline keep this planning data?"
+      ),
+    "explanation must come before the question"
   );
   assert.match(
     onboardingReference,
-    /that contract also syncs to Postgres/,
+    /Production Stories sync to that database/,
     "the locked phrasing must explain the contract syncs to the database"
   );
   assert.match(
     onboardingReference,
-    /Observations[\s>]+never land in your repository/,
+    /Observations and[\s>]+credentials never land in your repository/,
     "the locked phrasing must state observations are database-only"
   );
   assert.match(
@@ -1422,7 +1429,7 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /from capture to shipped behavior/,
+    /from request to[\s>]+production/,
     "the pitch is solo-first, not org-first"
   );
   assert.doesNotMatch(

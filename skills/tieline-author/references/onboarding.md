@@ -32,17 +32,21 @@ a human first sees them. Verify, do not re-ask.
    with the user, and record it in `.tieline/config.json` under
    `context.sources` as
    `{ "id": "source-<n>", "type": "description", "location": null, "content": "<text>", "allow_external_fetch": false }`.
-3. Ask the setup question with this phrasing — do not rewrite it, only drop
-   an option the machine rules out (for example local without Docker):
+3. Explain the model first, then ask — use this phrasing verbatim, only
+   dropping an option the machine rules out (for example local without
+   Docker):
 
-   > **Where should Tieline keep its planning data?** Capabilities for your
-   > production codebase — Stories and acceptance criteria as YAML — are
-   > defined in `.tieline/` and ship through pull requests. With a database
-   > connected, that contract also syncs to Postgres, where it is stored
-   > and queryable alongside Observations: feature requests, ideas, and bug
-   > reports you can follow from capture to shipped behavior. Observations
-   > never land in your repository — they live only in the database — and
-   > no credentials are stored in the repository either.
+   > Your `.tieline/` directory is the source of truth for what's in
+   > production: capabilities, Stories, and acceptance criteria as YAML.
+   > New Stories and changes to existing ones are managed through pull
+   > requests. Beyond mapping production, Tieline can track Observations —
+   > feature requests, ideas, bug reports — outside the repository in a
+   > Postgres database, letting you follow a feature from request to
+   > production. Production Stories sync to that database, and agents can
+   > query it for planning, investigation, and research. Observations and
+   > credentials never land in your repository.
+   >
+   > **Where should Tieline keep this planning data?**
    >
    > 1. **Start offline** — contract only for now; connect a database any
    >    time
