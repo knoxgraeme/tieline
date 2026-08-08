@@ -5,18 +5,28 @@ first authoring pass, not a separate approval or handoff process.
 
 ## Set expectations first
 
-Open with a short orientation before asking anything — the user just pasted
-a prompt and may not know what Tieline is or what happens next. In one short
-paragraph: Tieline maintains a living contract of the product's user Stories
-and acceptance criteria, grounded in this repository's code and tests, and —
-once a database is connected — carries requests from Observation to planning
-Story to production behavior. Then
-the plan: confirm a few detected settings, ask one or two questions, author
-the initial capabilities, Stories, and ACs from repository evidence, and
-finish with a browsable review page on a branch for normal pull-request
-review. State plainly that nothing is accepted without their review — merge
-is the approval. Keep it to that one paragraph, not a feature tour, and move
-straight into the first confirmation.
+The orientation is the first visible thing that happens: send it before
+reading repository files or running commands, and do not narrate loading
+the skill or inspecting configuration first. Use this script verbatim:
+
+> Great — let's get you set up with Tieline.
+>
+> Tieline builds a structured graph of your product's user Stories and
+> acceptance criteria, grounded in this codebase. The production source of
+> truth lives in this repository at `.tieline/` — after we create the
+> initial Stories today, future features and updates ship through normal
+> pull requests. Tieline can also track Observations — feature requests,
+> ideas, and bugs — stored outside the repository in a Postgres database
+> your agents can query, with your production Stories synced alongside so
+> you can follow a feature from request to production.
+>
+> Next: a few quick setup questions, then I'll kick off the initial Story
+> generation.
+
+Do not expand the script into a feature tour; move straight into the first
+confirmation. The trust anchor — nothing is accepted without review; merge
+is the approval — belongs at the end, when opening the pull request, not
+here.
 
 ## Gather and verify configuration
 
@@ -32,20 +42,10 @@ a human first sees them. Verify, do not re-ask.
    with the user, and record it in `.tieline/config.json` under
    `context.sources` as
    `{ "id": "source-<n>", "type": "description", "location": null, "content": "<text>", "allow_external_fetch": false }`.
-3. Explain the model first, then ask — use this phrasing verbatim, only
-   dropping an option the machine rules out (for example local without
-   Docker):
+3. The orientation already explained the model, so ask directly — use this
+   phrasing verbatim, only dropping an option the machine rules out (for
+   example local without Docker):
 
-   > Your `.tieline/` directory is the source of truth for what's in
-   > production: capabilities, Stories, and acceptance criteria as YAML.
-   > New Stories and changes to existing ones are managed through pull
-   > requests. Beyond mapping production, Tieline can track Observations —
-   > feature requests, ideas, bug reports — outside the repository in a
-   > Postgres database, letting you follow a feature from request to
-   > production. Production Stories sync to that database, and agents can
-   > query it for planning, investigation, and research. Observations and
-   > credentials never land in your repository.
-   >
    > **Where should Tieline keep your Observations?**
    >
    > 1. **Start offline** — contract only for now; connect a database any
@@ -68,6 +68,11 @@ a human first sees them. Verify, do not re-ask.
    `npm install --save-dev tieline` so the team shares one version and
    `npx tieline` resolves locally. Skip this for non-Node repositories; `npx`
    alone is sufficient.
+5. Close the conversation with a handoff so the coming silence is expected:
+   setup is complete, the rest runs without input, and the next thing the
+   user sees is the completion report with the review page. Everything after
+   this point is autonomous — do not ask further questions unless unresolved
+   product meaning materially changes a capability boundary.
 
 ## Author the initial contract
 

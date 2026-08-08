@@ -1394,6 +1394,21 @@ capability:
     /Set expectations first/,
     "onboarding must open by orienting the user before asking questions"
   );
+  assert.match(
+    onboardingReference,
+    /send it before\s+reading repository files or running commands/,
+    "the orientation must precede repository work, not follow it"
+  );
+  assert.match(
+    onboardingReference,
+    /handoff so the coming silence is expected/,
+    "setup must end with a handoff into the autonomous phase"
+  );
+  assert.match(
+    authorSkill,
+    /starts with a\s+conversation, not with repository reading/,
+    "the skill dispatch must order conversation before orientation steps"
+  );
   assert.match(onboardingReference, /merge\s+is the approval/);
   assert.match(
     onboardingReference,
@@ -1402,28 +1417,35 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /source of truth for what's in[\s>]+production/,
-    "the locked phrasing explains the model before asking"
+    /Great — let's get you set up with Tieline\./,
+    "the orientation script is locked verbatim"
+  );
+  assert.match(
+    onboardingReference,
+    /production source of[\s>]+truth lives in this repository/,
+    "the orientation explains the model before any question"
   );
   assert.ok(
-    onboardingReference.indexOf("source of truth") <
+    onboardingReference.indexOf(
+      "Great — let's get you set up with Tieline."
+    ) <
       onboardingReference.indexOf(
         "Where should Tieline keep your Observations?"
       ) &&
       onboardingReference.includes(
         "Where should Tieline keep your Observations?"
       ),
-    "explanation must come before the question"
+    "orientation must come before the database question"
   );
   assert.match(
     onboardingReference,
-    /Production Stories sync to that database/,
-    "the locked phrasing must explain the contract syncs to the database"
+    /production Stories synced alongside/,
+    "the orientation must explain the contract syncs to the database"
   );
   assert.match(
     onboardingReference,
-    /Observations and[\s>]+credentials never land in your repository/,
-    "the locked phrasing must state observations are database-only"
+    /stored outside the repository in a Postgres database/,
+    "the orientation must state observations are database-only"
   );
   assert.match(
     onboardingReference,
@@ -1474,7 +1496,11 @@ capability:
     ),
     "utf8"
   );
-  assert.match(provisioningReference, /Consent first/);
+  assert.match(
+    provisioningReference,
+    /provision option in the database question is the consent/,
+    "picking the menu option is the consent; no double-ask"
+  );
   assert.match(provisioningReference, /neonctl projects create/);
   assert.match(provisioningReference, /--provision-roles/);
   assert.match(

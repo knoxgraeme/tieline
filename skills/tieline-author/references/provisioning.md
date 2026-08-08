@@ -7,10 +7,11 @@ connection strings in any tracked or untracked repository file. The
 repository records only `default_database_mode`; credentials live in
 Tieline's private profile outside the checkout.
 
-1. Consent first. Name the provider and plan (Neon's free tier unless the
-   user chooses otherwise) and state that the project is created in the
-   user's own Neon account. Do not create billable infrastructure without
-   an explicit yes.
+1. Choosing the provision option in the database question is the consent —
+   its menu line already names the provider, the free tier, the user's own
+   account, and the browser approval, so do not ask again. Anything beyond
+   that scope needs its own explicit yes: a plan other than the free tier,
+   or any other billable change.
 2. Check authentication with `npx -y neonctl me --output json`. If it
    fails, stop and ask the user to either run `npx -y neonctl auth` (it
    finishes in their browser) or provide `NEON_API_KEY`. Never work around
