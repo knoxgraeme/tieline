@@ -1444,8 +1444,8 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /Observations and[\s>]+credentials never land in your repository/,
-    "the locked phrasing must state observations are database-only"
+    /stored outside the repository in a Postgres database/,
+    "the orientation must state observations are database-only"
   );
   assert.match(
     onboardingReference,

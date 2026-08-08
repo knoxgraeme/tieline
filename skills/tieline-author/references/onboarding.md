@@ -46,9 +46,6 @@ a human first sees them. Verify, do not re-ask.
    phrasing verbatim, only dropping an option the machine rules out (for
    example local without Docker):
 
-   > Observations and credentials never land in your repository — this
-   > choice is only about where the database lives.
-   >
    > **Where should Tieline keep your Observations?**
    >
    > 1. **Start offline** — contract only for now; connect a database any
