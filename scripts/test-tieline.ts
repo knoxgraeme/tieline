@@ -1407,8 +1407,13 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /No[\s>]+database content or credentials ever land in the repository/,
-    "the locked phrasing must state the repo/database boundary"
+    /that contract also syncs to Postgres/,
+    "the locked phrasing must explain the contract syncs to the database"
+  );
+  assert.match(
+    onboardingReference,
+    /Observations[\s>]+never land in your repository/,
+    "the locked phrasing must state observations are database-only"
   );
   assert.match(
     onboardingReference,

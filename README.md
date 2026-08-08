@@ -241,7 +241,7 @@ What lives where:
 | Location | Contents |
 | --- | --- |
 | `.tieline/` in the repository (committed, PR-reviewed) | Product identity and context (`config.json`), the contract YAML (`spec/`), the compiled manifest (`manifest/`) |
-| PostgreSQL (optional: local Docker, existing, or provisioned) | Observations, Backlog Items, planning Stories and revisions, semantic search embeddings |
+| PostgreSQL (optional: local Docker, existing, or provisioned) | A synced, queryable copy of the accepted contract, plus Observations (feature requests, ideas, bugs), Backlog Items, planning Stories and revisions, and semantic search embeddings |
 | Private profile outside the repository (`~/.config/tieline/`) | Database credentials and clone-local setup state — never committed, never shared through git |
 | `local` | Creates or reuses a dedicated Docker PostgreSQL + pgvector database and stores clone-local credentials privately |
 | `existing` (hosted / remote) | Connects a hosted or remote Postgres 16 + pgvector database identified by `DATABASE_URL_ADMIN`; no Docker container is required |

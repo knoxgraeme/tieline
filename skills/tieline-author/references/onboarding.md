@@ -35,13 +35,14 @@ a human first sees them. Verify, do not re-ask.
 3. Ask the setup question with this phrasing — do not rewrite it, only drop
    an option the machine rules out (for example local without Docker):
 
-   > **Where should Tieline keep its planning data?** Your repository holds
-   > the reviewed contract — capabilities, Stories, and acceptance criteria
-   > as YAML that ships through pull requests. A Postgres database adds the
-   > live half: your bug reports and feature ideas become Observations and
-   > planning Stories you can follow from capture to shipped behavior, with
-   > semantic duplicate checking against everything already defined. No
-   > database content or credentials ever land in the repository.
+   > **Where should Tieline keep its planning data?** Capabilities for your
+   > production codebase — Stories and acceptance criteria as YAML — are
+   > defined in `.tieline/` and ship through pull requests. With a database
+   > connected, that contract also syncs to Postgres, where it is stored
+   > and queryable alongside Observations: feature requests, ideas, and bug
+   > reports you can follow from capture to shipped behavior. Observations
+   > never land in your repository — they live only in the database — and
+   > no credentials are stored in the repository either.
    >
    > 1. **Start offline** — contract only for now; connect a database any
    >    time
