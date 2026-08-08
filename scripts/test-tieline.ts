@@ -1496,16 +1496,10 @@ capability:
     ),
     "utf8"
   );
-  assert.match(provisioningReference, /Consent first/);
   assert.match(
     provisioningReference,
-    /Neon is a serverless Postgres provider with a free tier/,
-    "the consent script must explain what Neon is before asking"
-  );
-  assert.match(
-    provisioningReference,
-    /own it and can delete it at any time/,
-    "the consent script must state ownership and reversibility"
+    /Consent first, in one line/,
+    "consent stays brief; the option list already explained Neon"
   );
   assert.match(provisioningReference, /neonctl projects create/);
   assert.match(provisioningReference, /--provision-roles/);

@@ -7,16 +7,10 @@ connection strings in any tracked or untracked repository file. The
 repository records only `default_database_mode`; credentials live in
 Tieline's private profile outside the checkout.
 
-1. Consent first — use this script verbatim, then wait for an explicit
-   yes. Do not create billable infrastructure without one.
-
-   > Neon is a serverless Postgres provider with a free tier, which is
-   > what I'll use unless you'd rather pick a paid plan. I'll create a new
-   > project called `tieline-<repo_name>` in your own Neon account — you
-   > own it and can delete it at any time, and the credentials go into
-   > Tieline's private profile outside this repository. If you don't have
-   > a Neon account yet, the browser sign-in step creates one. Shall I go
-   > ahead?
+1. Consent first, in one line: confirm creating a free-tier Neon project
+   in the user's own account (they own it and can delete it anytime; a
+   missing Neon account is created during the browser sign-in). Do not
+   create billable infrastructure without an explicit yes.
 2. Check authentication with `npx -y neonctl me --output json`. If it
    fails, stop and ask the user to either run `npx -y neonctl auth` (it
    finishes in their browser) or provide `NEON_API_KEY`. Never work around
