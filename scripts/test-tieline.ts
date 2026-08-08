@@ -1397,8 +1397,33 @@ capability:
   assert.match(onboardingReference, /merge\s+is the approval/);
   assert.match(
     onboardingReference,
-    /start here, connect later.*never\s+as the whole product/s,
+    /start here, connect later.*never as the whole\s+product/s,
     "the database question must sell what the database unlocks, not settle for offline"
+  );
+  assert.match(
+    onboardingReference,
+    /Where should Tieline keep its planning data\?/,
+    "the database question phrasing is locked; agents must not rewrite it"
+  );
+  assert.match(
+    onboardingReference,
+    /No[\s>]+database content or credentials ever land in the repository/,
+    "the locked phrasing must state the repo/database boundary"
+  );
+  assert.match(
+    onboardingReference,
+    /\*\*Local Postgres\*\*/,
+    "local Docker Postgres is a first-class answer"
+  );
+  assert.match(
+    onboardingReference,
+    /from capture to shipped behavior/,
+    "the pitch is solo-first, not org-first"
+  );
+  assert.doesNotMatch(
+    onboardingReference,
+    /teammates|organization-wide/i,
+    "onboarding phrasing must not assume a team"
   );
   assert.match(
     onboardingReference,

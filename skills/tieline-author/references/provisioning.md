@@ -39,7 +39,9 @@ Tieline's private profile outside the checkout.
    must be true and the capability flags should report semantic matching
    and planning writes configured. On any provider failure, report the
    error and continue in offline mode — the workspace stays fully usable.
-6. Teammates connect without admin access: share the reader and planning
-   writer URLs from this machine's private Tieline profile through the
-   organization's secret manager, and each teammate sets `DATABASE_URL` and
-   `DATABASE_URL_WRITE` in their environment.
+6. If others work in this repository, they connect without admin access:
+   share the reader and planning writer URLs from this machine's private
+   Tieline profile through a secret manager, and each person sets
+   `DATABASE_URL` and `DATABASE_URL_WRITE` in their environment. A solo
+   user needs none of this — the profile on this machine already holds
+   everything.

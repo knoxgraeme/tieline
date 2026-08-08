@@ -32,20 +32,33 @@ a human first sees them. Verify, do not re-ask.
    with the user, and record it in `.tieline/config.json` under
    `context.sources` as
    `{ "id": "source-<n>", "type": "description", "location": null, "content": "<text>", "allow_external_fetch": false }`.
-3. Ask at most one setup question, with three answers: stay offline for
-   now, connect an existing PostgreSQL, or provision a new hosted database.
-   Frame the choice by what the database unlocks: it is where Observations
-   (bug reports, feature requests), Backlog Items, and planning Stories
-   live, so a request can be captured and followed from planning to
-   production, and it powers organization-wide duplicate checking across
-   repositories. Offline authors, validates, and reviews the repository
-   contract completely — present it as "start here, connect later", never
-   as the whole product.
-   - Existing: requires `DATABASE_URL_ADMIN` in the environment; run
-     `npx -y tieline init . --yes --database existing`. Docker users can
-     choose `--database local` instead.
-   - Provision new: follow [provisioning.md](provisioning.md) to create a
-     Neon Postgres in the user's own account and connect it.
+3. Ask the setup question with this phrasing — do not rewrite it, only drop
+   an option the machine rules out (for example local without Docker):
+
+   > **Where should Tieline keep its planning data?** Your repository holds
+   > the reviewed contract — capabilities, Stories, and acceptance criteria
+   > as YAML that ships through pull requests. A Postgres database adds the
+   > live half: your bug reports and feature ideas become Observations and
+   > planning Stories you can follow from capture to shipped behavior, with
+   > semantic duplicate checking against everything already defined. No
+   > database content or credentials ever land in the repository.
+   >
+   > 1. **Start offline** — contract only for now; connect a database any
+   >    time
+   > 2. **Local Postgres** — the full planning loop on this machine, via
+   >    Docker, no accounts
+   > 3. **Connect an existing Postgres** — you provide `DATABASE_URL_ADMIN`
+   > 4. **Provision a hosted Postgres** — a free-tier Neon project in your
+   >    own account; needs a one-time browser approval
+
+   Present offline as "start here, connect later", never as the whole
+   product. Map the answers to commands:
+   - Local: `npx -y tieline init . --yes --database local` (requires a
+     running Docker daemon).
+   - Existing: with `DATABASE_URL_ADMIN` in the environment, run
+     `npx -y tieline init . --yes --database existing`.
+   - Provision: follow [provisioning.md](provisioning.md) to create a Neon
+     Postgres in the user's own account and connect it.
 4. In a repository with a `package.json`, offer to pin the CLI with
    `npm install --save-dev tieline` so the team shares one version and
    `npx tieline` resolves locally. Skip this for non-Node repositories; `npx`
@@ -68,7 +81,7 @@ a human first sees them. Verify, do not re-ask.
    change a capability boundary or acceptance criterion. Do not ask for context
    that can be discovered from the repository.
 5. Search for likely duplicate IDs and behavior using the local YAML and
-   manifest plus organization-wide semantic matching when available.
+   manifest plus database-backed semantic matching when available.
 6. Author the initial capabilities, Stories, and ACs under `.tieline/spec/`.
    Never create generic starter content merely to make the directory non-empty.
 7. Validate and compile the contract.
