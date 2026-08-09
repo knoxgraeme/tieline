@@ -6,14 +6,12 @@ import {
   type TielineCliIO,
 } from "../cli.js";
 import {
-  confirmChoice,
   intro,
   multiselectChoice,
   outro,
   paletteFor,
   renderBanner,
   renderCopyCallout,
-  showNote,
 } from "../cli-ui.js";
 import type { Palette } from "../cli-ui.js";
 import {
@@ -27,7 +25,6 @@ import {
 import {
   resolveEmbeddingProvider,
   runDatabasePreflight,
-  runInitPreflight,
   type PreflightCheck,
 } from "../tieline/preflight.js";
 import {
@@ -39,7 +36,6 @@ import {
   type DatabaseMode,
 } from "../tieline/setup.js";
 import {
-  plannedMcpTargets,
   registerCodexMcpServer,
   writeMcpClientConfigs,
   type CodexMcpOutcome,
@@ -93,12 +89,6 @@ interface SkillInstallSelection {
   scope: SkillInstallScope;
 }
 
-const EMBEDDING_PROVIDER_OPTIONS = [
-  { value: "local", label: "Local gte-small" },
-  { value: "openai", label: "OpenAI" },
-  { value: "supabase-edge", label: "Supabase Edge Function" },
-] as const;
-
 const SKILL_AGENT_OPTIONS = SUPPORTED_SKILL_AGENTS.map((agent) => ({
   value: agent.id,
   label: agent.selector,
@@ -127,26 +117,6 @@ function agentLabel(agentId: SkillAgentId): string {
   );
 }
 
-function databaseModeLabel(database: DatabaseMode): string {
-  if (database === "existing") return "hosted / remote PostgreSQL";
-  if (database === "local") return "local PostgreSQL";
-  return "offline";
-}
-
-function embeddingProviderLabel(provider: EmbeddingProvider): string {
-  if (provider === "local") return "local gte-small";
-  return (
-    EMBEDDING_PROVIDER_OPTIONS.find((option) => option.value === provider)
-      ?.label ?? "hash (development only)"
-  );
-}
-
-function codeScopeLabel(sourceRoots: readonly string[]): string {
-  return sourceRoots.length === 1 && sourceRoots[0] === "."
-    ? "entire repository"
-    : sourceRoots.join(", ");
-}
-
 function joinLabels(values: readonly string[]): string {
   if (values.length < 2) return values[0] ?? "";
   if (values.length === 2) return `${values[0]} and ${values[1]}`;
@@ -158,16 +128,11 @@ function renderMcpSummary(
   codex: CodexMcpOutcome | null,
   ui: Palette
 ): string[] {
-  const merged = mcp.writes.filter((write) => write.status !== "failed");
+  const configured = mcp.writes.some((write) => write.status !== "failed");
   const failed = mcp.writes.filter((write) => write.status === "failed");
   const lines: string[] = [];
-  if (merged.length > 0) {
-    lines.push(
-      `MCP server: ${merged
-        .map((write) => `${write.path} ${write.status}`)
-        .join("; ")}`,
-      "MCP tools load when your client starts its next session; the tieline CLI works immediately."
-    );
+  if (configured || codex?.status === "registered") {
+    lines.push("MCP: configured");
   }
   for (const write of failed) {
     lines.push(
@@ -176,11 +141,7 @@ function renderMcpSummary(
       )
     );
   }
-  if (codex?.status === "registered") {
-    lines.push(
-      "MCP server: Codex registered globally via 'codex mcp add'"
-    );
-  } else if (codex) {
+  if (codex && codex.status !== "registered") {
     lines.push(
       ui.yellow(
         `MCP server: Codex registration failed (${codex.reason}); run: ${codex.retryCommand}`
@@ -214,36 +175,17 @@ async function registerMcpClients(
 }
 
 function renderInitSummary(
-  workspace: TielineWorkspace,
   preflight: PreflightCheck[],
   skill: SkillInstallOutcome,
-  skillScope: SkillInstallScope | undefined,
   mcp: McpConfigOutcome,
   codex: CodexMcpOutcome | null,
-  io: TielineCliIO,
-  env: NodeJS.ProcessEnv
+  io: TielineCliIO
 ): void {
   const ui = paletteFor(io);
-  const status = getTielineStatus(workspace, env);
-  const modeDescription =
-    status.runtime.database_mode === "offline"
-      ? "offline — local contract authoring ready"
-      : `${databaseModeLabel(status.runtime.database_mode)} — ${status.runtime.setup_complete ? "setup complete" : "setup incomplete"}`;
-  const notes: string[] = [];
-  if (
-    preflight.some(
-      (check) => check.key === "repository" && check.status === "warning"
-    )
-  ) {
-    notes.push("Git metadata was not detected");
-  }
   const lines = [
     `${ui.green("Workspace:")} ready at ${TIELINE_DIRECTORY}/`,
-    `${ui.green("Mode:")} ${modeDescription}`,
-    `Code scope: ${codeScopeLabel(workspace.config.repository.source_roots)}`,
     ...renderMcpSummary(mcp, codex, ui),
   ];
-  if (notes.length > 0) lines.push(`Readiness notes: ${joinLabels(notes)}`);
   for (const check of preflight) {
     if (
       check.status === "warning" &&
@@ -265,7 +207,7 @@ function renderInitSummary(
         : []),
     ].join("; ");
     lines.push(
-      `Skill: tieline-author ${skillState} (${skillScope})`,
+      `Skill: tieline-author ${skillState}`,
       "",
       ui.bold("Next steps"),
       "  1. Restart or reload your agent.",
@@ -347,18 +289,6 @@ export async function runInit(
       parsed.databaseExplicit ||
       parsed.embeddingExplicit ||
       parsed.installLocalEmbedder;
-    if (io.interactive && !parsed.yes && (shouldConfigure || skillSelection)) {
-      const review = [
-        `Workspace: reuse ${existing.directory}`,
-        shouldConfigure
-          ? `Runtime: configure ${databaseModeLabel(databaseMode)} with ${embeddingProviderLabel(embeddingProvider)} embeddings`
-          : "Runtime: keep completed setup",
-        ...renderRuntimeRequirements(databaseMode, env),
-        ...renderSkillReview(skillSelection),
-        ...renderMcpReview(skillSelection),
-      ].join("\n");
-      await confirmInitReview(io, review);
-    }
     if (shouldConfigure) {
       env.EMBEDDING_PROVIDER = embeddingProvider;
       await configureWorkspaceRuntime({
@@ -410,17 +340,11 @@ export async function runInit(
     const preflightEnv =
       databaseMode === "offline" ? withoutDatabaseEnvironment(env) : env;
     renderInitSummary(
-      existing,
-      [
-        ...runInitPreflight(existing.root, embeddingProvider, preflightEnv),
-        ...(await runDatabasePreflight(preflightEnv)),
-      ],
+      await runDatabasePreflight(preflightEnv),
       skill,
-      skillSelection?.scope,
       mcp,
       codex,
-      io,
-      env
+      io
     );
     return skill.status === "failed" ? 1 : 0;
   }
@@ -449,24 +373,6 @@ export async function runInit(
     env
   );
 
-  if (richInteractive) {
-    const contextReview = [
-      ...(description?.trim() ? ["product description"] : []),
-      ...context,
-    ];
-    await confirmInitReview(
-      io,
-      [
-        `Workspace: create .tieline for ${product} (${repoName})${parsed.product ? "" : " (auto-detected)"}`,
-        `Context: ${contextReview.length > 0 ? contextReview.join(", ") : "discover during semantic onboarding"}`,
-        `Code scope: ${codeScopeLabel(sourceRoots)}${parsed.sourceRoots.length === 0 ? " (auto-detected)" : ""}`,
-        `Runtime: ${databaseModeLabel(database)} with ${embeddingProviderLabel(embedding)} embeddings`,
-        ...renderRuntimeRequirements(database, env),
-        ...renderSkillReview(skillSelection),
-        ...renderMcpReview(skillSelection),
-      ].join("\n")
-    );
-  }
   env.EMBEDDING_PROVIDER = embedding;
   const initEnv =
     database === "offline"
@@ -514,17 +420,11 @@ export async function runInit(
   // last thing on screen rather than trailing into the flow's end cap.
   if (richInteractive) await outro(io, "Tieline workspace ready");
   renderInitSummary(
-    result.workspace,
-    [
-      ...runInitPreflight(result.workspace.root, embedding, initEnv),
-      ...(await runDatabasePreflight(initEnv)),
-    ],
+    await runDatabasePreflight(initEnv),
     skill,
-    skillSelection?.scope,
     mcp,
     codex,
-    io,
-    env
+    io
   );
   return skill.status === "failed" ? 1 : 0;
 }
@@ -553,63 +453,6 @@ async function resolveSkillSelection(
     if (agents.length === 0) return null;
   }
   return { agents, scope: parsed.skillScope ?? "project" };
-}
-
-function renderSkillReview(
-  selection: SkillInstallSelection | null
-): string[] {
-  if (!selection) return ["Skill: do not install now"];
-  return [
-    "Skill: tieline-author (onboarding and authoring)",
-    "Skill source: github.com/knoxgraeme/tieline (default branch)",
-    `Skill targets: ${joinLabels(selection.agents.map(agentLabel))}`,
-    `Skill scope: ${selection.scope}`,
-  ];
-}
-
-function renderMcpReview(
-  selection: SkillInstallSelection | null
-): string[] {
-  const planned = plannedMcpTargets(selection?.agents ?? []);
-  const lines = [
-    `MCP: register the 'tieline' server (npx -y tieline serve) in ${planned.paths.join(", ")}`,
-  ];
-  if (planned.codex) {
-    lines.push(
-      "MCP: register with Codex globally via 'codex mcp add' (~/.codex/config.toml)"
-    );
-  }
-  if (planned.manualAgents.length > 0) {
-    lines.push(
-      `MCP: ${joinLabels(planned.manualAgents.map(agentLabel))} require${planned.manualAgents.length === 1 ? "s" : ""} manual MCP registration`
-    );
-  }
-  return lines;
-}
-
-function renderRuntimeRequirements(
-  database: DatabaseMode,
-  env: NodeJS.ProcessEnv
-): string[] {
-  if (database === "local") {
-    return ["Runtime requirement: Docker with PostgreSQL 16 and pgvector"];
-  }
-  if (database === "existing" && !env.DATABASE_URL_ADMIN?.trim()) {
-    return [
-      "Runtime requirement: configure DATABASE_URL_ADMIN for PostgreSQL 16 with pgvector",
-    ];
-  }
-  return [];
-}
-
-async function confirmInitReview(
-  io: TielineCliIO,
-  review: string
-): Promise<void> {
-  await showNote(io, "Review", review);
-  if (!(await confirmChoice(io, "Apply this setup?", true))) {
-    throw new Error("Cancelled.");
-  }
 }
 
 async function runSkillInstall(

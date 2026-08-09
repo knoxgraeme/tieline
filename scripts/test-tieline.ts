@@ -328,7 +328,7 @@ try {
   writeFileSync(resolve(interactiveTarget, "README.md"), "# Interactive\n");
   const interactive = interactiveIo({
     text: [],
-    confirm: [true],
+    confirm: [],
     select: [],
     multiselect: [["codex", "claude-code"]],
   });
@@ -357,6 +357,14 @@ try {
               TIELINE_CONFIG_HOME: interactiveConfigHome,
             }),
             "runtime profile must exist before Skillfish runs"
+          );
+          assert.ok(
+            existsSync(resolve(interactiveTarget, ".claude")),
+            "selected project agents must be detectable before Skillfish runs"
+          );
+          assert.ok(
+            existsSync(resolve(interactiveTarget, ".codex")),
+            "every selected project agent must be prepared before Skillfish runs"
           );
           return successfulSkillfish(invocation);
         },
@@ -393,6 +401,11 @@ try {
     "the agent selector must be the only interactive question"
   );
   assert.equal(
+    interactive.prompts.length,
+    1,
+    "selecting agents is consent; init must not repeat the setup as a confirmation"
+  );
+  assert.equal(
     interactive.prompts.some((prompt) =>
       [
         "Company/product name",
@@ -407,19 +420,14 @@ try {
     false,
     "identity and runtime must be detected, not asked"
   );
-  const interactiveReview =
-    interactive.prompts.find((prompt) => prompt.startsWith("Review:")) ?? "";
-  assert.match(
-    interactiveReview,
-    /Context: product description, README\.md, https:\/\/mcpmarket\.com\/hub.*Code scope: src/s
-  );
-  assert.match(
-    interactiveReview,
-    /create \.tieline for Interactive Checkout \(interactive-checkout\) \(auto-detected\)/
-  );
   assert.match(
     interactive.output.join(""),
-    /Skill: tieline-author installed for Codex and Claude Code \(project\)/
+    /Skill: tieline-author installed for Codex and Claude Code/
+  );
+  assert.doesNotMatch(
+    interactive.output.join(""),
+    /Context:|Runtime:|Code scope:|Skill source:|Skill targets:|Skill scope:/,
+    "init output must report outcomes rather than semantic defaults or integration internals"
   );
   // The onboarding prompt has to stand alone on its own line so it is
   // obviously the thing to copy; keep it out of the surrounding prose.
@@ -448,7 +456,7 @@ try {
   mkdirSync(resolve(noAgentTarget, "src"), { recursive: true });
   const noAgent = interactiveIo({
     text: [],
-    confirm: [true],
+    confirm: [],
     select: [],
     multiselect: [[]],
   });
@@ -502,7 +510,7 @@ try {
   assert.equal(automatedCalls, 1);
   assert.match(
     automated.output.join(""),
-    /Skill: tieline-author installed for Codex \(global\)/
+    /Skill: tieline-author installed for Codex/
   );
   const automatedWorkspace = findTielineWorkspace(automatedTarget);
   assert.ok(automatedWorkspace);
@@ -546,7 +554,7 @@ try {
   );
   assert.match(
     alreadyPresent.output.join(""),
-    /Skill: tieline-author already present for Codex \(global\)/
+    /Skill: tieline-author already present for Codex/
   );
   assert.equal(
     readFileSync(automatedWorkspace.configPath, "utf8"),
@@ -703,17 +711,10 @@ try {
   const mcpMergeOutput = mcpMerge.output.join("");
   assert.match(
     mcpMergeOutput,
-    /Skill: tieline-author installed for Cursor, Codex, and OpenCode \(project\)/,
+    /Skill: tieline-author installed for Cursor, Codex, and OpenCode/,
     "--agent without --skill-scope must default to the project scope"
   );
-  assert.match(
-    mcpMergeOutput,
-    /MCP server: \.mcp\.json updated; \.cursor\/mcp\.json written; opencode\.json written/
-  );
-  assert.match(
-    mcpMergeOutput,
-    /MCP server: Codex registered globally via 'codex mcp add'/
-  );
+  assert.match(mcpMergeOutput, /MCP: configured/);
   const mergedRootBody = readFileSync(
     resolve(mcpMergeTarget, ".mcp.json"),
     "utf8"
@@ -730,7 +731,7 @@ try {
     mergedRootBody,
     "re-running init must not rewrite an up-to-date MCP config"
   );
-  assert.match(mcpRepeat.output.join(""), /\.mcp\.json unchanged/);
+  assert.match(mcpRepeat.output.join(""), /MCP: configured/);
 
   const mcpInvalidTarget = resolve(root, "Mcp Invalid Checkout");
   mkdirSync(resolve(mcpInvalidTarget, "src"), { recursive: true });
@@ -845,19 +846,17 @@ try {
     "review.html\n"
   );
   const firstOutput = first.output.join("");
-  assert.match(firstOutput, /MCP server: \.mcp\.json written/);
+  assert.match(firstOutput, /MCP: configured/);
   assert.match(firstOutput, /Workspace: ready at \.tieline\//);
   assert.doesNotMatch(
     firstOutput,
     new RegExp(target.replaceAll("\\", "\\\\")),
     "the summary must not print absolute paths"
   );
-  assert.match(firstOutput, /Mode: offline.*local contract authoring ready/i);
-  assert.match(firstOutput, /code scope: src/i);
   assert.doesNotMatch(
     firstOutput,
-    /Optional capabilities|Review: open/,
-    "the summary leads to the paste prompt without optional-feature or review noise"
+    /Mode:|Runtime:|Context:|Code scope:|Optional capabilities|Review: open|Skill source:|Skill targets:|Skill scope:/,
+    "the summary leads to the paste prompt without setup internals"
   );
   assert.match(firstOutput, /skill: not installed/i);
   assert.match(
@@ -905,7 +904,7 @@ try {
 
   const existingInteractive = interactiveIo({
     text: [],
-    confirm: [true],
+    confirm: [],
     select: [],
     multiselect: [["codex"]],
   });
@@ -979,10 +978,7 @@ try {
     }),
     0
   );
-  assert.match(
-    resumed.output.join(""),
-    /Mode: offline.*local contract authoring ready/i
-  );
+  assert.doesNotMatch(resumed.output.join(""), /Mode:|Runtime:|Code scope:/);
   assert.ok(
     readWorkspaceProfile(workspace, {
       TIELINE_CONFIG_HOME: freshConfigHome,

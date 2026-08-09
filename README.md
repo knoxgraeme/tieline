@@ -177,7 +177,9 @@ name, and code scope, defaults the runtime to offline, and asks one question:
 which coding agents should receive the onboarding skill. Agents the
 repository already shows evidence of (`.claude/`, `.agents/`, `.cursor/`, and
 similar), or the agent whose session is running init, arrive preselected;
-nothing else does. Everything else — product description,
+nothing else does. Selecting the agents is the confirmation: init applies the
+setup immediately without repeating detected defaults in a second review
+screen. Everything else — product description,
 context sources, database upgrades — is gathered conversationally by the
 agent during semantic onboarding, where it can read the repository first and
 verify instead of interrogate:
@@ -225,7 +227,7 @@ terms, invariants, and glossary entries. It should describe the business, not
 ideas, feature requests, or a second backlog.
 
 Tieline also auto-detects the code directories used for mapping coverage and
-shows them as the **Code scope**—for example, `apps` and `packages`. Most users
+records them as the **Code scope**—for example, `apps` and `packages`. Most users
 do not need to configure this. Use a repeatable `--source-root` only when the
 repository uses code directories Tieline did not detect. The stored
 configuration name for this code scope is `repository.source_roots`.
@@ -308,10 +310,11 @@ installation.
 | `opencode` | OpenCode |
 | `windsurf` | Windsurf |
 
-Tieline delegates native agent-directory handling to Skillfish. It invokes the
-latest installer through `npx`, against Tieline's public default branch and
-without adding Skillfish as a package dependency. A single-target project
-invocation has this shape:
+For a project-scoped install, Tieline creates the selected agent's project
+marker when the repository is fresh, then delegates skill installation to
+Skillfish. It invokes the latest installer through `npx`, against Tieline's
+public default branch and without adding Skillfish as a package dependency. A
+single-target project invocation has this shape:
 
 ```bash
 npx --yes --package=skillfish@latest skillfish add knoxgraeme/tieline \
