@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tieline"
+  short_description: "Onboard, author, grade, and reconcile Tieline contracts"
+  default_prompt: "Use $tieline to semantically onboard this repository from its configured context, or reconcile existing contract behavior."

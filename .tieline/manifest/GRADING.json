@@ -150,7 +150,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
+                "reviewed_content_hash": "91aeb349ed4a7f0e2f1e977bf089bb9106f69be71ccea547fa84f9d04f6508c4",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -372,16 +372,16 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ee66a0baf65dd19f779dfe877884eb841c3bf0a52bff49b64993b2da0be3cad1",
-            "criterion": "The grading skill must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.",
+            "contract_hash": "fe9f7833ed697cf9602f23b5988e13b4c2a272576fbdec2f909305ac0fb7b49a",
+            "criterion": "The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "aacb93b354891c278694a985e4a30cf48e4aa8b86faf59afdacc36df6f95d109",
+                "reviewed_content_hash": "cceebba845c2557452d8633cd9d84178e3bf6238534aa6c0b053ebe733ccf65f",
                 "target": {
                   "kind": "code",
-                  "path": "skills/tieline-grade/SKILL.md",
+                  "path": "skills/tieline/references/grading.md",
                   "repository": "tieline"
                 }
               }
@@ -412,6 +412,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "4c9e239faadad8b5e3392ee441aa4fc9445a64b7a049cf20931340f0e4f8897a"
+    "sha256": "daf706c72a18ea3604b1b1a4d2a7787711dee59e52c983a87dcab42be208628f"
   }
 }

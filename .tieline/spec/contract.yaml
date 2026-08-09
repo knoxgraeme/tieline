@@ -137,6 +137,12 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/commands/contract.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/review.ts
             - relation: tests
               provenance: authored
               target:

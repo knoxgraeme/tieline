@@ -3,6 +3,8 @@ delete process.env.DATABASE_URL;
 delete process.env.DATABASE_URL_WRITE;
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { FakeKnowledgeStore } from "../src/domain/testing/fake-knowledge-store.js";
@@ -92,14 +94,38 @@ try {
   const prompts = await client.listPrompts();
   assert.deepEqual(
     prompts.prompts.map((prompt) => prompt.name),
-    ["tieline_author"]
+    ["tieline", "tieline_author"]
   );
-  const authorPrompt = await client.getPrompt({ name: "tieline_author" });
-  assert.match(
-    String(authorPrompt.messages[0]?.content.type === "text"
-      ? authorPrompt.messages[0].content.text
-      : ""),
-    /\.tieline\/config\.json[\s\S]*Search before creating[\s\S]*Semantic onboarding/
+  const tielinePrompt = await client.getPrompt({ name: "tieline" });
+  const promptText = String(
+    tielinePrompt.messages[0]?.content.type === "text"
+      ? tielinePrompt.messages[0].content.text
+      : ""
+  );
+  const expectedPromptText = [
+    "SKILL.md",
+    "references/contract.md",
+    "references/onboarding.md",
+    "references/provisioning.md",
+    "references/grading.md",
+    "references/report.md",
+  ]
+    .map((path) =>
+      readFileSync(resolve(process.cwd(), "skills/tieline", path), "utf8")
+    )
+    .join("\n\n");
+  assert.equal(
+    promptText,
+    expectedPromptText,
+    "the MCP prompt must expose the complete installed Tieline workflow"
+  );
+  const legacyPrompt = await client.getPrompt({ name: "tieline_author" });
+  assert.equal(
+    legacyPrompt.messages[0]?.content.type === "text"
+      ? legacyPrompt.messages[0].content.text
+      : "",
+    promptText,
+    "the legacy MCP prompt name must remain a content-identical alias"
   );
 
   const omittedProfile = (await client.callTool({

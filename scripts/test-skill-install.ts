@@ -12,7 +12,7 @@ import {
   SKILL_INSTALL_TIMEOUT_MS,
   buildSkillfishInvocation,
   detectRepositoryAgents,
-  installTielineAuthor,
+  installTielineSkill,
   renderSkillInstallRetryCommand,
   runSkillfishProcess,
   skippedSkillInstall,
@@ -72,7 +72,7 @@ assert.deepEqual(invocation.args, [
   "add",
   "knoxgraeme/tieline",
   "--path",
-  "skills/tieline-author",
+  "skills/tieline",
   "--agent",
   "Codex",
   "--agent",
@@ -158,26 +158,26 @@ const successRunner: SkillfishProcessRunner = async (received) => {
       errors: [],
       installed: [
         {
-          skill: "tieline-author",
+          skill: "tieline",
           agent: "Codex",
-          path: "/tmp/Example Repository/.codex/skills/tieline-author",
+          path: "/tmp/Example Repository/.codex/skills/tieline",
           location: "project",
         },
       ],
       skipped: [
         {
-          skill: "tieline-author",
+          skill: "tieline",
           agent: "Claude Code",
           reason: "Already installed",
         },
       ],
-      skills_found: ["tieline-author"],
+      skills_found: ["tieline"],
     }),
     stderr: "",
     timedOut: false,
   };
 };
-const success = await installTielineAuthor(
+const success = await installTielineSkill(
   {
     workspaceRoot: installWorkspaceRoot,
     agentIds: ["codex", "claude-code"],
@@ -295,7 +295,7 @@ const failureCases: Array<{
 ];
 
 for (const failureCase of failureCases) {
-  const failed = await installTielineAuthor(
+  const failed = await installTielineSkill(
     {
       workspaceRoot,
       agentIds: ["codex"],
@@ -331,7 +331,7 @@ for (const [agentId, marker] of projectMarkers) {
     (agent) => agent.id === agentId
   )?.selector;
   assert.ok(selector);
-  const installed = await installTielineAuthor(
+  const installed = await installTielineSkill(
     {
       workspaceRoot: agentWorkspace,
       agentIds: [agentId],
@@ -352,9 +352,9 @@ for (const [agentId, marker] of projectMarkers) {
           errors: [],
           installed: [
             {
-              skill: "tieline-author",
+              skill: "tieline",
               agent: selector,
-              path: resolve(agentWorkspace, marker, "skills/tieline-author"),
+              path: resolve(agentWorkspace, marker, "skills/tieline"),
               location: "project",
             },
           ],
@@ -373,7 +373,7 @@ for (const [agentId, marker] of projectMarkers) {
 }
 
 const globalWorkspace = resolve(installWorkspaceRoot, "global");
-const globalInstall = await installTielineAuthor(
+const globalInstall = await installTielineSkill(
   {
     workspaceRoot: globalWorkspace,
     agentIds: projectMarkers.map(([agentId]) => agentId),
@@ -388,9 +388,9 @@ const globalInstall = await installTielineAuthor(
       exit_code: 0,
       errors: [],
       installed: projectMarkers.map(([agentId], index) => ({
-        skill: "tieline-author",
+        skill: "tieline",
         agent: SUPPORTED_SKILL_AGENTS[index].selector,
-        path: `/global/${agentId}/tieline-author`,
+        path: `/global/${agentId}/tieline`,
         location: "global",
       })),
       skipped: [],
@@ -411,7 +411,7 @@ for (const [, marker] of projectMarkers) {
 const blockedMarkerWorkspace = resolve(installWorkspaceRoot, "blocked-marker");
 writeFileSync(blockedMarkerWorkspace, "occupied");
 let blockedMarkerRunnerCalled = false;
-const blockedMarker = await installTielineAuthor(
+const blockedMarker = await installTielineSkill(
   {
     workspaceRoot: blockedMarkerWorkspace,
     agentIds: ["codex"],

@@ -42,7 +42,7 @@ export function createServer(): McpServer {
         "Tieline is a lifecycle-aware semantic contract grounded in repository YAML. " +
         "Use search_knowledge with an explicit profile for cross-type search, find_related for engineering-oriented discovery, and query_stories for exact Story/AC reads. " +
         "Use get_path_criteria before editing a repository path to learn which acceptance criteria the accepted contract records for it; the tool reads the compiled manifest and needs no database. " +
-        "Use the tieline_author prompt to onboard or reconcile repository behavior. " +
+        "Use the tieline prompt to onboard, author, grade, or reconcile repository behavior. " +
         "Planning writes can shape backlog Stories/ACs, append Observations, and manage " +
         "Backlog Items. Repository-owned behavior changes only through YAML and normal PR review.",
     }

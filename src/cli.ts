@@ -91,10 +91,8 @@ export function renderStatus(status: TielineStatus, ui: Palette): string {
   ];
   if (status.onboarding) {
     lines.push(
-      `${ui.cyan("Next:")} Copy the prompt below and paste it to your agent to finish onboarding.`,
-      `${ui.cyan("Install skill:")} ${status.onboarding.install_command}`,
-      "",
-      ...renderCopyCallout(ui, status.onboarding.instruction)
+      `${ui.cyan("Next:")} ${status.onboarding.instruction}`,
+      `${ui.cyan("Install skill:")} ${status.onboarding.install_command}`
     );
   } else {
     lines.push(`${ui.cyan("Next:")} ${status.next_action}`);
@@ -221,7 +219,7 @@ function buildProgram(
     .addHelpText("before", () => `${renderBanner(paletteFor(io))}\n\n`)
     .addHelpText(
       "after",
-      "\nRun `tieline init` for deterministic setup and agent-skill installation. Use $tieline-author for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
+      "\nRun `tieline init` for deterministic setup and agent-skill installation. Use $tieline for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
     );
 
   program
@@ -261,7 +259,7 @@ function buildProgram(
     )
     .option(
       "--agent <id>",
-      `install tieline-author for a supported agent (repeatable: ${SUPPORTED_SKILL_AGENTS.map((agent) => agent.id).join(", ")})`,
+      `install tieline for a supported agent (repeatable: ${SUPPORTED_SKILL_AGENTS.map((agent) => agent.id).join(", ")})`,
       collect,
       []
     )
@@ -273,7 +271,7 @@ function buildProgram(
     )
     .option(
       "--skip-skill-install",
-      "initialize without installing tieline-author"
+      "initialize without installing tieline"
     )
     .option("--yes", "accept detected defaults without prompting")
     .option("--skip-migrate", "skip applying database migrations")

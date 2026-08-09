@@ -21,7 +21,7 @@ export interface ContractReviewPageOptions {
    * Rendered in the empty state so a page generated before onboarding tells
    * the reader how to author the first capabilities.
    */
-  onboardingPrompt?: string;
+  onboardingInstruction?: string;
 }
 
 function escapeHtml(value: string): string {
@@ -287,9 +287,9 @@ export function renderContractReviewPage(
         acceptance criteria once semantic onboarding authors them under
         <code>.tieline/spec/</code>.</p>
         ${
-          options.onboardingPrompt
-            ? `<p>Paste this prompt to your coding agent to begin:</p>
-              <pre class="prompt">${escapeHtml(options.onboardingPrompt)}</pre>`
+          options.onboardingInstruction
+            ? `<p>Invoke the installed skill in your coding agent to begin:</p>
+              <pre class="prompt">${escapeHtml(options.onboardingInstruction)}</pre>`
             : ""
         }
         <p><code>tieline contract compile .</code> refreshes this page

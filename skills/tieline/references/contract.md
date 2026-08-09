@@ -1,4 +1,4 @@
-# Tieline authoring contract
+# Authoring contract
 
 ## Authority
 

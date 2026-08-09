@@ -1,9 +1,4 @@
----
-name: tieline-grade
-description: Judge whether the Tieline acceptance-criterion links touched by a branch — artifacts that moved, links that were added, criteria that were re-worded, or an entire initial contract — are supported by their artifacts, then verify every judgment against a deterministic citation fence. Use when asked to grade, judge, audit, or check the evidence quality of changed Tieline contract links, to grade a freshly onboarded contract, or to confirm that linked code and tests still support their criteria before a pull request merges.
----
-
-# Tieline grade
+# Grade changed evidence
 
 Tieline supplies a complete diff-scoped work list and a closed set of legal
 citations. Supply the semantic judgment the deterministic tooling cannot make.

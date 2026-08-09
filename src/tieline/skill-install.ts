@@ -262,7 +262,7 @@ function skillfishInvocation(
     "add",
     "knoxgraeme/tieline",
     "--path",
-    "skills/tieline-author",
+    "skills/tieline",
   ];
   for (const agent of agents) args.push("--agent", agent.selector);
   args.push(options.scope === "project" ? "--project" : "--global");
@@ -415,7 +415,7 @@ function structuredSkillfishError(stdout: string): string | null {
   }
 }
 
-export async function installTielineAuthor(
+export async function installTielineSkill(
   options: SkillInstallOptions,
   runner: SkillfishProcessRunner = runSkillfishProcess
 ): Promise<SkillInstallOutcome> {
@@ -493,13 +493,13 @@ export async function installTielineAuthor(
   }
 
   const installedAgents = parsed.data.installed
-    .filter((item) => item.skill === "tieline-author")
+    .filter((item) => item.skill === "tieline")
     .map((item) => agentIdBySelector.get(item.agent))
     .filter((id): id is SkillAgentId => id !== undefined);
   const alreadyPresentAgents = parsed.data.skipped
     .filter(
       (item) =>
-        item.skill === "tieline-author" && /already|exist/i.test(item.reason)
+        item.skill === "tieline" && /already|exist/i.test(item.reason)
     )
     .map((item) => agentIdBySelector.get(item.agent))
     .filter((id): id is SkillAgentId => id !== undefined);
