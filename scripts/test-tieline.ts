@@ -616,7 +616,7 @@ try {
   );
   assert.match(
     failedOutput,
-    /Retry the install by running:\n\n─+\ntieline init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
+    /Retry the install by running:\n\n─+\nnpx -y tieline@latest init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
   );
   assert.doesNotMatch(failedOutput, /private nested output|Agent handoff prompt/);
 

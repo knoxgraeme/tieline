@@ -314,14 +314,15 @@ function skillInstallRetryCommand(
 ): string {
   const platform = options.platform ?? process.platform;
   const args = [
-    "tieline",
-    "init",
     resolve(options.workspaceRoot),
     "--yes",
   ];
   for (const agent of agents) args.push("--agent", agent.id);
   args.push("--skill-scope", options.scope);
-  return args.map((value) => quoteShellArgument(value, platform)).join(" ");
+  return [
+    "npx -y tieline@latest init",
+    ...args.map((value) => quoteShellArgument(value, platform)),
+  ].join(" ");
 }
 
 export function renderSkillInstallRetryCommand(
