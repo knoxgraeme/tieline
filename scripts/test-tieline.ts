@@ -1522,6 +1522,19 @@ capability:
 
   // README wording is under test: editing the install instructions there breaks test:tieline unless these assertions move with it.
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
+  const quickSetupIndex = readme.indexOf("## Quick setup");
+  const detailedSetupIndex = readme.indexOf("## Detailed setup and configuration");
+  const firstSectionIndex = readme.search(/^## /m);
+  assert.ok(quickSetupIndex > 0, "README must include Quick setup near the top");
+  assert.equal(
+    quickSetupIndex,
+    firstSectionIndex,
+    "README Quick setup must be the first section after the value proposition"
+  );
+  assert.ok(
+    detailedSetupIndex > quickSetupIndex,
+    "README Quick setup must precede detailed setup"
+  );
   assert.match(
     readme,
     /npx --yes --package=skillfish@latest skillfish add knoxgraeme\/tieline/

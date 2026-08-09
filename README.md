@@ -4,10 +4,36 @@
 
 # Tieline
 
-Tieline is a living semantic contract for how a product and business work. It
-connects user intent to code, tests, help content, requests, bugs, questions,
-and planned work, while keeping the accepted definition reviewable beside the
-implementation.
+Tieline keeps product intent from getting lost between docs, tickets, code, and
+AI agents. It turns how a product and business work into a living, versioned
+semantic contract, so people and agents share the same reviewed definition of
+what the product should do and where that behavior lives.
+
+## Quick setup
+
+From the repository you want to onboard (requires Node.js 20.12 or newer):
+
+```bash
+cd /path/to/product-repository
+npx -y tieline init
+```
+
+Select the coding agents you use. Tieline creates or updates the `.tieline`
+workspace and installs the project-scoped `tieline` skill for those agents. It
+configures MCP automatically where the selected agent supports repository or
+CLI registration; otherwise, follow init's printed manual MCP instruction.
+Restart or reload the selected agent, then start semantic onboarding:
+
+- Claude Code: run `/tieline`
+- Codex: run `$tieline`
+- Other supported agents: ask the agent to use the installed `tieline` skill
+
+The agent then discovers product context from the repository, proposes the
+initial semantic contract for review, and guides the remaining setup. See
+[Detailed setup and configuration](#detailed-setup-and-configuration) for
+database modes, automation, agent-specific behavior, and advanced options.
+
+## How Tieline works
 
 The core hierarchy is:
 
@@ -127,7 +153,9 @@ Stable IDs are identity, not embedding prose. Aliases support alternate language
 applicability distinguishes legitimately different behavior, and `supersedes`
 converges definitions without deleting history.
 
-## Requirements and installation
+## Detailed setup and configuration
+
+### Requirements and installation
 
 - Node.js 20.12 or newer.
 - Docker with a running daemon when using `--database local`.
@@ -170,7 +198,7 @@ tieline --help
 current machine. Without it, replace `tieline` in the examples below with
 `node dist/cli.js` from the checkout.
 
-## Initialize and onboard a repository
+### Initialize and onboard a repository
 
 Run init from the repository. It auto-detects the product name, repository
 name, and code scope, defaults the runtime to offline, and asks one question:
