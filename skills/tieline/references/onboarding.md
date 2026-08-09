@@ -58,16 +58,15 @@ a human first sees them. Verify, do not re-ask.
 
    Present offline as "start here, connect later", never as the whole
    product. Map the answers to commands:
-   - Local: `npx -y tieline init . --yes --database local` (requires a
+   - Local: `npx -y tieline@latest init . --yes --database local` (requires a
      running Docker daemon).
    - Existing: with `DATABASE_URL_ADMIN` in the environment, run
-     `npx -y tieline init . --yes --database existing`.
+     `npx -y tieline@latest init . --yes --database existing`.
    - Provision: follow [provisioning.md](provisioning.md) to create a Neon
      Postgres in the user's own account and connect it.
-4. In a repository with a `package.json`, offer to pin the CLI with
-   `npm install --save-dev tieline` so the team shares one version and
-   `npx tieline` resolves locally. Skip this for non-Node repositories; `npx`
-   alone is sufficient.
+4. Do not ask whether to install or pin the Tieline CLI in the repository.
+   Setup runs through `npx` and does not modify the application's dependency
+   manifest or lockfile.
 5. Close the conversation with a handoff so the coming silence is expected:
    setup is complete, the rest runs without input, and the next thing the
    user sees is the completion report with the review page. Everything after

@@ -616,7 +616,7 @@ try {
   );
   assert.match(
     failedOutput,
-    /Retry the install by running:\n\n─+\ntieline init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
+    /Retry the install by running:\n\n─+\nnpx -y tieline@latest init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
   );
   assert.doesNotMatch(failedOutput, /private nested output|Agent handoff prompt/);
 
@@ -1462,6 +1462,21 @@ capability:
     /Do not enumerate the authored\s+Stories or acceptance\s+criteria inline/,
     "onboarding must deliver the review page, not an inline listing"
   );
+  assert.doesNotMatch(
+    onboardingReference,
+    /pin the CLI|npm install --save-dev tieline/i,
+    "semantic onboarding must not ask to modify the repository's dependencies"
+  );
+  assert.match(
+    tielineSkill,
+    /npx -y tieline@latest init/,
+    "skill-driven bootstrap must explicitly resolve the latest Tieline release"
+  );
+  assert.match(
+    onboardingReference,
+    /npx -y tieline@latest init/,
+    "semantic setup commands must explicitly resolve the latest Tieline release"
+  );
   assert.match(
     tielineSkill,
     /pointing at `\.tieline\/review\.html`/,
@@ -1496,8 +1511,32 @@ capability:
     /provision option in the database question is the consent/,
     "picking the menu option is the consent; no double-ask"
   );
-  assert.match(provisioningReference, /neonctl projects create/);
-  assert.match(provisioningReference, /--provision-roles/);
+  assert.match(provisioningReference, /neonctl orgs list.*--output json/);
+  assert.match(
+    provisioningReference,
+    /exactly one.*--org-id/s,
+    "hosted provisioning must automatically select an unambiguous Neon organization"
+  );
+  assert.match(
+    provisioningReference,
+    /more than one.*ask\s+the user/s,
+    "hosted provisioning must preserve the ownership boundary when several organizations are available"
+  );
+  assert.match(
+    provisioningReference,
+    /no organization.*report that result.*continue in offline mode.*never create an\s+organization without explicit consent/s,
+    "hosted provisioning must fail safely when the Neon account has no organization"
+  );
+  assert.match(
+    provisioningReference,
+    /neonctl projects create.*--org-id/s,
+    "Neon project creation must pass the resolved organization explicitly"
+  );
+  assert.match(
+    provisioningReference,
+    /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tieline@latest init[^\n]*--database existing[^\n]*--provision-roles/,
+    "hosted provisioning must pass the captured URI through the explicit existing-database role-provisioning command"
+  );
   assert.match(
     provisioningReference,
     /never write it into any\s+repository file/,
@@ -1534,6 +1573,25 @@ capability:
   assert.ok(
     detailedSetupIndex > quickSetupIndex,
     "README Quick setup must precede detailed setup"
+  );
+  assert.ok(
+    (readme.match(/npx -y tieline@latest init/g) ?? []).length >= 2,
+    "README quick and detailed bootstrap commands must explicitly resolve the latest Tieline release"
+  );
+  assert.doesNotMatch(
+    readme,
+    /npx -y tieline init/,
+    "README must not leave a first-time init command on implicit package resolution"
+  );
+  assert.doesNotMatch(
+    readme,
+    /^tieline init /m,
+    "README automation and recovery examples must not require a global Tieline install"
+  );
+  assert.doesNotMatch(
+    readme,
+    /npm install --save-dev tieline|pin the CLI as a dev dependency/i,
+    "README setup must not make dependency pinning part of onboarding"
   );
   assert.match(
     readme,

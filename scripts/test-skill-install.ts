@@ -144,7 +144,16 @@ assert.equal(
     scope: "project",
     platform: "darwin",
   }),
-  "tieline init '/tmp/Example Repository' --yes --agent codex --agent claude-code --skill-scope project"
+  "npx -y tieline@latest init '/tmp/Example Repository' --yes --agent codex --agent claude-code --skill-scope project"
+);
+assert.equal(
+  renderSkillInstallRetryCommand({
+    workspaceRoot,
+    agentIds: ["codex"],
+    scope: "global",
+    platform: "win32",
+  }),
+  'npx -y tieline@latest init "/tmp/Example Repository" --yes --agent codex --skill-scope global'
 );
 
 let capturedInvocation = invocation;
