@@ -75,7 +75,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC3
-          criterion: Tieline initialization must persist user-confirmed deterministic repository and runtime inputs without generating semantic contract content.
+          criterion: Tieline initialization must persist deterministic repository and runtime inputs from explicit flags and auto-detection without generating semantic contract content.
           rationale: Deterministic setup belongs in the CLI, while interpreting repository context and proposing semantic boundaries belongs with an agent and normal pull-request review.
           links:
             - relation: implements
@@ -98,7 +98,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC4
-          criterion: Tieline initialization must install the tieline-author skill through Skillfish only for explicitly selected supported agents and scope.
+          criterion: Tieline initialization must prepare explicitly selected project-agent targets and install the tieline-author skill through Skillfish only for those supported agents and scope.
           links:
             - relation: implements
               provenance: authored
@@ -127,7 +127,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC5
-          criterion: Tieline must preserve a ready workspace when requested skill installation fails.
+          criterion: Tieline must preserve a ready workspace and report a structured installer error when requested skill installation fails.
           links:
             - relation: implements
               provenance: authored
@@ -222,7 +222,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC9
-          criterion: Tieline interactive initialization must auto-detect code scope and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.
+          criterion: Tieline interactive initialization must use agent selection as setup consent, auto-detect code scope, and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.
           links:
             - relation: implements
               provenance: authored

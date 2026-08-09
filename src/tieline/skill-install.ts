@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 
@@ -23,14 +23,38 @@ export type SkillInstallScope = "project" | "global";
  * everything is indistinguishable from no detection at all. `.agents/` maps
  * to Codex because Codex resolves repository skills from `.agents/skills`.
  */
-const AGENT_REPO_MARKERS: Record<SkillAgentId, string[]> = {
-  "claude-code": [".claude"],
-  codex: [".codex", ".agents"],
-  cursor: [".cursor"],
-  "gemini-cli": [".gemini"],
-  "github-copilot": [".vscode"],
-  opencode: ["opencode.json"],
-  windsurf: [".windsurf"],
+const AGENT_REPOSITORY_CONFIG: Record<
+  SkillAgentId,
+  { detectionMarkers: string[]; skillfishProjectMarker: string }
+> = {
+  "claude-code": {
+    detectionMarkers: [".claude"],
+    skillfishProjectMarker: ".claude",
+  },
+  codex: {
+    detectionMarkers: [".codex", ".agents"],
+    skillfishProjectMarker: ".codex",
+  },
+  cursor: {
+    detectionMarkers: [".cursor"],
+    skillfishProjectMarker: ".cursor",
+  },
+  "gemini-cli": {
+    detectionMarkers: [".gemini"],
+    skillfishProjectMarker: ".gemini",
+  },
+  "github-copilot": {
+    detectionMarkers: [".vscode"],
+    skillfishProjectMarker: ".github/skills",
+  },
+  opencode: {
+    detectionMarkers: ["opencode.json"],
+    skillfishProjectMarker: ".opencode",
+  },
+  windsurf: {
+    detectionMarkers: [".windsurf"],
+    skillfishProjectMarker: ".windsurf",
+  },
 };
 
 /**
@@ -51,8 +75,9 @@ export function detectRepositoryAgents(
     ) {
       return true;
     }
-    return AGENT_REPO_MARKERS[agent.id].some((marker) =>
-      existsSync(resolve(root, marker))
+    const config = AGENT_REPOSITORY_CONFIG[agent.id];
+    return [...config.detectionMarkers, config.skillfishProjectMarker].some(
+      (marker) => existsSync(resolve(root, marker))
     );
   }).map((agent) => agent.id);
 }
@@ -179,6 +204,17 @@ const skillfishOutputSchema = z
   })
   .strict();
 
+const skillfishErrorOutputSchema = z
+  .object({
+    success: z.boolean(),
+    errors: z.array(z.string()),
+    exit_code: z.number().int().optional(),
+    installed: z.array(installedSkillSchema).optional(),
+    skipped: z.array(skippedSkillSchema).optional(),
+    skills_found: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
 function normalizedAgents(
   agentIds: readonly string[]
 ): NormalizedSkillAgent[] {
@@ -239,6 +275,22 @@ function skillfishInvocation(
     shell: platform === "win32",
     timeoutMs: SKILL_INSTALL_TIMEOUT_MS,
   };
+}
+
+function prepareSkillfishProjectMarkers(
+  workspaceRoot: string,
+  agents: readonly NormalizedSkillAgent[]
+): string | null {
+  for (const agent of agents) {
+    const marker = AGENT_REPOSITORY_CONFIG[agent.id].skillfishProjectMarker;
+    try {
+      mkdirSync(resolve(workspaceRoot, marker), { recursive: true });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      return `Could not prepare the ${agent.selector} project marker '${marker}'${code ? ` (${code})` : ""}.`;
+    }
+  }
+  return null;
 }
 
 export function buildSkillfishInvocation(
@@ -347,6 +399,22 @@ function failedOutcome(
   };
 }
 
+function skillfishErrors(errors: readonly string[]): string | null {
+  const messages = errors.map((error) => error.trim()).filter(Boolean);
+  return messages.length > 0 ? messages.join(" ") : null;
+}
+
+function structuredSkillfishError(stdout: string): string | null {
+  if (!stdout.trim()) return null;
+  try {
+    const parsed = skillfishErrorOutputSchema.safeParse(JSON.parse(stdout));
+    if (!parsed.success) return null;
+    return skillfishErrors(parsed.data.errors);
+  } catch {
+    return null;
+  }
+}
+
 export async function installTielineAuthor(
   options: SkillInstallOptions,
   runner: SkillfishProcessRunner = runSkillfishProcess
@@ -355,6 +423,15 @@ export async function installTielineAuthor(
   const requestedAgents = agents.map((agent) => agent.id);
   const retryCommand = skillInstallRetryCommand(options, agents);
   const invocation = skillfishInvocation(options, agents);
+  if (options.scope === "project") {
+    const preparationError = prepareSkillfishProjectMarkers(
+      options.workspaceRoot,
+      agents
+    );
+    if (preparationError) {
+      return failedOutcome(requestedAgents, retryCommand, preparationError);
+    }
+  }
   let processResult: SkillfishProcessResult;
   try {
     processResult = await runner(invocation);
@@ -376,7 +453,8 @@ export async function installTielineAuthor(
     return failedOutcome(
       requestedAgents,
       retryCommand,
-      `Skillfish exited with code ${processResult.code}.`
+      structuredSkillfishError(processResult.stdout) ??
+        `Skillfish exited with code ${processResult.code}.`
     );
   }
   if (!processResult.stdout.trim()) {
@@ -409,7 +487,8 @@ export async function installTielineAuthor(
     return failedOutcome(
       requestedAgents,
       retryCommand,
-      "Skillfish reported an unsuccessful installation."
+      skillfishErrors(parsed.data.errors) ??
+        "Skillfish reported an unsuccessful installation."
     );
   }
 

@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
 import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import {
   SUPPORTED_SKILL_AGENTS,
   SKILL_INSTALL_TIMEOUT_MS,
   buildSkillfishInvocation,
+  detectRepositoryAgents,
   installTielineAuthor,
   renderSkillInstallRetryCommand,
   runSkillfishProcess,
@@ -11,6 +20,9 @@ import {
 } from "../src/tieline/skill-install.js";
 
 const workspaceRoot = "/tmp/Example Repository";
+const installWorkspaceRoot = mkdtempSync(
+  resolve(tmpdir(), "tieline-skill-install-")
+);
 const sourceEnv: NodeJS.ProcessEnv = {
   PATH: "/usr/local/bin:/usr/bin",
   HOME: "/Users/example",
@@ -167,7 +179,7 @@ const successRunner: SkillfishProcessRunner = async (received) => {
 };
 const success = await installTielineAuthor(
   {
-    workspaceRoot,
+    workspaceRoot: installWorkspaceRoot,
     agentIds: ["codex", "claude-code"],
     scope: "project",
     env: sourceEnv,
@@ -175,7 +187,7 @@ const success = await installTielineAuthor(
   },
   successRunner
 );
-assert.equal(capturedInvocation.cwd, workspaceRoot);
+assert.equal(capturedInvocation.cwd, installWorkspaceRoot);
 assert.equal(success.status, "installed");
 assert.deepEqual(success.installedAgents, ["codex"]);
 assert.deepEqual(success.alreadyPresentAgents, ["claude-code"]);
@@ -214,6 +226,21 @@ const failureCases: Array<{
     reason: /exited with code 3/i,
   },
   {
+    name: "structured non-zero exit",
+    runner: async () => ({
+      code: 1,
+      stdout: JSON.stringify({
+        success: false,
+        errors: [
+          "No agents detected in this project. Create an agent directory or use --global.",
+        ],
+      }),
+      stderr: "private nested output",
+      timedOut: false,
+    }),
+    reason: /No agents detected in this project/,
+  },
+  {
     name: "empty output",
     runner: async () => ({
       code: 0,
@@ -247,7 +274,7 @@ const failureCases: Array<{
       stderr: "",
       timedOut: false,
     }),
-    reason: /reported an unsuccessful installation/i,
+    reason: /not found/i,
   },
   {
     name: "missing requested target",
@@ -288,6 +315,123 @@ for (const failureCase of failureCases) {
   );
 }
 
+const projectMarkers = [
+  ["claude-code", ".claude"],
+  ["codex", ".codex"],
+  ["cursor", ".cursor"],
+  ["gemini-cli", ".gemini"],
+  ["github-copilot", ".github/skills"],
+  ["opencode", ".opencode"],
+  ["windsurf", ".windsurf"],
+] as const;
+
+for (const [agentId, marker] of projectMarkers) {
+  const agentWorkspace = resolve(installWorkspaceRoot, agentId);
+  const selector = SUPPORTED_SKILL_AGENTS.find(
+    (agent) => agent.id === agentId
+  )?.selector;
+  assert.ok(selector);
+  const installed = await installTielineAuthor(
+    {
+      workspaceRoot: agentWorkspace,
+      agentIds: [agentId],
+      scope: "project",
+      env: sourceEnv,
+      platform: "darwin",
+    },
+    async () => {
+      assert.ok(
+        existsSync(resolve(agentWorkspace, marker)),
+        `${agentId} marker must exist before Skillfish runs`
+      );
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          success: true,
+          exit_code: 0,
+          errors: [],
+          installed: [
+            {
+              skill: "tieline-author",
+              agent: selector,
+              path: resolve(agentWorkspace, marker, "skills/tieline-author"),
+              location: "project",
+            },
+          ],
+          skipped: [],
+        }),
+        stderr: "",
+        timedOut: false,
+      };
+    }
+  );
+  assert.equal(installed.status, "installed", agentId);
+  assert.ok(
+    detectRepositoryAgents(agentWorkspace, {}).includes(agentId),
+    `${agentId} must be detected from its installed project marker`
+  );
+}
+
+const globalWorkspace = resolve(installWorkspaceRoot, "global");
+const globalInstall = await installTielineAuthor(
+  {
+    workspaceRoot: globalWorkspace,
+    agentIds: projectMarkers.map(([agentId]) => agentId),
+    scope: "global",
+    env: sourceEnv,
+    platform: "darwin",
+  },
+  async () => ({
+    code: 0,
+    stdout: JSON.stringify({
+      success: true,
+      exit_code: 0,
+      errors: [],
+      installed: projectMarkers.map(([agentId], index) => ({
+        skill: "tieline-author",
+        agent: SUPPORTED_SKILL_AGENTS[index].selector,
+        path: `/global/${agentId}/tieline-author`,
+        location: "global",
+      })),
+      skipped: [],
+    }),
+    stderr: "",
+    timedOut: false,
+  })
+);
+assert.equal(globalInstall.status, "installed");
+for (const [, marker] of projectMarkers) {
+  assert.equal(
+    existsSync(resolve(globalWorkspace, marker)),
+    false,
+    `global install must not create ${marker}`
+  );
+}
+
+const blockedMarkerWorkspace = resolve(installWorkspaceRoot, "blocked-marker");
+writeFileSync(blockedMarkerWorkspace, "occupied");
+let blockedMarkerRunnerCalled = false;
+const blockedMarker = await installTielineAuthor(
+  {
+    workspaceRoot: blockedMarkerWorkspace,
+    agentIds: ["codex"],
+    scope: "project",
+    env: sourceEnv,
+    platform: "darwin",
+  },
+  async () => {
+    blockedMarkerRunnerCalled = true;
+    throw new Error("runner must not start");
+  }
+);
+assert.equal(blockedMarker.status, "failed");
+assert.equal(blockedMarkerRunnerCalled, false);
+assert.match(
+  blockedMarker.reason ?? "",
+  /Could not prepare the Codex project marker '\.codex'/
+);
+assert.doesNotMatch(blockedMarker.reason ?? "", /Node\.js|npx/i);
+
 assert.deepEqual(skippedSkillInstall(), {
   status: "skipped",
   requestedAgents: [],
@@ -296,5 +440,7 @@ assert.deepEqual(skippedSkillInstall(), {
   reason: "Skill installation was not requested.",
   retryCommand: null,
 });
+
+rmSync(installWorkspaceRoot, { recursive: true, force: true });
 
 console.log("skill install adapter tests passed");

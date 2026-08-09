@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -102,7 +102,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -174,8 +174,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "6241bd3c8f2f191b1a3e5325432769d651013bc161c17d7ee306d492c6a18084",
-            "criterion": "Tieline initialization must persist user-confirmed deterministic repository and runtime inputs without generating semantic contract content.",
+            "contract_hash": "1f1ac7fd498b9a12342148ff6b33e7293d84135c135e6443b1a90fe811f638a3",
+            "criterion": "Tieline initialization must persist deterministic repository and runtime inputs from explicit flags and auto-detection without generating semantic contract content.",
             "links": [
               {
                 "provenance": "authored",
@@ -200,7 +200,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -218,8 +218,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "685fb657cc388ca2fea42b4c549125cb388b36ac4615f92d210d4a75e1b2d638",
-            "criterion": "Tieline initialization must install the tieline-author skill through Skillfish only for explicitly selected supported agents and scope.",
+            "contract_hash": "16bebe62c37b7376e6120433c66dd0b6ea40cf5f9fad9266fad7eb2ad375d8cc",
+            "criterion": "Tieline initialization must prepare explicitly selected project-agent targets and install the tieline-author skill through Skillfish only for those supported agents and scope.",
             "links": [
               {
                 "provenance": "authored",
@@ -234,7 +234,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "526c9b8879cd1a0d3a180de09619833041226e94855b3b3fad9008f35b17ae0c",
+                "reviewed_content_hash": "c57f7df103b479e9f7070b670e5e0ae2edc841bba78e7b95523249e9316ace28",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/skill-install.ts",
@@ -244,7 +244,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "94d56128fec8a8d33b83d3ff5d2918319d8c0ae88efaf26a0cfcce17af670e18",
+                "reviewed_content_hash": "66fecf45d896687bc08b6593ff432ba33e7547f0fd1fb8e44419bbe78869a2bf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -255,7 +255,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -273,8 +273,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "96fb2484f79a468ff4b54b695bc9f4303f78884915e4b4546e5e724a431e32d6",
-            "criterion": "Tieline must preserve a ready workspace when requested skill installation fails.",
+            "contract_hash": "62557624443b4845f5c36a00a08cdb8e19c45de6d54f4167e03c5f6d83416413",
+            "criterion": "Tieline must preserve a ready workspace and report a structured installer error when requested skill installation fails.",
             "links": [
               {
                 "provenance": "authored",
@@ -289,7 +289,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "526c9b8879cd1a0d3a180de09619833041226e94855b3b3fad9008f35b17ae0c",
+                "reviewed_content_hash": "c57f7df103b479e9f7070b670e5e0ae2edc841bba78e7b95523249e9316ace28",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/skill-install.ts",
@@ -299,7 +299,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -343,7 +343,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -377,7 +377,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "526c9b8879cd1a0d3a180de09619833041226e94855b3b3fad9008f35b17ae0c",
+                "reviewed_content_hash": "c57f7df103b479e9f7070b670e5e0ae2edc841bba78e7b95523249e9316ace28",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/skill-install.ts",
@@ -387,7 +387,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "94d56128fec8a8d33b83d3ff5d2918319d8c0ae88efaf26a0cfcce17af670e18",
+                "reviewed_content_hash": "66fecf45d896687bc08b6593ff432ba33e7547f0fd1fb8e44419bbe78869a2bf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -398,7 +398,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -442,7 +442,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -460,8 +460,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3bd91d37fd117d257524572bcf9c70daf84f4bc60384fd6ad6d098d6a4df9dd7",
-            "criterion": "Tieline interactive initialization must auto-detect code scope and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.",
+            "contract_hash": "28707c526d98ff9f720db80e12e67e0652885420ef315e8cfac2ad61d9433187",
+            "criterion": "Tieline interactive initialization must use agent selection as setup consent, auto-detect code scope, and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.",
             "links": [
               {
                 "provenance": "authored",
@@ -486,7 +486,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -780,7 +780,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7c49ac1b3da97790ca22578b107f2b9509df8aa213073cefd7b27431a0d580a7",
+                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -867,6 +867,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "8076dd685a32622eb15a21b2ca8d9e0f2d91e7de6012d728455a15702989cf03"
+    "sha256": "3c89abec67a3177db70b4a95c910156fe36cb4f7601ac674d04028f7895bd326"
   }
 }
