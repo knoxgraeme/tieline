@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import {
   runCli,
   workspaceStartForCommand,
@@ -420,19 +421,22 @@ try {
     false,
     "identity and runtime must be detected, not asked"
   );
+  const interactiveOutput = stripVTControlCharacters(
+    interactive.output.join("")
+  );
   assert.match(
-    interactive.output.join(""),
+    interactiveOutput,
     /Skill: tieline-author installed for Codex and Claude Code/
   );
   assert.doesNotMatch(
-    interactive.output.join(""),
+    interactiveOutput,
     /Context:|Runtime:|Code scope:|Skill source:|Skill targets:|Skill scope:/,
     "init output must report outcomes rather than semantic defaults or integration internals"
   );
   // The onboarding prompt has to stand alone on its own line so it is
   // obviously the thing to copy; keep it out of the surrounding prose.
   assert.match(
-    interactive.output.join(""),
+    interactiveOutput,
     /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Copy the prompt below and paste it to your agent\.\n\n─+\nUse the tieline-author skill to onboard this repository to Tieline\.\n─+/
   );
 
