@@ -15,7 +15,7 @@ From the repository you want to onboard (requires Node.js 20.12 or newer):
 
 ```bash
 cd /path/to/product-repository
-npx -y tieline init
+npx -y tieline@latest init
 ```
 
 Select the coding agents you use. Tieline creates or updates the `.tieline`
@@ -165,17 +165,16 @@ converges definitions without deleting history.
   Supabase Edge Function, or the optional local runtime adds vector similarity;
   full-text and identifier search remain available without one.
 
-No install is required: every command runs through `npx -y tieline <command>`,
-which is also how the registered MCP configuration launches the server. In a
-Node repository, pin the CLI as a dev dependency so the whole team resolves
-one version locally:
+No install is required. Bootstrap with the current published CLI explicitly:
 
 ```bash
-npm install --save-dev tieline
-npx tieline --help
+npx -y tieline@latest init
 ```
 
-A global install also works when a bare `tieline` command is preferred:
+This does not add Tieline to the application's dependencies or modify its
+lockfile. After setup, commands can run through `npx -y tieline <command>`,
+which is also how the registered MCP configuration launches the server. A
+global install also works when a bare `tieline` command is preferred:
 
 ```bash
 npm install --global tieline
@@ -214,7 +213,7 @@ verify instead of interrogate:
 
 ```bash
 cd /path/to/product-repository
-npx -y tieline init
+npx -y tieline@latest init
 ```
 
 Restart or reload the selected agent, then ask it to use the installed
@@ -225,7 +224,7 @@ request. That invocation is the semantic-onboarding handoff.
 The same setup remains prompt-free for automation:
 
 ```bash
-tieline init /path/to/product-repository \
+npx -y tieline@latest init /path/to/product-repository \
   --database offline \
   --embedding local \
   --description "A concise description of the product and business" \
@@ -238,7 +237,7 @@ tieline init /path/to/product-repository \
 `tieline` for multiple agents:
 
 ```bash
-tieline init /path/to/product-repository \
+npx -y tieline@latest init /path/to/product-repository \
   --database offline \
   --embedding local \
   --yes \
@@ -364,7 +363,7 @@ installer, exits non-zero, and prints a retry command using its stable agent
 IDs, for example:
 
 ```bash
-tieline init . --yes --agent codex --skill-scope project
+npx -y tieline@latest init . --yes --agent codex --skill-scope project
 ```
 
 The MCP server is registered as `npx -y tieline serve`, so hosts resolve the
