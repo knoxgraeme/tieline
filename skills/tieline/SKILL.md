@@ -1,9 +1,9 @@
 ---
-name: tieline-author
-description: Semantically onboard an initialized Tieline repository, or author, plan, implement, and reconcile Tieline User Stories and Acceptance Criteria. Use after `tieline init` to inspect configured context and create the first repository-specific capabilities, Stories, and ACs; also use to refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
+name: tieline
+description: Semantically onboard an initialized Tieline repository, or author, plan, implement, grade, and reconcile Tieline User Stories and Acceptance Criteria. Use after `tieline init` to inspect configured context and create the first repository-specific capabilities, Stories, and ACs; also use to refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, grade changed contract evidence, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
 ---
 
-# Tieline author
+# Tieline
 
 Treat the pull request as the proposal and merge as approval. Never create a
 separate draft, proposal, or semantic-approval record.
@@ -54,11 +54,17 @@ anything the repository can answer.
   and `list_handoff_conflicts`; then update YAML and its manifest. Present both
   the merged repository definition and later planning snapshot before choosing
   what to preserve.
+- For grading an existing contract change, read
+  [grading.md](references/grading.md), run that workflow without editing
+  contract YAML, report its results, and stop. Do not enter the authoring,
+  materialization, or reconciliation steps below.
 - For work coordination without a defined behavior, create or update a Backlog
   Item. It remains a DB record and never moves into YAML.
 
 An Observation is evidence, not a required starting point. A flow may begin
 from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
+The remaining sections apply only to onboarding, planning, implementation, and
+reconciliation; the grading-only flow returns after its report.
 
 ## Search before creating
 
@@ -121,11 +127,12 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
    tieline check --base <base-ref>
    ```
 
-9. Grade the contract change with the tieline-grade skill. The grading scope
-   covers both sides of every link — artifacts the branch moved, and links or
-   criteria the branch added or re-worded against unchanged code. You authored
-   these links, so dispatch fresh subagents batched by artifact path and give
-   them only the emitted scope entries, never your authoring rationale.
+9. Read [grading.md](references/grading.md) and grade the contract change. The
+   grading scope covers both sides of every link — artifacts the branch moved,
+   and links or criteria the branch added or re-worded against unchanged code.
+   You authored these links, so dispatch fresh subagents batched by artifact
+   path and give them only the emitted scope entries, never your authoring
+   rationale.
 10. Summarize the semantic diff, impacted ACs, grade findings, freshness
     warnings, coverage delta, likely duplicates, unresolved conflicts, and
     unmapped source files.

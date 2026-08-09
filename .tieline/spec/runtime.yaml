@@ -98,7 +98,7 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC4
-          criterion: Tieline initialization must prepare explicitly selected project-agent targets and install the tieline-author skill through Skillfish only for those supported agents and scope.
+          criterion: Tieline initialization must prepare explicitly selected project-agent targets and install the tieline skill through Skillfish only for those supported agents and scope.
           links:
             - relation: implements
               provenance: authored
@@ -112,6 +112,12 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tieline/skill-install.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/init.ts
             - relation: tests
               provenance: authored
               target:
@@ -381,7 +387,7 @@ capability:
                 path: scripts/test-contract-read.ts
                 framework_hint: custom-script
         - key: RUNTIME-002-AC4
-          criterion: Tieline must expose a semantic-authoring prompt that uses configured repository context and falls back to disclosed local duplicate checks when database-backed matching is unavailable.
+          criterion: Tieline must expose one semantic workflow prompt bundle that onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.
           links:
             - relation: implements
               provenance: authored
@@ -400,13 +406,19 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: skills/tieline-author/SKILL.md
+                path: skills/tieline/SKILL.md
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
-                path: skills/tieline-author/references/onboarding.md
+                path: skills/tieline/references/onboarding.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/grading.md
             - relation: tests
               provenance: authored
               target:

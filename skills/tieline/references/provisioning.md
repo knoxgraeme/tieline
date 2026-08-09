@@ -1,4 +1,4 @@
-# Provision a hosted database
+# Provision hosted database
 
 The Tieline database is organization infrastructure shared across
 repositories, not part of any one application. Keep every provider artifact

@@ -60,8 +60,8 @@ were applied, their ranking features, and concise match reasons.
 6. Create or update planning Stories/ACs through the planning tools. The tools
    search before creation and require an explicit reuse-or-continue decision.
 
-Invoke the MCP \`tieline_author\` prompt (or use the bundled
-\`$tieline-author\` skill) to onboard repository behavior, materialize planning
+Invoke the MCP \`tieline\` prompt (or use the bundled
+\`$tieline\` skill) to onboard repository behavior, materialize planning
 definitions, reconcile branch changes, validate/compile YAML, and review the
 semantic diff. Normal pull-request merge is the semantic approval event.
 During deterministic setup, interactive \`tieline init\` asks which coding

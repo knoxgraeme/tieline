@@ -44,7 +44,7 @@ import {
 import { writeWorkspaceReviewPage } from "../tieline/review.js";
 import {
   detectRepositoryAgents,
-  installTielineAuthor,
+  installTielineSkill,
   normalizeSkillAgentIds,
   runSkillfishProcess,
   skippedSkillInstall,
@@ -55,7 +55,7 @@ import {
 } from "../tieline/skill-install.js";
 import {
   getTielineStatus,
-  ONBOARDING_AGENT_PROMPT,
+  ONBOARDING_AGENT_INSTRUCTION,
 } from "../tieline/status.js";
 import {
   findTielineWorkspace,
@@ -207,17 +207,15 @@ function renderInitSummary(
         : []),
     ].join("; ");
     lines.push(
-      `Skill: tieline-author ${skillState}`,
+      `Skill: tieline ${skillState}`,
       "",
       ui.bold("Next steps"),
       "  1. Restart or reload your agent.",
-      "  2. Copy the prompt below and paste it to your agent.",
-      "",
-      ...renderCopyCallout(ui, ONBOARDING_AGENT_PROMPT)
+      `  2. ${ONBOARDING_AGENT_INSTRUCTION}`
     );
   } else if (skill.status === "failed") {
     lines.push(
-      ui.yellow("Skill: tieline-author installation incomplete"),
+      ui.yellow("Skill: tieline installation incomplete"),
       `Reason: ${skill.reason}`,
       "",
       ui.bold("Next step"),
@@ -230,7 +228,7 @@ function renderInitSummary(
       "Skill: not installed",
       "",
       ui.bold("Next step"),
-      "  Install the tieline-author skill by running:",
+      "  Install the tieline skill by running:",
       "",
       ...renderCopyCallout(ui, "tieline init .")
     );
@@ -416,8 +414,8 @@ export async function runInit(
     result.workspace.root,
     result.workspace.config.product.repo_name
   );
-  // Close the Clack flow before the summary so the paste-ready prompt is the
-  // last thing on screen rather than trailing into the flow's end cap.
+  // Close the Clack flow before the summary so the direct skill invocation is
+  // the last thing on screen rather than trailing into the flow's end cap.
   if (richInteractive) await outro(io, "Tieline workspace ready");
   renderInitSummary(
     await runDatabasePreflight(initEnv),
@@ -462,7 +460,7 @@ async function runSkillInstall(
   dependencies: TielineCliDependencies
 ): Promise<SkillInstallOutcome> {
   if (!selection) return skippedSkillInstall();
-  return installTielineAuthor(
+  return installTielineSkill(
     {
       workspaceRoot: workspace.root,
       agentIds: selection.agents,

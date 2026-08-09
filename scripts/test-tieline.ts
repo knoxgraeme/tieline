@@ -131,7 +131,7 @@ function successfulSkillfish(
       exit_code: 0,
       errors: [],
       installed: selectors.map((agent) => ({
-        skill: "tieline-author",
+        skill: "tieline",
         agent,
         path: `/test/${agent}`,
       })),
@@ -426,18 +426,16 @@ try {
   );
   assert.match(
     interactiveOutput,
-    /Skill: tieline-author installed for Codex and Claude Code/
+    /Skill: tieline installed for Codex and Claude Code/
   );
   assert.doesNotMatch(
     interactiveOutput,
     /Context:|Runtime:|Code scope:|Skill source:|Skill targets:|Skill scope:/,
     "init output must report outcomes rather than semantic defaults or integration internals"
   );
-  // The onboarding prompt has to stand alone on its own line so it is
-  // obviously the thing to copy; keep it out of the surrounding prose.
   assert.match(
     interactiveOutput,
-    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Copy the prompt below and paste it to your agent\.\n\n─+\nUse the tieline-author skill to onboard this repository to Tieline\.\n─+/
+    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Invoke the installed tieline skill to onboard this repository \(\/tieline in Claude Code; \$tieline in Codex\)\./
   );
 
   const cancelledTarget = resolve(root, "Cancelled Checkout");
@@ -514,7 +512,7 @@ try {
   assert.equal(automatedCalls, 1);
   assert.match(
     automated.output.join(""),
-    /Skill: tieline-author installed for Codex/
+    /Skill: tieline installed for Codex/
   );
   const automatedWorkspace = findTielineWorkspace(automatedTarget);
   assert.ok(automatedWorkspace);
@@ -543,7 +541,7 @@ try {
             installed: [],
             skipped: [
               {
-                skill: "tieline-author",
+                skill: "tieline",
                 agent: "Codex",
                 reason: "Already exists",
               },
@@ -558,7 +556,7 @@ try {
   );
   assert.match(
     alreadyPresent.output.join(""),
-    /Skill: tieline-author already present for Codex/
+    /Skill: tieline already present for Codex/
   );
   assert.equal(
     readFileSync(automatedWorkspace.configPath, "utf8"),
@@ -715,7 +713,7 @@ try {
   const mcpMergeOutput = mcpMerge.output.join("");
   assert.match(
     mcpMergeOutput,
-    /Skill: tieline-author installed for Cursor, Codex, and OpenCode/,
+    /Skill: tieline installed for Cursor, Codex, and OpenCode/,
     "--agent without --skill-scope must default to the project scope"
   );
   assert.match(mcpMergeOutput, /MCP: configured/);
@@ -843,7 +841,7 @@ try {
   assert.match(reviewPage, /No capabilities yet/);
   assert.match(
     reviewPage,
-    /Use the tieline-author skill to onboard this repository to Tieline\./
+    /Invoke the installed tieline skill to onboard this repository \(\/tieline in Claude Code; \$tieline in Codex\)\./
   );
   assert.equal(
     readFileSync(resolve(target, ".tieline/.gitignore"), "utf8"),
@@ -860,12 +858,12 @@ try {
   assert.doesNotMatch(
     firstOutput,
     /Mode:|Runtime:|Context:|Code scope:|Optional capabilities|Review: open|Skill source:|Skill targets:|Skill scope:/,
-    "the summary leads to the paste prompt without setup internals"
+    "the summary leads to the skill invocation without setup internals"
   );
   assert.match(firstOutput, /skill: not installed/i);
   assert.match(
     firstOutput,
-    /Install the tieline-author skill by running:\n\n─+\ntieline init \.\n─+/
+    /Install the tieline skill by running:\n\n─+\ntieline init \.\n─+/
   );
   assert.doesNotMatch(firstOutput, /Warning \[/);
   assert.doesNotMatch(firstOutput, /Agent handoff prompt:/);
@@ -1010,13 +1008,13 @@ try {
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
   assert.equal(
     parsedStatus.next_action,
-    'Paste this prompt to your agent to finish onboarding: "Use the tieline-author skill to onboard this repository to Tieline."'
+    "Invoke the installed tieline skill to onboard this repository (/tieline in Claude Code; $tieline in Codex)."
   );
   assert.deepEqual(parsedStatus.onboarding, {
     required: true,
-    skill: "tieline-author",
+    skill: "tieline",
     instruction:
-      "Use the tieline-author skill to onboard this repository to Tieline.",
+      "Invoke the installed tieline skill to onboard this repository (/tieline in Claude Code; $tieline in Codex).",
     install_command: "tieline init .",
   });
   assert.equal("agent_onboarding_prompt" in parsedStatus, false);
@@ -1030,12 +1028,9 @@ try {
   );
   assert.match(
     humanStatus.output.join(""),
-    /Next: Copy the prompt below and paste it to your agent to finish onboarding\./
+    /Next: Invoke the installed tieline skill to onboard this repository \(\/tieline in Claude Code; \$tieline in Codex\)\./
   );
-  assert.match(
-    humanStatus.output.join(""),
-    /─+\nUse the tieline-author skill to onboard this repository to Tieline\.\n─+/
-  );
+  assert.doesNotMatch(humanStatus.output.join(""), /Copy the prompt/);
   assert.match(humanStatus.output.join(""), /Install skill: tieline init \./);
   assert.doesNotMatch(humanStatus.output.join(""), /Agent handoff prompt:/);
 
@@ -1365,25 +1360,25 @@ capability:
   assert.ok(!serveProfile.loaded.includes("DATABASE_URL_SYNC"));
   assert.ok(!serveProfile.loaded.includes("DATABASE_URL_ADMIN"));
 
-  const authorSkill = readFileSync(
-    resolve(process.cwd(), "skills/tieline-author/SKILL.md"),
+  const tielineSkill = readFileSync(
+    resolve(process.cwd(), "skills/tieline/SKILL.md"),
     "utf8"
   );
   const onboardingReference = readFileSync(
     resolve(
       process.cwd(),
-      "skills/tieline-author/references/onboarding.md"
+      "skills/tieline/references/onboarding.md"
     ),
     "utf8"
   );
-  assert.match(authorSkill, /\.tieline\/config\.json/);
-  assert.match(authorSkill, /allow_external_fetch/);
-  assert.match(authorSkill, /local YAML.*manifest/i);
-  assert.match(authorSkill, /semantic matching.*unavailable/i);
-  assert.match(authorSkill, /after `tieline init`/i);
-  assert.match(authorSkill, /installed skill or MCP prompt/i);
-  assert.match(authorSkill, /semantic onboarding/i);
-  assert.match(authorSkill, /references\/onboarding\.md/);
+  assert.match(tielineSkill, /\.tieline\/config\.json/);
+  assert.match(tielineSkill, /allow_external_fetch/);
+  assert.match(tielineSkill, /local YAML.*manifest/i);
+  assert.match(tielineSkill, /semantic matching.*unavailable/i);
+  assert.match(tielineSkill, /after `tieline init`/i);
+  assert.match(tielineSkill, /installed skill or MCP prompt/i);
+  assert.match(tielineSkill, /semantic onboarding/i);
+  assert.match(tielineSkill, /references\/onboarding\.md/);
   assert.match(
     onboardingReference,
     /Discover these repository sources directly/
@@ -1405,7 +1400,7 @@ capability:
     "setup must end with a handoff into the autonomous phase"
   );
   assert.match(
-    authorSkill,
+    tielineSkill,
     /starts with a\s+conversation, not with repository reading/,
     "the skill dispatch must order conversation before orientation steps"
   );
@@ -1468,14 +1463,14 @@ capability:
     "onboarding must deliver the review page, not an inline listing"
   );
   assert.match(
-    authorSkill,
+    tielineSkill,
     /pointing at `\.tieline\/review\.html`/,
     "the skill must present contract content through the review page"
   );
   const reportReference = readFileSync(
     resolve(
       process.cwd(),
-      "skills/tieline-author/references/report.md"
+      "skills/tieline/references/report.md"
     ),
     "utf8"
   );
@@ -1487,12 +1482,12 @@ capability:
     "compile keeps the page current; the report must not claim otherwise"
   );
   assert.match(reportReference, /pull-request body/);
-  assert.match(authorSkill, /references\/report\.md/);
+  assert.match(tielineSkill, /references\/report\.md/);
   assert.match(onboardingReference, /references\/report\.md/);
   const provisioningReference = readFileSync(
     resolve(
       process.cwd(),
-      "skills/tieline-author/references/provisioning.md"
+      "skills/tieline/references/provisioning.md"
     ),
     "utf8"
   );
@@ -1514,7 +1509,16 @@ capability:
     "provisioning must warn about credential rotation on re-run"
   );
   assert.match(onboardingReference, /provisioning\.md/);
-  assert.doesNotMatch(authorSkill, /agent handoff printed/i);
+  const gradingReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/grading.md"),
+    "utf8"
+  );
+  assert.match(tielineSkill, /references\/grading\.md/);
+  assert.match(tielineSkill, /For grading an existing contract change/);
+  assert.match(tielineSkill, /grading-only flow returns after its report/);
+  assert.match(gradingReference, /Dispatch fresh subagents/);
+  assert.match(gradingReference, /tieline contract grade/);
+  assert.doesNotMatch(tielineSkill, /agent handoff printed/i);
 
   // README wording is under test: editing the install instructions there breaks test:tieline unless these assertions move with it.
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");

@@ -175,7 +175,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7d61deff98acd160ad205b123af34ac1a0e06d57dde0e030acc50bba70d941a7",
+                "reviewed_content_hash": "94e5df3a038386349c2028af1524a81c9ff164e3784a6b34ae3adde6dccc2e0f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

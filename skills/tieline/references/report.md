@@ -1,4 +1,4 @@
-# Completion report
+# Report completion
 
 Every flow closes with a short report in chat. The report is a pointer to
 artifacts, not a transcript of the work: the review page carries the

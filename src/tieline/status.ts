@@ -38,18 +38,14 @@ export interface TielineStatus {
   next_action: string;
   onboarding: {
     required: true;
-    skill: "tieline-author";
-    instruction: typeof ONBOARDING_AGENT_PROMPT;
+    skill: "tieline";
+    instruction: typeof ONBOARDING_AGENT_INSTRUCTION;
     install_command: "tieline init .";
   } | null;
 }
 
-export const ONBOARDING_AGENT_PROMPT =
-  "Use the tieline-author skill to onboard this repository to Tieline.";
-
-function onboardingPasteInstruction(): string {
-  return `Paste this prompt to your agent to finish onboarding: "${ONBOARDING_AGENT_PROMPT}"`;
-}
+export const ONBOARDING_AGENT_INSTRUCTION =
+  "Invoke the installed tieline skill to onboard this repository (/tieline in Claude Code; $tieline in Codex).";
 
 function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());
@@ -105,17 +101,17 @@ export function getTielineStatus(
     stories.length === 0
       ? ({
           required: true,
-          skill: "tieline-author",
-          instruction: ONBOARDING_AGENT_PROMPT,
+          skill: "tieline",
+          instruction: ONBOARDING_AGENT_INSTRUCTION,
           install_command: "tieline init .",
         } as const)
       : null;
   const nextAction =
     onboarding
-      ? onboardingPasteInstruction()
+      ? onboarding.instruction
       : !manifestExists
         ? "Run `tieline contract compile .` and review the semantic diff."
-        : "Use $tieline-author to reconcile branch work; the pull request is the approval boundary.";
+        : "Use $tieline to reconcile branch work; the pull request is the approval boundary.";
   return {
     initialized: true,
     root: workspace.root,

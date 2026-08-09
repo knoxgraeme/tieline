@@ -1,4 +1,0 @@
-interface:
-  display_name: "Tieline Author"
-  short_description: "Onboard, author, and reconcile Tieline contracts"
-  default_prompt: "Use $tieline-author to semantically onboard this repository from its configured context, or reconcile existing contract behavior."

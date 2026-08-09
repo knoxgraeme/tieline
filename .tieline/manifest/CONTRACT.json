@@ -212,7 +212,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "f02efe5490a38c050fae1167614c9c049e63603931cba14c1c12828edec40eda",
+            "contract_hash": "3096d59a6b06c1f3f7b794adf8c1c5d0bb3c8a3a456c750bc8593dc3c131cb72",
             "criterion": "Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.",
             "links": [
               {
@@ -228,10 +228,20 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3403080c9008609604303fe44bbe514ed7329ce81b19df401da957e999920765",
+                "reviewed_content_hash": "0dc50bb336e32cf0006d46d19216505c0026e9b6c98776debd77dbddbc025c03",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-page.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "979b1406178f9de8df83c6d142521dad4d85eee0d6437e4dc9abaae11170292a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/review.ts",
                   "repository": "tieline"
                 }
               },
@@ -342,7 +352,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
+                "reviewed_content_hash": "91aeb349ed4a7f0e2f1e977bf089bb9106f69be71ccea547fa84f9d04f6508c4",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -556,7 +566,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
+                "reviewed_content_hash": "91aeb349ed4a7f0e2f1e977bf089bb9106f69be71ccea547fa84f9d04f6508c4",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -616,7 +626,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2a17c0f6cac7280a4b210d8edcf5a332dc92b2c841a4c3f71ae6c92651f9213d",
+                "reviewed_content_hash": "c633617320c31d2a9f5a22d852ae4dae57240cfcf88cbf6c912804a5517ff6b4",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/status.ts",
@@ -680,7 +690,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7db198fb96418c685fdd45c7eec990ce8d684fad6141e7c92373b72e58a94395",
+                "reviewed_content_hash": "403daf93fecfd779ef2cae33a66c1f1065bd452b70ad0b53c86eddcf45a0976b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -745,7 +755,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2201b51cbbcee1cda5778c7890c42f1327f63c9357bb9ede1639e52bf19caccb",
+                "reviewed_content_hash": "91aeb349ed4a7f0e2f1e977bf089bb9106f69be71ccea547fa84f9d04f6508c4",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -841,7 +851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "aedae71097a5d7e46e775aaaba1798b55b2b20cdd436f91e2ad71e3386417442",
+                "reviewed_content_hash": "bcbe5086a8d618fe356b3843b9ae7baef9b361458ff2b82ba591914b85153fcc",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",
@@ -914,6 +924,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "a05bda29b720f44c5b577c1de546dbfaf3f74e8cc58fb08fb2792ab0bdd89f7b"
+    "sha256": "440c2e2a57483a9c2629266af45ba876892f94d0b87fe1d04158c43d93113f5d"
   }
 }

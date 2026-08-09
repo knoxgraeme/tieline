@@ -199,7 +199,7 @@ capability:
                 path: scripts/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-002-AC4
-          criterion: The grading skill must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.
+          criterion: The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.
           rationale: The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.
           links:
             - relation: implements
@@ -207,4 +207,4 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: skills/tieline-grade/SKILL.md
+                path: skills/tieline/references/grading.md

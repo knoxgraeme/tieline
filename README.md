@@ -189,6 +189,10 @@ cd /path/to/product-repository
 npx -y tieline init
 ```
 
+Restart or reload the selected agent, then invoke the installed `tieline`
+skill (`/tieline` in Claude Code; `$tieline` in Codex). That invocation is the
+semantic-onboarding handoff; no prose prompt needs to be copied.
+
 The same setup remains prompt-free for automation:
 
 ```bash
@@ -202,7 +206,7 @@ tieline init /path/to/product-repository \
 
 `--yes` installs an agent skill only when `--agent` is explicit;
 `--skill-scope` defaults to `project`. To initialize and install
-`tieline-author` for multiple agents:
+`tieline` for multiple agents:
 
 ```bash
 tieline init /path/to/product-repository \
@@ -215,7 +219,7 @@ tieline init /path/to/product-repository \
 ```
 
 Interactive init does not ask for a product description or context inventory;
-the installed `tieline-author` skill discovers README, product documentation,
+the installed `tieline` skill discovers README, product documentation,
 public code entry points, and tests during semantic onboarding. Automation can
 still provide known product framing with `--description`. Additional context
 sources are optional and explicit: provide each one with a repeatable
@@ -287,7 +291,7 @@ clone completes its own runtime setup instead of inheriting another machine's
 
 On a new repository, the only Tieline command a user needs to begin onboarding
 is `tieline init`. It captures deterministic setup, then asks which coding
-agents should receive the packaged `tieline-author` skill. That one skill owns
+agents should receive the packaged `tieline` skill. That one skill owns
 both first-time semantic onboarding and ongoing authoring/reconciliation; a
 separate onboarding skill is not required. Tieline
 does not auto-detect or launch an agent, persist agent choices in shared
@@ -318,7 +322,7 @@ single-target project invocation has this shape:
 
 ```bash
 npx --yes --package=skillfish@latest skillfish add knoxgraeme/tieline \
-  --path skills/tieline-author \
+  --path skills/tieline \
   --agent "Codex" \
   --project \
   --yes \
@@ -354,9 +358,13 @@ path:
 }
 ```
 
-The installed `$tieline-author` skill and the equivalent
-`tieline_author` MCP prompt are two delivery surfaces for the same maintained
-semantic workflow. That workflow can:
+The installed `tieline` skill (`/tieline` in slash-command agents and
+`$tieline` in Codex) and the equivalent `tieline` MCP prompt are two delivery
+surfaces for the same maintained semantic workflow. The MCP prompt is a
+reusable instruction template exposed by the Tieline server; retrieving it
+loads the workflow into the conversation, while MCP tools remain the operations
+the agent calls. Existing MCP clients can continue to request the deprecated
+`tieline_author` prompt name; it returns the same content. That workflow can:
 
 - shape a planning Story/AC or Backlog Item in Postgres;
 - semantically onboard an empty spec from configured descriptions, local
@@ -370,9 +378,8 @@ semantic workflow. That workflow can:
 An empty `.tieline/spec/` immediately after init is intentional: init does not
 invent generic capabilities. The authoring skill validates the detected code
 scope against the repository before claiming coverage. While the spec has no Stories,
-`tieline status --json` exposes `onboarding.required`, the `tieline-author`
-skill name, a paste-ready agent prompt (`Use the tieline-author skill to
-onboard this repository to Tieline.`), and `tieline init .` as the install
+`tieline status --json` exposes `onboarding.required`, the `tieline` skill
+name, its direct invocation instruction, and `tieline init .` as the install
 command. `onboarding` becomes
 `null` after the first Story exists. Status also reports whether the local
 profile is ready and whether database-backed semantic matching and planning
@@ -485,8 +492,9 @@ the second command verifies that every verdict belongs to the scope and that
 every claimed citation came from its allow-list. Tieline does
 not call a model, database, or network for this workflow. Verification is
 advisory by default, including negative results; add `--strict` to the verify
-command only when unsupported evidence should fail the gate. The packaged
-`tieline-grade` skill leads an agent through the full workflow.
+command only when unsupported evidence should fail the gate. The installed
+`tieline` skill carries this grading workflow as an internal reference and
+dispatches fresh grading contexts so authors do not judge their own rationale.
 
 Generate a human-readable browser review of the accepted YAML:
 
@@ -833,8 +841,7 @@ earlier model must be recreated rather than upgraded in place.
 | `src/tieline/` | Repository initialization, profiles, status, and setup |
 | `migrations/` | PostgreSQL/pgvector schema and role baseline |
 | `scripts/` | Contract, retrieval, transport, and integration verification |
-| `skills/tieline-author/` | Packaged semantic authoring workflow |
-| `skills/tieline-grade/` | Packaged agent workflow for grading changed contract evidence |
+| `skills/tieline/` | Packaged onboarding, authoring, grading, and reconciliation workflow |
 | `.tieline/` | This repository's own accepted contract and compiled manifest |
 
 ## License

@@ -9,7 +9,7 @@ import {
   type ContractReviewDocument,
 } from "../contract/review-page.js";
 import { ContractValidationError } from "../contract/validate.js";
-import { ONBOARDING_AGENT_PROMPT } from "./status.js";
+import { ONBOARDING_AGENT_INSTRUCTION } from "./status.js";
 
 export const TIELINE_REVIEW_PAGE = ".tieline/review.html";
 
@@ -59,7 +59,7 @@ export function writeWorkspaceReviewPage(
     repositoryKey,
     documents,
     warnings,
-    onboardingPrompt: ONBOARDING_AGENT_PROMPT,
+    onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
   });
   writeFileSync(path, serialized);
   if (path === defaultPath) ensureReviewPageIgnored(root);

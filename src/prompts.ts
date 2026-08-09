@@ -1,43 +1,62 @@
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-function authoringInstructions(): string {
-  const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const skill = readFileSync(
-    resolve(packageRoot, "skills/tieline-author/SKILL.md"),
-    "utf8"
-  );
-  const contract = readFileSync(
-    resolve(packageRoot, "skills/tieline-author/references/contract.md"),
-    "utf8"
-  );
-  const onboarding = readFileSync(
-    resolve(packageRoot, "skills/tieline-author/references/onboarding.md"),
-    "utf8"
-  );
-  return `${skill}\n\n${contract}\n\n${onboarding}`;
+const TIELINE_SKILL_FILES = [
+  "SKILL.md",
+  "references/contract.md",
+  "references/onboarding.md",
+  "references/provisioning.md",
+  "references/grading.md",
+  "references/report.md",
+] as const;
+const TIELINE_SKILL_ROOT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../skills/tieline"
+);
+let tielineInstructionsPromise: Promise<string> | undefined;
+
+function tielineInstructions(): Promise<string> {
+  tielineInstructionsPromise ??= Promise.all(
+    TIELINE_SKILL_FILES.map((path) =>
+      readFile(resolve(TIELINE_SKILL_ROOT, path), "utf8")
+    )
+  ).then((files) => files.join("\n\n"));
+  return tielineInstructionsPromise;
+}
+
+async function tielinePrompt() {
+  return {
+    messages: [
+      {
+        role: "user" as const,
+        content: {
+          type: "text" as const,
+          text: await tielineInstructions(),
+        },
+      },
+    ],
+  };
 }
 
 export function registerPrompts(server: McpServer): void {
   server.registerPrompt(
+    "tieline",
+    {
+      title: "Onboard, author, grade, or reconcile with Tieline",
+      description:
+        "Onboard repository behavior, shape planning Stories/ACs, grade evidence, or reconcile a branch while preserving Tieline authority boundaries.",
+    },
+    tielinePrompt
+  );
+  server.registerPrompt(
     "tieline_author",
     {
-      title: "Author or reconcile the Tieline contract",
+      title: "Tieline (legacy prompt name)",
       description:
-        "Onboard repository behavior, shape planning Stories/ACs, or reconcile a branch while preserving Tieline authority boundaries.",
+        "Deprecated compatibility alias for the tieline semantic workflow prompt.",
     },
-    async () => ({
-      messages: [
-        {
-          role: "user",
-          content: {
-            type: "text",
-            text: authoringInstructions(),
-          },
-        },
-      ],
-    })
+    tielinePrompt
   );
 }

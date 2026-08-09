@@ -1,4 +1,0 @@
-interface:
-  display_name: "Tieline Grade"
-  short_description: "Grade changed Tieline contract evidence"
-  default_prompt: "Use $tieline-grade to judge the contract evidence touched by this branch."
