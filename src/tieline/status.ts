@@ -45,7 +45,7 @@ export interface TielineStatus {
 }
 
 export const ONBOARDING_AGENT_INSTRUCTION =
-  "Invoke the installed tieline skill to onboard this repository (/tieline in Claude Code; $tieline in Codex).";
+  "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline.";
 
 function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());

@@ -435,7 +435,7 @@ try {
   );
   assert.match(
     interactiveOutput,
-    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Invoke the installed tieline skill to onboard this repository \(\/tieline in Claude Code; \$tieline in Codex\)\./
+    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
   );
 
   const cancelledTarget = resolve(root, "Cancelled Checkout");
@@ -841,7 +841,7 @@ try {
   assert.match(reviewPage, /No capabilities yet/);
   assert.match(
     reviewPage,
-    /Invoke the installed tieline skill to onboard this repository \(\/tieline in Claude Code; \$tieline in Codex\)\./
+    /Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
   );
   assert.equal(
     readFileSync(resolve(target, ".tieline/.gitignore"), "utf8"),
@@ -1008,13 +1008,13 @@ try {
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
   assert.equal(
     parsedStatus.next_action,
-    "Invoke the installed tieline skill to onboard this repository (/tieline in Claude Code; $tieline in Codex)."
+    "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline."
   );
   assert.deepEqual(parsedStatus.onboarding, {
     required: true,
     skill: "tieline",
     instruction:
-      "Invoke the installed tieline skill to onboard this repository (/tieline in Claude Code; $tieline in Codex).",
+      "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline.",
     install_command: "tieline init .",
   });
   assert.equal("agent_onboarding_prompt" in parsedStatus, false);
@@ -1028,7 +1028,7 @@ try {
   );
   assert.match(
     humanStatus.output.join(""),
-    /Next: Invoke the installed tieline skill to onboard this repository \(\/tieline in Claude Code; \$tieline in Codex\)\./
+    /Next: Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
   );
   assert.doesNotMatch(humanStatus.output.join(""), /Copy the prompt/);
   assert.match(humanStatus.output.join(""), /Install skill: tieline init \./);

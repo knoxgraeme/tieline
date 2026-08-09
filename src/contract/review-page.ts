@@ -288,7 +288,7 @@ export function renderContractReviewPage(
         <code>.tieline/spec/</code>.</p>
         ${
           options.onboardingInstruction
-            ? `<p>Run this command in your coding agent to begin:</p>
+            ? `<p>Invoke the installed skill in your coding agent to begin:</p>
               <pre class="prompt">${escapeHtml(options.onboardingInstruction)}</pre>`
             : ""
         }

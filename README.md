@@ -189,9 +189,10 @@ cd /path/to/product-repository
 npx -y tieline init
 ```
 
-Restart or reload the selected agent, then invoke the installed `tieline`
-skill (`/tieline` in Claude Code; `$tieline` in Codex). That invocation is the
-semantic-onboarding handoff; no prose prompt needs to be copied.
+Restart or reload the selected agent, then ask it to use the installed
+`tieline` skill. In Claude Code, run `/tieline`; in Codex, run `$tieline`.
+Other supported agents can activate the skill from the same natural-language
+request. That invocation is the semantic-onboarding handoff.
 
 The same setup remains prompt-free for automation:
 
