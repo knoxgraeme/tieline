@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -222,6 +224,55 @@ await test("reports the complete local freshness and locator status matrix", () 
   } finally {
     rmSync(root, { recursive: true, force: true });
     rmSync(outsideRoot, { recursive: true, force: true });
+  }
+});
+
+await test("uses exact path spelling for freshness and selector assurance", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-case-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    const source = "export function currentFeature(): void {}\n";
+    writeFileSync(resolve(root, "src/current.ts"), source);
+    let selectorInspections = 0;
+    const hashResolver = createArtifactHashResolver(root, {
+      entryInspection: {
+        stat: (path) => statSync(path),
+        readdir: (path) =>
+          readdirSync(path).map((entry) =>
+            entry === "current.ts" ? "CURRENT.ts" : entry
+          ),
+      },
+    });
+    const inspector = createArtifactAssuranceInspector({
+      repositoryRoot: root,
+      repositoryKey: REPOSITORY,
+      hashResolver,
+      selectorResolver(options) {
+        selectorInspections += 1;
+        return resolveSelector(options);
+      },
+    });
+
+    assert.deepEqual(
+      inspector.inspect(
+        artifact("src/current.ts", "function:currentFeature", sha256(source))
+      ),
+      {
+        freshness: "broken",
+        freshness_reason: null,
+        broken_cause: "missing",
+        locator_resolution: "not_checked",
+        locator_reason: "file_missing",
+        semantic_support: "not_assessed",
+      }
+    );
+    assert.equal(
+      selectorInspections,
+      0,
+      "a spelling miss must not inspect a filesystem alias"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

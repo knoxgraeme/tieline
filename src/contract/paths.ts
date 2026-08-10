@@ -68,10 +68,12 @@ function repositoryInspectionError(
 ): Error {
   const code = (error as NodeJS.ErrnoException | null)?.code;
   const detail = error instanceof Error ? error.message : String(error);
-  return new Error(
+  const wrapped = new Error(
     `Could not inspect repository path '${path}'${code ? ` (${code})` : ""}: ${detail}`,
     { cause: error }
   );
+  if (code) Object.assign(wrapped, { code });
+  return wrapped;
 }
 
 /**

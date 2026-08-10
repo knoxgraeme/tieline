@@ -4,7 +4,6 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -28,7 +27,11 @@ import type {
   ContractScenario,
 } from "./schema.js";
 import { loadAcceptedContractWithSources } from "./load.js";
-import { withinRepository } from "./paths.js";
+import {
+  repositoryEntryKindExactly,
+  withinRepository,
+  type RepositoryEntryInspection,
+} from "./paths.js";
 
 export const CONTRACT_MANIFEST_VERSION = 2 as const;
 
@@ -208,6 +211,10 @@ export interface ArtifactHashResolver {
   measure(path: string): ArtifactHashResult;
 }
 
+export interface CreateArtifactHashResolverOptions {
+  entryInspection?: RepositoryEntryInspection;
+}
+
 export class ContractManifestError extends Error {
   constructor(message: string) {
     super(message);
@@ -241,7 +248,8 @@ function missingPath(error: unknown): boolean {
 }
 
 export function createArtifactHashResolver(
-  repositoryRoot: string
+  repositoryRoot: string,
+  options: CreateArtifactHashResolverOptions = {}
 ): ArtifactHashResolver {
   const root = resolve(repositoryRoot);
   const realRoot = realpathSync(root);
@@ -253,7 +261,14 @@ export function createArtifactHashResolver(
       const targetPath = resolve(root, path);
       let result: ArtifactHashResult;
       try {
-        if (!statSync(targetPath).isFile()) {
+        const kind = repositoryEntryKindExactly(
+          root,
+          path,
+          options.entryInspection
+        );
+        if (kind === "missing") {
+          result = { status: "missing" };
+        } else if (kind !== "file") {
           result = { status: "not_file" };
         } else {
           const realTarget = realpathSync(targetPath);
