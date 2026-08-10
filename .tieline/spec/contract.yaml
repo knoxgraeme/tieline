@@ -497,3 +497,167 @@ capability:
                 repository: tieline
                 path: scripts/test-path-criteria.ts
                 framework_hint: custom-script
+    - key: CONTRACT-003
+      title: Inspect precise accepted intent before changing an asset
+      actor: implementing agent
+      goal: retrieve the exact reviewed context for a known code or test locator or Acceptance Criterion
+      benefit: implementation and review begin from bounded accepted intent with honest current assurance
+      lifecycle: production
+      aliases:
+        - precise intent context
+        - exact asset context
+        - exact acceptance criterion context
+      acceptance_criteria:
+        - key: CONTRACT-003-AC1
+          criterion: Given an exact repository-relative code or test path with optional kind and selector, Tieline must preserve the complete locator identity, return has_context, no_criteria, or not_found explicitly, include exact-selector and file-level claims while excluding other selectors, and bound associated assets to one Acceptance-Criterion-mediated intent neighborhood.
+          rationale: A known symbol should retrieve the reviewed behavior that applies to that symbol without collapsing same-file claims or pretending the result is an open-ended graph traversal.
+          scenarios:
+            - given: one file has claims for function:first, function:second, and the whole file
+              when: exact asset context is requested for function:first
+              then: Tieline must return the function:first and file-level claims with their kind, repository, canonical path, selector, framework hint, relation, provenance, and link scope while excluding function:second
+            - given: an existing path has no applicable claim for the requested selector
+              when: exact asset context is requested
+              then: Tieline must return no_criteria distinctly from not_found for a missing path
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/intent-context.ts
+                selector: function:lookupAssetIntentContext
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC2
+          criterion: Given an exact Acceptance Criterion stable ID, Tieline must return its Capability and Story ancestry, lifecycle, criterion, rationale, applicability, scenarios, direct links, Story-fallback links, and directly associated code and test assets without recursive code-to-code traversal.
+          rationale: Reviewers need the accepted product record and its bounded contract coupling, not a semantic approximation or an inferred runtime dependency graph.
+          scenarios:
+            - given: an Acceptance Criterion has a direct test link and inherits a Story-level implementation link
+              when: its exact context is requested
+              then: Tieline must preserve both assets, their direct or story_fallback scope, and the owning product context in deterministic order
+            - given: the stable ID does not identify an accepted Acceptance Criterion
+              when: exact context is requested
+              then: Tieline must return an explicit not_found status and an actionable answer naming the unknown stable ID and reviewed manifest
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/intent-context.ts
+                selector: function:lookupAcceptanceCriterionIntentContext
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC3
+          criterion: Every code or test claim returned as exact intent context must keep provenance, link scope, content freshness, locator resolution, and semantic support as separate assurance dimensions, must preserve broken and uninspectable claims with honest causes or unknown states, and must report semantic support as not_assessed.
+          rationale: Structural currency and selector resolution can guide review, but neither proves the linked behavior or records that a linked test executed or passed.
+          scenarios:
+            - given: a current local implementation selector resolves against its reviewed content
+              when: exact intent context is returned
+              then: provenance, freshness, and locator resolution must be positive while semantic support remains not_assessed
+            - given: a local target is missing or a selector uses an unsupported language
+              when: its claim is inspected
+              then: the claim must remain visible with a named broken cause or not_checked state and must not be converted into semantic failure
+            - given: an associated target names another repository
+              when: its claim is inspected from this checkout
+              then: freshness and locator resolution must remain honestly unknown or not_checked
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/artifact-assurance.ts
+                selector: function:createArtifactAssuranceInspector
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-artifact-assurance.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC4
+          criterion: Tieline must expose separate get_asset_intent_context and get_acceptance_criterion_context MCP tools and equivalent contract context --path and --ac CLI modes that answer from the compiled manifest without a database and preserve the same membership, statuses, repository key, and content-derived manifest digest.
+          rationale: Agents need primitive exact reads while maintainers need CLI and JSON parity to inspect the same reviewed contract and actionable workspace or manifest failures.
+          scenarios:
+            - given: no database, embeddings, network, or knowledge store is configured and the compiled manifest is readable
+              when: equivalent exact context requests are made over MCP and CLI
+              then: both surfaces must return the same bounded neighborhood membership and manifest identity
+            - given: no workspace or no readable manifest is available
+              when: either MCP exact context tool is called
+              then: Tieline must return a named actionable result that explains how to initialize or compile the workspace
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runContractCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/intent-context.ts
+                selector: function:registerIntentContextTools
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC5
+          criterion: Diff impact must preserve selector-qualified target identity and report resolved, unresolved, or not_checked locator state for affected links while keeping selector findings advisory and describing shared Acceptance-Criterion links only as contract coupling rather than runtime dependency or comprehensive blast radius.
+          rationale: Selector drift is useful review input, but conservative inspection cannot establish execution topology and must not create a new blocking gate.
+          scenarios:
+            - given: a changed file contains one unresolved selector claim and one selector in an unsupported source language
+              when: diff impact is calculated
+              then: both claims must remain distinct with unresolved and not_checked locator states and selector findings must not change the existing exit behavior
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/impact.ts
+                selector: function:analyzeContractImpact
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script
