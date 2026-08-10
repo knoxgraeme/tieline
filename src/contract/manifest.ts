@@ -595,6 +595,24 @@ function manifestStableIds(
   return records;
 }
 
+function claimManifestStableIds(
+  capability: ManifestCapability,
+  shard: string,
+  claimedStableIds: Map<string, ManifestStableIdLocation>,
+  duplicateStableId: ManifestAssemblyErrors["duplicateStableId"]
+): void {
+  for (const record of manifestStableIds(capability)) {
+    const location = { kind: record.kind, shard };
+    const claimed = claimedStableIds.get(record.stableId);
+    if (claimed) {
+      throw new ContractManifestError(
+        duplicateStableId(record.stableId, claimed, location)
+      );
+    }
+    claimedStableIds.set(record.stableId, location);
+  }
+}
+
 /**
  * The one assembly of a manifest from its files, shared by the disk reader and
  * the snapshot parser, which differ only in where the files come from and how
@@ -657,22 +675,12 @@ function assembleContractManifest(
         errors.shardNameMismatch(file.name, shard.capability.stable_id, expected)
       );
     }
-    for (const record of manifestStableIds(shard.capability)) {
-      const claimed = claimedStableIds.get(record.stableId);
-      if (claimed) {
-        throw new ContractManifestError(
-          errors.duplicateStableId(
-            record.stableId,
-            claimed,
-            { kind: record.kind, shard: file.name }
-          )
-        );
-      }
-      claimedStableIds.set(record.stableId, {
-        kind: record.kind,
-        shard: file.name,
-      });
-    }
+    claimManifestStableIds(
+      shard.capability,
+      file.name,
+      claimedStableIds,
+      errors.duplicateStableId
+    );
     const claimedBy = claimedInputs.get(shard.input.path);
     if (claimedBy) {
       throw new ContractManifestError(
@@ -1038,6 +1046,7 @@ export function compileContractManifestWithSources(
     onUnhashableArtifact: options.onUnhashableArtifact ?? "throw",
   };
   const sources = new Map<string, ManifestInput>();
+  const claimedStableIds = new Map<string, ManifestStableIdLocation>();
   const capabilities = loaded.documents.map((document, index) => {
     const capability = compileCapability(context, document.capability);
     const source = loaded.sources[index]!;
@@ -1047,6 +1056,13 @@ export function compileContractManifestWithSources(
         `Capability '${capability.stable_id}' is declared by both '${existing.path}' and '${source.path}'. A capability stable ID identifies exactly one spec file.`
       );
     }
+    claimManifestStableIds(
+      capability,
+      source.path,
+      claimedStableIds,
+      (stableId, first, duplicate) =>
+        `Contract duplicate stable ID '${stableId}' is used by ${first.kind} in '${first.shard}' and ${duplicate.kind} in '${duplicate.shard}'. Stable IDs must be unique before a manifest can be compiled.`
+    );
     sources.set(capability.stable_id, {
       path: source.path,
       sha256: sha256(source.content),
