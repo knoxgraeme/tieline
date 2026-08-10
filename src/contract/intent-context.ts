@@ -22,7 +22,11 @@ import {
   type IntentAcceptanceCriterionRecord,
 } from "./reconciliation.js";
 import { stableKeySchema } from "./schema.js";
-import { parseSelector } from "./selector.js";
+import {
+  validateSelector,
+  type SelectorVocabulary,
+} from "./selector.js";
+import { selectorVocabularyForRepository } from "./validate.js";
 
 export type IntentAssetKind = "code" | "test";
 
@@ -129,6 +133,8 @@ interface IntentContextInput {
   index?: ContractIntentIndex;
   /** Narrow injection seam for callers that already own a request inspector. */
   inspector?: ArtifactAssuranceInspector;
+  /** Keep locator validation and assurance on one repository vocabulary. */
+  selectorVocabulary?: SelectorVocabulary;
 }
 
 export interface AssetIntentContextInput extends IntentContextInput {
@@ -159,7 +165,8 @@ function canonicalPath(path: unknown): string {
 
 function canonicalLocator(
   repository: string,
-  locator: IntentAssetLocatorInput
+  locator: IntentAssetLocatorInput,
+  selectorVocabulary: SelectorVocabulary
 ): CanonicalIntentAssetLocator {
   const kind = locator.kind ?? null;
   if (kind !== null && kind !== "code" && kind !== "test") {
@@ -170,14 +177,14 @@ function canonicalLocator(
   }
   let selector: string | null = null;
   if (locator.selector !== undefined) {
-    const parsed = parseSelector(locator.selector);
-    if (!parsed.ok) {
+    const validated = validateSelector(locator.selector, selectorVocabulary);
+    if (!validated.ok) {
       throw new IntentContextError(
         "malformed_selector",
-        `Malformed asset selector: ${parsed.error}.`
+        `Malformed asset selector: ${validated.error}.`
       );
     }
-    selector = parsed.selector.canonical;
+    selector = validated.selector.canonical;
   }
   return {
     repository,
@@ -273,7 +280,10 @@ function neighborhood(
   };
 }
 
-function contextParts(input: IntentContextInput): {
+function contextParts(
+  input: IntentContextInput,
+  selectorVocabulary?: SelectorVocabulary
+): {
   identity: IntentContextIdentity;
   index: ContractIntentIndex;
   inspector: ArtifactAssuranceInspector;
@@ -291,6 +301,7 @@ function contextParts(input: IntentContextInput): {
       createArtifactAssuranceInspector({
         repositoryRoot: root,
         repositoryKey: input.manifest.repository.key,
+        ...(selectorVocabulary === undefined ? {} : { selectorVocabulary }),
       }),
   };
 }
@@ -332,11 +343,18 @@ function assetAnswer(
 export function lookupAssetIntentContext(
   input: AssetIntentContextInput
 ): AssetIntentContextResult {
+  const root = resolve(input.repositoryRoot);
+  const selectorVocabulary =
+    input.selectorVocabulary ?? selectorVocabularyForRepository(root);
   const locator = canonicalLocator(
     input.manifest.repository.key,
-    input.locator
+    input.locator,
+    selectorVocabulary
   );
-  const { identity, index, inspector } = contextParts(input);
+  const { identity, index, inspector } = contextParts(
+    input,
+    selectorVocabulary
+  );
   const matches = (index.claims_by_path.get(locator.path) ?? [])
     .map((claim) => ({ claim, precision: matchPrecision(claim, locator) }))
     .filter(
@@ -353,7 +371,6 @@ export function lookupAssetIntentContext(
           right.claim.acceptance_criterion_stable_id
         ) || compareClaimFields(left.claim, right.claim)
     );
-  const root = resolve(input.repositoryRoot);
   const exists = repositoryEntryKindExactly(root, locator.path) === "file";
   const status: AssetIntentContextStatus = !exists
     ? "not_found"
@@ -404,7 +421,10 @@ export function lookupAcceptanceCriterionIntentContext(
     );
   }
   const requestedStableId = parsedStableId.data;
-  const { identity, index, inspector } = contextParts(input);
+  const { identity, index, inspector } = contextParts(
+    input,
+    input.selectorVocabulary
+  );
   const record = index.acceptance_criteria_by_stable_id.get(requestedStableId);
   if (!record) {
     return {

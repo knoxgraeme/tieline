@@ -473,6 +473,50 @@ await test("distinguishes negative results and malformed locators", () => {
   }
 });
 
+await test("validates selector kinds against the repository vocabulary", () => {
+  const fixture = createFixture();
+  try {
+    assert.throws(
+      () =>
+        lookupAssetIntentContext({
+          ...fixture,
+          locator: { path: "src/shared.ts", selector: "func:first" },
+        }),
+      (error: unknown) =>
+        error instanceof IntentContextError &&
+        error.code === "malformed_selector" &&
+        /unknown selector kind 'func'/i.test(error.message)
+    );
+
+    const configPath = resolve(fixture.root, ".tieline/config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    config.selectors = { kinds: [{ name: "route" }] };
+    writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+
+    const custom = lookupAssetIntentContext({
+      ...fixture,
+      locator: {
+        path: "src/shared.ts",
+        selector: "Route:GET /shared",
+      },
+    });
+    assert.equal(custom.status, "has_context");
+    assert.equal(custom.locator.selector, "route:GET /shared");
+    assert.deepEqual(
+      custom.matching_claims.map((claim) => [
+        claim.target.selector,
+        claim.match_precision,
+      ]),
+      [[null, "file_level"]]
+    );
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 await test("keeps missing claimed assets as not-found broken context", () => {
   const fixture = createFixture();
   try {
