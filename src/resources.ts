@@ -1,4 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SUPPORTED_SKILL_AGENTS } from "./tieline/skill-install.js";
+import { ONBOARDING_SKILL_INSTALL_COMMAND } from "./tieline/status.js";
 
 const HOW_TO_QUERY = `# Tieline contract guide
 
@@ -76,7 +78,12 @@ During deterministic setup, interactive \`tieline init\` asks which coding
 agents should receive this onboarding and authoring skill. While the spec has
 no Stories,
 \`tieline status --json\` exposes concise structured onboarding state and
-\`tieline init .\` as the skill-install entry point.
+\`${ONBOARDING_SKILL_INSTALL_COMMAND}\` as the skill-install entry point.
+That command is interactive. An agent running init without a terminal must
+append \`--yes --agent <id>\` (supported IDs: ${SUPPORTED_SKILL_AGENTS.map(
+  (agent) => `\`${agent.id}\``
+).join(", ")}),
+or append \`--skip-skill-install\` when it is only reconfiguring the runtime.
 
 Coverage describes whether every AC has direct implementation, test, or help
 links. Freshness separately describes whether linked repository content still

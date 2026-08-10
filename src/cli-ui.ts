@@ -98,7 +98,7 @@ export async function multiselectChoice<T extends string>(
     message,
     options: [...options],
     initialValues: [...initialValues],
-    required: false,
+    required: true,
   });
   if (clack.isCancel(value)) {
     clack.cancel("Cancelled.");

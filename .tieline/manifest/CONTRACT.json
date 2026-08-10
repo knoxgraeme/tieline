@@ -51,7 +51,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "193a2c2b610334db9b434380e91c67a0360999b0acfc4d67688e1242d894e05b",
+                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -116,7 +116,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "193a2c2b610334db9b434380e91c67a0360999b0acfc4d67688e1242d894e05b",
+                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -352,7 +352,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "20d832c36d1c5d9c1632f6364b76f3bfc9f286ad9cc87e9de0142d0d0b38716d",
+                "reviewed_content_hash": "f63c53142fcba1441d9caa80fdcbcb61f8f5d9bfab398e23af1ca87a0a8bc028",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -479,7 +479,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "193a2c2b610334db9b434380e91c67a0360999b0acfc4d67688e1242d894e05b",
+                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -566,7 +566,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "20d832c36d1c5d9c1632f6364b76f3bfc9f286ad9cc87e9de0142d0d0b38716d",
+                "reviewed_content_hash": "f63c53142fcba1441d9caa80fdcbcb61f8f5d9bfab398e23af1ca87a0a8bc028",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -626,7 +626,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d170a3e87d436f60292dd7081ae161f11dd03eff7b4f0ab4943973a932af1a12",
+                "reviewed_content_hash": "0c1b2ea813965fee82fdcb40782e8117552a6277341f8241a973de6ce59e9341",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/status.ts",
@@ -690,7 +690,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "889017600097cae9b83ec6fc87c2dd2fe0894e7bd5925dc536b89cea521ed214",
+                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -755,7 +755,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "20d832c36d1c5d9c1632f6364b76f3bfc9f286ad9cc87e9de0142d0d0b38716d",
+                "reviewed_content_hash": "f63c53142fcba1441d9caa80fdcbcb61f8f5d9bfab398e23af1ca87a0a8bc028",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -1024,7 +1024,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "300ffff78e2ad088e5b2c8089d3443dfe9ff4af01da89f4f78b9fd6946a68c1b",
+            "contract_hash": "3a4a4ac3fbe6aaac4af441bc54fbece99af5a0d1baaf0622ee6bc14b93434168",
             "criterion": "Every code or test claim returned as exact intent context must keep provenance, link scope, content freshness, locator resolution, and semantic support as separate assurance dimensions, must preserve broken and uninspectable claims with honest causes or unknown states, and must report semantic support as not_assessed.",
             "links": [
               {
@@ -1040,12 +1040,34 @@
               },
               {
                 "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0bd894182aef241cde869a62c9368319bef70a4a1a94edc2e63a8fe59e27c5a6",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/source-scan.ts",
+                  "repository": "tieline",
+                  "selector": "function:scanSource"
+                }
+              },
+              {
+                "provenance": "authored",
                 "relation": "tests",
                 "reviewed_content_hash": "22b9bf6c34e8772d132978085015956cbca03d651ab3bd84ff95b0e2bc0b7dbb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
                   "path": "scripts/test-artifact-assurance.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
                   "repository": "tieline"
                 }
               },
@@ -1250,6 +1272,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "6875ba4bdd3339310a3bf1ddcd21c252ee67dff591a84d4bb83fe19616460b9b"
+    "sha256": "0738f151f37fe7849129b66f78ca422ce361623eeece2e020f957ca764943a7c"
   }
 }

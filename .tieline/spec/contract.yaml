@@ -579,12 +579,26 @@ capability:
                 repository: tieline
                 path: src/contract/artifact-assurance.ts
                 selector: function:createArtifactAssuranceInspector
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/source-scan.ts
+                selector: function:scanSource
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: scripts/test-artifact-assurance.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored

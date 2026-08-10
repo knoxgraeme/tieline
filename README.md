@@ -229,10 +229,12 @@ npx -y tieline@latest init /path/to/product-repository \
   --embedding local \
   --description "A concise description of the product and business" \
   --context docs/product-context.md \
+  --skip-skill-install \
   --yes
 ```
 
-`--yes` installs an agent skill only when `--agent` is explicit;
+Prompt-free setup requires at least one explicit `--agent`, or
+`--skip-skill-install` when no agent should receive the skill.
 `--skill-scope` defaults to `project`. To initialize and install
 `tieline` for multiple agents:
 
@@ -405,10 +407,10 @@ the agent calls. Existing MCP clients can continue to request the deprecated
 
 An empty `.tieline/spec/` immediately after init is intentional: init does not
 invent generic capabilities. The authoring skill validates the detected code
-scope against the repository before claiming coverage. While the spec has no Stories,
-`tieline status --json` exposes `onboarding.required`, the `tieline` skill
-name, its direct invocation instruction, and `tieline init .` as the install
-command. `onboarding` becomes
+scope against the repository before claiming coverage. While the spec has no
+Stories, `tieline status --json` exposes `onboarding.required`, the `tieline`
+skill name, its direct invocation instruction, and
+`npx -y tieline@latest init .` as the install command. `onboarding` becomes
 `null` after the first Story exists. Status also reports whether the local
 profile is ready and whether database-backed semantic matching and planning
 writes are configured. Tool calls remain the operational check.

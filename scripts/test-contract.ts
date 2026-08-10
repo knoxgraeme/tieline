@@ -568,6 +568,12 @@ export function analyzeContractImpact(input: string): string {
 
 export const renderReport = (rows: string[]): string => rows.join("");
 
+const nestedTemplate = \`status: \${state(ok, \`ready \${detail}\`)}\`;
+
+export function declaredAfterNestedTemplate(): string {
+  return nestedTemplate;
+}
+
 export interface ReportRow {
   label: string;
 }
@@ -602,6 +608,7 @@ await test("indexes declared symbols by kind, ignoring comments and strings", ()
   const index = indexSourceSymbols(SELECTOR_FIXTURE);
   assert.ok(index.kinds.function.includes("analyzeContractImpact"));
   assert.ok(index.kinds.function.includes("renderReport"));
+  assert.ok(index.kinds.function.includes("declaredAfterNestedTemplate"));
   assert.ok(index.kinds.class.includes("PostgresStore"));
   assert.ok(index.kinds.const.includes("RETRY_LIMIT"));
   assert.ok(index.kinds.type.includes("ReportRow"));

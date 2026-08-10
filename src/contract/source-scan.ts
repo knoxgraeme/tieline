@@ -25,11 +25,69 @@ export interface ScannedSource {
   strings: string[];
 }
 
+interface LiteralRead {
+  literal: string;
+  next: number;
+}
+
+function readTemplateInterpolation(content: string, start: number): number {
+  let index = start;
+  let braceDepth = 1;
+  while (index < content.length) {
+    const char = content[index];
+    const next = content[index + 1];
+    if (char === "/" && next === "/") {
+      const end = content.indexOf("\n", index + 2);
+      index = end === -1 ? content.length : end;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = content.indexOf("*/", index + 2);
+      index = end === -1 ? content.length : end + 2;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") {
+      index = readLiteral(content, index, char).next;
+      continue;
+    }
+    if (char === "{") braceDepth += 1;
+    if (char === "}") {
+      braceDepth -= 1;
+      if (braceDepth === 0) return index + 1;
+    }
+    index += 1;
+  }
+  return content.length;
+}
+
+function readTemplateLiteral(content: string, start: number): LiteralRead {
+  let index = start + 1;
+  let literal = "";
+  while (index < content.length) {
+    const char = content[index];
+    if (char === "\\") {
+      index += 2;
+      continue;
+    }
+    if (char === "`") return { literal, next: index + 1 };
+    if (char === "$" && content[index + 1] === "{") {
+      const next = readTemplateInterpolation(content, index + 2);
+      literal += content.slice(index, next);
+      index = next;
+      continue;
+    }
+    literal += char;
+    index += 1;
+  }
+  return { literal, next: content.length };
+}
+
 function readLiteral(
   content: string,
   start: number,
   quote: string
-): { literal: string; next: number } {
+): LiteralRead {
+  if (quote === "`") return readTemplateLiteral(content, start);
   let index = start + 1;
   let literal = "";
   while (index < content.length) {
@@ -39,9 +97,8 @@ function readLiteral(
       continue;
     }
     if (char === quote) return { literal, next: index + 1 };
-    // An unterminated quote must not swallow the rest of the file. Template
-    // literals legitimately span lines; the other two do not.
-    if (char === "\n" && quote !== "`") return { literal, next: index };
+    // An unterminated quote must not swallow the rest of the file.
+    if (char === "\n") return { literal, next: index };
     literal += char;
     index += 1;
   }

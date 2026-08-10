@@ -13,10 +13,12 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import {
+  renderStatus,
   runCli,
   workspaceStartForCommand,
   type TielineCliIO,
 } from "../src/cli.js";
+import { createPalette } from "../src/cli-ui.js";
 import {
   detectRepositoryName,
   normalizeContextLocations,
@@ -312,7 +314,14 @@ try {
   mkdirSync(resolve(repositoryContextTarget, "src"), { recursive: true });
   assert.equal(
     await runCli(
-      ["init", repositoryContextTarget, "--yes", "--context", "."],
+      [
+        "init",
+        repositoryContextTarget,
+        "--yes",
+        "--context",
+        ".",
+        "--skip-skill-install",
+      ],
       io().adapter,
       { TIELINE_CONFIG_HOME: resolve(root, "repository-context-config") }
     ),
@@ -470,15 +479,17 @@ try {
     select: [],
     multiselect: [[]],
   });
-  assert.equal(
-    await runCli(["init", noAgentTarget], noAgent.adapter, {
+  await assert.rejects(
+    runCli(["init", noAgentTarget], noAgent.adapter, {
       TIELINE_CONFIG_HOME: resolve(root, "no-agent-config"),
     }),
-    0,
-    "deselecting every agent must skip the skill install, not fail"
+    /select at least one agent/i
   );
-  assert.match(noAgent.output.join(""), /Skill: not installed/);
-  assert.ok(existsSync(resolve(noAgentTarget, ".mcp.json")));
+  assert.equal(
+    existsSync(resolve(noAgentTarget, ".tieline")),
+    false,
+    "an empty agent choice must stop before workspace mutation"
+  );
 
   const automatedTarget = resolve(root, "Automated Checkout");
   const automatedConfigHome = resolve(root, "automated-config");
@@ -731,9 +742,13 @@ try {
   );
   const mcpRepeat = io();
   assert.equal(
-    await runCli(["init", mcpMergeTarget, "--yes"], mcpRepeat.adapter, {
-      TIELINE_CONFIG_HOME: mcpMergeConfigHome,
-    }),
+    await runCli(
+      ["init", mcpMergeTarget, "--yes", "--skip-skill-install"],
+      mcpRepeat.adapter,
+      {
+        TIELINE_CONFIG_HOME: mcpMergeConfigHome,
+      }
+    ),
     0
   );
   assert.equal(
@@ -749,7 +764,14 @@ try {
   const mcpInvalid = io();
   assert.equal(
     await runCli(
-      ["init", mcpInvalidTarget, "--yes", "--embedding", "hash"],
+      [
+        "init",
+        mcpInvalidTarget,
+        "--yes",
+        "--embedding",
+        "hash",
+        "--skip-skill-install",
+      ],
       mcpInvalid.adapter,
       { TIELINE_CONFIG_HOME: resolve(root, "mcp-invalid-config") },
       {
@@ -792,6 +814,7 @@ try {
         "A product with a living semantic contract.",
         "--embedding",
         "hash",
+        "--skip-skill-install",
       ],
       first.adapter,
       {
@@ -871,7 +894,7 @@ try {
   assert.match(firstOutput, /skill: not installed/i);
   assert.match(
     firstOutput,
-    /Install the tieline skill by running:\n\n─+\ntieline init \.\n─+/
+    /Install the tieline skill by running:\n\n─+\nnpx -y tieline@latest init \.\n─+/
   );
   assert.doesNotMatch(firstOutput, /Warning \[/);
   assert.doesNotMatch(firstOutput, /Agent handoff prompt:/);
@@ -904,7 +927,7 @@ try {
   const second = io();
   assert.equal(
     await runCli(
-      ["init", target, "--yes"],
+      ["init", target, "--yes", "--skip-skill-install"],
       second.adapter,
       { TIELINE_CONFIG_HOME: configHome }
     ),
@@ -981,11 +1004,30 @@ try {
     false
   );
 
-  const resumed = io();
-  assert.equal(
-    await runCli(["init", target, "--yes"], resumed.adapter, {
+  const pendingOnboardingInit = io();
+  await assert.rejects(
+    runCli(["init", target, "--yes"], pendingOnboardingInit.adapter, {
       TIELINE_CONFIG_HOME: freshConfigHome,
     }),
+    /non-interactive init requires.*--agent.*--skip-skill-install/i
+  );
+  assert.equal(
+    readWorkspaceProfile(workspace, {
+      TIELINE_CONFIG_HOME: freshConfigHome,
+    }),
+    null,
+    "an existing onboarding workspace must reject before writing a local profile"
+  );
+
+  const resumed = io();
+  assert.equal(
+    await runCli(
+      ["init", target, "--yes", "--skip-skill-install"],
+      resumed.adapter,
+      {
+        TIELINE_CONFIG_HOME: freshConfigHome,
+      }
+    ),
     0
   );
   assert.doesNotMatch(resumed.output.join(""), /Mode:|Runtime:|Code scope:/);
@@ -1023,7 +1065,7 @@ try {
     skill: "tieline",
     instruction:
       "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline.",
-    install_command: "tieline init .",
+    install_command: "npx -y tieline@latest init .",
   });
   assert.equal("agent_onboarding_prompt" in parsedStatus, false);
 
@@ -1039,8 +1081,24 @@ try {
     /Next: Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
   );
   assert.doesNotMatch(humanStatus.output.join(""), /Copy the prompt/);
-  assert.match(humanStatus.output.join(""), /Install skill: tieline init \./);
+  assert.match(
+    humanStatus.output.join(""),
+    /Install skill: npx -y tieline@latest init \./
+  );
   assert.doesNotMatch(humanStatus.output.join(""), /Agent handoff prompt:/);
+
+  const missingMcpStatus = renderStatus(
+    {
+      ...parsedStatus,
+      integration: { mcp_clients: [] },
+    },
+    createPalette(false)
+  );
+  assert.match(
+    missingMcpStatus,
+    /not registered \(rerun `npx -y tieline@latest init \.`\)/
+  );
+  assert.doesNotMatch(missingMcpStatus, /rerun `tieline init \.`/);
 
   writeFileSync(
     resolve(workspace.specDirectoryPath, "status.yaml"),
@@ -1060,6 +1118,32 @@ capability:
         - key: STATUS-001-AC1
           criterion: Tieline must direct maintainers to compile an unreadable manifest.
 `
+  );
+
+  const onboardedCloneConfigHome = resolve(
+    root,
+    "onboarded-clone-config-home"
+  );
+  await assert.rejects(
+    runCli(["init", target, "--yes"], io().adapter, {
+      TIELINE_CONFIG_HOME: onboardedCloneConfigHome,
+    }),
+    /non-interactive init requires.*--agent.*--skip-skill-install/i
+  );
+  assert.equal(
+    readWorkspaceProfile(workspace, {
+      TIELINE_CONFIG_HOME: onboardedCloneConfigHome,
+    }),
+    null,
+    "a configured repository clone must require an agent or explicit skip before local setup"
+  );
+  assert.equal(
+    await runCli(
+      ["init", target, "--yes", "--skip-skill-install"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: onboardedCloneConfigHome }
+    ),
+    0
   );
   mkdirSync(workspace.manifestPath, { recursive: true });
   const legacyIndex = `${JSON.stringify(
@@ -1103,6 +1187,25 @@ capability:
   assert.doesNotMatch(
     onboardedHumanStatus.output.join(""),
     /Agent handoff prompt:/
+  );
+
+  const onboardedInit = interactiveIo({
+    text: [],
+    confirm: [],
+    select: [],
+    multiselect: [],
+  });
+  assert.equal(
+    await runCli(["init", target], onboardedInit.adapter, {
+      TIELINE_CONFIG_HOME: configHome,
+    }),
+    0
+  );
+  assert.match(onboardedInit.output.join(""), /already initialized/i);
+  assert.deepEqual(
+    onboardedInit.prompts,
+    [],
+    "a configured, onboarded workspace must report status without prompting"
   );
 
   const environmentStatus = io();
@@ -1413,6 +1516,16 @@ capability:
   );
   assert.match(
     onboardingReference,
+    /init \. --yes --skip-skill-install --database local/,
+    "agent-led runtime configuration must explicitly preserve the installed skill"
+  );
+  assert.match(
+    onboardingReference,
+    /init \. --yes --skip-skill-install --database existing/,
+    "agent-led existing-database setup must not trigger skill selection"
+  );
+  assert.match(
+    onboardingReference,
     /handoff so the coming silence is expected/,
     "setup must end with a handoff into the autonomous phase"
   );
@@ -1551,7 +1664,7 @@ capability:
   );
   assert.match(
     provisioningReference,
-    /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tieline@latest init[^\n]*--database existing[^\n]*--provision-roles/,
+    /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tieline@latest init[^\n]*--skip-skill-install[^\n]*--database existing[^\n]*--provision-roles/,
     "hosted provisioning must pass the captured URI through the explicit existing-database role-provisioning command"
   );
   assert.match(
@@ -1696,7 +1809,34 @@ capability:
       env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
     }
   );
-  assert.equal(piped.status, 0, piped.stderr);
+  assert.notEqual(piped.status, 0, piped.stdout);
+  assert.match(
+    piped.stderr,
+    /non-interactive init requires.*--agent.*--skip-skill-install/i
+  );
+  assert.equal(
+    existsSync(resolve(pipedTarget, ".tieline")),
+    false,
+    "headless init without an explicit agent or skip must not leave a partial workspace"
+  );
+
+  const explicitlySkipped = spawnSync(
+    "node",
+    [
+      cliBin,
+      "init",
+      pipedTarget,
+      "--embedding",
+      "hash",
+      "--skip-skill-install",
+    ],
+    {
+      input: "",
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(explicitlySkipped.status, 0, explicitlySkipped.stderr);
   const pipedWorkspace = findTielineWorkspace(pipedTarget);
   assert.ok(pipedWorkspace);
   assert.equal(
