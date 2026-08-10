@@ -1,4 +1,10 @@
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import { selectorConfigSchema } from "../config.js";
@@ -96,9 +102,21 @@ export function workspaceFromConfig(configPath: string): TielineWorkspace {
   const config = tielineConfigSchema.parse(
     JSON.parse(readFileSync(configPath, "utf8"))
   );
+  const workspaceOwner = realpathSync(dirname(directory));
+  const root = realpathSync(resolve(directory, config.repository.root));
+  const rootPath = relative(workspaceOwner, root);
+  if (
+    rootPath === ".." ||
+    rootPath.startsWith(`..${sep}`) ||
+    isAbsolute(rootPath)
+  ) {
+    throw new Error(
+      `Tieline repository root '${config.repository.root}' escapes the workspace at '${workspaceOwner}'.`
+    );
+  }
   return {
     directory,
-    root: resolve(directory, config.repository.root),
+    root,
     configPath,
     config,
     specDirectoryPath: resolveWorkspaceFile(

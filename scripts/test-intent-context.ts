@@ -3,7 +3,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,11 +28,51 @@ import {
   registerIntentContextTools,
   resolveManifestIntentContext,
 } from "../src/tools/intent-context.js";
+import { workspaceFromConfig } from "../src/tieline/workspace.js";
 import type { ToolResult } from "../src/tools/shared.js";
 import { tielineConfigJson } from "./lib/fixtures.js";
 import { report, test } from "./lib/harness.js";
 
 const REPOSITORY = "intent-context-fixture";
+
+await test("keeps configured repository roots inside the workspace owner", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-workspace-root-"));
+  const outside = mkdtempSync(resolve(tmpdir(), "tieline-workspace-outside-"));
+  const configPath = resolve(root, ".tieline/config.json");
+  try {
+    mkdirSync(resolve(root, ".tieline"), { recursive: true });
+    mkdirSync(resolve(root, "package"), { recursive: true });
+    symlinkSync(outside, resolve(root, "external"));
+
+    const writeConfig = (repositoryRoot: string): void => {
+      const config = JSON.parse(
+        tielineConfigJson({
+          name: "Workspace root fixture",
+          repoName: "workspace-root-fixture",
+        })
+      ) as { repository: { root: string } };
+      config.repository.root = repositoryRoot;
+      writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    };
+
+    writeConfig("../package");
+    assert.equal(
+      workspaceFromConfig(configPath).root,
+      realpathSync(resolve(root, "package"))
+    );
+
+    for (const escapingRoot of [outside, "../..", "../external"]) {
+      writeConfig(escapingRoot);
+      assert.throws(
+        () => workspaceFromConfig(configPath),
+        /repository root.*escapes.*workspace/i
+      );
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
 
 const SPEC = `version: 1
 capability:
