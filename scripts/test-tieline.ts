@@ -152,6 +152,14 @@ assert.equal(
 assert.equal(
   workspaceStartForCommand(
     "contract",
+    ["context", "--repository", "/tmp/context-repo", "--path", "src/a.ts"],
+    {}
+  ),
+  "/tmp/context-repo"
+);
+assert.equal(
+  workspaceStartForCommand(
+    "contract",
     [
       "sync",
       "--expected-previous-commit",
@@ -1614,6 +1622,47 @@ capability:
   // The stdin questioner lives in main(), so runCli-based tests bypass it;
   // spawn the built CLI with piped stdin to exercise buffering and EOF.
   const cliBin = resolve(process.cwd(), "dist/cli.js");
+  const packagedCompile = spawnSync(
+    "node",
+    [
+      cliBin,
+      "contract",
+      "compile",
+      target,
+      "--repo",
+      "example-repository",
+      "--json",
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(packagedCompile.status, 0, packagedCompile.stderr);
+  const packagedContext = spawnSync(
+    "node",
+    [
+      cliBin,
+      "contract",
+      "context",
+      "--repository",
+      target,
+      "--ac",
+      "STATUS-001-AC1",
+      "--json",
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(packagedContext.status, 0, packagedContext.stderr);
+  const packagedContextResult = JSON.parse(packagedContext.stdout);
+  assert.equal(packagedContextResult.status, "found");
+  assert.equal(packagedContextResult.requested_stable_id, "STATUS-001-AC1");
+  assert.equal(packagedContextResult.repository.key, "example-repository");
+  assert.match(packagedContextResult.manifest_digest, /^[a-f0-9]{64}$/);
+
   const pipedTarget = resolve(root, "piped-init");
   mkdirSync(resolve(pipedTarget, "src"), { recursive: true });
   writeFileSync(

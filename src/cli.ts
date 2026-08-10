@@ -152,7 +152,7 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "contract") {
-    if (args[0] === "criteria") {
+    if (args[0] === "criteria" || args[0] === "context") {
       return optionValue(args, "repository") ?? process.cwd();
     }
     return (
@@ -198,6 +198,10 @@ interface ContractActionOptions {
   save?: boolean;
   json?: boolean;
   paths?: string[];
+  path?: string;
+  kind?: string;
+  selector?: string;
+  ac?: string;
 }
 
 function buildProgram(
@@ -360,6 +364,7 @@ function buildProgram(
             | "link-review"
             | "reconcile"
             | "criteria"
+            | "context"
             | "grade"
             | "sync",
           { repository, ...(opts as ContractActionOptions) },
@@ -446,6 +451,39 @@ function buildProgram(
             paths,
             repository: opts.repository,
             repo: opts.repo,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+  contract
+    .command("context")
+    .description(
+      "Inspect the exact intent neighborhood for an asset or Acceptance Criterion"
+    )
+    .option("--path <repository-relative-path>", "exact repository asset path")
+    .option("--kind <kind>", "asset kind (with --path): code or test")
+    .option(
+      "--selector <canonical-selector>",
+      "canonical asset selector (with --path)"
+    )
+    .option("--ac <stable-id>", "exact Acceptance Criterion stable ID")
+    .option("--repository <path>", "repository path")
+    .option("--repo <key>", "stable repository key")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runContractCommand } = await import("./commands/contract.js");
+      setExit(
+        await runContractCommand(
+          "context",
+          {
+            repository: opts.repository,
+            repo: opts.repo,
+            path: opts.path,
+            kind: opts.kind,
+            selector: opts.selector,
+            ac: opts.ac,
             json: Boolean(opts.json),
           },
           io
