@@ -22,6 +22,7 @@ import {
   writeContractManifest,
   type ContractManifest,
 } from "../src/contract/manifest.js";
+import { repositoryEntryKindExactly } from "../src/contract/paths.js";
 import { setStore, type KnowledgeStore } from "../src/store.js";
 import {
   registerGetPathCriteria,
@@ -201,6 +202,44 @@ const cleanup: string[] = [];
 try {
   const { root, manifest } = createFixture(true);
   cleanup.push(root);
+
+  assert.equal(
+    repositoryEntryKindExactly(root, "src/missing.ts", {
+      stat() {
+        throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      },
+      readdir() {
+        throw new Error("readdir must not run after a missing stat");
+      },
+    }),
+    "missing"
+  );
+  assert.throws(
+    () =>
+      repositoryEntryKindExactly(root, "src/direct.ts", {
+        stat() {
+          throw Object.assign(new Error("permission denied"), {
+            code: "EACCES",
+          });
+        },
+        readdir() {
+          return ["src"];
+        },
+      }),
+    /Could not inspect repository path 'src\/direct\.ts'.*EACCES/
+  );
+  assert.throws(
+    () =>
+      repositoryEntryKindExactly(root, "src/direct.ts", {
+        stat() {
+          return { isFile: () => true };
+        },
+        readdir() {
+          throw Object.assign(new Error("I/O failure"), { code: "EIO" });
+        },
+      }),
+    /Could not inspect repository path 'src\/direct\.ts'.*EIO/
+  );
 
   const index = buildPathCriteriaIndex(manifest);
   assert.deepEqual(scopes(index.get("src/direct.ts") ?? []), [

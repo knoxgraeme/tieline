@@ -8,6 +8,7 @@ import type {
 import {
   createArtifactAssuranceInspector,
   type ArtifactAssuranceInspector,
+  type ArtifactFreshnessReason,
   type ArtifactLocatorNotCheckedReason,
   type ArtifactLocatorResolution,
   type BrokenLinkCause,
@@ -53,6 +54,7 @@ export interface AcceptanceCriterionImpact {
     | "unknown"
     | "not_applicable"
     | "broken";
+  freshness_reason: ArtifactFreshnessReason | null;
   /** Present only when `freshness` is `broken`. */
   broken_cause?: BrokenLinkCause;
   locator_resolution: ArtifactLocatorResolution;
@@ -130,6 +132,7 @@ function linkedImpact(input: {
         : null,
     reason: reason(change),
     freshness: assurance.freshness,
+    freshness_reason: assurance.freshness_reason,
     ...(assurance.broken_cause
       ? { broken_cause: assurance.broken_cause }
       : {}),
@@ -151,13 +154,17 @@ function brokenLinkImpact(input: {
   scope: "direct" | "story_fallback";
 }): AcceptanceCriterionImpact | null {
   if (input.link.target.kind === "help") return null;
+  const freshness = input.inspector.inspectFreshness({
+    target: input.link.target,
+    reviewed_content_hash: input.link.reviewed_content_hash,
+  });
+  if (freshness.freshness !== "broken" || !freshness.broken_cause) {
+    return null;
+  }
   const assurance = input.inspector.inspect({
     target: input.link.target,
     reviewed_content_hash: input.link.reviewed_content_hash,
   });
-  if (assurance.freshness !== "broken" || !assurance.broken_cause) {
-    return null;
-  }
   return {
     target_kind: input.link.target.kind,
     repository: input.link.target.repository,
@@ -176,7 +183,8 @@ function brokenLinkImpact(input: {
         : null,
     reason: "link_target_broken",
     freshness: "broken",
-    broken_cause: assurance.broken_cause,
+    freshness_reason: null,
+    broken_cause: freshness.broken_cause,
     locator_resolution: assurance.locator_resolution,
     locator_reason: assurance.locator_reason,
   };
@@ -219,13 +227,16 @@ export function analyzeContractImpact(input: {
   manifest: ContractManifest;
   changes: RepositoryPathChange[];
   specDirectory?: string;
+  assuranceInspector?: ArtifactAssuranceInspector;
 }): AcceptanceCriterionImpact[] {
   const impacts: AcceptanceCriterionImpact[] = [];
   const broken: AcceptanceCriterionImpact[] = [];
-  const inspector = createArtifactAssuranceInspector({
-    repositoryRoot: input.repositoryRoot,
-    repositoryKey: input.manifest.repository.key,
-  });
+  const inspector =
+    input.assuranceInspector ??
+    createArtifactAssuranceInspector({
+      repositoryRoot: input.repositoryRoot,
+      repositoryKey: input.manifest.repository.key,
+    });
   const specPrefix = `${(input.specDirectory ?? ".tieline/spec").replace(/\/+$/, "")}/`;
   const contractChanged = input.changes.some((change) => {
     const paths =
@@ -254,6 +265,7 @@ export function analyzeContractImpact(input: {
             framework_hint: null,
             reason: "contract_definition_changed",
             freshness: "not_applicable",
+            freshness_reason: null,
             locator_resolution: "not_applicable",
             locator_reason: null,
           });

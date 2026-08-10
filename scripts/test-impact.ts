@@ -20,6 +20,7 @@ import {
   analyzeContractImpact,
   parseNameStatus,
 } from "../src/contract/impact.js";
+import type { ArtifactAssuranceInspector } from "../src/contract/artifact-assurance.js";
 import { runCheckCommand } from "../src/commands/check.js";
 import { tielineConfigJson } from "./lib/fixtures.js";
 
@@ -140,6 +141,34 @@ capability:
   assert.equal(baselineReport.manifest_current, true);
   assert.equal(baselineReport.impacts.length, 0);
 
+  let freshnessInspections = 0;
+  let fullInspections = 0;
+  const freshnessOnlyInspector: ArtifactAssuranceInspector = {
+    inspectFreshness() {
+      freshnessInspections += 1;
+      return {
+        freshness: "current",
+        freshness_reason: null,
+        broken_cause: null,
+      };
+    },
+    inspect() {
+      fullInspections += 1;
+      throw new Error("healthy all-links sweep must not resolve selectors");
+    },
+  };
+  assert.deepEqual(
+    analyzeContractImpact({
+      repositoryRoot: root,
+      manifest,
+      changes: [],
+      assuranceInspector: freshnessOnlyInspector,
+    }),
+    []
+  );
+  assert.ok(freshnessInspections > 0);
+  assert.equal(fullInspections, 0);
+
   writeFileSync(
     resolve(root, "src/feature.ts"),
     "export const feature = 2;\nexport const alternate = 2;\n"
@@ -212,6 +241,7 @@ capability:
   });
   assert.equal(renamed[0].reason, "renamed");
   assert.equal(renamed[0].freshness, "current");
+  assert.equal(renamed[0].freshness_reason, null);
   assert.equal(renamed[0].target_kind, "test");
   assert.equal(renamed[0].selector, "function:featureBehavior");
   assert.equal(renamed[0].framework_hint, "custom-script");
@@ -270,6 +300,7 @@ capability:
   assert.equal(brokenOutsideDiff[0].reason, "link_target_broken");
   assert.equal(brokenOutsideDiff[0].provenance, "authored");
   assert.equal(brokenOutsideDiff[0].freshness, "broken");
+  assert.equal(brokenOutsideDiff[0].freshness_reason, null);
   assert.equal(brokenOutsideDiff[0].broken_cause, "missing");
   assert.equal(brokenOutsideDiff[0].target_kind, "test");
   assert.equal(brokenOutsideDiff[0].selector, "function:featureBehavior");

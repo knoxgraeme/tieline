@@ -39,7 +39,10 @@ import type {
   ManifestLink,
   ManifestStory,
 } from "./manifest.js";
-import { wildcardPattern } from "./paths.js";
+import {
+  canonicalRepositoryRelativePath,
+  wildcardPattern,
+} from "./paths.js";
 
 export const RECONCILIATION_DISCLAIMER =
   "This is authoring input, not a verdict. A claimed change means an acceptance criterion may need re-reading; an unclaimed change means a human should consider whether behavior changed at all. Many changes are refactors that need no acceptance criterion, and nothing here should be authored merely to shrink a count.";
@@ -347,7 +350,12 @@ export function buildContractIntentIndex(
           if (link.relation === "documents" || link.target.kind === "help") {
             continue;
           }
-          const path = normalizeContractPath(link.target.path);
+          const path = canonicalRepositoryRelativePath(link.target.path);
+          if (path === null) {
+            throw new Error(
+              `Manifest link path '${link.target.path}' is not repository-relative.`
+            );
+          }
           const claim: ClaimingCriterion = {
             capability_stable_id: capability.stable_id,
             story_stable_id: story.stable_id,

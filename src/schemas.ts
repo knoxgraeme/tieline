@@ -7,17 +7,13 @@ import {
   codeTargetSchema,
   helpTargetSchema,
   linkProvenanceSchema,
+  stableKeySchema,
   testTargetSchema,
 } from "./contract/schema.js";
 import { parseSelector } from "./contract/selector.js";
 import { canonicalRepositoryRelativePath } from "./contract/paths.js";
 
-const stableId = z
-  .string()
-  .trim()
-  .min(1)
-  .max(160)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
+const stableId = stableKeySchema;
 const applicability = z.record(z.array(z.string().trim().min(1)));
 const documentKind = z.enum([
   "story",
@@ -342,6 +338,9 @@ const intentContextTarget = z
 const intentContextAssurance = z
   .object({
     freshness: z.enum(["current", "stale", "unknown", "broken"]),
+    freshness_reason: z
+      .enum(["cross_repository", "unreadable"])
+      .nullable(),
     broken_cause: z
       .enum(["missing", "not_file", "outside_repository"])
       .nullable(),

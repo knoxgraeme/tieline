@@ -158,7 +158,9 @@ function findingLine(impact: AcceptanceCriterionImpact): string {
   const details = [
     impact.broken_cause
       ? `broken: ${describeBrokenCause(impact.broken_cause)}`
-      : impact.freshness,
+      : impact.freshness_reason
+        ? `${impact.freshness} (${impact.freshness_reason})`
+        : impact.freshness,
   ];
   if (impact.target_kind !== null) {
     const locator = impact.selector

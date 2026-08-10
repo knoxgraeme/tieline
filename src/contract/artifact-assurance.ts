@@ -4,7 +4,7 @@ import {
   type ArtifactHashResolver,
 } from "./manifest.js";
 import {
-  resolveSelector,
+  createCachedSelectorResolver,
   type ResolveSelectorOptions,
   type SelectorNotCheckedReason,
   type SelectorResolution,
@@ -26,6 +26,14 @@ export type ArtifactFreshness =
   | "unknown"
   | "broken";
 
+export type ArtifactFreshnessReason = "cross_repository" | "unreadable";
+
+export interface ArtifactFreshnessInspection {
+  freshness: ArtifactFreshness;
+  freshness_reason: ArtifactFreshnessReason | null;
+  broken_cause: BrokenLinkCause | null;
+}
+
 export type ArtifactLocatorResolution =
   | "resolved"
   | "unresolved"
@@ -41,9 +49,7 @@ export type ArtifactLocatorNotCheckedReason =
  * Derived structural state only. Authored provenance and link scope stay on the
  * claim beside this value; semantic evidence is deliberately never inferred.
  */
-export interface ArtifactAssurance {
-  freshness: ArtifactFreshness;
-  broken_cause: BrokenLinkCause | null;
+export interface ArtifactAssurance extends ArtifactFreshnessInspection {
   locator_resolution: ArtifactLocatorResolution;
   locator_reason: ArtifactLocatorNotCheckedReason | null;
   semantic_support: "not_assessed";
@@ -55,6 +61,7 @@ export interface ArtifactAssuranceInput {
 }
 
 export interface ArtifactAssuranceInspector {
+  inspectFreshness(input: ArtifactAssuranceInput): ArtifactFreshnessInspection;
   inspect(input: ArtifactAssuranceInput): ArtifactAssurance;
 }
 
@@ -81,6 +88,21 @@ function inputKey(input: ArtifactAssuranceInput): string {
 
 function locatorKey(target: ArtifactTarget): string {
   return [target.repository, target.path, target.selector ?? ""].join("\0");
+}
+
+function freshnessKey(input: ArtifactAssuranceInput): string {
+  return [
+    input.target.repository,
+    input.target.path,
+    input.reviewed_content_hash ?? "",
+  ].join("\0");
+}
+
+function isFilesystemError(error: unknown): error is NodeJS.ErrnoException {
+  return (
+    error instanceof Error &&
+    typeof (error as NodeJS.ErrnoException).code === "string"
+  );
 }
 
 function unavailableLocator(
@@ -110,29 +132,43 @@ export function createArtifactAssuranceInspector(
 ): ArtifactAssuranceInspector {
   let hashes = options.hashResolver;
   let vocabulary = options.selectorVocabulary;
-  const selectorResolver = options.selectorResolver ?? resolveSelector;
+  const selectorResolver =
+    options.selectorResolver ?? createCachedSelectorResolver();
+  type Measurement =
+    | ReturnType<ArtifactHashResolver["measure"]>
+    | { status: "unreadable" };
   const measurements = new Map<
     string,
-    ReturnType<ArtifactHashResolver["measure"]>
+    Measurement
   >();
   const locators = new Map<
     string,
     Pick<ArtifactAssurance, "locator_resolution" | "locator_reason">
+  >();
+  const freshnessInspections = new Map<
+    string,
+    ArtifactFreshnessInspection
   >();
   const assurances = new Map<string, ArtifactAssurance>();
 
   const measure = (path: string) => {
     const cached = measurements.get(path);
     if (cached) return cached;
-    hashes ??= createArtifactHashResolver(options.repositoryRoot);
-    const measured = hashes.measure(path);
+    let measured: Measurement;
+    try {
+      hashes ??= createArtifactHashResolver(options.repositoryRoot);
+      measured = hashes.measure(path);
+    } catch (error) {
+      if (!isFilesystemError(error)) throw error;
+      measured = { status: "unreadable" };
+    }
     measurements.set(path, measured);
     return measured;
   };
 
   const inspectLocator = (
     target: ArtifactTarget,
-    brokenCause: BrokenLinkCause | null
+    freshness: ArtifactFreshnessInspection
   ): Pick<ArtifactAssurance, "locator_resolution" | "locator_reason"> => {
     if (target.repository !== options.repositoryKey) {
       return unavailableLocator("cross_repository");
@@ -140,9 +176,16 @@ export function createArtifactAssuranceInspector(
     if (!target.selector) {
       return { locator_resolution: "not_applicable", locator_reason: null };
     }
-    if (brokenCause === "missing") return unavailableLocator("file_missing");
-    if (brokenCause === "not_file") return unavailableLocator("not_a_file");
-    if (brokenCause === "outside_repository") {
+    if (freshness.freshness_reason === "unreadable") {
+      return unavailableLocator("unreadable");
+    }
+    if (freshness.broken_cause === "missing") {
+      return unavailableLocator("file_missing");
+    }
+    if (freshness.broken_cause === "not_file") {
+      return unavailableLocator("not_a_file");
+    }
+    if (freshness.broken_cause === "outside_repository") {
       return unavailableLocator("outside_repository");
     }
 
@@ -166,34 +209,62 @@ export function createArtifactAssuranceInspector(
     return locator;
   };
 
+  const inspectFreshness = (
+    input: ArtifactAssuranceInput
+  ): ArtifactFreshnessInspection => {
+    const key = freshnessKey(input);
+    const cached = freshnessInspections.get(key);
+    if (cached) return cached;
+
+    let inspection: ArtifactFreshnessInspection;
+    if (input.target.repository !== options.repositoryKey) {
+      inspection = {
+        freshness: "unknown",
+        freshness_reason: "cross_repository",
+        broken_cause: null,
+      };
+    } else {
+      const measured = measure(input.target.path);
+      if (measured.status === "unreadable") {
+        inspection = {
+          freshness: "unknown",
+          freshness_reason: "unreadable",
+          broken_cause: null,
+        };
+      } else if (measured.status !== "hashed") {
+        inspection = {
+          freshness: "broken",
+          freshness_reason: null,
+          broken_cause: measured.status,
+        };
+      } else {
+        inspection = {
+          freshness:
+            input.reviewed_content_hash !== null &&
+            measured.hash === input.reviewed_content_hash
+              ? "current"
+              : "stale",
+          freshness_reason: null,
+          broken_cause: null,
+        };
+      }
+    }
+    freshnessInspections.set(key, inspection);
+    return inspection;
+  };
+
   return {
+    inspectFreshness,
     inspect(input) {
       const key = inputKey(input);
       const cached = assurances.get(key);
       if (cached) return cached;
 
-      let freshness: ArtifactFreshness;
-      let brokenCause: BrokenLinkCause | null = null;
-      if (input.target.repository !== options.repositoryKey) {
-        freshness = "unknown";
-      } else {
-        const measured = measure(input.target.path);
-        if (measured.status !== "hashed") {
-          freshness = "broken";
-          brokenCause = measured.status;
-        } else {
-          freshness =
-            input.reviewed_content_hash !== null &&
-            measured.hash === input.reviewed_content_hash
-              ? "current"
-              : "stale";
-        }
-      }
+      const freshness = inspectFreshness(input);
 
       const assurance: ArtifactAssurance = {
-        freshness,
-        broken_cause: brokenCause,
-        ...inspectLocator(input.target, brokenCause),
+        ...freshness,
+        ...inspectLocator(input.target, freshness),
         semantic_support: "not_assessed",
       };
       assurances.set(key, assurance);

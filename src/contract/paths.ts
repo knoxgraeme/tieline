@@ -47,21 +47,50 @@ export function canonicalRepositoryRelativePath(path: string): string | null {
 
 export type RepositoryEntryKind = "missing" | "file" | "other";
 
+export interface RepositoryEntryInspection {
+  stat(path: string): { isFile(): boolean };
+  readdir(path: string): string[];
+}
+
+const defaultRepositoryEntryInspection: RepositoryEntryInspection = {
+  stat: (path) => statSync(path),
+  readdir: (path) => readdirSync(path),
+};
+
+function missingPathError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === "ENOENT" || code === "ENOTDIR";
+}
+
+function repositoryInspectionError(
+  path: string,
+  error: unknown
+): Error {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  const detail = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `Could not inspect repository path '${path}'${code ? ` (${code})` : ""}: ${detail}`,
+    { cause: error }
+  );
+}
+
 /**
  * Inspect an entry using the repository's exact path spelling. This prevents a
  * case-insensitive filesystem alias from hiding the contract's canonical path.
  */
 export function repositoryEntryKindExactly(
   root: string,
-  repositoryRelativePath: string
+  repositoryRelativePath: string,
+  inspection: RepositoryEntryInspection = defaultRepositoryEntryInspection
 ): RepositoryEntryKind {
   const target = resolve(root, repositoryRelativePath);
   if (!withinRepository(root, target)) return "missing";
   let isFile: boolean;
   try {
-    isFile = statSync(target).isFile();
-  } catch {
-    return "missing";
+    isFile = inspection.stat(target).isFile();
+  } catch (error) {
+    if (missingPathError(error)) return "missing";
+    throw repositoryInspectionError(repositoryRelativePath, error);
   }
   const path = relative(root, target);
   if (path.length === 0) return isFile ? "file" : "other";
@@ -69,9 +98,10 @@ export function repositoryEntryKindExactly(
   let directory = root;
   for (const segment of path.split(sep)) {
     try {
-      if (!readdirSync(directory).includes(segment)) return "missing";
-    } catch {
-      return "missing";
+      if (!inspection.readdir(directory).includes(segment)) return "missing";
+    } catch (error) {
+      if (missingPathError(error)) return "missing";
+      throw repositoryInspectionError(repositoryRelativePath, error);
     }
     directory = resolve(directory, segment);
   }

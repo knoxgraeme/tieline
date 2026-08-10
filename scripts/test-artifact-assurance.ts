@@ -14,7 +14,12 @@ import {
   type ArtifactAssuranceInput,
 } from "../src/contract/artifact-assurance.js";
 import { createArtifactHashResolver } from "../src/contract/manifest.js";
-import { resolveSelector } from "../src/contract/selector.js";
+import {
+  createCachedSelectorResolver,
+  indexSourceSymbols,
+  resolveSelector,
+  resolveSelectorInSource,
+} from "../src/contract/selector.js";
 import { report, test } from "./lib/harness.js";
 
 const REPOSITORY = "assurance-fixture";
@@ -65,6 +70,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "current",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "resolved",
         locator_reason: null,
@@ -78,6 +84,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "stale",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "resolved",
         locator_reason: null,
@@ -91,6 +98,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "current",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "unresolved",
         locator_reason: null,
@@ -104,6 +112,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "broken",
+        freshness_reason: null,
         broken_cause: "missing",
         locator_resolution: "not_checked",
         locator_reason: "file_missing",
@@ -113,6 +122,7 @@ await test("reports the complete local freshness and locator status matrix", () 
 
     assert.deepEqual(inspector.inspect(artifact("src/current.ts", null, sha256(source))), {
       freshness: "current",
+      freshness_reason: null,
       broken_cause: null,
       locator_resolution: "not_applicable",
       locator_reason: null,
@@ -125,6 +135,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "current",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "not_checked",
         locator_reason: "no_symbols_extracted",
@@ -138,6 +149,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "current",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "not_checked",
         locator_reason: "unsupported_language",
@@ -149,6 +161,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       inspector.inspect(artifact("src", "function:currentFeature", null)),
       {
         freshness: "broken",
+        freshness_reason: null,
         broken_cause: "not_file",
         locator_resolution: "not_checked",
         locator_reason: "not_a_file",
@@ -162,6 +175,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "broken",
+        freshness_reason: null,
         broken_cause: "outside_repository",
         locator_resolution: "not_checked",
         locator_reason: "outside_repository",
@@ -175,6 +189,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "current",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "not_checked",
         locator_reason: "binary_content",
@@ -197,6 +212,7 @@ await test("reports the complete local freshness and locator status matrix", () 
       ),
       {
         freshness: "current",
+        freshness_reason: null,
         broken_cause: null,
         locator_resolution: "not_checked",
         locator_reason: "file_too_large",
@@ -238,6 +254,7 @@ await test("keeps cross-repository assurance unknown without local reads", () =>
     ),
     {
       freshness: "unknown",
+      freshness_reason: "cross_repository",
       broken_cause: null,
       locator_resolution: "not_checked",
       locator_reason: "cross_repository",
@@ -250,6 +267,7 @@ await test("keeps cross-repository assurance unknown without local reads", () =>
     ),
     {
       freshness: "unknown",
+      freshness_reason: "cross_repository",
       broken_cause: null,
       locator_resolution: "not_checked",
       locator_reason: "cross_repository",
@@ -277,6 +295,7 @@ await test("defers local filesystem initialization for remote-only reads", () =>
     ),
     {
       freshness: "unknown",
+      freshness_reason: "cross_repository",
       broken_cause: null,
       locator_resolution: "not_checked",
       locator_reason: "cross_repository",
@@ -337,6 +356,94 @@ await test("caches file measurement and locator inspection for one request", () 
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+await test("isolates a local inspection failure from readable sibling claims", () => {
+  const source = "export function readable(): void {}\n";
+  const inspector = createArtifactAssuranceInspector({
+    repositoryRoot: "/unused",
+    repositoryKey: REPOSITORY,
+    hashResolver: {
+      measure(path) {
+        if (path === "src/unreadable.ts") {
+          throw Object.assign(new Error("permission denied"), { code: "EACCES" });
+        }
+        return { status: "hashed", hash: sha256(source) };
+      },
+    },
+    selectorResolver(options) {
+      return resolveSelectorInSource(source, options.selector, {
+        path: options.path,
+        vocabulary: options.vocabulary,
+      });
+    },
+  });
+
+  assert.deepEqual(
+    inspector.inspect(
+      artifact("src/unreadable.ts", "function:unreadable", "0".repeat(64))
+    ),
+    {
+      freshness: "unknown",
+      freshness_reason: "unreadable",
+      broken_cause: null,
+      locator_resolution: "not_checked",
+      locator_reason: "unreadable",
+      semantic_support: "not_assessed",
+    }
+  );
+  assert.deepEqual(
+    inspector.inspect(
+      artifact("src/readable.ts", "function:readable", sha256(source))
+    ),
+    {
+      freshness: "current",
+      freshness_reason: null,
+      broken_cause: null,
+      locator_resolution: "resolved",
+      locator_reason: null,
+      semantic_support: "not_assessed",
+    }
+  );
+});
+
+await test("caches source reads and symbol indexes by normalized local path", () => {
+  const source = [
+    "export function first(): void {}",
+    "export function second(): void {}",
+    "",
+  ].join("\n");
+  let reads = 0;
+  let indexes = 0;
+  const resolver = createCachedSelectorResolver({
+    readSource() {
+      reads += 1;
+      return { status: "read", content: source };
+    },
+    indexSource(content) {
+      indexes += 1;
+      return indexSourceSymbols(content);
+    },
+  });
+
+  assert.equal(
+    resolver({
+      repositoryRoot: "/repository",
+      path: "src/repeated.ts",
+      selector: "function:first",
+    }).status,
+    "resolved"
+  );
+  assert.equal(
+    resolver({
+      repositoryRoot: "/repository",
+      path: "./src/repeated.ts",
+      selector: "function:second",
+    }).status,
+    "resolved"
+  );
+  assert.equal(reads, 1);
+  assert.equal(indexes, 1);
 });
 
 report();

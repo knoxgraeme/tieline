@@ -616,6 +616,13 @@ capability:
               target:
                 kind: code
                 repository: tieline
+                path: src/commands/contract-context.ts
+                selector: function:runContractContext
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
                 path: src/tools/intent-context.ts
                 selector: function:registerIntentContextTools
             - relation: tests
@@ -623,7 +630,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-command.ts
+                path: scripts/test-contract-context-command.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored

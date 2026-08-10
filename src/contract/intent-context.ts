@@ -21,6 +21,7 @@ import {
   type ContractIntentIndex,
   type IntentAcceptanceCriterionRecord,
 } from "./reconciliation.js";
+import { stableKeySchema } from "./schema.js";
 import { parseSelector } from "./selector.js";
 
 export type IntentAssetKind = "code" | "test";
@@ -313,7 +314,11 @@ function assetAnswer(
     locator.selector === null ? "" : ` at '${locator.selector}'`
   }`;
   if (status === "not_found") {
-    return `The ${described} was not found in the repository and has no accepted contract coupling.`;
+    return criterionCount > 0
+      ? `The ${described} was not found in the repository, but ${criterionCount} accepted ${
+          criterionCount === 1 ? "criterion still forms" : "criteria still form"
+        } its manifest-backed intent neighborhood. Inspect the broken assurance on each claim.`
+      : `The ${described} was not found in the repository and has no accepted contract coupling.`;
   }
   if (status === "no_criteria") {
     return `The ${described} exists, but no acceptance criteria apply to that exact locator.`;
@@ -350,12 +355,11 @@ export function lookupAssetIntentContext(
     );
   const root = resolve(input.repositoryRoot);
   const exists = repositoryEntryKindExactly(root, locator.path) === "file";
-  const status: AssetIntentContextStatus =
-    matches.length > 0
+  const status: AssetIntentContextStatus = !exists
+    ? "not_found"
+    : matches.length > 0
       ? "has_context"
-      : exists
-        ? "no_criteria"
-        : "not_found";
+      : "no_criteria";
   const criterionIds = [
     ...new Set(
       matches.map((entry) => entry.claim.acceptance_criterion_stable_id)
@@ -392,13 +396,14 @@ export function lookupAssetIntentContext(
 export function lookupAcceptanceCriterionIntentContext(
   input: AcceptanceCriterionIntentContextInput
 ): AcceptanceCriterionIntentContextResult {
-  if (typeof input.stableId !== "string" || input.stableId.trim().length === 0) {
+  const parsedStableId = stableKeySchema.safeParse(input.stableId);
+  if (!parsedStableId.success) {
     throw new IntentContextError(
       "invalid_stable_id",
-      "Acceptance Criterion stable ID must be a non-empty string."
+      "Acceptance Criterion stable ID must be 1-160 characters, start with a letter or digit, and contain only letters, digits, '.', '_', or '-'."
     );
   }
-  const requestedStableId = input.stableId.trim();
+  const requestedStableId = parsedStableId.data;
   const { identity, index, inspector } = contextParts(input);
   const record = index.acceptance_criteria_by_stable_id.get(requestedStableId);
   if (!record) {

@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { runCli, type TielineCliIO } from "../src/cli.js";
 import {
   IntentContextError,
   lookupAcceptanceCriterionIntentContext,
@@ -134,6 +135,13 @@ capability:
                 path: test/intent.test.ts
                 selector: function:secondBehavior
                 framework_hint: node-assert
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: intent-context-fixture
+                path: src//canonical.ts
+                selector: function:canonicalFeature
 `;
 
 function createFixture() {
@@ -149,6 +157,10 @@ function createFixture() {
   writeFileSync(
     resolve(root, "src/story.ts"),
     "export function storyFeature() {}\n"
+  );
+  writeFileSync(
+    resolve(root, "src/canonical.ts"),
+    "export function canonicalFeature() {}\n"
   );
   writeFileSync(resolve(root, "src/unsupported.rb"), "class UnsupportedFeature\nend\n");
   writeFileSync(
@@ -271,6 +283,38 @@ await test("preserves all path claims and filters optional kind honestly", () =>
   }
 });
 
+await test("canonicalizes authored claim paths exactly like asset queries", () => {
+  const fixture = createFixture();
+  try {
+    const context = lookupAssetIntentContext({
+      ...fixture,
+      locator: { path: "./src//canonical.ts" },
+    });
+    assert.equal(context.status, "has_context");
+    assert.equal(context.locator.path, "src/canonical.ts");
+    assert.deepEqual(
+      context.matching_claims.map((claim) => [
+        claim.acceptance_criterion_stable_id,
+        claim.target.path,
+        claim.target.selector,
+      ]),
+      [
+        [
+          "INTENT-001-AC2",
+          "src/canonical.ts",
+          "function:canonicalFeature",
+        ],
+      ]
+    );
+    assert.equal(
+      context.matching_claims[0]?.assurance.locator_resolution,
+      "resolved"
+    );
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 await test("expands Story fallback one hop to each criterion's direct evidence", () => {
   const fixture = createFixture();
   try {
@@ -338,6 +382,7 @@ await test("returns complete AC context with separate assurance dimensions", () 
     );
     assert.deepEqual(current?.assurance, {
       freshness: "current",
+      freshness_reason: null,
       broken_cause: null,
       locator_resolution: "resolved",
       locator_reason: null,
@@ -361,6 +406,10 @@ await test("returns complete AC context with separate assurance dimensions", () 
       (claim) => claim.target.repository === "another-repository"
     );
     assert.equal(external?.assurance.freshness, "unknown");
+    assert.equal(
+      external?.assurance.freshness_reason,
+      "cross_repository"
+    );
     assert.equal(external?.assurance.locator_reason, "cross_repository");
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
@@ -419,6 +468,100 @@ await test("distinguishes negative results and malformed locators", () => {
     assert.equal(unknown.status, "not_found");
     assert.equal(unknown.intent_neighborhood, null);
     assert.match(unknown.answer, /INTENT-404-AC1/);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+await test("keeps missing claimed assets as not-found broken context", () => {
+  const fixture = createFixture();
+  try {
+    const context = lookupAssetIntentContext({
+      ...fixture,
+      locator: {
+        path: "src/missing.ts",
+        kind: "code",
+        selector: "function:missingFeature",
+      },
+    });
+    assert.equal(context.status, "not_found");
+    assert.equal(context.exists, false);
+    assert.equal(context.matching_claims.length, 1);
+    assert.equal(context.intent_neighborhood.length, 1);
+    assert.deepEqual(context.matching_claims[0]?.assurance, {
+      freshness: "broken",
+      freshness_reason: null,
+      broken_cause: "missing",
+      locator_resolution: "not_checked",
+      locator_reason: "file_missing",
+      semantic_support: "not_assessed",
+    });
+    assert.match(context.answer, /manifest-backed intent neighborhood/i);
+    assert.equal(
+      context.intent_neighborhood[0]?.direct_claims.some(
+        (claim) =>
+          claim.target.path === "src/missing.ts" &&
+          claim.assurance.broken_cause === "missing"
+      ),
+      true
+    );
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+await test("enforces one stable-ID contract in the library and CLI", async () => {
+  const fixture = createFixture();
+  let output = "";
+  const io: TielineCliIO = {
+    write(message) {
+      output += message;
+    },
+    error(message) {
+      throw new Error(message);
+    },
+    async question() {
+      throw new Error("intent context must not prompt");
+    },
+  };
+  try {
+    assert.equal(
+      lookupAcceptanceCriterionIntentContext({
+        ...fixture,
+        stableId: "A".repeat(160),
+      }).status,
+      "not_found"
+    );
+    for (const stableId of ["bad id", "A".repeat(161)]) {
+      assert.throws(
+        () =>
+          lookupAcceptanceCriterionIntentContext({
+            ...fixture,
+            stableId,
+          }),
+        (error: unknown) =>
+          error instanceof IntentContextError &&
+          error.code === "invalid_stable_id"
+      );
+      output = "";
+      await assert.rejects(
+        runCli(
+          [
+            "contract",
+            "context",
+            "--repository",
+            fixture.root,
+            "--ac",
+            stableId,
+            "--json",
+          ],
+          io,
+          {}
+        ),
+        /stable ID must be 1-160 characters/i
+      );
+      assert.equal(output, "");
+    }
   } finally {
     rmSync(fixture.root, { recursive: true, force: true });
   }
@@ -574,6 +717,14 @@ await test("registers primitive offline MCP context reads with strict parity", a
     const acSchema = z.object(acTool.config.inputSchema).strict();
     assert.equal(acSchema.safeParse({ stable_id: "" }).success, false);
     assert.equal(acSchema.safeParse({ stable_id: "bad id" }).success, false);
+    assert.equal(
+      acSchema.safeParse({ stable_id: "A".repeat(160) }).success,
+      true
+    );
+    assert.equal(
+      acSchema.safeParse({ stable_id: "A".repeat(161) }).success,
+      false
+    );
     assert.equal(acSchema.safeParse({}).success, false);
 
     process.env.TIELINE_WORKSPACE = fixture.root;
