@@ -107,12 +107,6 @@ function repositoryRelativePath(
   return normalized.length > 0 ? normalized : ".";
 }
 
-/**
- * Match the exact repository spelling used by the contract index. On a
- * case-insensitive filesystem, `existsSync("src/Foo.ts")` also succeeds for an
- * actual `src/foo.ts`; treating that alias as an existing path with no criteria
- * would hide the criteria that apply to the real file.
- */
 function answerFor(
   path: string,
   criterionCount: number,
@@ -143,8 +137,7 @@ export function lookupPathCriteria(input: {
   const results = input.paths.map((requested): PathCriteriaResult => {
     const path = repositoryRelativePath(root, requested);
     const criteria = [...(index.get(path) ?? [])];
-    const target = resolve(root, path);
-    const exists = repositoryEntryKindExactly(root, target) !== "missing";
+    const exists = repositoryEntryKindExactly(root, path) !== "missing";
     const acceptanceCriterionCount = new Set(
       criteria.map((entry) => entry.acceptance_criterion_stable_id)
     ).size;

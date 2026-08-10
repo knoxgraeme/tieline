@@ -182,7 +182,9 @@ function brokenLinkImpact(input: {
   };
 }
 
-function linkKey(impact: AcceptanceCriterionImpact): string {
+function impactIdentityFields(
+  impact: AcceptanceCriterionImpact
+): readonly string[] {
   return [
     impact.acceptance_criterion_stable_id,
     impact.target_kind ?? "",
@@ -192,26 +194,24 @@ function linkKey(impact: AcceptanceCriterionImpact): string {
     impact.framework_hint ?? "",
     impact.relation,
     impact.link_scope,
-  ].join("\0");
+  ];
+}
+
+function linkKey(impact: AcceptanceCriterionImpact): string {
+  return impactIdentityFields(impact).join("\0");
 }
 
 function compareImpacts(
   left: AcceptanceCriterionImpact,
   right: AcceptanceCriterionImpact
 ): number {
-  return (
-    left.acceptance_criterion_stable_id.localeCompare(
-      right.acceptance_criterion_stable_id
-    ) ||
-    (left.target_kind ?? "").localeCompare(right.target_kind ?? "") ||
-    left.repository.localeCompare(right.repository) ||
-    left.path.localeCompare(right.path) ||
-    (left.selector ?? "").localeCompare(right.selector ?? "") ||
-    (left.framework_hint ?? "").localeCompare(right.framework_hint ?? "") ||
-    left.relation.localeCompare(right.relation) ||
-    left.link_scope.localeCompare(right.link_scope) ||
-    left.reason.localeCompare(right.reason)
-  );
+  const leftIdentity = impactIdentityFields(left);
+  const rightIdentity = impactIdentityFields(right);
+  for (let index = 0; index < leftIdentity.length; index++) {
+    const compared = leftIdentity[index]!.localeCompare(rightIdentity[index]!);
+    if (compared !== 0) return compared;
+  }
+  return left.reason.localeCompare(right.reason);
 }
 
 export function analyzeContractImpact(input: {

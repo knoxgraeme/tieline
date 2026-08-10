@@ -53,8 +53,9 @@ export type RepositoryEntryKind = "missing" | "file" | "other";
  */
 export function repositoryEntryKindExactly(
   root: string,
-  target: string
+  repositoryRelativePath: string
 ): RepositoryEntryKind {
+  const target = resolve(root, repositoryRelativePath);
   if (!withinRepository(root, target)) return "missing";
   let isFile: boolean;
   try {

@@ -186,7 +186,6 @@ function canonicalLocator(
   };
 }
 
-/** Case-exact file existence, so filesystem aliases cannot hide linked intent. */
 function targetFor(claim: ClaimingCriterion): IntentAssetTarget {
   return {
     kind: claim.target_kind,
@@ -350,8 +349,7 @@ export function lookupAssetIntentContext(
         ) || compareClaimFields(left.claim, right.claim)
     );
   const root = resolve(input.repositoryRoot);
-  const exists =
-    repositoryEntryKindExactly(root, resolve(root, locator.path)) === "file";
+  const exists = repositoryEntryKindExactly(root, locator.path) === "file";
   const status: AssetIntentContextStatus =
     matches.length > 0
       ? "has_context"
