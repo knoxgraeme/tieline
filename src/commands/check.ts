@@ -155,10 +155,33 @@ function truncate(text: string, max: number): string {
 
 function findingLine(impact: AcceptanceCriterionImpact): string {
   const level = isBrokenImpact(impact) ? "error" : "warn ";
-  const detail = impact.broken_cause
-    ? `broken: ${describeBrokenCause(impact.broken_cause)}`
-    : impact.freshness;
-  return `    ${level} ${impact.reason} ${impact.path} (${detail})`;
+  const details = [
+    impact.broken_cause
+      ? `broken: ${describeBrokenCause(impact.broken_cause)}`
+      : impact.freshness,
+  ];
+  if (impact.target_kind !== null) {
+    const locator = impact.selector
+      ? `selector ${impact.selector}`
+      : "locator";
+    switch (impact.locator_resolution) {
+      case "resolved":
+        details.push(`${locator} resolved`);
+        break;
+      case "unresolved":
+        details.push(`${locator} unresolved; re-read the exact locator`);
+        break;
+      case "not_checked":
+        details.push(
+          `${locator} not checked (${impact.locator_reason ?? "reason unavailable"}; inspection limitation)`
+        );
+        break;
+      case "not_applicable":
+        details.push("locator not applicable (file-level link)");
+        break;
+    }
+  }
+  return `    ${level} ${impact.reason} ${impact.path} (${details.join("; ")})`;
 }
 
 function groupByCriterion(
