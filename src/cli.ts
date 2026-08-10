@@ -23,7 +23,11 @@ import {
   type SkillfishProcessRunner,
   type SkillInstallScope,
 } from "./tieline/skill-install.js";
-import { statusFromPath, type TielineStatus } from "./tieline/status.js";
+import {
+  ONBOARDING_SKILL_INSTALL_COMMAND,
+  statusFromPath,
+  type TielineStatus,
+} from "./tieline/status.js";
 
 export interface TielineCliIO {
   write(message: string): void;
@@ -86,7 +90,7 @@ export function renderStatus(status: TielineStatus, ui: Palette): string {
     `  root: ${status.root}`,
     `  runtime: profile=${state(status.runtime.profile_present, "present", "missing")}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${state(status.runtime.setup_complete, "complete", "incomplete")}`,
     `  optional capabilities: organization_matching=${state(status.capabilities.semantic_matching_configured, "configured", "not configured")}, planning_writes=${state(status.capabilities.planning_writes_configured, "configured", "not configured")}`,
-    `  integration: mcp=${state(status.integration.mcp_clients.length > 0, status.integration.mcp_clients.join(", "), "not registered (rerun `tieline init .`)")}`,
+    `  integration: mcp=${state(status.integration.mcp_clients.length > 0, status.integration.mcp_clients.join(", "), `not registered (rerun \`${ONBOARDING_SKILL_INSTALL_COMMAND}\`)`)}`,
     `  contract: ${status.contract.stories} Stories, ${status.contract.acceptance_criteria} ACs, manifest=${state(status.contract.manifest_exists, "present", "missing")}`,
   ];
   if (status.onboarding) {
@@ -273,7 +277,10 @@ function buildProgram(
       "--skip-skill-install",
       "initialize without installing tieline"
     )
-    .option("--yes", "accept detected defaults without prompting")
+    .option(
+      "--yes",
+      "accept detected defaults without prompting (pair with --agent or --skip-skill-install when setup needs a skill)"
+    )
     .option("--skip-migrate", "skip applying database migrations")
     .option(
       "--install-local-embedder",

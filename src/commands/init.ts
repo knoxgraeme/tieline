@@ -56,6 +56,7 @@ import {
 import {
   getTielineStatus,
   ONBOARDING_AGENT_INSTRUCTION,
+  ONBOARDING_SKILL_INSTALL_COMMAND,
 } from "../tieline/status.js";
 import {
   findTielineWorkspace,
@@ -221,7 +222,10 @@ function renderInitSummary(
       ui.bold("Next step"),
       "  Retry the install by running:",
       "",
-      ...renderCopyCallout(ui, skill.retryCommand ?? "tieline init .")
+      ...renderCopyCallout(
+        ui,
+        skill.retryCommand ?? ONBOARDING_SKILL_INSTALL_COMMAND
+      )
     );
   } else {
     lines.push(
@@ -230,7 +234,7 @@ function renderInitSummary(
       ui.bold("Next step"),
       "  Install the tieline skill by running:",
       "",
-      ...renderCopyCallout(ui, "tieline init .")
+      ...renderCopyCallout(ui, ONBOARDING_SKILL_INSTALL_COMMAND)
     );
   }
   io.write(`${lines.join("\n")}\n`);
@@ -267,12 +271,6 @@ export async function runInit(
 
   if (existing) {
     const existingStatus = getTielineStatus(existing, env);
-    skillSelection = await resolveSkillSelection(
-      parsed,
-      io,
-      Boolean(io.interactive && !parsed.yes && existingStatus.onboarding),
-      env
-    );
     const stored = readWorkspaceProfile(existing, env);
     const databaseMode = parsed.databaseExplicit
       ? parsed.database
@@ -287,6 +285,12 @@ export async function runInit(
       parsed.databaseExplicit ||
       parsed.embeddingExplicit ||
       parsed.installLocalEmbedder;
+    skillSelection = await resolveSkillSelection(
+      parsed,
+      io,
+      Boolean(existingStatus.onboarding || shouldConfigure),
+      env
+    );
     if (shouldConfigure) {
       env.EMBEDDING_PROVIDER = embeddingProvider;
       await configureWorkspaceRuntime({
@@ -367,7 +371,7 @@ export async function runInit(
   skillSelection = await resolveSkillSelection(
     parsed,
     io,
-    richInteractive,
+    true,
     env
   );
 
@@ -430,7 +434,7 @@ export async function runInit(
 async function resolveSkillSelection(
   parsed: InitOptions,
   io: TielineCliIO,
-  offerInteractive: boolean,
+  requireSelection: boolean,
   env: NodeJS.ProcessEnv
 ): Promise<SkillInstallSelection | null> {
   if (parsed.skipSkillInstall) return null;
@@ -439,16 +443,23 @@ async function resolveSkillSelection(
       ? normalizeSkillAgentIds(parsed.agents)
       : [];
   if (agents.length === 0) {
-    if (!offerInteractive) return null;
+    if (!requireSelection) return null;
+    if (!io.interactive || parsed.yes) {
+      throw new Error(
+        "Non-interactive init requires at least one --agent <id>, or --skip-skill-install."
+      );
+    }
     agents = await multiselectChoice<SkillAgentId>(
       io,
       "Where should Tieline install its onboarding and authoring skill?",
       SKILL_AGENT_OPTIONS,
       detectRepositoryAgents(parsed.target, env)
     );
-    // Deselecting everything is a choice, not an error: initialize the
-    // workspace without pushing the skill into any agent.
-    if (agents.length === 0) return null;
+    if (agents.length === 0) {
+      throw new Error(
+        "Select at least one agent, or rerun with --skip-skill-install."
+      );
+    }
   }
   return { agents, scope: parsed.skillScope ?? "project" };
 }
