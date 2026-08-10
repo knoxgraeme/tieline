@@ -232,15 +232,20 @@ await test("uses exact path spelling for freshness and selector assurance", () =
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const source = "export function currentFeature(): void {}\n";
+    const secondSource = "export const secondFeature = true;\n";
     writeFileSync(resolve(root, "src/current.ts"), source);
+    writeFileSync(resolve(root, "src/second.ts"), secondSource);
     let selectorInspections = 0;
+    let directoryInspections = 0;
     const hashResolver = createArtifactHashResolver(root, {
       entryInspection: {
         stat: (path) => statSync(path),
-        readdir: (path) =>
-          readdirSync(path).map((entry) =>
+        readdir: (path) => {
+          directoryInspections += 1;
+          return readdirSync(path).map((entry) =>
             entry === "current.ts" ? "CURRENT.ts" : entry
-          ),
+          );
+        },
       },
     });
     const inspector = createArtifactAssuranceInspector({
@@ -270,6 +275,16 @@ await test("uses exact path spelling for freshness and selector assurance", () =
       selectorInspections,
       0,
       "a spelling miss must not inspect a filesystem alias"
+    );
+    assert.equal(
+      inspector.inspect(artifact("src/second.ts", null, sha256(secondSource)))
+        .freshness,
+      "current"
+    );
+    assert.equal(
+      directoryInspections,
+      2,
+      "shared parent directories are listed once per inspector"
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

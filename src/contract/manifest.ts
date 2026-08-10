@@ -28,6 +28,7 @@ import type {
 } from "./schema.js";
 import { loadAcceptedContractWithSources } from "./load.js";
 import {
+  createCachedRepositoryEntryInspection,
   repositoryEntryKindExactly,
   withinRepository,
   type RepositoryEntryInspection,
@@ -253,6 +254,9 @@ export function createArtifactHashResolver(
 ): ArtifactHashResolver {
   const root = resolve(repositoryRoot);
   const realRoot = realpathSync(root);
+  const entryInspection = createCachedRepositoryEntryInspection(
+    options.entryInspection
+  );
   const measured = new Map<string, ArtifactHashResult>();
   return {
     measure(path) {
@@ -264,7 +268,7 @@ export function createArtifactHashResolver(
         const kind = repositoryEntryKindExactly(
           root,
           path,
-          options.entryInspection
+          entryInspection
         );
         if (kind === "missing") {
           result = { status: "missing" };
@@ -550,18 +554,30 @@ interface ManifestAssemblyErrors {
   duplicateInput(path: string, claimedBy: string, stableId: string): string;
   duplicateStableId(
     stableId: string,
-    firstKind: string,
-    firstShard: string,
-    duplicateKind: string,
-    duplicateShard: string
+    first: ManifestStableIdLocation,
+    duplicate: ManifestStableIdLocation
   ): string;
   noCapabilities(): string;
 }
 
+type ManifestStableIdKind =
+  | "capability"
+  | "story"
+  | "acceptance criterion"
+  | "scenario";
+
+interface ManifestStableIdLocation {
+  kind: ManifestStableIdKind;
+  shard: string;
+}
+
 function manifestStableIds(
   capability: ManifestCapability
-): Array<{ stableId: string; kind: string }> {
-  const records = [
+): Array<{ stableId: string; kind: ManifestStableIdKind }> {
+  const records: Array<{
+    stableId: string;
+    kind: ManifestStableIdKind;
+  }> = [
     { stableId: capability.stable_id, kind: "capability" },
   ];
   for (const story of capability.stories) {
@@ -615,7 +631,7 @@ function assembleContractManifest(
   const claimedInputs = new Map<string, string>();
   const claimedStableIds = new Map<
     string,
-    { kind: string; shard: string }
+    ManifestStableIdLocation
   >();
   const shards = files
     .filter(
@@ -647,10 +663,8 @@ function assembleContractManifest(
         throw new ContractManifestError(
           errors.duplicateStableId(
             record.stableId,
-            claimed.kind,
-            claimed.shard,
-            record.kind,
-            file.name
+            claimed,
+            { kind: record.kind, shard: file.name }
           )
         );
       }
@@ -714,14 +728,8 @@ export function readContractManifest(directory: string): ContractManifest {
       `Contract manifest file '${resolve(root, name)}' holds capability '${stableId}', which belongs in '${expected}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     duplicateInput: (path, claimedBy, stableId) =>
       `Contract manifest capabilities '${claimedBy}' and '${stableId}' both record spec file '${path}'. Each spec file declares exactly one capability. Run 'tieline contract compile .' to regenerate the manifest.`,
-    duplicateStableId: (
-      stableId,
-      firstKind,
-      firstShard,
-      duplicateKind,
-      duplicateShard
-    ) =>
-      `Contract manifest duplicate stable ID '${stableId}' is used by ${firstKind} in '${resolve(root, firstShard)}' and ${duplicateKind} in '${resolve(root, duplicateShard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
+    duplicateStableId: (stableId, first, duplicate) =>
+      `Contract manifest duplicate stable ID '${stableId}' is used by ${first.kind} in '${resolve(root, first.shard)}' and ${duplicate.kind} in '${resolve(root, duplicate.shard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     noCapabilities: () =>
       `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`,
   });
@@ -761,14 +769,8 @@ export function parseContractManifestSnapshot(
       `The contract manifest file '${name}' at ${origin} holds capability '${stableId}', which belongs in '${expected}'.`,
     duplicateInput: (path, claimedBy, stableId) =>
       `The contract manifest at ${origin} records spec file '${path}' under capabilities '${claimedBy}' and '${stableId}'. Each spec file declares exactly one capability.`,
-    duplicateStableId: (
-      stableId,
-      firstKind,
-      firstShard,
-      duplicateKind,
-      duplicateShard
-    ) =>
-      `The contract manifest at ${origin} has duplicate stable ID '${stableId}', used by ${firstKind} in '${firstShard}' and ${duplicateKind} in '${duplicateShard}'.`,
+    duplicateStableId: (stableId, first, duplicate) =>
+      `The contract manifest at ${origin} has duplicate stable ID '${stableId}', used by ${first.kind} in '${first.shard}' and ${duplicate.kind} in '${duplicate.shard}'.`,
     noCapabilities: () =>
       `The contract manifest at ${origin} has an index but no capabilities.`,
   });

@@ -50,12 +50,32 @@ export type RepositoryEntryKind = "missing" | "file" | "other";
 export interface RepositoryEntryInspection {
   stat(path: string): { isFile(): boolean };
   readdir(path: string): string[];
+  hasEntry?(directory: string, entry: string): boolean;
 }
 
 const defaultRepositoryEntryInspection: RepositoryEntryInspection = {
   stat: (path) => statSync(path),
   readdir: (path) => readdirSync(path),
 };
+
+/** Cache exact directory names for a request that inspects several assets. */
+export function createCachedRepositoryEntryInspection(
+  inspection: RepositoryEntryInspection = defaultRepositoryEntryInspection
+): RepositoryEntryInspection {
+  const entriesByDirectory = new Map<string, ReadonlySet<string>>();
+  return {
+    stat: (path) => inspection.stat(path),
+    readdir: (path) => inspection.readdir(path),
+    hasEntry(directory, entry) {
+      let entries = entriesByDirectory.get(directory);
+      if (!entries) {
+        entries = new Set(inspection.readdir(directory));
+        entriesByDirectory.set(directory, entries);
+      }
+      return entries.has(entry);
+    },
+  };
+}
 
 function missingPathError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | null)?.code;
@@ -100,7 +120,10 @@ export function repositoryEntryKindExactly(
   let directory = root;
   for (const segment of path.split(sep)) {
     try {
-      if (!inspection.readdir(directory).includes(segment)) return "missing";
+      const exists = inspection.hasEntry
+        ? inspection.hasEntry(directory, segment)
+        : inspection.readdir(directory).includes(segment);
+      if (!exists) return "missing";
     } catch (error) {
       if (missingPathError(error)) return "missing";
       throw repositoryInspectionError(repositoryRelativePath, error);
