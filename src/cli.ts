@@ -24,6 +24,10 @@ import {
   type SkillInstallScope,
 } from "./tieline/skill-install.js";
 import { statusFromPath, type TielineStatus } from "./tieline/status.js";
+import type {
+  ContractAction,
+  ContractCommandOptions,
+} from "./commands/contract.js";
 
 export interface TielineCliIO {
   write(message: string): void;
@@ -185,24 +189,11 @@ function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
 
-interface ContractActionOptions {
-  repo?: string;
-  commit?: string;
-  output?: string;
-  spec?: string;
-  expectedPreviousCommit?: string;
-  base?: string;
-  emitScope?: boolean;
-  verify?: string;
-  strict?: boolean;
-  save?: boolean;
-  json?: boolean;
-  paths?: string[];
-  path?: string;
-  kind?: string;
-  selector?: string;
-  ac?: string;
-}
+type SharedContractAction = Exclude<
+  ContractAction,
+  "criteria" | "context" | "grade"
+>;
+type ContractActionOptions = Omit<ContractCommandOptions, "repository">;
 
 function buildProgram(
   io: TielineCliIO,
@@ -338,7 +329,7 @@ function buildProgram(
     .command("contract")
     .description("Validate, review, compile, query, and sync the living contract");
   const contractAction = (
-    name: string,
+    name: SharedContractAction,
     description: string
   ): Command => {
     const sub = contract
@@ -356,17 +347,7 @@ function buildProgram(
       const { runContractCommand } = await import("./commands/contract.js");
       setExit(
         await runContractCommand(
-          name as
-            | "validate"
-            | "review"
-            | "compile"
-            | "coverage"
-            | "link-review"
-            | "reconcile"
-            | "criteria"
-            | "context"
-            | "grade"
-            | "sync",
+          name,
           { repository, ...(opts as ContractActionOptions) },
           io
         )

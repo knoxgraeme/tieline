@@ -261,6 +261,30 @@ await test("keeps cross-repository assurance unknown without local reads", () =>
   assert.equal(selectorInspections, 0);
 });
 
+await test("defers local filesystem initialization for remote-only reads", () => {
+  const inspector = createArtifactAssuranceInspector({
+    repositoryRoot: "/path-that-does-not-exist",
+    repositoryKey: REPOSITORY,
+  });
+  assert.deepEqual(
+    inspector.inspect(
+      artifact(
+        "src/remote.ts",
+        "function:remoteFeature",
+        "0".repeat(64),
+        "another-repository"
+      )
+    ),
+    {
+      freshness: "unknown",
+      broken_cause: null,
+      locator_resolution: "not_checked",
+      locator_reason: "cross_repository",
+      semantic_support: "not_assessed",
+    }
+  );
+});
+
 await test("caches file measurement and locator inspection for one request", () => {
   const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-cache-"));
   try {

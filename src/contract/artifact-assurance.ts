@@ -108,11 +108,8 @@ function locatorFromResolution(
 export function createArtifactAssuranceInspector(
   options: CreateArtifactAssuranceInspectorOptions
 ): ArtifactAssuranceInspector {
-  const hashes =
-    options.hashResolver ?? createArtifactHashResolver(options.repositoryRoot);
-  const vocabulary =
-    options.selectorVocabulary ??
-    selectorVocabularyForRepository(options.repositoryRoot);
+  let hashes = options.hashResolver;
+  let vocabulary = options.selectorVocabulary;
   const selectorResolver = options.selectorResolver ?? resolveSelector;
   const measurements = new Map<
     string,
@@ -127,6 +124,7 @@ export function createArtifactAssuranceInspector(
   const measure = (path: string) => {
     const cached = measurements.get(path);
     if (cached) return cached;
+    hashes ??= createArtifactHashResolver(options.repositoryRoot);
     const measured = hashes.measure(path);
     measurements.set(path, measured);
     return measured;
@@ -156,7 +154,9 @@ export function createArtifactAssuranceInspector(
         repositoryRoot: options.repositoryRoot,
         path: target.path,
         selector: target.selector,
-        vocabulary,
+        vocabulary:
+          vocabulary ??=
+            selectorVocabularyForRepository(options.repositoryRoot),
         ...(options.maxSourceBytes === undefined
           ? {}
           : { maxSourceBytes: options.maxSourceBytes }),

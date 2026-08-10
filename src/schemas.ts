@@ -10,6 +10,7 @@ import {
   testTargetSchema,
 } from "./contract/schema.js";
 import { parseSelector } from "./contract/selector.js";
+import { canonicalRepositoryRelativePath } from "./contract/paths.js";
 
 const stableId = z
   .string()
@@ -285,21 +286,10 @@ const exactAssetPath = z
   .trim()
   .min(1)
   .max(1_000)
-  .refine((value) => {
-    const portable = value.normalize("NFC").replaceAll("\\", "/");
-    if (portable.startsWith("/") || /^[A-Za-z]:\//.test(portable)) return false;
-    const segments: string[] = [];
-    for (const segment of portable.split("/")) {
-      if (segment === "" || segment === ".") continue;
-      if (segment === "..") {
-        if (segments.length === 0) return false;
-        segments.pop();
-      } else {
-        segments.push(segment);
-      }
-    }
-    return segments.length > 0;
-  }, "must name a file inside the repository");
+  .refine(
+    (value) => canonicalRepositoryRelativePath(value) !== null,
+    "must name a file inside the repository"
+  );
 
 const exactAssetSelector = z
   .string()
@@ -338,9 +328,7 @@ export type GetAcceptanceCriterionContextInput = z.infer<
 >;
 
 const intentContextHash = z.string().regex(/^[a-f0-9]{64}$/);
-const intentContextApplicability = z
-  .record(z.array(z.string().trim().min(1)))
-  .nullable();
+const intentContextApplicability = applicability.nullable();
 const intentContextRepository = z.object({ key: z.string().min(1) }).strict();
 const intentContextTarget = z
   .object({

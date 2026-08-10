@@ -395,6 +395,14 @@ await test("distinguishes negative results and malformed locators", () => {
         error.code === "malformed_selector" &&
         /bare symbol/i.test(error.message)
     );
+    assert.equal(
+      lookupAssetIntentContext({
+        ...fixture,
+        locator: { path: "src/shared.ts/" },
+      }).locator.path,
+      "src/shared.ts",
+      "canonical path normalization preserves the established trailing-slash behavior"
+    );
     assert.throws(
       () =>
         lookupAssetIntentContext({

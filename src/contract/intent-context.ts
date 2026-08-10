@@ -3,17 +3,7 @@
  * Criteria. Both reads consume reconciliation's shared intent index and expand
  * at most one Acceptance-Criterion-mediated hop.
  */
-import {
-  existsSync,
-  readdirSync,
-  statSync,
-} from "node:fs";
-import {
-  isAbsolute,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { resolve } from "node:path";
 import {
   createArtifactAssuranceInspector,
   type ArtifactAssurance,
@@ -21,7 +11,10 @@ import {
   type ArtifactTarget,
 } from "./artifact-assurance.js";
 import { manifestDigest, type ContractManifest } from "./manifest.js";
-import { withinRepository } from "./paths.js";
+import {
+  canonicalRepositoryRelativePath,
+  repositoryEntryKindExactly,
+} from "./paths.js";
 import {
   buildContractIntentIndex,
   type ClaimingCriterion,
@@ -153,32 +146,8 @@ function canonicalPath(path: unknown): string {
       "Asset path must be a non-empty repository-relative path."
     );
   }
-  const portable = path.normalize("NFC").trim().replaceAll("\\", "/");
-  if (isAbsolute(portable) || /^[A-Za-z]:\//.test(portable)) {
-    throw new IntentContextError(
-      "invalid_path",
-      `Asset path '${path}' must be repository-relative.`
-    );
-  }
-  const normalized = portable
-    .split("/")
-    .reduce<string[]>((segments, segment) => {
-      if (segment === "" || segment === ".") return segments;
-      if (segment === "..") {
-        if (segments.length === 0) segments.push("..");
-        else if (segments.at(-1) === "..") segments.push("..");
-        else segments.pop();
-      } else {
-        segments.push(segment);
-      }
-      return segments;
-    }, [])
-    .join("/");
-  if (
-    normalized.length === 0 ||
-    normalized === ".." ||
-    normalized.startsWith("../")
-  ) {
+  const normalized = canonicalRepositoryRelativePath(path);
+  if (normalized === null) {
     throw new IntentContextError(
       "invalid_path",
       `Asset path '${path}' must name a file inside the repository.`
@@ -218,26 +187,6 @@ function canonicalLocator(
 }
 
 /** Case-exact file existence, so filesystem aliases cannot hide linked intent. */
-function repositoryFileExistsExactly(root: string, path: string): boolean {
-  const target = resolve(root, path);
-  if (!withinRepository(root, target) || !existsSync(target)) return false;
-  try {
-    if (!statSync(target).isFile()) return false;
-  } catch {
-    return false;
-  }
-  let directory = root;
-  for (const segment of relative(root, target).split(sep)) {
-    try {
-      if (!readdirSync(directory).includes(segment)) return false;
-    } catch {
-      return false;
-    }
-    directory = resolve(directory, segment);
-  }
-  return true;
-}
-
 function targetFor(claim: ClaimingCriterion): IntentAssetTarget {
   return {
     kind: claim.target_kind,
@@ -401,7 +350,8 @@ export function lookupAssetIntentContext(
         ) || compareClaimFields(left.claim, right.claim)
     );
   const root = resolve(input.repositoryRoot);
-  const exists = repositoryFileExistsExactly(root, locator.path);
+  const exists =
+    repositoryEntryKindExactly(root, resolve(root, locator.path)) === "file";
   const status: AssetIntentContextStatus =
     matches.length > 0
       ? "has_context"
