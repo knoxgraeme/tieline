@@ -618,6 +618,17 @@ await test("indexes declared symbols by kind, ignoring comments and strings", ()
   assert.ok(!index.all.includes("renameMe"));
 });
 
+await test("scans deeply nested templates without exhausting the call stack", () => {
+  let template = "0";
+  for (let depth = 0; depth < 5_000; depth += 1) {
+    template = `\`\${${template}}\``;
+  }
+  const index = indexSourceSymbols(
+    `const nested = ${template};\nexport function afterNestedTemplate() {}\n`
+  );
+  assert.ok(index.kinds.function.includes("afterNestedTemplate"));
+});
+
 await test("resolves core-kind selectors against the file the link targets", () => {
   const root = fixtureRoot();
   try {
