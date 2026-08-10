@@ -250,6 +250,36 @@ function createFixture() {
   };
 }
 
+await test("rejects duplicate stable IDs before exact context reads", () => {
+  const fixture = createFixture();
+  try {
+    const manifestDirectory = resolve(fixture.root, ".tieline/manifest");
+    const original = JSON.parse(
+      readFileSync(resolve(manifestDirectory, "INTENT.json"), "utf8")
+    ) as {
+      input: { path: string };
+      capability: {
+        stable_id: string;
+        stories: Array<{ stable_id: string }>;
+      };
+    };
+    const duplicate = structuredClone(original);
+    duplicate.input.path = ".tieline/spec/duplicate.yaml";
+    duplicate.capability.stable_id = "DUPLICATE";
+    duplicate.capability.stories[0]!.stable_id = "DUPLICATE-001";
+    writeFileSync(
+      resolve(manifestDirectory, "DUPLICATE.json"),
+      `${JSON.stringify(duplicate, null, 2)}\n`
+    );
+
+    const resolution = resolveManifestIntentContext(fixture.root);
+    assert.equal(resolution.status, "no_manifest");
+    assert.match(resolution.message, /duplicate stable ID/i);
+  } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
 await test("matches exact selectors plus file claims and excludes sibling selectors", () => {
   const fixture = createFixture();
   try {

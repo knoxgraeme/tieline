@@ -548,7 +548,35 @@ interface ManifestAssemblyErrors {
   missingIndex(): string;
   shardNameMismatch(name: string, stableId: string, expected: string): string;
   duplicateInput(path: string, claimedBy: string, stableId: string): string;
+  duplicateStableId(
+    stableId: string,
+    firstKind: string,
+    firstShard: string,
+    duplicateKind: string,
+    duplicateShard: string
+  ): string;
   noCapabilities(): string;
+}
+
+function manifestStableIds(
+  capability: ManifestCapability
+): Array<{ stableId: string; kind: string }> {
+  const records = [
+    { stableId: capability.stable_id, kind: "capability" },
+  ];
+  for (const story of capability.stories) {
+    records.push({ stableId: story.stable_id, kind: "story" });
+    for (const criterion of story.acceptance_criteria) {
+      records.push({
+        stableId: criterion.stable_id,
+        kind: "acceptance criterion",
+      });
+      for (const scenario of criterion.scenarios) {
+        records.push({ stableId: scenario.stable_id, kind: "scenario" });
+      }
+    }
+  }
+  return records;
 }
 
 /**
@@ -585,6 +613,10 @@ function assembleContractManifest(
   const inputs: ManifestInput[] = [];
   const capabilities: ManifestCapability[] = [];
   const claimedInputs = new Map<string, string>();
+  const claimedStableIds = new Map<
+    string,
+    { kind: string; shard: string }
+  >();
   const shards = files
     .filter(
       (file) =>
@@ -608,6 +640,24 @@ function assembleContractManifest(
       throw new ContractManifestError(
         errors.shardNameMismatch(file.name, shard.capability.stable_id, expected)
       );
+    }
+    for (const record of manifestStableIds(shard.capability)) {
+      const claimed = claimedStableIds.get(record.stableId);
+      if (claimed) {
+        throw new ContractManifestError(
+          errors.duplicateStableId(
+            record.stableId,
+            claimed.kind,
+            claimed.shard,
+            record.kind,
+            file.name
+          )
+        );
+      }
+      claimedStableIds.set(record.stableId, {
+        kind: record.kind,
+        shard: file.name,
+      });
     }
     const claimedBy = claimedInputs.get(shard.input.path);
     if (claimedBy) {
@@ -664,6 +714,14 @@ export function readContractManifest(directory: string): ContractManifest {
       `Contract manifest file '${resolve(root, name)}' holds capability '${stableId}', which belongs in '${expected}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     duplicateInput: (path, claimedBy, stableId) =>
       `Contract manifest capabilities '${claimedBy}' and '${stableId}' both record spec file '${path}'. Each spec file declares exactly one capability. Run 'tieline contract compile .' to regenerate the manifest.`,
+    duplicateStableId: (
+      stableId,
+      firstKind,
+      firstShard,
+      duplicateKind,
+      duplicateShard
+    ) =>
+      `Contract manifest duplicate stable ID '${stableId}' is used by ${firstKind} in '${resolve(root, firstShard)}' and ${duplicateKind} in '${resolve(root, duplicateShard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     noCapabilities: () =>
       `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`,
   });
@@ -703,6 +761,14 @@ export function parseContractManifestSnapshot(
       `The contract manifest file '${name}' at ${origin} holds capability '${stableId}', which belongs in '${expected}'.`,
     duplicateInput: (path, claimedBy, stableId) =>
       `The contract manifest at ${origin} records spec file '${path}' under capabilities '${claimedBy}' and '${stableId}'. Each spec file declares exactly one capability.`,
+    duplicateStableId: (
+      stableId,
+      firstKind,
+      firstShard,
+      duplicateKind,
+      duplicateShard
+    ) =>
+      `The contract manifest at ${origin} has duplicate stable ID '${stableId}', used by ${firstKind} in '${firstShard}' and ${duplicateKind} in '${duplicateShard}'.`,
     noCapabilities: () =>
       `The contract manifest at ${origin} has an index but no capabilities.`,
   });

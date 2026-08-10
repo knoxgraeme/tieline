@@ -532,6 +532,47 @@ await test("rejects a manifest file whose name disagrees with the capability it 
   }
 });
 
+await test("rejects duplicate nested stable IDs across manifest shards", () => {
+  const root = fixture();
+  try {
+    addSearchCapability(root);
+    const directory = manifestDirectory(root);
+    writeContractManifest(directory, compile(root));
+    const contract = JSON.parse(
+      readFileSync(resolve(directory, "CONTRACT.json"), "utf8")
+    ) as {
+      capability: {
+        stories: Array<{
+          acceptance_criteria: Array<{ stable_id: string }>;
+        }>;
+      };
+    };
+    const searchPath = resolve(directory, "SEARCH.json");
+    const search = JSON.parse(
+      readFileSync(searchPath, "utf8")
+    ) as typeof contract;
+    const duplicateId =
+      contract.capability.stories[0]!.acceptance_criteria[0]!.stable_id;
+    search.capability.stories[0]!.acceptance_criteria[0]!.stable_id =
+      duplicateId;
+    writeFileSync(searchPath, `${JSON.stringify(search, null, 2)}\n`);
+
+    assert.throws(
+      () => readContractManifest(directory),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /duplicate stable ID/i);
+        assert.match(error.message, new RegExp(duplicateId));
+        assert.match(error.message, /CONTRACT\.json/);
+        assert.match(error.message, /SEARCH\.json/);
+        return true;
+      }
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 await test("refuses to build a manifest file name that escapes the manifest directory", () => {
   const root = fixture();
   try {
