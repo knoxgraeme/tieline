@@ -48,7 +48,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f280da69b91320ebbdae54a74a995faa9a3298f15236ba673cc1acb02b1feed4",
+                "reviewed_content_hash": "87dee7386661c48f2215c72a5de2ef5f5ef41adc1f7682f340974717dbdb0e27",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/workspace.ts",

@@ -51,7 +51,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
+                "reviewed_content_hash": "4f93ba1b59c07ea8c8c7e5c27339ab11f64d172a69bf05841df08891851ed6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -95,7 +95,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
+                "reviewed_content_hash": "d57f19b5a32a1847e9b4b2853a72a76723f98e359aeb127bf2e3891a4d9bcce6",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -116,7 +116,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
+                "reviewed_content_hash": "4f93ba1b59c07ea8c8c7e5c27339ab11f64d172a69bf05841df08891851ed6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -127,7 +127,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -282,7 +282,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
+                "reviewed_content_hash": "d57f19b5a32a1847e9b4b2853a72a76723f98e359aeb127bf2e3891a4d9bcce6",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -303,7 +303,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -458,7 +458,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
+                "reviewed_content_hash": "d57f19b5a32a1847e9b4b2853a72a76723f98e359aeb127bf2e3891a4d9bcce6",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -479,7 +479,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
+                "reviewed_content_hash": "4f93ba1b59c07ea8c8c7e5c27339ab11f64d172a69bf05841df08891851ed6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -490,7 +490,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -586,7 +586,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5a0ee942dfb5619791e5779db93d2354d2f39dd28298ea2f92ea8f926c5d3c13",
+                "reviewed_content_hash": "d57f19b5a32a1847e9b4b2853a72a76723f98e359aeb127bf2e3891a4d9bcce6",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -668,7 +668,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "dca45354885d47915acb360d0d46377da90c9c6da3eccb053056da04cd5d35bb",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -941,7 +941,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8a1b974fa30da42e5ac10cd38502c416fbdc4def86311cfce93887d011b4406a",
+                "reviewed_content_hash": "c4bb67c4ffae365eff9f6c4b5aa1afeaa054ad2562ca391af34c02b5747b8772",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -991,7 +991,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8a1b974fa30da42e5ac10cd38502c416fbdc4def86311cfce93887d011b4406a",
+                "reviewed_content_hash": "c4bb67c4ffae365eff9f6c4b5aa1afeaa054ad2562ca391af34c02b5747b8772",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1041,7 +1041,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0bd894182aef241cde869a62c9368319bef70a4a1a94edc2e63a8fe59e27c5a6",
+                "reviewed_content_hash": "ac8d19e5bf0ef338717676662bc3a51f436ad2b3f4c8c3c66e8bc57e5a7b5deb",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/source-scan.ts",
@@ -1052,7 +1052,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "22b9bf6c34e8772d132978085015956cbca03d651ab3bd84ff95b0e2bc0b7dbb",
+                "reviewed_content_hash": "29ac4cad3e043b619a9072989c2a42b7c628c06ebb2f640ac98e1db209ee4351",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1063,7 +1063,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2b88b475085ffbc38d7d0793b0a8ac94fa53b9ab589de601650fcc4e80d7f39f",
+                "reviewed_content_hash": "4f93ba1b59c07ea8c8c7e5c27339ab11f64d172a69bf05841df08891851ed6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1074,7 +1074,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8a1b974fa30da42e5ac10cd38502c416fbdc4def86311cfce93887d011b4406a",
+                "reviewed_content_hash": "c4bb67c4ffae365eff9f6c4b5aa1afeaa054ad2562ca391af34c02b5747b8772",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1175,7 +1175,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8a1b974fa30da42e5ac10cd38502c416fbdc4def86311cfce93887d011b4406a",
+                "reviewed_content_hash": "c4bb67c4ffae365eff9f6c4b5aa1afeaa054ad2562ca391af34c02b5747b8772",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
