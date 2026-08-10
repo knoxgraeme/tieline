@@ -103,8 +103,9 @@ export function workspaceFromConfig(configPath: string): TielineWorkspace {
     JSON.parse(readFileSync(configPath, "utf8"))
   );
   const workspaceOwner = realpathSync(dirname(directory));
-  const root = realpathSync(resolve(directory, config.repository.root));
-  const rootPath = relative(workspaceOwner, root);
+  const root = resolve(directory, config.repository.root);
+  const realRoot = realpathSync(root);
+  const rootPath = relative(workspaceOwner, realRoot);
   if (
     rootPath === ".." ||
     rootPath.startsWith(`..${sep}`) ||

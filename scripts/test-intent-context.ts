@@ -3,7 +3,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -58,7 +57,7 @@ await test("keeps configured repository roots inside the workspace owner", () =>
     writeConfig("../package");
     assert.equal(
       workspaceFromConfig(configPath).root,
-      realpathSync(resolve(root, "package"))
+      resolve(root, "package")
     );
 
     for (const escapingRoot of [outside, "../..", "../external"]) {
