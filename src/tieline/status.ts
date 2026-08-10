@@ -40,12 +40,14 @@ export interface TielineStatus {
     required: true;
     skill: "tieline";
     instruction: typeof ONBOARDING_AGENT_INSTRUCTION;
-    install_command: "tieline init .";
+    install_command: typeof ONBOARDING_SKILL_INSTALL_COMMAND;
   } | null;
 }
 
 export const ONBOARDING_AGENT_INSTRUCTION =
   "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline.";
+export const ONBOARDING_SKILL_INSTALL_COMMAND =
+  "npx -y tieline@latest init .";
 
 function configured(value: string | undefined): boolean {
   return Boolean(value?.trim());
@@ -103,7 +105,7 @@ export function getTielineStatus(
           required: true,
           skill: "tieline",
           instruction: ONBOARDING_AGENT_INSTRUCTION,
-          install_command: "tieline init .",
+          install_command: ONBOARDING_SKILL_INSTALL_COMMAND,
         } as const)
       : null;
   const nextAction =

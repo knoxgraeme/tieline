@@ -58,10 +58,11 @@ a human first sees them. Verify, do not re-ask.
 
    Present offline as "start here, connect later", never as the whole
    product. Map the answers to commands:
-   - Local: `npx -y tieline@latest init . --yes --database local` (requires a
-     running Docker daemon).
+   - Local:
+     `npx -y tieline@latest init . --yes --skip-skill-install --database local`
+     (requires a running Docker daemon).
    - Existing: with `DATABASE_URL_ADMIN` in the environment, run
-     `npx -y tieline@latest init . --yes --database existing`.
+     `npx -y tieline@latest init . --yes --skip-skill-install --database existing`.
    - Provision: follow [provisioning.md](provisioning.md) to create a Neon
      Postgres in the user's own account and connect it.
 4. Do not ask whether to install or pin the Tieline CLI in the repository.

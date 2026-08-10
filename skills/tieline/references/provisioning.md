@@ -43,7 +43,7 @@ Tieline's private profile outside the checkout.
 5. Run setup with the URI scoped to this single command:
 
    ```sh
-   DATABASE_URL_ADMIN=<uri> npx -y tieline@latest init . --yes --database existing --provision-roles
+   DATABASE_URL_ADMIN=<uri> npx -y tieline@latest init . --yes --skip-skill-install --database existing --provision-roles
    ```
 
    `--provision-roles` assigns login credentials to the migration-created

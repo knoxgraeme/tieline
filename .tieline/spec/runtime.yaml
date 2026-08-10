@@ -228,8 +228,20 @@ capability:
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
         - key: RUNTIME-001-AC9
-          criterion: Tieline interactive initialization must use agent selection as setup consent, auto-detect code scope, and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.
+          criterion: Tieline initialization must use a non-empty interactive agent selection as setup consent, require non-interactive callers to pass an explicit agent or explicitly skip skill installation, auto-detect code scope, and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.
           links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/init.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli-ui.ts
             - relation: implements
               provenance: authored
               target:
