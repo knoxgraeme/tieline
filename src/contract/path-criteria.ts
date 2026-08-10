@@ -20,6 +20,10 @@ import { withinRepository } from "./paths.js";
 
 export interface PathCriterion {
   path: string;
+  target_kind: ClaimingCriterion["target_kind"];
+  repository: string;
+  selector: string | null;
+  framework_hint: string | null;
   capability_stable_id: string;
   story_stable_id: string;
   story_title: string;
@@ -64,6 +68,10 @@ export interface PathCriteriaReport {
 function pathCriterion(claim: ClaimingCriterion): PathCriterion {
   return {
     path: claim.linked_path,
+    target_kind: claim.target_kind,
+    repository: claim.repository,
+    selector: claim.selector,
+    framework_hint: claim.framework_hint,
     capability_stable_id: claim.capability_stable_id,
     story_stable_id: claim.story_stable_id,
     story_title: claim.story_title,

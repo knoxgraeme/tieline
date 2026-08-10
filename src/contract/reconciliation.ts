@@ -35,6 +35,7 @@ import type { RepositoryPathChange } from "./impact.js";
 import type {
   ContractManifest,
   ManifestAcceptanceCriterion,
+  ManifestCapability,
   ManifestLink,
   ManifestStory,
 } from "./manifest.js";
@@ -78,8 +79,45 @@ export interface ClaimingCriterion {
    * `story_fallback` when it is inherited from the owning Story.
    */
   link_scope: ReconciliationLinkScope;
+  /** Complete authored locator identity; help targets never become claims. */
+  target_kind: "code" | "test";
+  repository: string;
   /** The path the link names, which for a rename may be the pre-rename path. */
   linked_path: string;
+  /** Canonical selector, or null when the link applies to the whole file. */
+  selector: string | null;
+  /** Test framework hint when authored; code claims always carry null. */
+  framework_hint: string | null;
+}
+
+export type IntentCapabilityRecord = Omit<ManifestCapability, "stories">;
+export type IntentStoryRecord = Omit<
+  ManifestStory,
+  "links" | "acceptance_criteria"
+>;
+export type IntentAcceptanceCriterionDetails = Omit<
+  ManifestAcceptanceCriterion,
+  "links"
+>;
+
+/**
+ * One accepted criterion plus every non-help code/test claim that applies to it.
+ * Claims include external repositories; only the local path view filters them.
+ */
+export interface IntentAcceptanceCriterionRecord {
+  capability: IntentCapabilityRecord;
+  story: IntentStoryRecord;
+  acceptance_criterion: IntentAcceptanceCriterionDetails;
+  claims: readonly ClaimingCriterion[];
+}
+
+/** Both exact-read views emitted by one ordered criterion-bearing walk. */
+export interface ContractIntentIndex {
+  claims_by_path: ContractClaimIndex;
+  acceptance_criteria_by_stable_id: ReadonlyMap<
+    string,
+    IntentAcceptanceCriterionRecord
+  >;
 }
 
 /**
@@ -209,16 +247,25 @@ function sourceRootFor(path: string, sourceRoots: string[]): string | null {
   return null;
 }
 
-function claimKey(claim: ClaimingCriterion): string {
+/**
+ * Fields that make two authored claims the same assertion. Criterion text and
+ * provenance are deliberately absent: rewording is tracked separately and an
+ * identical locator/relation/scope remains one claim.
+ */
+export function contractClaimIdentity(claim: ClaimingCriterion): string {
   return [
     claim.acceptance_criterion_stable_id,
+    claim.target_kind,
+    claim.repository,
     claim.linked_path,
+    claim.selector ?? "",
+    claim.framework_hint ?? "",
     claim.relation,
     claim.link_scope,
   ].join("\0");
 }
 
-function compareClaims(
+export function compareContractClaims(
   left: ClaimingCriterion,
   right: ClaimingCriterion
 ): number {
@@ -226,7 +273,11 @@ function compareClaims(
     left.acceptance_criterion_stable_id.localeCompare(
       right.acceptance_criterion_stable_id
     ) ||
+    left.target_kind.localeCompare(right.target_kind) ||
+    left.repository.localeCompare(right.repository) ||
     left.linked_path.localeCompare(right.linked_path) ||
+    (left.selector ?? "").localeCompare(right.selector ?? "") ||
+    (left.framework_hint ?? "").localeCompare(right.framework_hint ?? "") ||
     left.relation.localeCompare(right.relation) ||
     left.link_scope.localeCompare(right.link_scope)
   );
@@ -257,19 +308,43 @@ function scopedLinks(
  * consumes it for changed paths; `contract criteria` consumes the same index for
  * paths supplied before a change exists.
  */
-export function buildContractClaimIndex(
+function capabilityRecord(
+  capability: ManifestCapability
+): IntentCapabilityRecord {
+  const { stories: _stories, ...record } = capability;
+  return record;
+}
+
+function storyRecord(story: ManifestStory): IntentStoryRecord {
+  const { links: _links, acceptance_criteria: _criteria, ...record } = story;
+  return record;
+}
+
+function acceptanceCriterionDetails(
+  criterion: ManifestAcceptanceCriterion
+): IntentAcceptanceCriterionDetails {
+  const { links: _links, ...record } = criterion;
+  return record;
+}
+
+/**
+ * Builds the selector-aware path and Acceptance Criterion views together.
+ * This is the sole criterion-bearing manifest traversal for exact reads.
+ */
+export function buildContractIntentIndex(
   manifest: ContractManifest
-): ContractClaimIndex {
+): ContractIntentIndex {
   const claims = new Map<string, ClaimingCriterion[]>();
+  const criteria = new Map<string, IntentAcceptanceCriterionRecord>();
   const seen = new Set<string>();
   for (const capability of manifest.capabilities) {
     for (const story of capability.stories) {
       for (const criterion of story.acceptance_criteria) {
+        const criterionClaims: ClaimingCriterion[] = [];
         for (const { link, scope } of scopedLinks(story, criterion)) {
           if (link.relation === "documents" || link.target.kind === "help") {
             continue;
           }
-          if (link.target.repository !== manifest.repository.key) continue;
           const path = normalizeContractPath(link.target.path);
           const claim: ClaimingCriterion = {
             capability_stable_id: capability.stable_id,
@@ -280,20 +355,50 @@ export function buildContractClaimIndex(
             relation: link.relation,
             provenance: link.provenance,
             link_scope: scope,
+            target_kind: link.target.kind,
+            repository: link.target.repository,
             linked_path: path,
+            selector: link.target.selector ?? null,
+            framework_hint:
+              link.target.kind === "test"
+                ? (link.target.framework_hint ?? null)
+                : null,
           };
-          const key = claimKey(claim);
+          const key = contractClaimIdentity(claim);
           if (seen.has(key)) continue;
           seen.add(key);
+          criterionClaims.push(claim);
+          if (claim.repository !== manifest.repository.key) continue;
           const existing = claims.get(path);
           if (existing) existing.push(claim);
           else claims.set(path, [claim]);
         }
+        criterionClaims.sort(compareContractClaims);
+        criteria.set(criterion.stable_id, {
+          capability: capabilityRecord(capability),
+          story: storyRecord(story),
+          acceptance_criterion: acceptanceCriterionDetails(criterion),
+          claims: criterionClaims,
+        });
       }
     }
   }
-  for (const entries of claims.values()) entries.sort(compareClaims);
-  return claims;
+  for (const entries of claims.values()) entries.sort(compareContractClaims);
+  return {
+    claims_by_path: new Map(
+      [...claims].sort(([left], [right]) => left.localeCompare(right))
+    ),
+    acceptance_criteria_by_stable_id: new Map(
+      [...criteria].sort(([left], [right]) => left.localeCompare(right))
+    ),
+  };
+}
+
+/** Compatibility path view over the shared selector-aware intent traversal. */
+export function buildContractClaimIndex(
+  manifest: ContractManifest
+): ContractClaimIndex {
+  return buildContractIntentIndex(manifest).claims_by_path;
 }
 
 function changedPathFields(change: RepositoryPathChange): ChangedPathFields {
@@ -321,10 +426,10 @@ function claimsForChange(
   const unique = new Map<string, ClaimingCriterion>();
   for (const path of candidatePaths(fields)) {
     for (const claim of claims.get(path) ?? []) {
-      unique.set(claimKey(claim), claim);
+      unique.set(contractClaimIdentity(claim), claim);
     }
   }
-  return [...unique.values()].sort(compareClaims);
+  return [...unique.values()].sort(compareContractClaims);
 }
 
 /**

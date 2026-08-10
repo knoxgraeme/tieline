@@ -92,6 +92,20 @@ capability:
               target:
                 kind: code
                 repository: path-criteria-fixture
+                path: src/direct.ts
+                selector: function:direct
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: path-criteria-fixture
+                path: src/direct.ts
+                selector: const:direct
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: path-criteria-fixture
                 path: src/shared.ts
             - relation: implements
               provenance: authored
@@ -114,6 +128,14 @@ capability:
                 kind: code
                 repository: path-criteria-fixture
                 path: src/direct.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: path-criteria-fixture
+                path: src/direct.test.ts
+                selector: function:direct
+                framework_hint: node-test
 `;
 
 const OTHER_SPEC = `version: 1
@@ -144,6 +166,10 @@ function createFixture(withManifest: boolean): {
   writeFileSync(resolve(root, ".tieline/spec/path-criteria.yaml"), SPEC);
   writeFileSync(resolve(root, ".tieline/spec/other.yaml"), OTHER_SPEC);
   writeFileSync(resolve(root, "src/direct.ts"), "export const direct = 1;\n");
+  writeFileSync(
+    resolve(root, "src/direct.test.ts"),
+    "export function direct() {}\n"
+  );
   writeFileSync(resolve(root, "src/shared.ts"), "export const shared = 1;\n");
   writeFileSync(
     resolve(root, "src/story-only.ts"),
@@ -179,6 +205,8 @@ try {
   const index = buildPathCriteriaIndex(manifest);
   assert.deepEqual(scopes(index.get("src/direct.ts") ?? []), [
     "PATH-CRITERIA-001-AC1 direct implements",
+    "PATH-CRITERIA-001-AC1 direct implements",
+    "PATH-CRITERIA-001-AC1 direct implements",
     "PATH-CRITERIA-001-AC2 direct implements",
   ]);
   assert.deepEqual(scopes(index.get("src/story-only.ts") ?? []), [
@@ -197,6 +225,60 @@ try {
   assert.equal(first?.story_stable_id, "PATH-CRITERIA-001");
   assert.equal(first?.story_title, "Look up path criteria");
   assert.equal(first?.provenance, "authored");
+  assert.deepEqual(
+    (index.get("src/direct.ts") ?? []).map((criterion) => ({
+      target_kind: criterion.target_kind,
+      repository: criterion.repository,
+      path: criterion.path,
+      selector: criterion.selector,
+      framework_hint: criterion.framework_hint,
+    })),
+    [
+      {
+        target_kind: "code",
+        repository: "path-criteria-fixture",
+        path: "src/direct.ts",
+        selector: null,
+        framework_hint: null,
+      },
+      {
+        target_kind: "code",
+        repository: "path-criteria-fixture",
+        path: "src/direct.ts",
+        selector: "const:direct",
+        framework_hint: null,
+      },
+      {
+        target_kind: "code",
+        repository: "path-criteria-fixture",
+        path: "src/direct.ts",
+        selector: "function:direct",
+        framework_hint: null,
+      },
+      {
+        target_kind: "code",
+        repository: "path-criteria-fixture",
+        path: "src/direct.ts",
+        selector: null,
+        framework_hint: null,
+      },
+    ]
+  );
+  assert.deepEqual(index.get("src/direct.test.ts")?.[0], {
+    path: "src/direct.test.ts",
+    target_kind: "test",
+    repository: "path-criteria-fixture",
+    selector: "function:direct",
+    framework_hint: "node-test",
+    capability_stable_id: "PATH-CRITERIA",
+    story_stable_id: "PATH-CRITERIA-001",
+    story_title: "Look up path criteria",
+    acceptance_criterion_stable_id: "PATH-CRITERIA-001-AC2",
+    criterion: "Tieline must return every acceptance criterion that links a path.",
+    relation: "tests",
+    provenance: "authored",
+    link_scope: "direct",
+  });
 
   const report = lookupPathCriteria({
     manifest,

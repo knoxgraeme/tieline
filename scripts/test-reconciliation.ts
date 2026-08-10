@@ -8,6 +8,8 @@ import { compileContractManifest } from "../src/contract/manifest.js";
 import type { RepositoryPathChange } from "../src/contract/impact.js";
 import {
   analyzeContractReconciliation,
+  buildContractClaimIndex,
+  buildContractIntentIndex,
   type ContractReconciliation,
 } from "../src/contract/reconciliation.js";
 import { tielineConfigJson } from "./lib/fixtures.js";
@@ -30,6 +32,10 @@ try {
   for (const path of sourceFiles) {
     writeFileSync(resolve(root, path), `export const value = "${path}";\n`);
   }
+  writeFileSync(
+    resolve(root, "src/claimed-direct.ts"),
+    "export function first() {}\nexport function second() {}\n"
+  );
   writeFileSync(resolve(root, "docs/guide.md"), "# Guide\n");
   writeFileSync(
     resolve(root, ".tieline/config.json"),
@@ -69,12 +75,37 @@ capability:
                 kind: code
                 repository: reconciliation-fixture
                 path: src/claimed-direct.ts
+                selector: " function:first "
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: reconciliation-fixture
+                path: src/claimed-direct.ts
+                selector: function:second
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: reconciliation-fixture
                 path: src/renamed-before.ts
+                selector: function:value
+                framework_hint: node-test
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: another-repository
+                path: src/external.ts
+                selector: function:external
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: another-repository
+                path: test/external.test.ts
+                selector: function:externalTest
+                framework_hint: node-test
         - key: AC-RECONCILE-002
           criterion: Tieline must report a changed path whose evidence was removed.
           links:
@@ -98,6 +129,121 @@ capability:
     repositoryKey: "reconciliation-fixture",
     specDirectory: ".tieline/contract",
   });
+
+  let capabilityWalks = 0;
+  const countedManifest: typeof manifest = {
+    ...manifest,
+    capabilities: new Proxy(manifest.capabilities, {
+      get(target, property, receiver) {
+        if (property === Symbol.iterator) {
+          return function* () {
+            capabilityWalks += 1;
+            yield* target;
+          };
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    }),
+  };
+  const intentIndex = buildContractIntentIndex(countedManifest);
+  assert.equal(capabilityWalks, 1, "both views come from one ordered contract walk");
+  assert.equal(
+    buildContractClaimIndex(manifest).get("src/claimed-direct.ts")?.length,
+    2,
+    "the compatibility path view preserves same-file selectors"
+  );
+  const selectorClaims =
+    intentIndex.claims_by_path.get("src/claimed-direct.ts") ?? [];
+  assert.deepEqual(
+    selectorClaims.map((claim) => [
+      claim.target_kind,
+      claim.repository,
+      claim.linked_path,
+      claim.selector,
+      claim.framework_hint,
+      claim.relation,
+      claim.link_scope,
+    ]),
+    [
+      [
+        "code",
+        "reconciliation-fixture",
+        "src/claimed-direct.ts",
+        "function:first",
+        null,
+        "implements",
+        "direct",
+      ],
+      [
+        "code",
+        "reconciliation-fixture",
+        "src/claimed-direct.ts",
+        "function:second",
+        null,
+        "implements",
+        "direct",
+      ],
+    ]
+  );
+  const criterionRecord =
+    intentIndex.acceptance_criteria_by_stable_id.get("AC-RECONCILE-001");
+  assert.ok(criterionRecord);
+  assert.equal(
+    criterionRecord.claims.find(
+      (claim) => claim.selector === "function:first"
+    ),
+    selectorClaims[0],
+    "the AC and path views share the same normalized claim records"
+  );
+  assert.deepEqual(
+    criterionRecord.claims
+      .filter((claim) => claim.repository === "another-repository")
+      .map((claim) => [
+        claim.target_kind,
+        claim.linked_path,
+        claim.selector,
+        claim.framework_hint,
+      ]),
+    [
+      ["code", "src/external.ts", "function:external", null],
+      [
+        "test",
+        "test/external.test.ts",
+        "function:externalTest",
+        "node-test",
+      ],
+    ]
+  );
+  assert.equal(intentIndex.claims_by_path.has("src/external.ts"), false);
+  assert.equal(intentIndex.claims_by_path.has("test/external.test.ts"), false);
+  assert.equal(
+    criterionRecord.claims.some((claim) => claim.target_kind === "help"),
+    false
+  );
+  const testClaim = criterionRecord.claims.find(
+    (claim) => claim.target_kind === "test"
+  );
+  assert.equal(testClaim?.framework_hint, "node-test");
+
+  const duplicateManifest = structuredClone(manifest);
+  const duplicateLinks =
+    duplicateManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links;
+  const duplicate = duplicateLinks.find(
+    (link) =>
+      link.target.kind === "code" &&
+      link.target.repository === "reconciliation-fixture" &&
+      link.target.path === "src/claimed-direct.ts" &&
+      link.target.selector === "function:first"
+  );
+  assert.ok(duplicate);
+  duplicateLinks.push(structuredClone(duplicate));
+  assert.equal(
+    buildContractIntentIndex(duplicateManifest).claims_by_path.get(
+      "src/claimed-direct.ts"
+    )?.length,
+    2,
+    "identical full-locator claims deduplicate"
+  );
 
   const changes: RepositoryPathChange[] = [
     { status: "modified", path: "src/claimed-direct.ts" },
@@ -136,7 +282,7 @@ capability:
   );
   assert.ok(direct, "a criterion-level link must claim its changed path");
   assert.equal(direct.status, "modified");
-  assert.equal(direct.claimed_by.length, 1);
+  assert.equal(direct.claimed_by.length, 2);
   assert.equal(direct.claimed_by[0].link_scope, "direct");
   assert.equal(
     direct.claimed_by[0].acceptance_criterion_stable_id,

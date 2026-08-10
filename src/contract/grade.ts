@@ -26,6 +26,7 @@ import { withinRepository } from "./paths.js";
 import {
   analyzeContractReconciliation,
   buildContractClaimIndex,
+  contractClaimIdentity,
   type ClaimingCriterion,
   type ReconciliationChangeStatus,
   type ReconciliationLinkScope,
@@ -63,8 +64,12 @@ export interface GradeScopeEntry {
   relation: ReconciliationRelation;
   provenance: ClaimingCriterion["provenance"];
   link_scope: ReconciliationLinkScope;
+  target_kind: ClaimingCriterion["target_kind"];
+  repository: string;
   /** Repository path named by this contract link. */
   linked_path: string;
+  selector: string | null;
+  framework_hint: string | null;
   /** Current artifact path; for a rename, the path after the rename. */
   path: string;
   /** The path before a rename, otherwise null. */
@@ -146,34 +151,11 @@ function citableSymbolsForPath(
 }
 
 function scopeId(input: {
-  acceptanceCriterionStableId: string;
-  relation: string;
-  linkedPath: string;
+  claim: ClaimingCriterion;
   path: string;
-  linkScope: string;
 }): string {
-  const identity = [
-    input.acceptanceCriterionStableId,
-    input.relation,
-    input.linkedPath,
-    input.path,
-    input.linkScope,
-  ].join("\0");
+  const identity = [contractClaimIdentity(input.claim), input.path].join("\0");
   return `grade:${createHash("sha256").update(identity).digest("hex")}`;
-}
-
-/**
- * The fields that make two claims the same assertion. Criterion text is
- * deliberately absent — a re-worded criterion is the same claim with a
- * changed sentence, which is its own scope reason rather than a new claim.
- */
-function claimIdentity(claim: ClaimingCriterion): string {
-  return [
-    claim.acceptance_criterion_stable_id,
-    claim.relation,
-    claim.linked_path,
-    claim.link_scope,
-  ].join("\0");
 }
 
 type ClaimChangeReason = Extract<
@@ -193,7 +175,9 @@ function changedContractClaims(
   const baseClaims = new Map<string, ClaimingCriterion>();
   if (baseManifest) {
     for (const claims of buildContractClaimIndex(baseManifest).values()) {
-      for (const claim of claims) baseClaims.set(claimIdentity(claim), claim);
+      for (const claim of claims) {
+        baseClaims.set(contractClaimIdentity(claim), claim);
+      }
     }
   }
   const changed: Array<{
@@ -202,7 +186,7 @@ function changedContractClaims(
   }> = [];
   for (const claims of buildContractClaimIndex(manifest).values()) {
     for (const claim of claims) {
-      const base = baseClaims.get(claimIdentity(claim));
+      const base = baseClaims.get(contractClaimIdentity(claim));
       if (!base) {
         changed.push({ claim, reason: "link_added" });
       } else if (base.acceptance_criterion !== claim.acceptance_criterion) {
@@ -220,8 +204,12 @@ function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
     ) ||
     left.path.localeCompare(right.path) ||
     left.linked_path.localeCompare(right.linked_path) ||
-    left.link_scope.localeCompare(right.link_scope) ||
-    left.relation.localeCompare(right.relation)
+    left.target_kind.localeCompare(right.target_kind) ||
+    left.repository.localeCompare(right.repository) ||
+    (left.selector ?? "").localeCompare(right.selector ?? "") ||
+    (left.framework_hint ?? "").localeCompare(right.framework_hint ?? "") ||
+    left.relation.localeCompare(right.relation) ||
+    left.link_scope.localeCompare(right.link_scope)
   );
 }
 
@@ -254,13 +242,10 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
   for (const change of reconciliation.claimed_changes) {
     const symbols = symbolsFor(change.path);
     for (const claim of change.claimed_by) {
-      diffScopedClaims.add(claimIdentity(claim));
+      diffScopedClaims.add(contractClaimIdentity(claim));
       const id = scopeId({
-        acceptanceCriterionStableId: claim.acceptance_criterion_stable_id,
-        relation: claim.relation,
-        linkedPath: claim.linked_path,
+        claim,
         path: change.path,
-        linkScope: claim.link_scope,
       });
       if (entries.has(id)) continue;
       entries.set(id, {
@@ -274,7 +259,11 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
         relation: claim.relation,
         provenance: claim.provenance,
         link_scope: claim.link_scope,
+        target_kind: claim.target_kind,
+        repository: claim.repository,
         linked_path: claim.linked_path,
+        selector: claim.selector,
+        framework_hint: claim.framework_hint,
         path: change.path,
         previous_path: change.old_path ?? null,
         reason: change.status,
@@ -289,13 +278,10 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
     input.manifest,
     input.baseManifest
   )) {
-    if (diffScopedClaims.has(claimIdentity(claim))) continue;
+    if (diffScopedClaims.has(contractClaimIdentity(claim))) continue;
     const id = scopeId({
-      acceptanceCriterionStableId: claim.acceptance_criterion_stable_id,
-      relation: claim.relation,
-      linkedPath: claim.linked_path,
+      claim,
       path: claim.linked_path,
-      linkScope: claim.link_scope,
     });
     if (entries.has(id)) continue;
     entries.set(id, {
@@ -308,7 +294,11 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
       relation: claim.relation,
       provenance: claim.provenance,
       link_scope: claim.link_scope,
+      target_kind: claim.target_kind,
+      repository: claim.repository,
       linked_path: claim.linked_path,
+      selector: claim.selector,
+      framework_hint: claim.framework_hint,
       path: claim.linked_path,
       previous_path: null,
       reason,

@@ -260,6 +260,10 @@ export const getPathCriteriaOutputShape = {
       criteria: z.array(
         z.object({
           path: z.string(),
+          target_kind: z.enum(["code", "test"]),
+          repository: z.string(),
+          selector: z.string().nullable(),
+          framework_hint: z.string().nullable(),
           capability_stable_id: z.string(),
           story_stable_id: z.string(),
           story_title: z.string(),
