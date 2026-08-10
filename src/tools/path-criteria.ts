@@ -26,7 +26,7 @@ const DESCRIPTION = `Deterministically list every Acceptance Criterion recorded 
 
 This answers "what is true": the accepted contract records that link these exact paths. Each result carries link_scope "direct" when the link is on the Acceptance Criterion itself and "story_fallback" when it is only on the owning Story. Use search_knowledge instead to answer "what is related": that tool ranks semantically related records and treats a path as a relevance signal, not an exact lookup key.
 
-Ask this before editing a file. A path with criteria returns has_criteria, an existing path with no contract link returns no_criteria, and a path that does not exist returns not_found. A content-derived manifest_digest identifies the complete reviewed manifest that answered without coupling it to a Git commit.`;
+Ask this before editing a file. A path with criteria returns has_criteria, an existing path with no contract link returns no_criteria, and a path that does not exist returns not_found. Use get_asset_intent_context when a selector is known or when the richer intent neighborhood and contract coupling are required. A content-derived manifest_digest identifies the complete reviewed manifest that answered without coupling it to a Git commit.`;
 
 export type PathCriteriaResolution =
   | { status: "resolved"; report: PathCriteriaReport }

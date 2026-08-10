@@ -29,6 +29,8 @@ try {
     "decide_attribution_suggestion",
     "find_help",
     "find_related",
+    "get_acceptance_criterion_context",
+    "get_asset_intent_context",
     "get_backlog_item",
     "get_help_article",
     "get_path_criteria",
@@ -44,6 +46,8 @@ try {
   const readOnly = new Set([
     "find_help",
     "find_related",
+    "get_acceptance_criterion_context",
+    "get_asset_intent_context",
     "get_backlog_item",
     "get_help_article",
     "get_path_criteria",
@@ -63,6 +67,27 @@ try {
       .every((tool) => tool.annotations?.readOnlyHint === false)
   );
   assert.ok(tools.tools.every((tool) => tool.inputSchema));
+  for (const name of [
+    "get_asset_intent_context",
+    "get_acceptance_criterion_context",
+  ]) {
+    const tool = tools.tools.find((candidate) => candidate.name === name);
+    assert.deepEqual(tool?.annotations, {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+    assert.match(tool?.description ?? "", /intent neighborhood/i);
+    assert.match(tool?.description ?? "", /contract coupling/i);
+    assert.match(tool?.description ?? "", /before search_knowledge/i);
+  }
+  const instructions = client.getInstructions() ?? "";
+  assert.match(instructions, /get_asset_intent_context/);
+  assert.match(instructions, /get_acceptance_criterion_context/);
+  assert.match(instructions, /before semantic search/i);
+  assert.match(instructions, /intent neighborhood/i);
+  assert.match(instructions, /contract coupling/i);
 
   const unknownDestructiveField = (await client.callTool({
     name: "set_backlog_item_links",
@@ -90,6 +115,14 @@ try {
     uri: "docs://tieline-contract",
   });
   assert.match(String(guide.contents[0]?.text), /Authority and lifecycle/);
+  assert.match(String(guide.contents[0]?.text), /get_asset_intent_context/);
+  assert.match(
+    String(guide.contents[0]?.text),
+    /get_acceptance_criterion_context/
+  );
+  assert.match(String(guide.contents[0]?.text), /before semantic search/i);
+  assert.match(String(guide.contents[0]?.text), /intent neighborhood/i);
+  assert.match(String(guide.contents[0]?.text), /contract coupling/i);
 
   const prompts = await client.listPrompts();
   assert.deepEqual(

@@ -2,18 +2,31 @@ import assert from "node:assert/strict";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import {
   IntentContextError,
   lookupAcceptanceCriterionIntentContext,
   lookupAssetIntentContext,
 } from "../src/contract/intent-context.js";
-import { compileContractManifest } from "../src/contract/manifest.js";
+import {
+  compileContractManifest,
+  writeContractManifest,
+} from "../src/contract/manifest.js";
 import { buildContractIntentIndex } from "../src/contract/reconciliation.js";
+import { setStore, type KnowledgeStore } from "../src/store.js";
+import {
+  registerIntentContextTools,
+  resolveManifestIntentContext,
+} from "../src/tools/intent-context.js";
+import type { ToolResult } from "../src/tools/shared.js";
+import { tielineConfigJson } from "./lib/fixtures.js";
 import { report, test } from "./lib/harness.js";
 
 const REPOSITORY = "intent-context-fixture";
@@ -160,6 +173,21 @@ function createFixture() {
   );
   assert.ok(duplicate);
   links.push(structuredClone(duplicate));
+  writeFileSync(
+    resolve(root, ".tieline/config.json"),
+    tielineConfigJson({
+      name: "Intent context fixture",
+      repoName: REPOSITORY,
+      ignore: [".git", ".tieline"],
+      specDirectory: "spec",
+    })
+  );
+  writeContractManifest(resolve(root, ".tieline/manifest"), {
+    manifest,
+    sources: new Map([
+      [manifest.capabilities[0]!.stable_id, manifest.inputs[0]!],
+    ]),
+  });
   return {
     root,
     repositoryRoot: root,
@@ -454,6 +482,177 @@ await test("deduplicates and orders byte-equivalent bounded results", () => {
     assert.doesNotMatch(serialized, /comprehensive[_ -]?blast[_ -]?radius/i);
     assert.match(serialized, /intent_neighborhood/);
   } finally {
+    rmSync(fixture.root, { recursive: true, force: true });
+  }
+});
+
+await test("registers primitive offline MCP context reads with strict parity", async () => {
+  const fixture = createFixture();
+  const originalWorkspace = process.env.TIELINE_WORKSPACE;
+  try {
+    const toolSource = readFileSync(
+      resolve(process.cwd(), "src/tools/intent-context.ts"),
+      "utf8"
+    );
+    assert.doesNotMatch(toolSource, /get(Read|Evidence|Planning)?Store\s*\(/);
+    setStore(
+      new Proxy(
+        {},
+        {
+          get(_target, property) {
+            throw new Error(
+              `intent context tools must not use the knowledge store (accessed '${String(property)}')`
+            );
+          },
+        }
+      ) as unknown as KnowledgeStore
+    );
+
+    type RegisteredTool = {
+      name: string;
+      config: {
+        description: string;
+        inputSchema: Record<string, z.ZodTypeAny>;
+        outputSchema: Record<string, z.ZodTypeAny>;
+        annotations?: Record<string, unknown>;
+      };
+      handler: (input: Record<string, unknown>) => Promise<ToolResult>;
+    };
+    const registered: RegisteredTool[] = [];
+    const fakeServer = {
+      registerTool(
+        name: string,
+        config: RegisteredTool["config"],
+        handler: RegisteredTool["handler"]
+      ) {
+        registered.push({ name, config, handler });
+      },
+    } as unknown as McpServer;
+
+    registerIntentContextTools(fakeServer);
+    assert.deepEqual(
+      registered.map((tool) => tool.name),
+      ["get_asset_intent_context", "get_acceptance_criterion_context"]
+    );
+    for (const tool of registered) {
+      assert.deepEqual(tool.config.annotations, {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+      assert.match(tool.config.description, /intent neighborhood/i);
+      assert.match(tool.config.description, /contract coupling/i);
+      assert.match(tool.config.description, /without (?:Postgres|a database)/i);
+    }
+
+    const assetTool = registered[0]!;
+    const assetSchema = z.object(assetTool.config.inputSchema).strict();
+    assert.equal(assetSchema.safeParse({ path: "" }).success, false);
+    assert.equal(assetSchema.safeParse({ path: "../outside.ts" }).success, false);
+    assert.equal(assetSchema.safeParse({ path: "/tmp/outside.ts" }).success, false);
+    assert.equal(
+      assetSchema.safeParse({
+        path: "src/shared.ts",
+        selector: "function:first()",
+      }).success,
+      false
+    );
+    assert.equal(
+      assetSchema.safeParse({ path: "src/shared.ts", unexpected: true }).success,
+      false
+    );
+    const acTool = registered[1]!;
+    const acSchema = z.object(acTool.config.inputSchema).strict();
+    assert.equal(acSchema.safeParse({ stable_id: "" }).success, false);
+    assert.equal(acSchema.safeParse({ stable_id: "bad id" }).success, false);
+    assert.equal(acSchema.safeParse({}).success, false);
+
+    process.env.TIELINE_WORKSPACE = fixture.root;
+    const assetResult = await assetTool.handler({
+      path: "src/shared.ts",
+      kind: "code",
+      selector: "function:first",
+    });
+    assert.notEqual(assetResult.isError, true);
+    assert.deepEqual(
+      assetResult.structuredContent,
+      lookupAssetIntentContext({
+        manifest: fixture.manifest,
+        repositoryRoot: fixture.root,
+        locator: {
+          path: "src/shared.ts",
+          kind: "code",
+          selector: "function:first",
+        },
+      })
+    );
+    assert.deepEqual(
+      JSON.parse(assetResult.content[0]!.text),
+      assetResult.structuredContent
+    );
+    z.object(assetTool.config.outputSchema)
+      .strict()
+      .parse(assetResult.structuredContent);
+
+    const acResult = await acTool.handler({ stable_id: "INTENT-001-AC1" });
+    assert.notEqual(acResult.isError, true);
+    assert.deepEqual(
+      acResult.structuredContent,
+      lookupAcceptanceCriterionIntentContext({
+        manifest: fixture.manifest,
+        repositoryRoot: fixture.root,
+        stableId: "INTENT-001-AC1",
+      })
+    );
+    z.object(acTool.config.outputSchema)
+      .strict()
+      .parse(acResult.structuredContent);
+
+    const stray = mkdtempSync(resolve(tmpdir(), "tieline-intent-no-workspace-"));
+    try {
+      process.env.TIELINE_WORKSPACE = stray;
+      const missingWorkspace = await assetTool.handler({ path: "src/shared.ts" });
+      assert.equal(missingWorkspace.isError, true);
+      assert.match(
+        missingWorkspace.content[0]?.text ?? "",
+        /No Tieline workspace[\s\S]*tieline init/
+      );
+      const resolution = resolveManifestIntentContext(stray);
+      assert.equal(resolution.status, "no_workspace");
+    } finally {
+      rmSync(stray, { recursive: true, force: true });
+    }
+
+    const noManifest = mkdtempSync(
+      resolve(tmpdir(), "tieline-intent-no-manifest-")
+    );
+    try {
+      mkdirSync(resolve(noManifest, ".tieline/spec"), { recursive: true });
+      writeFileSync(
+        resolve(noManifest, ".tieline/config.json"),
+        tielineConfigJson({
+          name: "No manifest",
+          repoName: "no-manifest",
+          ignore: [".git", ".tieline"],
+          specDirectory: "spec",
+        })
+      );
+      process.env.TIELINE_WORKSPACE = noManifest;
+      const unreadableManifest = await acTool.handler({
+        stable_id: "INTENT-001-AC1",
+      });
+      assert.equal(unreadableManifest.isError, true);
+      assert.match(
+        unreadableManifest.content[0]?.text ?? "",
+        /manifest[\s\S]*missing or unreadable[\s\S]*contract compile/
+      );
+    } finally {
+      rmSync(noManifest, { recursive: true, force: true });
+    }
+  } finally {
+    if (originalWorkspace === undefined) delete process.env.TIELINE_WORKSPACE;
+    else process.env.TIELINE_WORKSPACE = originalWorkspace;
     rmSync(fixture.root, { recursive: true, force: true });
   }
 });

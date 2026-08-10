@@ -30,9 +30,17 @@ change and pull request.
 - \`find_related\` is the shorter engineering-oriented semantic entry point and
   still returns the applied profile version.
 - \`query_stories\` is an exact Story/AC lookup with authority and lifecycle filters.
+- \`get_asset_intent_context\` reads the exact manifest-backed intent neighborhood
+  and contract coupling for a known path, optional code/test kind, and optional
+  selector. Use it before semantic search when that locator is known.
+- \`get_acceptance_criterion_context\` reads the exact manifest-backed intent
+  neighborhood and contract coupling for a known AC stable ID. Use it before
+  semantic search when that ID is known.
 - \`get_path_criteria\` returns the acceptance criteria the accepted contract
   records for exact repository paths, directly from the compiled manifest and
-  without a database. Use \`search_knowledge\` instead when asking what is related.
+  without a database. It remains available for compatibility; use
+  \`get_asset_intent_context\` when selector-aware neighborhood context is needed,
+  or \`search_knowledge\` when no exact locator or AC ID is known.
 - \`get_backlog_item\` returns a Backlog Item's optimistic revision and complete
   Observation/Story/AC link set before an update replaces state.
 - \`list_handoff_conflicts\` returns the merged repository definition alongside

@@ -13,6 +13,7 @@ import { registerQueryStories } from "./tools/query-stories.js";
 import { registerFindHelp } from "./tools/find-help.js";
 import { registerGetHelpArticle } from "./tools/get-help-article.js";
 import { registerGetPathCriteria } from "./tools/path-criteria.js";
+import { registerIntentContextTools } from "./tools/intent-context.js";
 import { registerObservationTools } from "./tools/observations.js";
 import { registerBacklogItemTools } from "./tools/backlog-items.js";
 import { registerResources } from "./resources.js";
@@ -40,8 +41,9 @@ export function createServer(): McpServer {
     {
       instructions:
         "Tieline is a lifecycle-aware semantic contract grounded in repository YAML. " +
+        "When an exact repository path, selector, or Acceptance Criterion stable ID is known, use get_asset_intent_context or get_acceptance_criterion_context before semantic search to read its manifest-backed intent neighborhood and contract coupling without a database. " +
         "Use search_knowledge with an explicit profile for cross-type search, find_related for engineering-oriented discovery, and query_stories for exact Story/AC reads. " +
-        "Use get_path_criteria before editing a repository path to learn which acceptance criteria the accepted contract records for it; the tool reads the compiled manifest and needs no database. " +
+        "get_path_criteria remains available for compatibility when only the criteria recorded for whole paths are needed. " +
         "Use the tieline prompt to onboard, author, grade, or reconcile repository behavior. " +
         "Planning writes can shape backlog Stories/ACs, append Observations, and manage " +
         "Backlog Items. Repository-owned behavior changes only through YAML and normal PR review.",
@@ -54,6 +56,7 @@ export function createServer(): McpServer {
   registerFindHelp(server);
   registerGetHelpArticle(server);
   registerGetPathCriteria(server);
+  registerIntentContextTools(server);
   registerObservationTools(server);
   registerBacklogItemTools(server);
   registerPlanningStoryTools(server);
