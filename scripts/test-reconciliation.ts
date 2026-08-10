@@ -221,9 +221,16 @@ capability:
     false
   );
   const testClaim = criterionRecord.claims.find(
-    (claim) => claim.target_kind === "test"
+    (claim) =>
+      claim.target_kind === "test" &&
+      claim.repository === "reconciliation-fixture"
   );
   assert.equal(testClaim?.framework_hint, "node-test");
+  assert.match(
+    testClaim?.reviewed_content_hash ?? "",
+    /^[a-f0-9]{64}$/,
+    "the shared claim carries the reviewed hash needed by assurance inspection"
+  );
 
   const duplicateManifest = structuredClone(manifest);
   const duplicateLinks =
