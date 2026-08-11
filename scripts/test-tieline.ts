@@ -1503,6 +1503,46 @@ capability:
     onboardingReference,
     /Discover these repository sources directly/
   );
+  assert.match(
+    onboardingReference,
+    /maximum coherent, accurate coverage/i,
+    "semantic onboarding must optimize for repository-wide behavioral coverage"
+  );
+  assert.match(
+    onboardingReference,
+    /every configured\s+source root[\s\S]*each discovered (?:application|app), service, worker, CLI, and\s+shared package boundary/i,
+    "semantic onboarding must assess every monorepo boundary before authoring"
+  );
+  assert.match(
+    onboardingReference,
+    /working coverage ledger[\s\S]*cover[\s\S]*exclude/i,
+    "semantic onboarding must account for discovered behavior rather than stopping at a valid seed"
+  );
+  assert.match(
+    onboardingReference,
+    /Repeated evidence increases confidence[\s\S]*not a prerequisite for\s+inclusion/i,
+    "one strong repository source must be enough to preserve observable behavior"
+  );
+  assert.match(
+    onboardingReference,
+    /mapping coverage[\s\S]*not a proxy for semantic completeness/i,
+    "path mapping must diagnose possible gaps without becoming the coverage objective"
+  );
+  assert.match(
+    onboardingReference,
+    /small contract for a large or multi-application repository is a reassessment\s+signal/i,
+    "suspiciously narrow monorepo output must trigger another discovery pass"
+  );
+  assert.match(
+    onboardingReference,
+    /Audit semantic coverage before completion[\s\S]*every coverage-ledger\s+row[\s\S]*each high-confidence behavior cluster must\s+be represented by a Story and AC or have an explicit exclusion reason[\s\S]*every application boundary must have been assessed/i,
+    "semantic onboarding must reconcile every discovered high-confidence behavior before completion"
+  );
+  assert.match(
+    onboardingReference,
+    /until no known high-confidence behavior remains unrepresented\s+or unexplained/i,
+    "semantic onboarding must continue discovery until the behavioral gap audit is clear"
+  );
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
