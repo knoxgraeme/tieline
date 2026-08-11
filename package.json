@@ -41,6 +41,8 @@
     "test:http": "tsx scripts/test-http.ts",
     "test:tieline": "npm run build && npm run test:skill-install && node --import tsx scripts/test-tieline.ts",
     "test:skill-install": "tsx scripts/test-skill-install.ts",
+    "test:parser-package": "npm run build && tsx scripts/test-parser-package.ts",
+    "benchmark:parser-runtime": "npm run build && tsx scripts/benchmark-parser-runtime.ts",
     "test:smoke": "tsx scripts/smoke.ts",
     "test:integration": "tsx scripts/integration.ts",
     "test:contract": "tsx scripts/test-contract.ts && tsx scripts/test-manifest.ts && tsx scripts/test-contract-command.ts && tsx scripts/test-contract-context-command.ts && tsx scripts/test-impact.ts && tsx scripts/test-artifact-assurance.ts && tsx scripts/test-intent-context.ts && tsx scripts/test-link-plausibility.ts && tsx scripts/test-reconciliation.ts && tsx scripts/test-path-criteria.ts && tsx scripts/test-grade.ts",
@@ -69,6 +71,7 @@
     "express": "^4.21.2",
     "picocolors": "^1.1.1",
     "postgres": "^3.4.5",
+    "web-tree-sitter": "0.26.12",
     "yaml": "^2.8.1",
     "zod": "^3.23.8"
   },
