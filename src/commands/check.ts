@@ -170,6 +170,11 @@ function findingLine(impact: AcceptanceCriterionImpact): string {
       case "resolved":
         details.push(`${locator} resolved`);
         break;
+      case "ambiguous":
+        details.push(
+          `${locator} ambiguous (${impact.locator_matches.length} structural matches); qualify the locator`
+        );
+        break;
       case "unresolved":
         details.push(`${locator} unresolved; re-read the exact locator`);
         break;
@@ -181,6 +186,11 @@ function findingLine(impact: AcceptanceCriterionImpact): string {
       case "not_applicable":
         details.push("locator not applicable (file-level link)");
         break;
+    }
+    if (impact.source_evidence) {
+      details.push(
+        `source ${impact.source_evidence.language} line ${impact.source_evidence.range.start.line + 1}`
+      );
     }
   }
   return `    ${level} ${impact.reason} ${impact.path} (${details.join("; ")})`;
@@ -225,7 +235,16 @@ function renderGroup(
       "    Relink this criterion: its recorded evidence no longer exists.\n"
     );
   }
-  for (const impact of group) io.write(`${findingLine(impact)}\n`);
+  for (const impact of group) {
+    io.write(`${findingLine(impact)}\n`);
+    if (impact.source_evidence) {
+      const suffix = impact.source_evidence.snippet.truncated ? " (truncated)" : "";
+      io.write(`      source snippet${suffix}:\n`);
+      for (const line of impact.source_evidence.snippet.text.split("\n")) {
+        io.write(`        ${line}\n`);
+      }
+    }
+  }
 }
 
 export async function runCheckCommand(
@@ -263,7 +282,7 @@ export async function runCheckCommand(
     manifestCompileError =
       error instanceof Error ? error.message : String(error);
   }
-  const impacts = analyzeContractImpact({
+  const impacts = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes,

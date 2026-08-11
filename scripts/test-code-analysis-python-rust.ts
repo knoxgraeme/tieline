@@ -75,7 +75,7 @@ await test("emits deterministic Python definitions, owners, exports, and imports
   );
   const unicodeClass = result.symbols.find((symbol) => symbol.name === "Café");
   assert.ok(unicodeClass);
-  assert.equal(unicodeClass.selector, null, "core selector grammar cannot honestly encode Unicode names");
+  assert.equal(unicodeClass.selector, "class:Café", "NFC Unicode identifiers are canonical selectors");
   assert.ok(unicodeClass.nameRange);
   assert.equal(
     unicodeClass.nameRange.utf8Bytes.end - unicodeClass.nameRange.utf8Bytes.start,

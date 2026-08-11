@@ -48,8 +48,19 @@ function renderIntentClaim(
     `${indent}  broken cause: ${claim.assurance.broken_cause ?? "none"}`,
     `${indent}  locator resolution: ${claim.assurance.locator_resolution}`,
     `${indent}  locator reason: ${claim.assurance.locator_reason ?? "none"}`,
+    `${indent}  structural matches: ${claim.assurance.locator_matches.length}`,
     `${indent}  semantic support: ${claim.assurance.semantic_support}`
   );
+  if (claim.assurance.source_evidence) {
+    const evidence = claim.assurance.source_evidence;
+    lines.push(
+      `${indent}  source evidence: ${evidence.language} ${evidence.canonical_selector} (${evidence.native_kind})`,
+      `${indent}  analyzed content hash: ${evidence.analyzed_content_hash}`,
+      `${indent}  source range: lines ${evidence.range.start.line + 1}-${evidence.range.end.line + 1}; UTF-8 bytes ${evidence.range.utf8Bytes.start}-${evidence.range.utf8Bytes.end}`,
+      `${indent}  snippet${evidence.snippet.truncated ? " (truncated)" : ""}:`,
+      ...evidence.snippet.text.split("\n").map((line) => `${indent}    ${line}`)
+    );
+  }
   return `${lines.join("\n")}\n`;
 }
 
@@ -156,10 +167,10 @@ function readIntentContextManifest(
   }
 }
 
-export function runContractContext(
+export async function runContractContext(
   parsed: ContractContextCommand,
   io: CommandIO
-): number {
+): Promise<number> {
   const selectedModes =
     Number(parsed.path !== undefined) + Number(parsed.ac !== undefined);
   if (selectedModes !== 1) {
@@ -178,7 +189,7 @@ export function runContractContext(
   const manifest = readIntentContextManifest(parsed);
   const result =
     parsed.path !== undefined
-      ? lookupAssetIntentContext({
+      ? await lookupAssetIntentContext({
           manifest,
           repositoryRoot: parsed.repositoryRoot,
           locator: {
@@ -191,7 +202,7 @@ export function runContractContext(
               : { selector: parsed.selector }),
           },
         })
-      : lookupAcceptanceCriterionIntentContext({
+      : await lookupAcceptanceCriterionIntentContext({
           manifest,
           repositoryRoot: parsed.repositoryRoot,
           stableId: parsed.ac!,

@@ -629,7 +629,7 @@ await test("scans deeply nested templates without exhausting the call stack", ()
   assert.ok(index.kinds.function.includes("afterNestedTemplate"));
 });
 
-await test("resolves core-kind selectors against the file the link targets", () => {
+await test("resolves core-kind selectors against the file the link targets", async () => {
   const root = fixtureRoot();
   try {
     for (const selector of [
@@ -640,7 +640,7 @@ await test("resolves core-kind selectors against the file the link targets", () 
       "type:ReportMode",
       "class:PostgresStore/method:searchSemantic",
     ]) {
-      const resolution = resolveSelector({
+      const resolution = await resolveSelector({
         repositoryRoot: root,
         path: "src/fixture.ts",
         selector,
@@ -655,10 +655,10 @@ await test("resolves core-kind selectors against the file the link targets", () 
   }
 });
 
-await test("reports unresolved only for a file the extractor understood", () => {
+await test("reports unresolved only for a file the extractor understood", async () => {
   const root = fixtureRoot();
   try {
-    const gone = resolveSelector({
+    const gone = await resolveSelector({
       repositoryRoot: root,
       path: "src/fixture.ts",
       selector: "function:renameMe",
@@ -669,28 +669,28 @@ await test("reports unresolved only for a file the extractor understood", () => 
 
     // A name that exists under a different kind is still unresolved, and the
     // detail says where it was actually found.
-    const wrongKind = resolveSelector({
+    const wrongKind = await resolveSelector({
       repositoryRoot: root,
       path: "src/fixture.ts",
       selector: "class:analyzeContractImpact",
     });
     assert.equal(wrongKind.status, "unresolved");
-    assert.match(wrongKind.detail, /not as a class/);
+    assert.match(wrongKind.detail, /owner-aware selector/);
 
     // A qualified selector fails as a whole when any part is missing.
-    const partial = resolveSelector({
+    const partial = await resolveSelector({
       repositoryRoot: root,
       path: "src/fixture.ts",
       selector: "class:PostgresStore/method:renameMe",
     });
     assert.equal(partial.status, "unresolved");
-    assert.deepEqual(partial.matched, [{ kind: "class", name: "PostgresStore" }]);
+    assert.deepEqual(partial.matched, []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-await test("never reports not_checked as unresolved", () => {
+await test("never reports not_checked as unresolved", async () => {
   const root = fixtureRoot();
   const vocabulary = createSelectorVocabulary([
     { name: "route" },
@@ -710,12 +710,12 @@ await test("never reports not_checked as unresolved", () => {
       // A file that is simply not there.
       { path: "src/absent.ts", selector: "function:analyzeContractImpact", reason: "file_missing" },
       // A directory where a file was expected.
-      { path: "src", selector: "function:analyzeContractImpact", reason: "unsupported_language" },
+      { path: "src", selector: "function:analyzeContractImpact", reason: "not_a_file" },
       // A resolvable declared kind whose name is not a symbol at all.
-      { path: "src/fixture.ts", selector: "tool:contract reconcile", reason: "name_not_identifier" },
+      { path: "src/fixture.ts", selector: "tool:contract reconcile", reason: "kind_not_resolvable" },
     ];
     for (const entry of cases) {
-      const resolution = resolveSelector({
+      const resolution = await resolveSelector({
         repositoryRoot: root,
         path: entry.path,
         selector: entry.selector,
@@ -734,34 +734,35 @@ await test("never reports not_checked as unresolved", () => {
     const empty = mkdtempSync(resolve(tmpdir(), "tieline-selector-empty-"));
     try {
       writeFileSync(resolve(empty, "blank.ts"), "// nothing but a comment\n");
-      const resolution = resolveSelector({
+      const resolution = await resolveSelector({
         repositoryRoot: empty,
         path: "blank.ts",
         selector: "function:analyzeContractImpact",
       });
-      assert.equal(resolution.status, "not_checked");
-      assert.equal(resolution.reason, "no_symbols_extracted");
+      assert.equal(resolution.status, "unresolved");
+      assert.equal(resolution.reason, null);
     } finally {
       rmSync(empty, { recursive: true, force: true });
     }
 
-    // A resolvable declared kind does get checked, kind-agnostically.
-    const found = resolveSelector({
+    // Repository-declared kinds need a dedicated structural adapter.
+    const found = await resolveSelector({
       repositoryRoot: root,
       path: "src/fixture.ts",
       selector: "tool:searchSemantic",
       vocabulary,
     });
-    assert.equal(found.status, "resolved");
+    assert.equal(found.status, "not_checked");
+    assert.equal(found.reason, "kind_not_resolvable");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-await test("treats an unusable selector as not_checked rather than a missing symbol", () => {
+await test("treats an unusable selector as not_checked rather than a missing symbol", async () => {
   const root = fixtureRoot();
   try {
-    const resolution = resolveSelector({
+    const resolution = await resolveSelector({
       repositoryRoot: root,
       path: "src/fixture.ts",
       selector: "func:analyzeContractImpact",

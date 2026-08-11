@@ -156,9 +156,10 @@ capability:
       fullInspections += 1;
       throw new Error("healthy all-links sweep must not resolve selectors");
     },
+    async dispose() {},
   };
   assert.deepEqual(
-    analyzeContractImpact({
+    await analyzeContractImpact({
       repositoryRoot: root,
       manifest,
       changes: [],
@@ -173,7 +174,7 @@ capability:
     resolve(root, "src/feature.ts"),
     "export const feature = 2;\nexport const alternate = 2;\n"
   );
-  const changed = analyzeContractImpact({
+  const changed = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "modified", path: "src/feature.ts" }],
@@ -228,7 +229,7 @@ capability:
     "same-file selectors and direct versus Story fallback remain distinct and ordered"
   );
 
-  const renamed = analyzeContractImpact({
+  const renamed = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [
@@ -248,7 +249,7 @@ capability:
   assert.equal(renamed[0].locator_resolution, "resolved");
   assert.equal(renamed[0].locator_reason, null);
 
-  const contractChanged = analyzeContractImpact({
+  const contractChanged = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [
@@ -290,7 +291,7 @@ capability:
 
   // A link can rot without the change under review touching it.
   rmSync(resolve(root, "scripts/feature.test.ts"));
-  const brokenOutsideDiff = analyzeContractImpact({
+  const brokenOutsideDiff = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [],
@@ -314,7 +315,7 @@ capability:
 
   // The same broken link inside the diff keeps its diff-driven reason and is
   // reported once, not twice.
-  const brokenInsideDiff = analyzeContractImpact({
+  const brokenInsideDiff = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "deleted", path: "scripts/feature.test.ts" }],
@@ -372,7 +373,7 @@ capability:
     "export function featureBehavior() { assert(feature); }\n"
   );
 
-  const unsupported = analyzeContractImpact({
+  const unsupported = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "modified", path: "src/unsupported.rb" }],
@@ -383,7 +384,7 @@ capability:
   assert.equal(unsupported[0].locator_reason, "unsupported_language");
 
   // A link pointing at a directory is broken for a different, reportable reason.
-  const notFile = analyzeContractImpact({
+  const notFile = await analyzeContractImpact({
     repositoryRoot: root,
     manifest: retarget(cloneManifest(manifest), "tests", "src"),
     changes: [],
@@ -401,7 +402,7 @@ capability:
     resolve(outsideRoot, "external.ts"),
     resolve(root, "src/external.ts")
   );
-  const outside = analyzeContractImpact({
+  const outside = await analyzeContractImpact({
     repositoryRoot: root,
     manifest: retarget(cloneManifest(manifest), "tests", "src/external.ts"),
     changes: [],

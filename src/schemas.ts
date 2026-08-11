@@ -335,6 +335,64 @@ const intentContextTarget = z
     framework_hint: z.string().nullable(),
   })
   .strict();
+const intentContextPosition = z
+  .object({
+    utf16Offset: z.number().int().nonnegative(),
+    utf8ByteOffset: z.number().int().nonnegative(),
+    line: z.number().int().nonnegative(),
+    utf16Column: z.number().int().nonnegative(),
+    utf8ByteColumn: z.number().int().nonnegative(),
+  })
+  .strict();
+const intentContextRange = z
+  .object({
+    utf16: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative() }).strict(),
+    utf8Bytes: z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative() }).strict(),
+    start: intentContextPosition,
+    end: intentContextPosition,
+  })
+  .strict();
+const intentContextDiagnostic = z
+  .object({
+    identity: z.string().min(1),
+    kind: z.enum(["error", "missing"]),
+    nativeKind: z.string().min(1),
+    range: intentContextRange,
+    message: z.string().min(1),
+  })
+  .strict();
+const intentContextLocatorMatch = z
+  .object({
+    identity: z.string().min(1),
+    selector: z.string().min(1),
+    native_kind: z.string().min(1),
+    name_range: intentContextRange.nullable(),
+    range: intentContextRange,
+  })
+  .strict();
+const intentContextSourceEvidence = z
+  .object({
+    language: z.enum(["javascript", "jsx", "typescript", "tsx", "python", "rust"]),
+    canonical_selector: z.string().min(1),
+    symbol_identity: z.string().min(1),
+    native_kind: z.string().min(1),
+    syntax_status: z.enum(["exact", "recovered"]),
+    name_range: intentContextRange.nullable(),
+    range: intentContextRange,
+    snippet: z
+      .object({
+        text: z.string(),
+        range: intentContextRange,
+        truncated: z.boolean(),
+      })
+      .strict(),
+    analyzed_content_hash: intentContextHash,
+    compatibility: z
+      .object({ parser: z.string().min(1), query: z.string().min(1), identity: z.string().min(1) })
+      .strict(),
+    diagnostics: z.array(intentContextDiagnostic),
+  })
+  .strict();
 const intentContextAssurance = z
   .object({
     freshness: z.enum(["current", "stale", "unknown", "broken"]),
@@ -346,6 +404,7 @@ const intentContextAssurance = z
       .nullable(),
     locator_resolution: z.enum([
       "resolved",
+      "ambiguous",
       "unresolved",
       "not_checked",
       "not_applicable",
@@ -362,10 +421,13 @@ const intentContextAssurance = z
         "binary_content",
         "file_too_large",
         "no_symbols_extracted",
+        "parse_incomplete",
         "cross_repository",
         "outside_repository",
       ])
       .nullable(),
+    locator_matches: z.array(intentContextLocatorMatch),
+    source_evidence: intentContextSourceEvidence.nullable(),
     semantic_support: z.literal("not_assessed"),
   })
   .strict();

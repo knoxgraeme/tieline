@@ -30,17 +30,20 @@
  *    is configurable, because an acceptance criterion maps more naturally onto a
  *    route, a CLI command, or a tool than onto a function.
  *
- * RESOLUTION IS HEURISTIC AND MUST STAY CONSERVATIVE. `resolveSelector` reads
- * the linked file and looks for a matching symbol using regexes, the same
- * approach already proven for lexical link plausibility. Regexes do not
- * understand every language or every syntax. The result is therefore
- * three-state, and the third state is the important one: `not_checked` means
- * this heuristic learned nothing, and it must never be reported or aggregated
- * as `unresolved`. Claiming a symbol is gone when the extractor simply could not
- * see it is a false accusation against a contract that may be perfectly correct.
+ * DEFAULT RESOLUTION IS STRUCTURAL AND CONSERVATIVE. `resolveSelector` parses an
+ * immutable source snapshot and matches the complete owner-aware selector. The
+ * legacy source-string helpers remain exported only as pure compatibility seams;
+ * product assurance does not use them. `not_checked` still means the parser
+ * could not reach a sound conclusion and must never be aggregated as absent.
  */
 import { readFileSync, statSync } from "node:fs";
 import { extname, resolve } from "node:path";
+import type { SupportedCodeLanguage } from "./code-analysis/languages.js";
+import type {
+  CodeAnalysisCompatibility,
+  CodeSymbolFact,
+  ParserDiagnostic,
+} from "./code-analysis/types.js";
 import { scanSource } from "./source-scan.js";
 
 /**
@@ -72,8 +75,17 @@ const KIND_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
  */
 const SEGMENT_START_PATTERN = /^[ \t]*[A-Za-z][A-Za-z0-9_-]*:/;
 
-/** Names of core kinds must be bare symbol names — no parentheses, no spaces. */
-const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+/**
+ * Names of core kinds must be Unicode identifiers. Rust's source-only `r#`
+ * escape is accepted and removed from the canonical identity so authored
+ * selectors agree with analyzer output (`method:r#match` → `method:match`).
+ */
+const IDENTIFIER_PATTERN = /^[$_\p{ID_Start}][$\u200c\u200d_\p{ID_Continue}]*$/u;
+
+function canonicalCoreName(name: string): string {
+  const unescaped = name.startsWith("r#") ? name.slice(2) : name;
+  return unescaped.normalize("NFC");
+}
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
@@ -184,7 +196,7 @@ export function parseSelector(raw: unknown): SelectorParseResult {
       );
     }
     const kind = segment.slice(0, colon).trim();
-    const name = segment.slice(colon + 1).trim().replace(/\s+/g, " ");
+    let name = segment.slice(colon + 1).trim().replace(/\s+/g, " ");
     if (kind.length === 0) {
       return failure(`selector part '${segment}' has an empty kind`);
     }
@@ -215,11 +227,15 @@ export function parseSelector(raw: unknown): SelectorParseResult {
       );
     }
     const normalizedKind = kind.toLowerCase();
-    if (isCoreSelectorKind(normalizedKind) && !IDENTIFIER_PATTERN.test(name)) {
-      return failure(
-        `selector '${normalizedKind}:${name}' must name a bare symbol (letters, digits, '_' or '$'); ` +
-          `drop call parentheses, arguments and spaces`
-      );
+    if (isCoreSelectorKind(normalizedKind)) {
+      const canonicalName = canonicalCoreName(name);
+      if (!IDENTIFIER_PATTERN.test(canonicalName)) {
+        return failure(
+          `selector '${normalizedKind}:${name}' must name a bare symbol using a Unicode identifier (Rust raw identifiers may use 'r#'); ` +
+            `drop call parentheses, arguments and spaces`
+        );
+      }
+      name = canonicalName;
     }
     segments.push({ kind: normalizedKind, name });
   }
@@ -349,10 +365,14 @@ export function validateSelector(
   return { ok: true, selector: parsed.selector };
 }
 
-// Resolution
+// Legacy source-string resolution
+
+// These helpers remain for callers that already hold source text and need the
+// historical heuristic result. Product assurance and the default filesystem
+// resolver below use parser-backed structural analysis instead.
 
 /**
- * Extensions the extraction regexes below actually understand. Anything else is
+ * Extensions the legacy extraction regexes below actually understand. Anything else is
  * `not_checked`; guessing at another language's declaration syntax would produce
  * confident nonsense.
  */
@@ -484,7 +504,11 @@ export function indexSourceSymbols(content: string): SymbolIndex {
   };
 }
 
-export type SelectorResolutionStatus = "resolved" | "unresolved" | "not_checked";
+export type SelectorResolutionStatus =
+  | "resolved"
+  | "ambiguous"
+  | "unresolved"
+  | "not_checked";
 
 export type SelectorNotCheckedReason =
   | "invalid_selector"
@@ -496,7 +520,8 @@ export type SelectorNotCheckedReason =
   | "unreadable"
   | "binary_content"
   | "file_too_large"
-  | "no_symbols_extracted";
+  | "no_symbols_extracted"
+  | "parse_incomplete";
 
 export interface SelectorResolution {
   /** Canonical form when the selector parsed, otherwise the raw input trimmed. */
@@ -511,6 +536,12 @@ export interface SelectorResolution {
   missing: SelectorSegment[];
   /** Segments skipped because their kind is not resolvable. */
   skipped: SelectorSegment[];
+  /** Stable structural matches. Populated by parser-backed lookup. */
+  matching_symbols?: readonly CodeSymbolFact[];
+  /** Parser metadata is present for parser-backed lookup only. */
+  language?: SupportedCodeLanguage | null;
+  compatibility?: CodeAnalysisCompatibility | null;
+  diagnostics?: readonly ParserDiagnostic[];
   detail: string;
 }
 
@@ -671,7 +702,7 @@ function resolveValidatedSelectorInIndex(
 }
 
 /**
- * Looks for the selector's symbols in an already-read source string.
+ * Legacy compatibility helper for an already-read source string.
  *
  * A qualified selector is satisfied when every resolvable segment's name appears
  * somewhere in the file. It deliberately does NOT assert containment — these
@@ -712,7 +743,7 @@ export interface CreateCachedSelectorResolverOptions {
 }
 
 /**
- * Creates a request-local resolver that reads and indexes each normalized local
+ * Creates a legacy request-local resolver that reads and indexes each normalized local
  * path at most once. The cache is intentionally not global: checkout contents
  * may change between requests.
  */
@@ -801,9 +832,9 @@ export function createCachedSelectorResolver(
  * preserve `not_checked` — see the module header for why it must never be
  * reported as `unresolved`.
  */
-export function resolveSelector(
+export async function resolveSelector(
   options: ResolveSelectorOptions
-): SelectorResolution {
+): Promise<SelectorResolution> {
   const vocabulary = options.vocabulary ?? CORE_SELECTOR_VOCABULARY;
   const maxSourceBytes =
     options.maxSourceBytes ?? DEFAULT_MAX_SELECTOR_SOURCE_BYTES;
@@ -835,24 +866,40 @@ export function resolveSelector(
     );
   }
 
-  if (!RESOLVABLE_SOURCE_EXTENSIONS.has(extname(path).toLowerCase())) {
+  const { createFilesystemSourceSnapshotReader } = await import("./source-snapshot.js");
+  const { createStructuralSelectorResolver } = await import(
+    "./code-analysis/selector-resolution.js"
+  );
+  const read = createFilesystemSourceSnapshotReader({
+    repositoryRoot: options.repositoryRoot,
+    maxSourceBytes,
+  }).read(path);
+  if (read.status !== "read") {
+    const reason: SelectorNotCheckedReason =
+      read.status === "missing"
+        ? "file_missing"
+        : read.status === "not_file"
+          ? "not_a_file"
+          : read.status === "binary"
+            ? "binary_content"
+            : read.status === "oversized"
+              ? "file_too_large"
+              : "unreadable";
     return notChecked(
       canonical,
       path,
-      "unsupported_language",
-      `'${path}' is not a language these declaration patterns understand, so '${canonical}' was not checked.`
+      reason,
+      `'${path}' could not be examined (${read.status}), so '${canonical}' was not checked.`
     );
   }
-
-  const read = readSource(resolve(options.repositoryRoot, path), maxSourceBytes);
-  if (read.status === "skipped") {
-    return notChecked(
-      canonical,
-      path,
-      read.reason,
-      `'${path}' could not be examined (${read.reason}), so '${canonical}' was not checked.`
-    );
+  const resolver = createStructuralSelectorResolver();
+  try {
+    return await resolver.resolve({
+      snapshot: read.snapshot,
+      selector: canonical,
+      vocabulary,
+    });
+  } finally {
+    await resolver.dispose();
   }
-
-  return resolveSelectorInSource(read.content, canonical, { path, vocabulary });
 }

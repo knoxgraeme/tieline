@@ -30,7 +30,7 @@ export const rustAnalysisCompatibility: CodeAnalysisCompatibility = Object.freez
 });
 
 const rustLanguages = new Set<SupportedCodeLanguage>(["rust"]);
-const bareRustName = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const bareRustName = /^[\p{ID_Start}_$][\p{ID_Continue}\u200c\u200d$]*$/u;
 
 export type RustAnalyzerOptions = StructuralAnalyzerOptions;
 

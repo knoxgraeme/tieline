@@ -169,7 +169,7 @@ capability:
   const pathContext = JSON.parse(output);
   assert.deepEqual(
     pathContext,
-    lookupAssetIntentContext({
+    await lookupAssetIntentContext({
       manifest: contextManifest,
       repositoryRoot: contextRoot,
       locator: { path: "src/shared.ts" },
@@ -238,7 +238,7 @@ capability:
   const criterionContext = JSON.parse(output);
   assert.deepEqual(
     criterionContext,
-    lookupAcceptanceCriterionIntentContext({
+    await lookupAcceptanceCriterionIntentContext({
       manifest: contextManifest,
       repositoryRoot: contextRoot,
       stableId: "CONTEXT-001-AC1",

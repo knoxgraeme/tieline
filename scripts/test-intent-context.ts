@@ -279,10 +279,10 @@ await test("rejects duplicate stable IDs before exact context reads", () => {
   }
 });
 
-await test("matches exact selectors plus file claims and excludes sibling selectors", () => {
+await test("matches exact selectors plus file claims and excludes sibling selectors", async () => {
   const fixture = createFixture();
   try {
-    const context = lookupAssetIntentContext({
+    const context = await lookupAssetIntentContext({
       ...fixture,
       locator: { path: "./src/shared.ts", selector: " Function : first " },
     });
@@ -323,10 +323,10 @@ await test("matches exact selectors plus file claims and excludes sibling select
   }
 });
 
-await test("preserves all path claims and filters optional kind honestly", () => {
+await test("preserves all path claims and filters optional kind honestly", async () => {
   const fixture = createFixture();
   try {
-    const pathOnly = lookupAssetIntentContext({
+    const pathOnly = await lookupAssetIntentContext({
       ...fixture,
       locator: { path: "src/shared.ts" },
     });
@@ -343,7 +343,7 @@ await test("preserves all path claims and filters optional kind honestly", () =>
         ["function:second", "implements", "path_only"],
       ]
     );
-    const testKind = lookupAssetIntentContext({
+    const testKind = await lookupAssetIntentContext({
       ...fixture,
       locator: { path: "src/shared.ts", kind: "test" },
     });
@@ -354,10 +354,10 @@ await test("preserves all path claims and filters optional kind honestly", () =>
   }
 });
 
-await test("canonicalizes authored claim paths exactly like asset queries", () => {
+await test("canonicalizes authored claim paths exactly like asset queries", async () => {
   const fixture = createFixture();
   try {
-    const context = lookupAssetIntentContext({
+    const context = await lookupAssetIntentContext({
       ...fixture,
       locator: { path: "./src//canonical.ts" },
     });
@@ -386,10 +386,10 @@ await test("canonicalizes authored claim paths exactly like asset queries", () =
   }
 });
 
-await test("expands Story fallback one hop to each criterion's direct evidence", () => {
+await test("expands Story fallback one hop to each criterion's direct evidence", async () => {
   const fixture = createFixture();
   try {
-    const context = lookupAssetIntentContext({
+    const context = await lookupAssetIntentContext({
       ...fixture,
       locator: { path: "src/story.ts", selector: "function:storyFeature" },
     });
@@ -419,10 +419,10 @@ await test("expands Story fallback one hop to each criterion's direct evidence",
   }
 });
 
-await test("returns complete AC context with separate assurance dimensions", () => {
+await test("returns complete AC context with separate assurance dimensions", async () => {
   const fixture = createFixture();
   try {
-    const context = lookupAcceptanceCriterionIntentContext({
+    const context = await lookupAcceptanceCriterionIntentContext({
       ...fixture,
       stableId: "INTENT-001-AC1",
     });
@@ -451,14 +451,15 @@ await test("returns complete AC context with separate assurance dimensions", () 
     const current = context.intent_neighborhood?.direct_claims.find(
       (claim) => claim.target.selector === "function:first" && claim.relation === "implements"
     );
-    assert.deepEqual(current?.assurance, {
-      freshness: "current",
-      freshness_reason: null,
-      broken_cause: null,
-      locator_resolution: "resolved",
-      locator_reason: null,
-      semantic_support: "not_assessed",
-    });
+    assert.equal(current?.assurance.freshness, "current");
+    assert.equal(current?.assurance.locator_resolution, "resolved");
+    assert.equal(current?.assurance.semantic_support, "not_assessed");
+    assert.equal(current?.assurance.locator_matches.length, 1);
+    assert.equal(current?.assurance.source_evidence?.canonical_selector, "function:first");
+    assert.equal(
+      current?.assurance.source_evidence?.analyzed_content_hash,
+      current?.reviewed_content_hash
+    );
     assert.equal(current?.provenance, "authored");
     assert.equal(current?.link_scope, "direct");
     assert.match(current?.reviewed_content_hash ?? "", /^[a-f0-9]{64}$/);
@@ -487,24 +488,24 @@ await test("returns complete AC context with separate assurance dimensions", () 
   }
 });
 
-await test("distinguishes negative results and malformed locators", () => {
+await test("distinguishes negative results and malformed locators", async () => {
   const fixture = createFixture();
   try {
     assert.equal(
-      lookupAssetIntentContext({
+      (await lookupAssetIntentContext({
         ...fixture,
         locator: { path: "src/unlinked.ts", selector: "const:unlinked" },
-      }).status,
+      })).status,
       "no_criteria"
     );
     assert.equal(
-      lookupAssetIntentContext({
+      (await lookupAssetIntentContext({
         ...fixture,
         locator: { path: "src/not-here.ts" },
-      }).status,
+      })).status,
       "not_found"
     );
-    assert.throws(
+    await assert.rejects(
       () =>
         lookupAssetIntentContext({
           ...fixture,
@@ -516,14 +517,14 @@ await test("distinguishes negative results and malformed locators", () => {
         /bare symbol/i.test(error.message)
     );
     assert.equal(
-      lookupAssetIntentContext({
+      (await lookupAssetIntentContext({
         ...fixture,
         locator: { path: "src/shared.ts/" },
-      }).locator.path,
+      })).locator.path,
       "src/shared.ts",
       "canonical path normalization preserves the established trailing-slash behavior"
     );
-    assert.throws(
+    await assert.rejects(
       () =>
         lookupAssetIntentContext({
           ...fixture,
@@ -532,7 +533,7 @@ await test("distinguishes negative results and malformed locators", () => {
       (error: unknown) =>
         error instanceof IntentContextError && error.code === "invalid_path"
     );
-    const unknown = lookupAcceptanceCriterionIntentContext({
+    const unknown = await lookupAcceptanceCriterionIntentContext({
       ...fixture,
       stableId: "INTENT-404-AC1",
     });
@@ -544,10 +545,10 @@ await test("distinguishes negative results and malformed locators", () => {
   }
 });
 
-await test("validates selector kinds against the repository vocabulary", () => {
+await test("validates selector kinds against the repository vocabulary", async () => {
   const fixture = createFixture();
   try {
-    assert.throws(
+    await assert.rejects(
       () =>
         lookupAssetIntentContext({
           ...fixture,
@@ -567,7 +568,7 @@ await test("validates selector kinds against the repository vocabulary", () => {
     config.selectors = { kinds: [{ name: "route" }] };
     writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 
-    const custom = lookupAssetIntentContext({
+    const custom = await lookupAssetIntentContext({
       ...fixture,
       locator: {
         path: "src/shared.ts",
@@ -588,10 +589,10 @@ await test("validates selector kinds against the repository vocabulary", () => {
   }
 });
 
-await test("keeps missing claimed assets as not-found broken context", () => {
+await test("keeps missing claimed assets as not-found broken context", async () => {
   const fixture = createFixture();
   try {
-    const context = lookupAssetIntentContext({
+    const context = await lookupAssetIntentContext({
       ...fixture,
       locator: {
         path: "src/missing.ts",
@@ -609,6 +610,8 @@ await test("keeps missing claimed assets as not-found broken context", () => {
       broken_cause: "missing",
       locator_resolution: "not_checked",
       locator_reason: "file_missing",
+      locator_matches: [],
+      source_evidence: null,
       semantic_support: "not_assessed",
     });
     assert.match(context.answer, /manifest-backed intent neighborhood/i);
@@ -641,14 +644,14 @@ await test("enforces one stable-ID contract in the library and CLI", async () =>
   };
   try {
     assert.equal(
-      lookupAcceptanceCriterionIntentContext({
+      (await lookupAcceptanceCriterionIntentContext({
         ...fixture,
         stableId: "A".repeat(160),
-      }).status,
+      })).status,
       "not_found"
     );
     for (const stableId of ["bad id", "A".repeat(161)]) {
-      assert.throws(
+      await assert.rejects(
         () =>
           lookupAcceptanceCriterionIntentContext({
             ...fixture,
@@ -682,14 +685,14 @@ await test("enforces one stable-ID contract in the library and CLI", async () =>
   }
 });
 
-await test("deduplicates and orders byte-equivalent bounded results", () => {
+await test("deduplicates and orders byte-equivalent bounded results", async () => {
   const fixture = createFixture();
   try {
-    const first = lookupAcceptanceCriterionIntentContext({
+    const first = await lookupAcceptanceCriterionIntentContext({
       ...fixture,
       stableId: "INTENT-001-AC1",
     });
-    const second = lookupAcceptanceCriterionIntentContext({
+    const second = await lookupAcceptanceCriterionIntentContext({
       ...fixture,
       stableId: "INTENT-001-AC1",
     });
@@ -851,7 +854,7 @@ await test("registers primitive offline MCP context reads with strict parity", a
     assert.notEqual(assetResult.isError, true);
     assert.deepEqual(
       assetResult.structuredContent,
-      lookupAssetIntentContext({
+      await lookupAssetIntentContext({
         manifest: fixture.manifest,
         repositoryRoot: fixture.root,
         locator: {
@@ -861,10 +864,14 @@ await test("registers primitive offline MCP context reads with strict parity", a
         },
       })
     );
-    assert.deepEqual(
-      JSON.parse(assetResult.content[0]!.text),
-      assetResult.structuredContent
-    );
+    const assetText = JSON.parse(assetResult.content[0]!.text) as Record<string, unknown>;
+    if (assetText._truncated === true) {
+      assert.equal(assetText._note !== undefined, true);
+      assert.equal(typeof assetText._truncated_field, "string");
+      assert.equal(typeof assetText._total_available, "number");
+    } else {
+      assert.deepEqual(assetText, assetResult.structuredContent);
+    }
     z.object(assetTool.config.outputSchema)
       .strict()
       .parse(assetResult.structuredContent);
@@ -873,7 +880,7 @@ await test("registers primitive offline MCP context reads with strict parity", a
     assert.notEqual(acResult.isError, true);
     assert.deepEqual(
       acResult.structuredContent,
-      lookupAcceptanceCriterionIntentContext({
+      await lookupAcceptanceCriterionIntentContext({
         manifest: fixture.manifest,
         repositoryRoot: fixture.root,
         stableId: "INTENT-001-AC1",

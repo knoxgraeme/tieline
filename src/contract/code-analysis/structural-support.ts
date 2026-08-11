@@ -20,7 +20,7 @@ const defaultMaximumSymbols = 20_000;
 const defaultMaximumReferences = 20_000;
 const defaultMaximumDiagnostics = 512;
 const treeSitterMatchLimit = 65_536;
-const coreSelectorName = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const coreSelectorName = /^[\p{ID_Start}_$][\p{ID_Continue}\u200c\u200d$]*$/u;
 
 export interface StructuralAnalyzerOptions {
   runtime?: CodeParserRuntime;
