@@ -30,6 +30,8 @@ export interface PostgresCodeTopologyRepositoryOptions {
   afterWrite?: (stage: CodeTopologyWriteStage) => void | Promise<void>;
 }
 
+export const CODE_TOPOLOGY_INSERT_BATCH_SIZE = 1_000;
+
 interface GenerationRow {
   identity: string;
   repository: string;
@@ -65,15 +67,27 @@ function json(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function batches<T>(values: readonly T[]): T[][] {
+  const result: T[][] = [];
+  for (
+    let offset = 0;
+    offset < values.length;
+    offset += CODE_TOPOLOGY_INSERT_BATCH_SIZE
+  ) {
+    result.push(values.slice(offset, offset + CODE_TOPOLOGY_INSERT_BATCH_SIZE));
+  }
+  return result;
+}
+
 async function insertRows(
   tx: TransactionSql<Record<string, never>>,
   generation: CompleteCodeTopologyGeneration,
   afterWrite: (stage: CodeTopologyWriteStage) => Promise<void>
 ): Promise<void> {
   const generationIdentity = generation.header.identity;
-  if (generation.files.length > 0) {
+  for (const batch of batches(generation.files)) {
     await tx`insert into code_topology_files ${tx(
-      generation.files.map((file) => ({
+      batch.map((file) => ({
         generation_identity: generationIdentity,
         path: file.path,
         asset_kind: file.kind,
@@ -89,9 +103,9 @@ async function insertRows(
     )}`;
   }
   await afterWrite("files");
-  if (generation.symbols.length > 0) {
+  for (const batch of batches(generation.symbols)) {
     await tx`insert into code_topology_symbols ${tx(
-      generation.symbols.map((symbol) => ({
+      batch.map((symbol) => ({
         generation_identity: generationIdentity,
         identity: symbol.identity,
         file_path: symbol.file_path,
@@ -108,9 +122,9 @@ async function insertRows(
     )}`;
   }
   await afterWrite("symbols");
-  if (generation.references.length > 0) {
+  for (const batch of batches(generation.references)) {
     await tx`insert into code_topology_references ${tx(
-      generation.references.map((reference) => ({
+      batch.map((reference) => ({
         generation_identity: generationIdentity,
         identity: reference.identity,
         file_path: reference.file_path,
@@ -132,9 +146,9 @@ async function insertRows(
     )}`;
   }
   await afterWrite("references");
-  if (generation.resolutions.length > 0) {
+  for (const batch of batches(generation.resolutions)) {
     await tx`insert into code_topology_resolutions ${tx(
-      generation.resolutions.map((resolution) => ({
+      batch.map((resolution) => ({
         generation_identity: generationIdentity,
         reference_identity: resolution.reference_identity,
         status: resolution.status,
@@ -149,9 +163,9 @@ async function insertRows(
     )}`;
   }
   await afterWrite("resolutions");
-  if (generation.edges.length > 0) {
+  for (const batch of batches(generation.edges)) {
     await tx`insert into code_topology_edges ${tx(
-      generation.edges.map((edge) => ({
+      batch.map((edge) => ({
         generation_identity: generationIdentity,
         identity: edge.identity,
         kind: edge.kind,

@@ -100,6 +100,9 @@ export type SourceSnapshotReadResult =
 export interface SourceSnapshotReader {
   /** Results are request-local and cached by canonical repository path. */
   read(path: string): SourceSnapshotReadResult;
+  /** Allows bounded callers to release source bytes after compact fact extraction. */
+  release?(path: string): void;
+  dispose?(): void;
 }
 
 export interface CreateFilesystemSourceSnapshotReaderOptions {
@@ -237,6 +240,58 @@ function decodeSource(bytes: Buffer): string | null {
   }
 }
 
+export interface CreateSourceSnapshotFromBytesOptions {
+  path: string;
+  bytes: Buffer;
+  metadata: SourceFileMetadata;
+  inventoryDigest?: string | null;
+  /** Trusted internal buffers can avoid a second retained source copy. */
+  copyBytes?: boolean;
+}
+
+/**
+ * Build the shared immutable snapshot shape from bytes supplied by a source
+ * other than the working filesystem (for example, a Git object database).
+ */
+export function createSourceSnapshotFromBytes(
+  options: CreateSourceSnapshotFromBytesOptions
+): SourceSnapshotReadResult {
+  const canonicalPath = canonicalRepositoryRelativePath(options.path);
+  if (!canonicalPath) {
+    return failure(
+      "repository_escape",
+      String(options.path),
+      "path is not a canonical repository-relative path"
+    );
+  }
+  const retainedBytes =
+    options.copyBytes === false ? options.bytes : Buffer.from(options.bytes);
+  const sha256 = createHash("sha256").update(retainedBytes).digest("hex");
+  const text = decodeSource(retainedBytes);
+  if (text === null) {
+    return failure(
+      "binary",
+      canonicalPath,
+      "source contains NUL bytes or is not valid UTF-8",
+      { sha256 }
+    );
+  }
+  let coordinates: SourceCoordinates | undefined;
+  const snapshot: SourceSnapshot = Object.freeze({
+    path: canonicalPath,
+    text,
+    sha256,
+    language: languageForPath(canonicalPath) ?? null,
+    metadata: Object.freeze({ ...options.metadata }),
+    inventoryDigest: options.inventoryDigest ?? null,
+    get coordinates() {
+      return (coordinates ??= buildCoordinates(text));
+    },
+    originalBytes: () => Buffer.from(retainedBytes),
+  });
+  return Object.freeze({ status: "read", snapshot });
+}
+
 /**
  * Create one request-local filesystem reader. A file is inspected before and
  * after its single byte read; a metadata change refuses the snapshot instead of
@@ -261,8 +316,10 @@ export function createFilesystemSourceSnapshotReader(
   );
   const cache = new Map<string, SourceSnapshotReadResult>();
 
+  let disposed = false;
   return {
     read(requestedPath) {
+      if (disposed) throw new Error("Source snapshot reader has been disposed");
       const canonicalPath = canonicalRepositoryRelativePath(requestedPath);
       if (!canonicalPath) {
         return failure(
@@ -369,6 +426,14 @@ export function createFilesystemSourceSnapshotReader(
       }
       cache.set(canonicalPath, result);
       return result;
+    },
+    release(requestedPath) {
+      const canonicalPath = canonicalRepositoryRelativePath(requestedPath);
+      if (canonicalPath) cache.delete(canonicalPath);
+    },
+    dispose() {
+      disposed = true;
+      cache.clear();
     },
   };
 }
