@@ -7,6 +7,9 @@ import {
   normalizeCompleteCodeTopologyGeneration,
   validateCompleteCodeTopologyGeneration,
   type CodeTopologyEdgeRecord,
+  type CodeTopologyFrontierRecord,
+  type CodeTopologyGenerationSummary,
+  type CodeTopologyLocatedSymbolRecord,
   type CodeTopologyStore,
   type CommitCodeTopologyGenerationResult,
   type CompleteCodeTopologyGeneration,
@@ -50,6 +53,53 @@ interface GenerationRow {
   expected_edge_count: number;
   completed_at: Date | string;
   pinned: boolean;
+}
+
+function generationSummary(row: GenerationRow): CodeTopologyGenerationSummary {
+  return {
+    header: {
+      identity: row.identity,
+      repository: row.repository,
+      revision: row.revision,
+      inventory_digest: row.inventory_digest,
+      parser_compatibility_digest: row.parser_compatibility_digest,
+      resolver_implementation: row.resolver_implementation,
+      resolver_configuration_digest: row.resolver_configuration_digest,
+      topology_schema_version: Number(row.topology_schema_version),
+      fact_policy_digest: row.fact_policy_digest,
+    },
+    facts_digest: row.facts_digest,
+    counts: {
+      files: Number(row.expected_file_count),
+      symbols: Number(row.expected_symbol_count),
+      references: Number(row.expected_reference_count),
+      resolutions: Number(row.expected_resolution_count),
+      edges: Number(row.expected_edge_count),
+    },
+    completed_at:
+      row.completed_at instanceof Date
+        ? row.completed_at.toISOString()
+        : String(row.completed_at),
+    pinned: row.pinned,
+  };
+}
+
+function locatedSymbol(row: any): CodeTopologyLocatedSymbolRecord {
+  return {
+    identity: row.identity,
+    file_path: row.file_path,
+    name: row.name,
+    native_kind: row.native_kind,
+    kind: row.kind,
+    canonical_selector: row.canonical_selector,
+    owner_identity: row.owner_identity,
+    owner_chain: row.owner_chain,
+    name_range: row.name_range,
+    body_range: row.body_range,
+    syntax_status: row.syntax_status,
+    asset_kind: row.asset_kind,
+    framework_hint: row.framework_hint,
+  };
 }
 
 async function repositoryId(sql: QuerySql, repository: string): Promise<string> {
@@ -309,56 +359,50 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
   }
 
   async getGeneration(identity: string): Promise<StoredCodeTopologyGeneration | null> {
+    return (await this.getGenerations([identity]))[0] ?? null;
+  }
+
+  async getGenerations(
+    identities: readonly string[]
+  ): Promise<StoredCodeTopologyGeneration[]> {
+    const selected = [...new Set(identities)];
+    if (selected.length === 0) return [];
     const sql = this.readProvider();
     return sql.begin("read only isolation level repeatable read", async (tx) => {
       const rows = await tx<GenerationRow[]>`
         select generation.*, repository.key as repository
         from complete_code_topology_generations generation
         join repositories repository on repository.id = generation.repository_id
-        where generation.identity = ${identity}`;
-      const row = rows[0];
-      if (!row) return null;
+        where generation.identity in ${tx(selected)}`;
+      if (rows.length === 0) return [];
       const files = await tx<any[]>`
         select * from complete_code_topology_files
-        where generation_identity = ${identity} order by path`;
+        where generation_identity in ${tx(selected)}
+        order by generation_identity, path`;
       const symbols = await tx<any[]>`
         select * from complete_code_topology_symbols
-        where generation_identity = ${identity} order by identity`;
+        where generation_identity in ${tx(selected)}
+        order by generation_identity, identity`;
       const references = await tx<any[]>`
         select * from complete_code_topology_references
-        where generation_identity = ${identity} order by identity`;
+        where generation_identity in ${tx(selected)}
+        order by generation_identity, identity`;
       const resolutions = await tx<any[]>`
         select * from complete_code_topology_resolutions
-        where generation_identity = ${identity} order by reference_identity`;
+        where generation_identity in ${tx(selected)}
+        order by generation_identity, reference_identity`;
       const edges = await tx<any[]>`
         select * from complete_code_topology_edges
-        where generation_identity = ${identity} order by identity`;
-      return {
-        header: {
-          identity: row.identity,
-          repository: row.repository,
-          revision: row.revision,
-          inventory_digest: row.inventory_digest,
-          parser_compatibility_digest: row.parser_compatibility_digest,
-          resolver_implementation: row.resolver_implementation,
-          resolver_configuration_digest: row.resolver_configuration_digest,
-          topology_schema_version: Number(row.topology_schema_version),
-          fact_policy_digest: row.fact_policy_digest,
-        },
-        facts_digest: row.facts_digest,
-        counts: {
-          files: Number(row.expected_file_count),
-          symbols: Number(row.expected_symbol_count),
-          references: Number(row.expected_reference_count),
-          resolutions: Number(row.expected_resolution_count),
-          edges: Number(row.expected_edge_count),
-        },
-        completed_at:
-          row.completed_at instanceof Date
-            ? row.completed_at.toISOString()
-            : String(row.completed_at),
-        pinned: row.pinned,
-        files: files.map((file) => ({
+        where generation_identity in ${tx(selected)}
+        order by generation_identity, identity`;
+      const rowsByIdentity = new Map(rows.map((row) => [row.identity, row]));
+      return selected.flatMap((identity): StoredCodeTopologyGeneration[] => {
+        const row = rowsByIdentity.get(identity);
+        if (!row) return [];
+        const belongs = (record: any) => record.generation_identity === identity;
+        return [{
+          ...generationSummary(row),
+          files: files.filter(belongs).map((file) => ({
           path: file.path,
           kind: file.asset_kind,
           framework_hint: file.framework_hint,
@@ -369,8 +413,8 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
           symbols_truncated: file.symbols_truncated,
           references_truncated: file.references_truncated,
           diagnostics_truncated: file.diagnostics_truncated,
-        })),
-        symbols: symbols.map((symbol) => ({
+          })),
+          symbols: symbols.filter(belongs).map((symbol) => ({
           identity: symbol.identity,
           file_path: symbol.file_path,
           name: symbol.name,
@@ -382,8 +426,8 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
           name_range: symbol.name_range,
           body_range: symbol.body_range,
           syntax_status: symbol.syntax_status,
-        })),
-        references: references.map((reference) => ({
+          })),
+          references: references.filter(belongs).map((reference) => ({
           identity: reference.identity,
           file_path: reference.file_path,
           owner_symbol_identity: reference.owner_symbol_identity,
@@ -394,8 +438,8 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
           statement_range: reference.statement_range,
           is_type_only: reference.is_type_only,
           bindings: reference.bindings,
-        })),
-        resolutions: resolutions.map((resolution) => ({
+          })),
+          resolutions: resolutions.filter(belongs).map((resolution) => ({
           reference_identity: resolution.reference_identity,
           status: resolution.status,
           rule: resolution.rule,
@@ -405,8 +449,8 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
           target_symbol_identity: resolution.target_symbol_identity,
           candidate_targets: resolution.candidate_targets,
           diagnostics: resolution.diagnostics,
-        })),
-        edges: edges.map((edge) => ({
+          })),
+          edges: edges.filter(belongs).map((edge) => ({
           identity: edge.identity,
           kind: edge.kind,
           source: {
@@ -418,9 +462,57 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
             symbol_identity: edge.target_symbol_identity,
           },
           reference_identity: edge.reference_identity,
-        })),
-      };
+          })),
+        }];
+      });
     });
+  }
+
+  async getGenerationSummary(
+    identity: string
+  ): Promise<CodeTopologyGenerationSummary | null> {
+    const rows = await this.readProvider()<GenerationRow[]>`
+      select generation.*, repository.key as repository
+      from complete_code_topology_generations generation
+      join repositories repository on repository.id = generation.repository_id
+      where generation.identity = ${identity}`;
+    return rows[0] ? generationSummary(rows[0]) : null;
+  }
+
+  async listSymbolsByPaths(input: {
+    generation_identity: string;
+    paths: readonly string[];
+  }): Promise<CodeTopologyLocatedSymbolRecord[]> {
+    if (input.paths.length === 0) return [];
+    const sql = this.readProvider();
+    const rows = await sql<any[]>`
+      select symbol.*, file.asset_kind, file.framework_hint
+      from complete_code_topology_symbols symbol
+      join complete_code_topology_files file
+        on file.generation_identity = symbol.generation_identity
+       and file.path = symbol.file_path
+      where symbol.generation_identity = ${input.generation_identity}
+        and symbol.file_path in ${sql([...new Set(input.paths)].sort())}
+      order by symbol.identity`;
+    return rows.map(locatedSymbol);
+  }
+
+  async listSymbolsByIdentities(input: {
+    generation_identity: string;
+    symbol_identities: readonly string[];
+  }): Promise<CodeTopologyLocatedSymbolRecord[]> {
+    if (input.symbol_identities.length === 0) return [];
+    const sql = this.readProvider();
+    const rows = await sql<any[]>`
+      select symbol.*, file.asset_kind, file.framework_hint
+      from complete_code_topology_symbols symbol
+      join complete_code_topology_files file
+        on file.generation_identity = symbol.generation_identity
+       and file.path = symbol.file_path
+      where symbol.generation_identity = ${input.generation_identity}
+        and symbol.identity in ${sql([...new Set(input.symbol_identities)].sort())}
+      order by symbol.identity`;
+    return rows.map(locatedSymbol);
   }
 
   async listForwardEdges(input: {
@@ -472,6 +564,51 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
         symbol_identity: edge.target_symbol_identity,
       },
       reference_identity: edge.reference_identity,
+    }));
+  }
+
+  async listDependencyFrontiers(input: {
+    generation_identity: string;
+    source_symbol_identities: readonly string[];
+  }): Promise<CodeTopologyFrontierRecord[]> {
+    if (input.source_symbol_identities.length === 0) return [];
+    const sql = this.readProvider();
+    const rows = await sql<any[]>`
+      select
+        reference.identity as reference_identity,
+        coalesce(reference.owner_symbol_identity, module.identity) as source_symbol_identity,
+        reference.file_path,
+        reference.kind,
+        reference.module_specifier,
+        resolution.status,
+        resolution.rule,
+        resolution.candidate_targets,
+        resolution.diagnostics
+      from complete_code_topology_references reference
+      join complete_code_topology_resolutions resolution
+        on resolution.generation_identity = reference.generation_identity
+       and resolution.reference_identity = reference.identity
+      left join complete_code_topology_symbols module
+        on module.generation_identity = reference.generation_identity
+       and module.file_path = reference.file_path
+       and module.native_kind = 'source_file'
+      where reference.generation_identity = ${input.generation_identity}
+        and coalesce(reference.owner_symbol_identity, module.identity)
+          in ${sql([...new Set(input.source_symbol_identities)].sort())}
+        and reference.kind in ('import', 'dynamic_import', 'reexport')
+        and reference.module_specifier is not null
+        and resolution.status in ('ambiguous', 'unresolved', 'external')
+      order by reference.identity`;
+    return rows.map((row) => ({
+      reference_identity: row.reference_identity,
+      source_symbol_identity: row.source_symbol_identity,
+      file_path: row.file_path,
+      kind: row.kind,
+      module_specifier: row.module_specifier,
+      status: row.status,
+      rule: row.rule,
+      candidate_targets: row.candidate_targets,
+      diagnostics: row.diagnostics,
     }));
   }
 

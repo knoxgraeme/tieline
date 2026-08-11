@@ -124,6 +124,30 @@ export interface StoredCodeTopologyGeneration extends CompleteCodeTopologyGenera
   pinned: boolean;
 }
 
+export type CodeTopologyGenerationSummary = Omit<
+  StoredCodeTopologyGeneration,
+  "files" | "symbols" | "references" | "resolutions" | "edges"
+>;
+
+/** Compact symbol and authored-locator fields used by bounded reads. */
+export interface CodeTopologyLocatedSymbolRecord extends CodeTopologySymbolRecord {
+  asset_kind: TopologyAssetKind;
+  framework_hint: string | null;
+}
+
+/** An unresolved dependency-shaped reference attached to a traversed source. */
+export interface CodeTopologyFrontierRecord {
+  reference_identity: string;
+  source_symbol_identity: string;
+  file_path: string;
+  kind: ModuleLinkageKind;
+  module_specifier: string | null;
+  status: Exclude<TopologyResolutionStatus, "resolved">;
+  rule: string;
+  candidate_targets: readonly string[];
+  diagnostics: readonly string[];
+}
+
 export type CommitCodeTopologyGenerationResult = {
   outcome: "inserted" | "existing";
   generation_identity: string;
@@ -157,6 +181,19 @@ export class CodeTopologyIntegrityError extends Error {
 export interface CodeTopologyReadStore {
   getCurrentGenerationIdentity(repository: string): Promise<string | null>;
   getGeneration(identity: string): Promise<StoredCodeTopologyGeneration | null>;
+  /** Select multiple immutable generation roles in one store snapshot. */
+  getGenerations(
+    identities: readonly string[]
+  ): Promise<StoredCodeTopologyGeneration[]>;
+  getGenerationSummary(identity: string): Promise<CodeTopologyGenerationSummary | null>;
+  listSymbolsByPaths(input: {
+    generation_identity: string;
+    paths: readonly string[];
+  }): Promise<CodeTopologyLocatedSymbolRecord[]>;
+  listSymbolsByIdentities(input: {
+    generation_identity: string;
+    symbol_identities: readonly string[];
+  }): Promise<CodeTopologyLocatedSymbolRecord[]>;
   listForwardEdges(input: {
     generation_identity: string;
     source_symbol_identities: readonly string[];
@@ -165,6 +202,10 @@ export interface CodeTopologyReadStore {
     generation_identity: string;
     target_symbol_identities: readonly string[];
   }): Promise<CodeTopologyEdgeRecord[]>;
+  listDependencyFrontiers(input: {
+    generation_identity: string;
+    source_symbol_identities: readonly string[];
+  }): Promise<CodeTopologyFrontierRecord[]>;
 }
 
 export interface CodeTopologyWriteStore {

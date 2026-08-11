@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import postgres from "postgres";
 import { PostgresCodeTopologyRepository } from "../src/adapters/postgres/code-topology-repository.js";
+import { FakeCodeTopologyStore } from "../src/adapters/fakes/fake-code-topology-store.js";
 import { migrateDatabase } from "../src/commands/migrate.js";
+import { traceCodeTopology } from "../src/contract/code-topology.js";
 import {
   buildCommittedTopologyGeneration,
   persistCommittedTopologyGeneration,
@@ -77,6 +79,42 @@ try {
     expectedPreviousGenerationIdentity: first.generation_identity,
   });
   assert.equal(repeated.outcome, "existing");
+
+  const fake = new FakeCodeTopologyStore();
+  assert.equal(result.status, "complete");
+  if (result.status !== "complete") throw new Error(result.detail);
+  await fake.commitGeneration({
+    generation: result.generation,
+    expected_previous_generation_identity: null,
+  });
+  const request = {
+    generation_identity: first.generation_identity,
+    generation_role: "current" as const,
+    locator: {
+      repository,
+      kind: "code" as const,
+      path: "src/main.ts",
+      selector: null,
+      framework_hint: null,
+    },
+    direction: "dependencies" as const,
+  };
+  const [postgresTrace, fakeTrace] = await Promise.all([
+    traceCodeTopology({ store: topology, ...request }),
+    traceCodeTopology({ store: fake, ...request }),
+  ]);
+  assert.deepEqual(postgresTrace, fakeTrace, "fake and Postgres traversal reads stay contract-equivalent");
+
+  const plans = await sql.begin(async (tx) => {
+    await tx`set local enable_seqscan = off`;
+    return tx<{ "QUERY PLAN": unknown }[]>`
+      explain (format json)
+      select identity from code_topology_edges
+      where generation_identity = ${first.generation_identity}
+        and source_symbol_identity = ${result.generation.edges[0]!.source.symbol_identity}`;
+  });
+  const plan = JSON.stringify(plans);
+  assert.match(plan, /code_topology_edges_(?:forward|pkey)/i);
 } finally {
   rmSync(root, { recursive: true, force: true });
   await sql.end({ timeout: 5 });

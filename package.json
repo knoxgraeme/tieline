@@ -49,6 +49,8 @@
     "test:code-resolution:javascript": "tsx scripts/test-code-resolution-javascript.ts",
     "test:code-resolution:python-rust": "tsx scripts/test-code-resolution-python-rust.ts",
     "test:topology-generation": "tsx scripts/test-topology-generation.ts",
+    "test:code-topology": "tsx scripts/test-code-topology.ts",
+    "test:code-blast-radius": "tsx scripts/test-code-blast-radius.ts",
     "benchmark:parser-runtime": "npm run build && tsx scripts/benchmark-parser-runtime.ts",
     "test:smoke": "tsx scripts/smoke.ts",
     "test:integration": "tsx scripts/integration.ts",

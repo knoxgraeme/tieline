@@ -6,6 +6,9 @@ import {
   normalizeCompleteCodeTopologyGeneration,
   validateCompleteCodeTopologyGeneration,
   type CodeTopologyEdgeRecord,
+  type CodeTopologyFrontierRecord,
+  type CodeTopologyGenerationSummary,
+  type CodeTopologyLocatedSymbolRecord,
   type CodeTopologyStore,
   type CommitCodeTopologyGenerationResult,
   type CompleteCodeTopologyGeneration,
@@ -122,6 +125,67 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
     return generation ? structuredClone(generation) : null;
   }
 
+  async getGenerations(
+    identities: readonly string[]
+  ): Promise<StoredCodeTopologyGeneration[]> {
+    return [...new Set(identities)]
+      .map((identity) => this.generations.get(identity))
+      .filter((generation): generation is StoredCodeTopologyGeneration => generation !== undefined)
+      .map((generation) => structuredClone(generation));
+  }
+
+  async getGenerationSummary(
+    identity: string
+  ): Promise<CodeTopologyGenerationSummary | null> {
+    const generation = this.generations.get(identity);
+    if (!generation) return null;
+    const { files: _files, symbols: _symbols, references: _references,
+      resolutions: _resolutions, edges: _edges, ...summary } = generation;
+    return structuredClone(summary);
+  }
+
+  private locatedSymbols(
+    generationIdentity: string,
+    include: (identity: string, path: string) => boolean
+  ): CodeTopologyLocatedSymbolRecord[] {
+    const generation = this.generations.get(generationIdentity);
+    if (!generation) return [];
+    const files = new Map(generation.files.map((file) => [file.path, file]));
+    return generation.symbols
+      .filter((symbol) => include(symbol.identity, symbol.file_path))
+      .map((symbol) => {
+        const file = files.get(symbol.file_path)!;
+        return {
+          ...structuredClone(symbol),
+          asset_kind: file.kind,
+          framework_hint: file.framework_hint,
+        };
+      })
+      .sort((left, right) => left.identity.localeCompare(right.identity));
+  }
+
+  async listSymbolsByPaths(input: {
+    generation_identity: string;
+    paths: readonly string[];
+  }): Promise<CodeTopologyLocatedSymbolRecord[]> {
+    const paths = new Set(input.paths);
+    return this.locatedSymbols(
+      input.generation_identity,
+      (_identity, path) => paths.has(path)
+    );
+  }
+
+  async listSymbolsByIdentities(input: {
+    generation_identity: string;
+    symbol_identities: readonly string[];
+  }): Promise<CodeTopologyLocatedSymbolRecord[]> {
+    const identities = new Set(input.symbol_identities);
+    return this.locatedSymbols(
+      input.generation_identity,
+      (identity) => identities.has(identity)
+    );
+  }
+
   async listForwardEdges(input: {
     generation_identity: string;
     source_symbol_identities: readonly string[];
@@ -144,6 +208,56 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
     return structuredClone(
       generation.edges.filter((edge) => targets.has(edge.target.symbol_identity))
     );
+  }
+
+  async listDependencyFrontiers(input: {
+    generation_identity: string;
+    source_symbol_identities: readonly string[];
+  }): Promise<CodeTopologyFrontierRecord[]> {
+    const generation = this.generations.get(input.generation_identity);
+    if (!generation) return [];
+    const sources = new Set(input.source_symbol_identities);
+    const modulesByPath = new Map(
+      generation.symbols
+        .filter((symbol) => symbol.native_kind === "source_file")
+        .map((symbol) => [symbol.file_path, symbol.identity])
+    );
+    const resolutions = new Map(
+      generation.resolutions.map((resolution) => [
+        resolution.reference_identity,
+        resolution,
+      ])
+    );
+    return generation.references
+      .flatMap((reference): CodeTopologyFrontierRecord[] => {
+        const source =
+          reference.owner_symbol_identity ?? modulesByPath.get(reference.file_path);
+        const resolution = resolutions.get(reference.identity);
+        if (
+          !source ||
+          !sources.has(source) ||
+          !resolution ||
+          resolution.status === "resolved" ||
+          reference.module_specifier === null ||
+          (reference.kind !== "import" &&
+            reference.kind !== "dynamic_import" &&
+            reference.kind !== "reexport")
+        ) return [];
+        return [{
+          reference_identity: reference.identity,
+          source_symbol_identity: source,
+          file_path: reference.file_path,
+          kind: reference.kind,
+          module_specifier: reference.module_specifier,
+          status: resolution.status,
+          rule: resolution.rule,
+          candidate_targets: [...resolution.candidate_targets],
+          diagnostics: [...resolution.diagnostics],
+        }];
+      })
+      .sort((left, right) =>
+        left.reference_identity.localeCompare(right.reference_identity)
+      );
   }
 
   async deleteGenerations(input: {
