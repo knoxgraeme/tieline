@@ -58,7 +58,7 @@ export interface UnresolvedModuleLinkageFact {
   identity: string;
   kind: ModuleLinkageKind;
   nativeKind: string;
-  /** Null for local exports, which describe module surface without a target module. */
+  /** Null for local exports and dynamic references without a static module name. */
   moduleSpecifier: string | null;
   moduleSpecifierRange: SourceRange | null;
   statementRange: SourceRange;

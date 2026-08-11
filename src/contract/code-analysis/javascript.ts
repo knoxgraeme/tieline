@@ -25,7 +25,7 @@ import type {
   UnresolvedModuleLinkageFact,
 } from "./types.js";
 
-const queryCompatibility = "javascript-typescript-structure-v1";
+const queryCompatibility = "javascript-typescript-structure-v2";
 export const javascriptAnalysisCompatibility: CodeAnalysisCompatibility = Object.freeze({
   parser: parserCompatibilitySet,
   query: queryCompatibility,
@@ -224,7 +224,9 @@ function buildReferences(
     if (kind === "export" && statement.childForFieldName("source")) continue;
     const typeOnly = kind === "dynamic_import" ? false : statementTypeOnly(statement);
     const moduleSpecifier = sourceNode?.text ?? null;
-    const key = `${kind}:${statement.startIndex}:${statement.endIndex}:${moduleSpecifier ?? ""}`;
+    const key = `${kind}:${statement.startIndex}:${statement.endIndex}`;
+    const existing = references.get(key);
+    if (existing && (existing.moduleSpecifier !== null || moduleSpecifier === null)) continue;
     references.set(key, Object.freeze({
       identity: structuralIdentity("reference", snapshot.sha256, key),
       kind,
@@ -248,8 +250,8 @@ function buildReferences(
 
 function queryFile(language: SupportedCodeLanguage): string {
   return language === "javascript" || language === "jsx"
-    ? "queries/javascript-structure-v1.scm"
-    : "queries/typescript-structure-v1.scm";
+    ? "queries/javascript-structure-v2.scm"
+    : "queries/typescript-structure-v2.scm";
 }
 
 
