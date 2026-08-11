@@ -1,7 +1,7 @@
 import {
   CodeTopologyCheckpointConflictError,
   CodeTopologyIntegrityError,
-  codeTopologyFactsDigest,
+  codeTopologyFactsDigestNormalized,
   codeTopologyGenerationCounts,
   normalizeCompleteCodeTopologyGeneration,
   validateCompleteCodeTopologyGeneration,
@@ -24,10 +24,6 @@ export type FakeCodeTopologyFailurePoint =
 
 export interface FakeCodeTopologyStoreOptions {
   failurePoint?: FakeCodeTopologyFailurePoint;
-}
-
-function clone<T>(value: T): T {
-  return structuredClone(value);
 }
 
 export class FakeCodeTopologyStore implements CodeTopologyStore {
@@ -68,7 +64,7 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
     const existing = stagedGenerations.get(identity);
     let outcome: CommitCodeTopologyGenerationResult["outcome"] = "inserted";
     if (existing) {
-      const incomingDigest = codeTopologyFactsDigest(generation);
+      const incomingDigest = codeTopologyFactsDigestNormalized(generation);
       if (
         incomingDigest !== existing.facts_digest ||
         JSON.stringify(generation.header) !== JSON.stringify(existing.header)
@@ -80,7 +76,7 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
       outcome = "existing";
     } else {
       const staged: CompleteCodeTopologyGeneration = {
-        header: clone(generation.header),
+        header: structuredClone(generation.header),
         files: [],
         symbols: [],
         references: [],
@@ -88,19 +84,19 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
         edges: [],
       };
       this.failAfter("generation");
-      staged.files = clone(generation.files);
+      staged.files = structuredClone(generation.files);
       this.failAfter("files");
-      staged.symbols = clone(generation.symbols);
+      staged.symbols = structuredClone(generation.symbols);
       this.failAfter("symbols");
-      staged.references = clone(generation.references);
+      staged.references = structuredClone(generation.references);
       this.failAfter("references");
-      staged.resolutions = clone(generation.resolutions);
+      staged.resolutions = structuredClone(generation.resolutions);
       this.failAfter("resolutions");
-      staged.edges = clone(generation.edges);
+      staged.edges = structuredClone(generation.edges);
       this.failAfter("edges");
       stagedGenerations.set(identity, {
         ...staged,
-        facts_digest: codeTopologyFactsDigest(staged),
+        facts_digest: codeTopologyFactsDigestNormalized(staged),
         counts: codeTopologyGenerationCounts(staged),
         completed_at: new Date().toISOString(),
         pinned: false,
@@ -123,7 +119,7 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
 
   async getGeneration(identity: string): Promise<StoredCodeTopologyGeneration | null> {
     const generation = this.generations.get(identity);
-    return generation ? clone(generation) : null;
+    return generation ? structuredClone(generation) : null;
   }
 
   async listForwardEdges(input: {
@@ -133,7 +129,7 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
     const generation = this.generations.get(input.generation_identity);
     if (!generation) return [];
     const sources = new Set(input.source_symbol_identities);
-    return clone(
+    return structuredClone(
       generation.edges.filter((edge) => sources.has(edge.source.symbol_identity))
     );
   }
@@ -145,7 +141,7 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
     const generation = this.generations.get(input.generation_identity);
     if (!generation) return [];
     const targets = new Set(input.target_symbol_identities);
-    return clone(
+    return structuredClone(
       generation.edges.filter((edge) => targets.has(edge.target.symbol_identity))
     );
   }

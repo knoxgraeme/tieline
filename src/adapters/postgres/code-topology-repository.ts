@@ -2,7 +2,7 @@ import type { Sql, TransactionSql } from "postgres";
 import {
   CodeTopologyCheckpointConflictError,
   CodeTopologyIntegrityError,
-  codeTopologyFactsDigest,
+  codeTopologyFactsDigestNormalized,
   codeTopologyGenerationCounts,
   normalizeCompleteCodeTopologyGeneration,
   validateCompleteCodeTopologyGeneration,
@@ -213,7 +213,7 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
   }): Promise<CommitCodeTopologyGenerationResult> {
     validateCompleteCodeTopologyGeneration(input.generation);
     const generation = normalizeCompleteCodeTopologyGeneration(input.generation);
-    const factsDigest = codeTopologyFactsDigest(generation);
+    const factsDigest = codeTopologyFactsDigestNormalized(generation);
     const counts = codeTopologyGenerationCounts(generation);
     const sql = this.syncProvider();
     try {

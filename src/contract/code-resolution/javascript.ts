@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import type { LanguageAnalysisResult, UnresolvedModuleLinkageFact } from "../code-analysis/types.js";
 import type { SupportedCodeLanguage } from "../code-analysis/languages.js";
@@ -13,6 +12,13 @@ import {
   type CodeResolutionTarget,
   type CodeResolutionVia,
 } from "./types.js";
+import {
+  indexResolutionSymbols,
+  resolutionDigest,
+  resolutionIdentity,
+  uniqueResolutionTargets,
+  type ResolutionSymbolIndex,
+} from "./support.js";
 
 export const javascriptResolutionCompatibility = "javascript-module-resolution-v1";
 
@@ -54,14 +60,6 @@ export interface CreateJavaScriptModuleResolverOptions {
   inventory: SourceInventory;
   analyses: ReadonlyMap<string, LanguageAnalysisResult>;
   configuration: JavaScriptResolutionConfiguration;
-}
-
-function digest(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
-
-function resolutionIdentity(value: unknown): string {
-  return `resolution:${digest(value)}`;
 }
 
 function stripJsonCommentsAndTrailingCommas(source: string): string {
@@ -119,7 +117,7 @@ function normalizeConfigPath(path: string): string | null {
 }
 
 function emptyConfigurationDigest(): string {
-  return digest({ compatibility: javascriptResolutionCompatibility, files: [], baseUrl: null, aliases: [] });
+  return resolutionDigest({ compatibility: javascriptResolutionCompatibility, files: [], baseUrl: null, aliases: [] });
 }
 
 export function readJavaScriptResolutionConfiguration(
@@ -148,7 +146,7 @@ export function readJavaScriptResolutionConfiguration(
     }]);
     return Object.freeze({
       compatibility: javascriptResolutionCompatibility,
-      digest: digest({ compatibility: javascriptResolutionCompatibility, configPath, status: read.status }),
+      digest: resolutionDigest({ compatibility: javascriptResolutionCompatibility, configPath, status: read.status }),
       emptyDigest,
       files: Object.freeze([]),
       baseUrl: null,
@@ -216,7 +214,7 @@ export function readJavaScriptResolutionConfiguration(
   };
   return Object.freeze({
     ...normalized,
-    digest: digest(normalized),
+    digest: resolutionDigest(normalized),
     emptyDigest,
     aliases: Object.freeze(aliases),
     diagnostics: Object.freeze(diagnostics),
@@ -250,17 +248,6 @@ function uniqueCandidates(candidates: readonly ModuleCandidate[]): ModuleCandida
   return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
 
-function uniqueTargets(targets: readonly CodeResolutionTarget[]): CodeResolutionTarget[] {
-  const byIdentity = new Map<string, CodeResolutionTarget>();
-  for (const target of targets) {
-    byIdentity.set(`${target.path}:${target.symbolIdentity ?? "module"}`, target);
-  }
-  return [...byIdentity.values()].sort(
-    (left, right) => left.path.localeCompare(right.path) ||
-      (left.symbolIdentity ?? "").localeCompare(right.symbolIdentity ?? "")
-  );
-}
-
 function aliasCapture(pattern: string, specifier: string): string | null {
   const star = pattern.indexOf("*");
   if (star < 0) return pattern === specifier ? "" : null;
@@ -277,6 +264,7 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
   readonly configurationDigest: string;
   readonly #files: ReadonlySet<string>;
   readonly #analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  readonly #symbols: ReadonlyMap<string, ResolutionSymbolIndex>;
   readonly #configuration: JavaScriptResolutionConfiguration;
 
   constructor(options: CreateJavaScriptModuleResolverOptions) {
@@ -286,6 +274,12 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
         .map((file) => file.path)
     );
     this.#analyses = options.analyses;
+    this.#symbols = new Map(
+      [...options.analyses].map(([path, analysis]) => [
+        path,
+        indexResolutionSymbols(analysis),
+      ])
+    );
     this.#configuration = options.configuration;
     this.configurationDigest = options.configuration.digest;
   }
@@ -409,8 +403,8 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
         incomplete: true,
       };
     }
-    const topLevel = analysis.symbols.filter((symbol) => symbol.ownerChain.length === 0);
-    const byIdentity = new Map(topLevel.map((symbol) => [symbol.identity, symbol]));
+    const symbols = this.#symbols.get(modulePath)!;
+    const topLevel = symbols.topLevel;
     const results: ExportTarget[] = [];
     const ambiguous: CodeResolutionTarget[] = [];
     const diagnostics: CodeResolutionDiagnostic[] = [];
@@ -418,7 +412,7 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
     for (const reference of analysis.references) {
       if (reference.kind === "export") {
         if (reference.ownerIdentity) {
-          const symbol = byIdentity.get(reference.ownerIdentity);
+          const symbol = symbols.byIdentity.get(reference.ownerIdentity);
           if (symbol?.name === exportedName) {
             results.push({ target: moduleTarget(analysis, symbol), via: [] });
           }
@@ -436,7 +430,7 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
         }
         for (const binding of reference.bindings) {
           if (binding.exported !== exportedName || !binding.imported) continue;
-          for (const symbol of topLevel.filter((entry) => entry.name === binding.imported)) {
+          for (const symbol of symbols.topLevelByName.get(binding.imported) ?? []) {
             results.push({ target: moduleTarget(analysis, symbol), via: [] });
           }
         }
@@ -488,7 +482,7 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
         left.target.path.localeCompare(right.target.path) ||
         (left.target.symbolIdentity ?? "").localeCompare(right.target.symbolIdentity ?? "")
       ),
-      ambiguous: uniqueTargets(ambiguous),
+      ambiguous: uniqueResolutionTargets(ambiguous),
       diagnostics,
       incomplete,
     };
@@ -504,7 +498,8 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
     let targets: CodeResolutionTarget[] = [];
     let candidates: CodeResolutionTarget[] = [];
     let via: CodeResolutionVia[] = [];
-    const diagnostics = [...this.#configuration.diagnostics];
+    let diagnostics: readonly CodeResolutionDiagnostic[] =
+      this.#configuration.diagnostics;
 
     if (reference.moduleSpecifier !== null) {
       const module = this.#resolveModule(source.path, reference.moduleSpecifier);
@@ -538,9 +533,16 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
             );
             const exportsByBinding = lookups.map((lookup) => lookup.matches);
             const exports = exportsByBinding.flat();
-            const exportedTargets = uniqueTargets(exports.map((entry) => entry.target));
-            const ambiguousTargets = uniqueTargets(lookups.flatMap((lookup) => lookup.ambiguous));
-            diagnostics.push(...lookups.flatMap((lookup) => lookup.diagnostics));
+            const exportedTargets = uniqueResolutionTargets(exports.map((entry) => entry.target));
+            const ambiguousTargets = uniqueResolutionTargets(
+              lookups.flatMap((lookup) => lookup.ambiguous)
+            );
+            const lookupDiagnostics = lookups.flatMap(
+              (lookup) => lookup.diagnostics
+            );
+            if (lookupDiagnostics.length > 0) {
+              diagnostics = [...diagnostics, ...lookupDiagnostics];
+            }
             if (
               exportsByBinding.every((matches) => matches.length === 1) &&
               lookups.every((lookup) => !lookup.incomplete && lookup.ambiguous.length === 0)
@@ -556,7 +558,10 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
             ) {
               status = "ambiguous";
               reason = "ambiguous_export";
-              candidates = uniqueTargets([...exportedTargets, ...ambiguousTargets]);
+              candidates = uniqueResolutionTargets([
+                ...exportedTargets,
+                ...ambiguousTargets,
+              ]);
             } else {
               const incomplete = lookups.some((lookup) => lookup.incomplete) ||
                 targetAnalysis.truncated.symbols ||
@@ -564,10 +569,13 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
                 targetAnalysis.diagnostics.length > 0;
               reason = incomplete ? "target_analysis_incomplete" : "export_not_found";
               if (incomplete) {
-                diagnostics.push({
-                  code: "target_analysis_incomplete",
-                  detail: `${targetAnalysis.path} has truncated facts or parser diagnostics`,
-                });
+                diagnostics = [
+                  ...diagnostics,
+                  {
+                    code: "target_analysis_incomplete",
+                    detail: `${targetAnalysis.path} has truncated facts or parser diagnostics`,
+                  },
+                ];
               }
               targets = exportedTargets;
               candidates = [];
@@ -577,8 +585,8 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
       }
     }
 
-    targets = uniqueTargets(targets);
-    candidates = uniqueTargets(candidates);
+    targets = uniqueResolutionTargets(targets);
+    candidates = uniqueResolutionTargets(candidates);
     via = [...new Map(via.map((entry) => [`${entry.path}:${entry.rule}`, entry])).values()];
     const stable = {
       compatibility: this.compatibility,
@@ -593,9 +601,9 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
       reason,
       diagnostics,
     };
-    const sourceOwner = source.symbols.find(
-      (symbol) => symbol.identity === reference.ownerIdentity
-    );
+    const sourceOwner = this.#symbols
+      .get(source.path)
+      ?.byIdentity.get(reference.ownerIdentity ?? "");
     return Object.freeze({
       identity: resolutionIdentity(stable),
       source: Object.freeze({

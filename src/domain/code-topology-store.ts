@@ -243,7 +243,15 @@ export function normalizeCompleteCodeTopologyGeneration(
 export function codeTopologyFactsDigest(
   generation: CompleteCodeTopologyGeneration
 ): string {
-  const normalized = normalizeCompleteCodeTopologyGeneration(generation);
+  return codeTopologyFactsDigestNormalized(
+    normalizeCompleteCodeTopologyGeneration(generation)
+  );
+}
+
+/** Hashes a generation already normalized by `normalizeCompleteCodeTopologyGeneration`. */
+export function codeTopologyFactsDigestNormalized(
+  normalized: CompleteCodeTopologyGeneration
+): string {
   return hashCanonical({
     files: normalized.files,
     symbols: normalized.symbols,

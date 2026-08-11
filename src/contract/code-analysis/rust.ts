@@ -206,6 +206,18 @@ function useDetails(argument: SyntaxNode, reexport: boolean): {
   moduleEndIndex: number;
   bindings: ModuleBindingFact[];
 } | null {
+  if (argument.type === "use_wildcard") {
+    const pathNode = argument.namedChildren[0];
+    if (!pathNode || pathNode.hasError) return null;
+    const moduleSpecifier = compactPath(pathNode);
+    return {
+      moduleSpecifier,
+      moduleStartIndex: pathNode.startIndex,
+      moduleEndIndex: pathNode.endIndex,
+      bindings: [frozenBinding("*", "*", reexport ? "*" : null)],
+    };
+  }
+
   if (argument.type === "scoped_use_list") {
     const moduleNode = argument.childForFieldName("path");
     const list = argument.childForFieldName("list");
