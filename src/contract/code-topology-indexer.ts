@@ -108,6 +108,34 @@ function canonicalDigest(value: unknown): string {
   return createHash("sha256").update(canonical(value)).digest("hex");
 }
 
+export interface CodeTopologyRuntimeCompatibility {
+  parser_compatibility_digest: string;
+  resolver_implementation: string;
+  topology_schema_version: number;
+  fact_policy_digest: string;
+}
+
+/** Fact-producing compatibility required before a persisted generation is read. */
+export function codeTopologyRuntimeCompatibility(): CodeTopologyRuntimeCompatibility {
+  return {
+    parser_compatibility_digest: canonicalDigest({
+      set: parserCompatibilitySet,
+      analyses: [
+        javascriptAnalysisCompatibility.identity,
+        pythonAnalysisCompatibility.identity,
+        rustAnalysisCompatibility.identity,
+      ].sort(),
+    }),
+    resolver_implementation: `${CODE_TOPOLOGY_RESOLVER_IMPLEMENTATION}:${[
+      javascriptResolutionCompatibility,
+      pythonResolutionCompatibility,
+      rustResolutionCompatibility,
+    ].join("+")}`,
+    topology_schema_version: CODE_TOPOLOGY_SCHEMA_VERSION,
+    fact_policy_digest: canonicalDigest(CODE_TOPOLOGY_FACT_POLICY),
+  };
+}
+
 async function mapBounded<T, R>(
   values: readonly T[],
   concurrency: number,
@@ -323,19 +351,7 @@ export async function buildCodeTopologyGeneration(
     files: contentInventory
       .sort((left, right) => left.path.localeCompare(right.path)),
   });
-  const parserCompatibilityDigest = canonicalDigest({
-    set: parserCompatibilitySet,
-    analyses: [
-      javascriptAnalysisCompatibility.identity,
-      pythonAnalysisCompatibility.identity,
-      rustAnalysisCompatibility.identity,
-    ].sort(),
-  });
-  const resolverImplementation = `${CODE_TOPOLOGY_RESOLVER_IMPLEMENTATION}:${[
-    javascriptResolutionCompatibility,
-    pythonResolutionCompatibility,
-    rustResolutionCompatibility,
-  ].join("+")}`;
+  const compatibility = codeTopologyRuntimeCompatibility();
   const identityFields = {
     repository: options.repository,
     revision:
@@ -343,11 +359,11 @@ export async function buildCodeTopologyGeneration(
         ? options.source.revision
         : inventoryDigest,
     inventory_digest: inventoryDigest,
-    parser_compatibility_digest: parserCompatibilityDigest,
-    resolver_implementation: resolverImplementation,
+    parser_compatibility_digest: compatibility.parser_compatibility_digest,
+    resolver_implementation: compatibility.resolver_implementation,
     resolver_configuration_digest: resolverConfigurationDigest,
-    topology_schema_version: CODE_TOPOLOGY_SCHEMA_VERSION,
-    fact_policy_digest: canonicalDigest(CODE_TOPOLOGY_FACT_POLICY),
+    topology_schema_version: compatibility.topology_schema_version,
+    fact_policy_digest: compatibility.fact_policy_digest,
   };
   const generationIdentity = codeTopologyGenerationIdentity(identityFields);
   const moduleIdentities = new Map(

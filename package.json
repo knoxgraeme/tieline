@@ -51,6 +51,7 @@
     "test:topology-generation": "tsx scripts/test-topology-generation.ts",
     "test:code-topology": "tsx scripts/test-code-topology.ts",
     "test:code-blast-radius": "tsx scripts/test-code-blast-radius.ts",
+    "test:code-topology-command": "tsx scripts/test-code-topology-command.ts",
     "benchmark:parser-runtime": "npm run build && tsx scripts/benchmark-parser-runtime.ts",
     "test:smoke": "tsx scripts/smoke.ts",
     "test:integration": "tsx scripts/integration.ts",
