@@ -5,7 +5,6 @@ import {
   ancestorCandidates,
   candidateIdentity,
   candidateMap,
-  candidateOrder,
   createStructuralAnalyzer,
   nearestOwnerIdentity,
   nodeRange,
@@ -59,9 +58,8 @@ function declarations(matches: readonly QueryMatch[]): StructuralCandidate[] {
     });
   }
 
-  const ordered = raw.sort(candidateOrder);
-  const byNodeId = candidateMap(ordered);
-  return ordered.map((candidate) => {
+  const byNodeId = candidateMap(raw);
+  return raw.map((candidate) => {
     if (candidate.kind !== "function") return candidate;
     const owners = ancestorCandidates(candidate, byNodeId);
     const nearest = owners.at(-1);

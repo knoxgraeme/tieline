@@ -5,7 +5,6 @@ import {
   ancestorCandidates,
   candidateIdentity,
   candidateMap,
-  candidateOrder,
   createStructuralAnalyzer,
   nearestOwnerIdentity,
   nodeRange,
@@ -115,9 +114,8 @@ function declarations(matches: readonly QueryMatch[]): StructuralCandidate[] {
     });
   }
 
-  const ordered = raw.sort(candidateOrder);
-  const byNodeId = candidateMap(ordered);
-  return ordered.map((candidate) => {
+  const byNodeId = candidateMap(raw);
+  return raw.map((candidate) => {
     if (candidate.kind !== "function") return candidate;
     const owners = ancestorCandidates(candidate, byNodeId);
     const nearest = owners.at(-1);
@@ -136,10 +134,8 @@ function compactPath(node: SyntaxNode): string {
   return node.text.replace(/\s+/g, "").normalize("NFC");
 }
 
-function splitPath(path: string): { module: string; item: string } {
-  const parts = path.split("::");
-  const item = parts.pop() ?? path;
-  return { module: parts.join("::"), item };
+function lastPathSegment(path: string): string {
+  return path.split("::").at(-1) ?? path;
 }
 
 function frozenBinding(
@@ -157,7 +153,7 @@ function groupedBindings(
   importedPrefix = ""
 ): ModuleBindingFact[] {
   const bindings: ModuleBindingFact[] = [];
-  const moduleLocal = moduleSpecifier.split("::").at(-1) ?? moduleSpecifier;
+  const moduleLocal = lastPathSegment(moduleSpecifier);
   for (const child of list.namedChildren) {
     if (child.type === "self") {
       bindings.push(frozenBinding(`${importedPrefix}self`, moduleLocal, reexport ? moduleLocal : null));
@@ -228,7 +224,7 @@ function useDetails(argument: SyntaxNode, reexport: boolean): {
     const aliasNode = argument.childForFieldName("alias");
     if (!pathNode || !aliasNode || pathNode.hasError || aliasNode.hasError) return null;
     const path = compactPath(pathNode);
-    const { item } = splitPath(path);
+    const item = lastPathSegment(path);
     const local = canonicalName(aliasNode);
     return {
       // Rust syntax does not tell us whether the final segment is a module or
@@ -242,7 +238,7 @@ function useDetails(argument: SyntaxNode, reexport: boolean): {
 
   if (argument.type === "scoped_identifier") {
     const path = compactPath(argument);
-    const { item } = splitPath(path);
+    const item = lastPathSegment(path);
     const local = canonicalName(argument.childForFieldName("name") ?? argument);
     return {
       moduleSpecifier: path,
