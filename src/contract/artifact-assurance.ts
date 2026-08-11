@@ -1,3 +1,4 @@
+import { relative } from "node:path";
 import type { ContractTarget } from "./schema.js";
 import {
   createArtifactHashResolver,
@@ -11,6 +12,10 @@ import {
   type SelectorVocabulary,
 } from "./selector.js";
 import { selectorVocabularyForRepository } from "./validate.js";
+import {
+  createFilesystemSourceSnapshotReader,
+  type SourceSnapshotReader,
+} from "./source-snapshot.js";
 
 export type ArtifactTarget = Exclude<ContractTarget, { kind: "help" }>;
 
@@ -71,6 +76,7 @@ export interface CreateArtifactAssuranceInspectorOptions {
   maxSourceBytes?: number;
   /** Narrow injection seams keep request-cache behavior directly testable. */
   hashResolver?: ArtifactHashResolver;
+  sourceSnapshotReader?: SourceSnapshotReader;
   selectorVocabulary?: SelectorVocabulary;
   selectorResolver?: (options: ResolveSelectorOptions) => SelectorResolution;
 }
@@ -130,10 +136,42 @@ function locatorFromResolution(
 export function createArtifactAssuranceInspector(
   options: CreateArtifactAssuranceInspectorOptions
 ): ArtifactAssuranceInspector {
+  let sourceSnapshots: SourceSnapshotReader | undefined =
+    options.sourceSnapshotReader;
+  const snapshots = () =>
+    (sourceSnapshots ??= createFilesystemSourceSnapshotReader({
+      repositoryRoot: options.repositoryRoot,
+      maxSourceBytes: Number.MAX_SAFE_INTEGER,
+    }));
   let hashes = options.hashResolver;
   let vocabulary = options.selectorVocabulary;
   const selectorResolver =
-    options.selectorResolver ?? createCachedSelectorResolver();
+    options.selectorResolver ??
+    createCachedSelectorResolver({
+      readSource(absolutePath, maxSourceBytes) {
+        const source = snapshots().read(
+          relative(options.repositoryRoot, absolutePath)
+        );
+        if (source.status === "read") {
+          return source.snapshot.metadata.size > maxSourceBytes
+            ? { status: "skipped", reason: "file_too_large" }
+            : { status: "read", content: source.snapshot.text };
+        }
+        const reason: SelectorNotCheckedReason =
+          source.status === "missing"
+            ? "file_missing"
+            : source.status === "not_file"
+              ? "not_a_file"
+              : source.status === "binary"
+                ? "binary_content"
+                : source.status === "oversized"
+                  ? "file_too_large"
+                  : source.status === "repository_escape"
+                    ? "unreadable"
+                    : "unreadable";
+        return { status: "skipped", reason };
+      },
+    });
   type Measurement =
     | ReturnType<ArtifactHashResolver["measure"]>
     | { status: "unreadable" };
@@ -156,7 +194,9 @@ export function createArtifactAssuranceInspector(
     if (cached) return cached;
     let measured: Measurement;
     try {
-      hashes ??= createArtifactHashResolver(options.repositoryRoot);
+      hashes ??= createArtifactHashResolver(options.repositoryRoot, {
+        snapshotReader: snapshots(),
+      });
       measured = hashes.measure(path);
     } catch (error) {
       if (!isFilesystemError(error)) throw error;

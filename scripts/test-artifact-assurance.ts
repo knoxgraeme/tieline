@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  readFileSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -16,6 +17,7 @@ import {
   type ArtifactAssuranceInput,
 } from "../src/contract/artifact-assurance.js";
 import { createArtifactHashResolver } from "../src/contract/manifest.js";
+import { createFilesystemSourceSnapshotReader } from "../src/contract/source-snapshot.js";
 import {
   createCachedSelectorResolver,
   indexSourceSymbols,
@@ -419,6 +421,43 @@ await test("caches file measurement and locator inspection for one request", () 
     assert.equal(secondClaim.locator_resolution, "resolved");
     assert.equal(measurements, 1, "one file measurement per inspector request");
     assert.equal(selectorInspections, 2, "one selector inspection per distinct locator");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("shares one immutable source read between freshness and locator assurance", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-snapshot-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    const source = "export function sharedSnapshot(): void {}\n";
+    writeFileSync(resolve(root, "src/shared.ts"), source);
+    let filesystemReads = 0;
+    const snapshots = createFilesystemSourceSnapshotReader({
+      repositoryRoot: root,
+      readBytes(path) {
+        filesystemReads += 1;
+        return readFileSync(path);
+      },
+    });
+    const inspector = createArtifactAssuranceInspector({
+      repositoryRoot: root,
+      repositoryKey: REPOSITORY,
+      sourceSnapshotReader: snapshots,
+    });
+
+    assert.equal(
+      inspector.inspect(
+        artifact("src/shared.ts", "function:sharedSnapshot", sha256(source))
+      ).locator_resolution,
+      "resolved"
+    );
+    assert.equal(filesystemReads, 1, "hashing and lookup share one filesystem read");
+    assert.strictEqual(
+      snapshots.read("src/shared.ts"),
+      snapshots.read("./src/shared.ts"),
+      "the backing reader performs only one filesystem read"
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
