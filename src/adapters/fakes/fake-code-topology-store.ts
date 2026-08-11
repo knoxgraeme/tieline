@@ -15,6 +15,7 @@ import {
   type DeleteCodeTopologyGenerationsResult,
   type StoredCodeTopologyGeneration,
 } from "../../domain/code-topology-store.js";
+import { ImmutableCodeTopologySnapshotStore } from "../../contract/compact-code-topology-store.js";
 
 export type FakeCodeTopologyFailurePoint =
   | "generation"
@@ -258,6 +259,18 @@ export class FakeCodeTopologyStore implements CodeTopologyStore {
       .sort((left, right) =>
         left.reference_identity.localeCompare(right.reference_identity)
       );
+  }
+
+  async compareGenerations(input: {
+    base_generation_identity: string;
+    current_generation_identity: string;
+  }) {
+    const selected = [
+      this.generations.get(input.base_generation_identity),
+      this.generations.get(input.current_generation_identity),
+    ].filter((generation): generation is StoredCodeTopologyGeneration => generation !== undefined);
+    if (selected.length !== 2) return null;
+    return new ImmutableCodeTopologySnapshotStore(selected).compareGenerations(input);
   }
 
   async deleteGenerations(input: {

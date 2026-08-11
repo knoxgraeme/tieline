@@ -1,5 +1,4 @@
 import { posix } from "node:path";
-import type { LanguageAnalysisResult, UnresolvedModuleLinkageFact } from "../code-analysis/types.js";
 import type { SupportedCodeLanguage } from "../code-analysis/languages.js";
 import type { SourceInventory } from "../source-inventory.js";
 import { canonicalRepositoryRelativePath } from "../paths.js";
@@ -11,6 +10,8 @@ import {
   type CodeResolutionOutcome,
   type CodeResolutionTarget,
   type CodeResolutionVia,
+  type ResolutionAnalysis,
+  type ResolutionReferenceFact,
 } from "./types.js";
 import {
   indexResolutionSymbols,
@@ -58,7 +59,7 @@ export interface ReadJavaScriptResolutionConfigurationOptions {
 
 export interface CreateJavaScriptModuleResolverOptions {
   inventory: SourceInventory;
-  analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  analyses: ReadonlyMap<string, ResolutionAnalysis>;
   configuration: JavaScriptResolutionConfiguration;
 }
 
@@ -263,7 +264,7 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
   readonly compatibility = javascriptResolutionCompatibility;
   readonly configurationDigest: string;
   readonly #files: ReadonlySet<string>;
-  readonly #analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  readonly #analyses: ReadonlyMap<string, ResolutionAnalysis>;
   readonly #symbols: ReadonlyMap<string, ResolutionSymbolIndex>;
   readonly #configuration: JavaScriptResolutionConfiguration;
 
@@ -489,8 +490,8 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
   }
 
   #resolveReference(
-    source: LanguageAnalysisResult,
-    reference: UnresolvedModuleLinkageFact
+    source: ResolutionAnalysis,
+    reference: ResolutionReferenceFact
   ): CodeResolutionOutcome {
     let status: CodeResolutionOutcome["status"] = "unresolved";
     let rule = "javascript_dynamic_specifier";

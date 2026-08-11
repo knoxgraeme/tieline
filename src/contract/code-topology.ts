@@ -1,11 +1,11 @@
 import type {
   CodeTopologyEdgeRecord,
   CodeTopologyFrontierRecord,
-  CodeTopologyLocatedSymbolRecord,
   CodeTopologyReadStore,
-  StoredCodeTopologyGeneration,
+  CodeTopologyTraversalSymbolRecord,
   TopologyAssetKind,
 } from "../domain/code-topology-store.js";
+export { ImmutableCodeTopologySnapshotStore } from "./compact-code-topology-store.js";
 
 export type CodeTopologyDirection = "dependencies" | "dependents";
 export type CodeTopologyGenerationRole = "base" | "current";
@@ -30,131 +30,6 @@ export const DEFAULT_CODE_TOPOLOGY_LIMITS: Readonly<CodeTopologyTraversalLimits>
 
 export const MAX_CODE_TOPOLOGY_LIMITS: Readonly<CodeTopologyTraversalLimits> =
   Object.freeze({ depth: 8, nodes: 1_000, edges: 4_000, paths: 200 });
-
-/** Read-only adapter over generations selected in one consistent store snapshot. */
-export class ImmutableCodeTopologySnapshotStore implements CodeTopologyReadStore {
-  private readonly generations: ReadonlyMap<string, StoredCodeTopologyGeneration>;
-
-  constructor(generations: readonly StoredCodeTopologyGeneration[]) {
-    this.generations = new Map(generations.map((generation) => [
-      generation.header.identity,
-      // The caller transfers request-local immutable selections. Retaining them
-      // avoids a second full graph copy at the two-generation capacity envelope.
-      generation,
-    ]));
-  }
-
-  async getCurrentGenerationIdentity(_repository: string): Promise<string | null> {
-    // Snapshot roles are supplied by the caller; this adapter owns no checkpoint.
-    return null;
-  }
-
-  async getGeneration(identity: string): Promise<StoredCodeTopologyGeneration | null> {
-    const generation = this.generations.get(identity);
-    return generation ? structuredClone(generation) : null;
-  }
-
-  async getGenerations(identities: readonly string[]): Promise<StoredCodeTopologyGeneration[]> {
-    return [...new Set(identities)].flatMap((identity) => {
-      const generation = this.generations.get(identity);
-      return generation ? [structuredClone(generation)] : [];
-    });
-  }
-
-  async getGenerationSummary(identity: string) {
-    const generation = this.generations.get(identity);
-    if (!generation) return null;
-    const { files: _files, symbols: _symbols, references: _references,
-      resolutions: _resolutions, edges: _edges, ...summary } = generation;
-    return structuredClone(summary);
-  }
-
-  private located(
-    identity: string,
-    include: (symbol: CodeTopologyLocatedSymbolRecord) => boolean
-  ): CodeTopologyLocatedSymbolRecord[] {
-    const generation = this.generations.get(identity);
-    if (!generation) return [];
-    const files = new Map(generation.files.map((file) => [file.path, file]));
-    return generation.symbols.flatMap((symbol): CodeTopologyLocatedSymbolRecord[] => {
-      const file = files.get(symbol.file_path);
-      if (!file) return [];
-      const value = { ...symbol, asset_kind: file.kind, framework_hint: file.framework_hint };
-      return include(value) ? [structuredClone(value)] : [];
-    }).sort((left, right) => left.identity.localeCompare(right.identity));
-  }
-
-  async listSymbolsByPaths(input: { generation_identity: string; paths: readonly string[] }) {
-    const paths = new Set(input.paths);
-    return this.located(input.generation_identity, (symbol) => paths.has(symbol.file_path));
-  }
-
-  async listSymbolsByIdentities(input: {
-    generation_identity: string;
-    symbol_identities: readonly string[];
-  }) {
-    const identities = new Set(input.symbol_identities);
-    return this.located(input.generation_identity, (symbol) => identities.has(symbol.identity));
-  }
-
-  async listForwardEdges(input: {
-    generation_identity: string;
-    source_symbol_identities: readonly string[];
-  }) {
-    const sources = new Set(input.source_symbol_identities);
-    return structuredClone(
-      this.generations.get(input.generation_identity)?.edges.filter(
-        (edge) => sources.has(edge.source.symbol_identity)
-      ) ?? []
-    );
-  }
-
-  async listReverseEdges(input: {
-    generation_identity: string;
-    target_symbol_identities: readonly string[];
-  }) {
-    const targets = new Set(input.target_symbol_identities);
-    return structuredClone(
-      this.generations.get(input.generation_identity)?.edges.filter(
-        (edge) => targets.has(edge.target.symbol_identity)
-      ) ?? []
-    );
-  }
-
-  async listDependencyFrontiers(input: {
-    generation_identity: string;
-    source_symbol_identities: readonly string[];
-  }): Promise<CodeTopologyFrontierRecord[]> {
-    const generation = this.generations.get(input.generation_identity);
-    if (!generation) return [];
-    const sources = new Set(input.source_symbol_identities);
-    const modules = new Map(generation.symbols
-      .filter((symbol) => symbol.native_kind === "source_file")
-      .map((symbol) => [symbol.file_path, symbol.identity]));
-    const resolutions = new Map(generation.resolutions.map((resolution) => [
-      resolution.reference_identity,
-      resolution,
-    ]));
-    return generation.references.flatMap((reference): CodeTopologyFrontierRecord[] => {
-      const source = reference.owner_symbol_identity ?? modules.get(reference.file_path);
-      const resolution = resolutions.get(reference.identity);
-      if (!source || !sources.has(source) || !resolution || resolution.status === "resolved" ||
-          reference.module_specifier === null ||
-          !["import", "dynamic_import", "reexport"].includes(reference.kind)) return [];
-      return [{
-        reference_identity: reference.identity,
-        source_symbol_identity: source,
-        file_path: reference.file_path,
-        kind: reference.kind,
-        module_specifier: reference.module_specifier,
-        status: resolution.status,
-        rule: resolution.rule,
-        candidate_targets: [...resolution.candidate_targets],
-        diagnostics: [...resolution.diagnostics],
-      }];
-    }).sort((left, right) => left.reference_identity.localeCompare(right.reference_identity));
-  }
-}
 
 export interface CodeTopologyPathNode {
   generation_role: CodeTopologyGenerationRole;
@@ -264,7 +139,7 @@ export function resolveCodeTopologyLimits(
 }
 
 function pathNode(
-  symbol: CodeTopologyLocatedSymbolRecord,
+  symbol: CodeTopologyTraversalSymbolRecord,
   repository: string,
   generationIdentity: string,
   generationRole: CodeTopologyGenerationRole
@@ -285,7 +160,7 @@ function pathNode(
 }
 
 function matchesLocator(
-  symbol: CodeTopologyLocatedSymbolRecord,
+  symbol: CodeTopologyTraversalSymbolRecord,
   locator: CodeTopologyLocator
 ): boolean {
   return (
@@ -587,7 +462,7 @@ export async function traceCodeTopologyBatch(
     paths: [...new Set(orderedLocators.map((locator) => locator.path))].sort(),
   });
   const outcomes: CodeTopologyBatchStartOutcome[] = [];
-  const startsByIdentity = new Map<string, CodeTopologyLocatedSymbolRecord>();
+  const startsByIdentity = new Map<string, CodeTopologyTraversalSymbolRecord>();
   for (const locator of orderedLocators) {
     if (locator.repository !== identity.repository) {
       outcomes.push({ locator, status: "repository_mismatch", matches: [] });

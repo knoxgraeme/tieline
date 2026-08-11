@@ -1,5 +1,4 @@
 import { posix } from "node:path";
-import type { LanguageAnalysisResult, UnresolvedModuleLinkageFact } from "../code-analysis/types.js";
 import type { SourceInventory } from "../source-inventory.js";
 import { canonicalRepositoryRelativePath } from "../paths.js";
 import type { SourceSnapshotReader } from "../source-snapshot.js";
@@ -9,6 +8,8 @@ import {
   type CodeResolutionDiagnostic,
   type CodeResolutionOutcome,
   type CodeResolutionTarget,
+  type ResolutionAnalysis,
+  type ResolutionReferenceFact,
 } from "./types.js";
 import {
   indexResolutionSymbols,
@@ -44,7 +45,7 @@ export interface ReadRustResolutionConfigurationOptions {
 
 export interface CreateRustModuleResolverOptions {
   inventory: SourceInventory;
-  analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  analyses: ReadonlyMap<string, ResolutionAnalysis>;
   configuration: RustResolutionConfiguration;
 }
 
@@ -189,7 +190,7 @@ class RustModuleResolver implements CodeModuleResolver {
   readonly compatibility = rustResolutionCompatibility;
   readonly configurationDigest: string;
   readonly #files: ReadonlySet<string>;
-  readonly #analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  readonly #analyses: ReadonlyMap<string, ResolutionAnalysis>;
   readonly #symbols: ReadonlyMap<string, ResolutionSymbolIndex>;
   readonly #configuration: RustResolutionConfiguration;
 
@@ -343,8 +344,8 @@ class RustModuleResolver implements CodeModuleResolver {
   }
 
   #resolveReference(
-    source: LanguageAnalysisResult,
-    reference: UnresolvedModuleLinkageFact
+    source: ResolutionAnalysis,
+    reference: ResolutionReferenceFact
   ): CodeResolutionOutcome {
     let status: CodeResolutionOutcome["status"] = "unresolved";
     let rule = "rust_unsupported_reference";

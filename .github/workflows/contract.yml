@@ -37,3 +37,107 @@ jobs:
 
       - name: Workspace onboarding tests
         run: npm run test:tieline
+
+  parser-package:
+    name: Installed parser package (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Offline installed-package smoke and deterministic facts
+        run: |
+          npm run test:parser-package | tee parser-package.log
+          grep '"fact_digest"' parser-package.log | tail -1 > parser-facts-${{ matrix.node }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parser-facts-${{ matrix.node }}
+          path: parser-facts-${{ matrix.node }}.json
+
+  parser-fact-parity:
+    name: Node 20/24 fact parity
+    needs: parser-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: parser-facts-*
+          merge-multiple: true
+      - name: Compare installed-package fact digests
+        run: >-
+          node -e 'const fs=require("fs"); const files=fs.readdirSync(".").filter(f=>f.startsWith("parser-facts-")); const digests=files.map(f=>JSON.parse(fs.readFileSync(f,"utf8")).fact_digest); if(files.length!==2||new Set(digests).size!==1) throw new Error(`Node fact mismatch: ${JSON.stringify({files,digests})}`)'
+
+  database:
+    name: Relational topology integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tieline
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tieline"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/tieline
+      DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:release:database
+
+  release-budgets:
+    name: Pinned Node 20 release budgets
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tieline
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tieline"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/tieline
+      DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline
+      TIELINE_ENFORCE_RELEASE_BUDGETS: "1"
+      TIELINE_TOPOLOGY_BENCHMARK_SCALE: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Installed-package parser budgets
+        run: npm run benchmark:parser-package
+      - name: Full topology fixture budgets
+        run: npm run benchmark:code-topology

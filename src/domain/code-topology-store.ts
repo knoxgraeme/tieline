@@ -129,8 +129,24 @@ export type CodeTopologyGenerationSummary = Omit<
   "files" | "symbols" | "references" | "resolutions" | "edges"
 >;
 
+/** Header and counts required by traversal; excludes persistence-only grading metadata. */
+export interface CodeTopologyTraversalGenerationSummary {
+  header: CodeTopologyGenerationHeader;
+  counts: CodeTopologyGenerationCounts;
+}
+
 /** Compact symbol and authored-locator fields used by bounded reads. */
 export interface CodeTopologyLocatedSymbolRecord extends CodeTopologySymbolRecord {
+  asset_kind: TopologyAssetKind;
+  framework_hint: string | null;
+}
+
+/** Only the symbol fields required to locate and traverse code topology. */
+export interface CodeTopologyTraversalSymbolRecord {
+  identity: string;
+  file_path: string;
+  native_kind: string;
+  canonical_selector: string | null;
   asset_kind: TopologyAssetKind;
   framework_hint: string | null;
 }
@@ -146,6 +162,59 @@ export interface CodeTopologyFrontierRecord {
   rule: string;
   candidate_targets: readonly string[];
   diagnostics: readonly string[];
+}
+
+export interface CodeTopologyComparisonLocator {
+  repository: string;
+  kind: TopologyAssetKind;
+  path: string;
+  selector: string | null;
+  framework_hint: string | null;
+}
+
+export type CodeTopologyComparedFileChange =
+  | { status: "added" | "deleted" | "modified"; path: string }
+  | { status: "renamed"; path: string; previous_path: string };
+
+export interface CodeTopologyComparedEdgeChange {
+  status: "added" | "deleted";
+  kind: string;
+  source: CodeTopologyComparisonLocator;
+  target: CodeTopologyComparisonLocator;
+}
+
+export interface CodeTopologyStoreComparison {
+  base_generation_identity: string;
+  current_generation_identity: string;
+  compatibility: "compatible" | "incompatible";
+  configuration_changed: boolean;
+  files: CodeTopologyComparedFileChange[];
+  edges: CodeTopologyComparedEdgeChange[];
+}
+
+export interface CodeTopologyReadModelFile {
+  path: string;
+  kind: TopologyAssetKind;
+  framework_hint: string | null;
+  source_hash: string;
+}
+
+export interface CodeTopologyReadModelEdge {
+  kind: string;
+  source_symbol_identity: string;
+  target_symbol_identity: string;
+  reference_identity: string | null;
+}
+
+/** Persistence-independent facts retained for local bounded traversal. */
+export interface CodeTopologyReadModelGeneration {
+  summary: CodeTopologyTraversalGenerationSummary;
+  projection_digest: string;
+  files: CodeTopologyReadModelFile[];
+  symbols: CodeTopologyTraversalSymbolRecord[];
+  edges: CodeTopologyReadModelEdge[];
+  frontiers: CodeTopologyFrontierRecord[];
+  retained_bytes: number;
 }
 
 export type CommitCodeTopologyGenerationResult = {
@@ -180,20 +249,17 @@ export class CodeTopologyIntegrityError extends Error {
 
 export interface CodeTopologyReadStore {
   getCurrentGenerationIdentity(repository: string): Promise<string | null>;
-  getGeneration(identity: string): Promise<StoredCodeTopologyGeneration | null>;
-  /** Select multiple immutable generation roles in one store snapshot. */
-  getGenerations(
-    identities: readonly string[]
-  ): Promise<StoredCodeTopologyGeneration[]>;
-  getGenerationSummary(identity: string): Promise<CodeTopologyGenerationSummary | null>;
+  getGenerationSummary(
+    identity: string
+  ): Promise<CodeTopologyTraversalGenerationSummary | null>;
   listSymbolsByPaths(input: {
     generation_identity: string;
     paths: readonly string[];
-  }): Promise<CodeTopologyLocatedSymbolRecord[]>;
+  }): Promise<CodeTopologyTraversalSymbolRecord[]>;
   listSymbolsByIdentities(input: {
     generation_identity: string;
     symbol_identities: readonly string[];
-  }): Promise<CodeTopologyLocatedSymbolRecord[]>;
+  }): Promise<CodeTopologyTraversalSymbolRecord[]>;
   listForwardEdges(input: {
     generation_identity: string;
     source_symbol_identities: readonly string[];
@@ -206,6 +272,19 @@ export interface CodeTopologyReadStore {
     generation_identity: string;
     source_symbol_identities: readonly string[];
   }): Promise<CodeTopologyFrontierRecord[]>;
+  /** Compare immutable roles without hydrating their persistence fact tables. */
+  compareGenerations(input: {
+    base_generation_identity: string;
+    current_generation_identity: string;
+  }): Promise<CodeTopologyStoreComparison | null>;
+}
+
+export interface CodeTopologyGenerationArchive {
+  getGeneration(identity: string): Promise<StoredCodeTopologyGeneration | null>;
+  /** Select multiple immutable generation roles in one store snapshot. */
+  getGenerations(
+    identities: readonly string[]
+  ): Promise<StoredCodeTopologyGeneration[]>;
 }
 
 export interface CodeTopologyWriteStore {
@@ -226,6 +305,7 @@ export interface CodeTopologyWriteStore {
 
 export interface CodeTopologyStore
   extends CodeTopologyReadStore,
+    CodeTopologyGenerationArchive,
     CodeTopologyWriteStore {}
 
 function canonicalJson(value: unknown): string {
@@ -241,8 +321,55 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function updateCanonicalHash(
+  hash: ReturnType<typeof createHash>,
+  value: unknown
+): void {
+  if (Array.isArray(value)) {
+    hash.update("[");
+    for (let index = 0; index < value.length; index += 1) {
+      if (index > 0) hash.update(",");
+      updateCanonicalHash(hash, value[index]);
+    }
+    hash.update("]");
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, child]) => child !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right));
+    hash.update("{");
+    for (let index = 0; index < entries.length; index += 1) {
+      if (index > 0) hash.update(",");
+      const [key, child] = entries[index]!;
+      hash.update(`${JSON.stringify(key)}:`);
+      updateCanonicalHash(hash, child);
+    }
+    hash.update("}");
+    return;
+  }
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) {
+    throw new CodeTopologyIntegrityError("Cannot hash an undefined topology value.");
+  }
+  hash.update(encoded);
+}
+
+export function codeTopologyDerivedEdgeIdentity(input: {
+  referenceIdentity: string;
+  sourceIdentity: string;
+  targetIdentity: string;
+}): string {
+  return `edge:${createHash("sha256").update(canonicalJson({
+    kind: "imports",
+    ...input,
+  })).digest("hex")}`;
+}
+
 function hashCanonical(value: unknown): string {
-  return createHash("sha256").update(canonicalJson(value)).digest("hex");
+  const hash = createHash("sha256");
+  updateCanonicalHash(hash, value);
+  return hash.digest("hex");
 }
 
 export function codeTopologyGenerationIdentity(
@@ -279,6 +406,86 @@ export function normalizeCompleteCodeTopologyGeneration(
     ),
     edges: [...generation.edges].sort(byIdentity),
   });
+}
+
+/**
+ * Normalizes a freshly constructed generation whose ownership has not escaped.
+ * Persistence callers keep using the defensive-clone normalizer above; the
+ * indexer can sort its own arrays without temporarily duplicating the graph.
+ */
+export function normalizeOwnedCompleteCodeTopologyGeneration(
+  generation: CompleteCodeTopologyGeneration
+): CompleteCodeTopologyGeneration {
+  generation.files.sort((left, right) => left.path.localeCompare(right.path));
+  generation.symbols.sort(byIdentity);
+  generation.references.sort(byIdentity);
+  generation.resolutions.sort((left, right) =>
+    left.reference_identity.localeCompare(right.reference_identity)
+  );
+  generation.edges.sort(byIdentity);
+  return generation;
+}
+
+function retainedStringBytes(value: string | null): number {
+  return value === null ? 0 : 16 + value.length * 2;
+}
+
+function retainedRangeBytes(value: SourceRange | null): number {
+  // Five small objects plus numeric coordinate fields in the in-memory shape.
+  return value === null ? 0 : 256;
+}
+
+/**
+ * Conservative allocation estimate for cache admission without serializing the
+ * entire graph into one temporary JSON string. It intentionally estimates the
+ * JavaScript object representation rather than wire size.
+ */
+export function estimateCodeTopologyGenerationRetainedBytes(
+  generation: CompleteCodeTopologyGeneration
+): number {
+  let bytes = 2_048;
+  for (const file of generation.files) {
+    bytes += 512 + retainedStringBytes(file.path) + retainedStringBytes(file.framework_hint) +
+      retainedStringBytes(file.language) + retainedStringBytes(file.source_hash) +
+      retainedStringBytes(file.parser_identity);
+    for (const diagnostic of file.diagnostics) {
+      bytes += 384 + retainedStringBytes(diagnostic.identity) + retainedStringBytes(diagnostic.kind) +
+        retainedStringBytes(diagnostic.nativeKind) + retainedStringBytes(diagnostic.message) +
+        retainedRangeBytes(diagnostic.range);
+    }
+  }
+  for (const symbol of generation.symbols) {
+    bytes += 640 + retainedStringBytes(symbol.identity) + retainedStringBytes(symbol.file_path) +
+      retainedStringBytes(symbol.name) + retainedStringBytes(symbol.native_kind) +
+      retainedStringBytes(symbol.kind) + retainedStringBytes(symbol.canonical_selector) +
+      retainedStringBytes(symbol.owner_identity) + retainedRangeBytes(symbol.name_range) +
+      retainedRangeBytes(symbol.body_range);
+    for (const owner of symbol.owner_chain) bytes += 24 + retainedStringBytes(owner);
+  }
+  for (const reference of generation.references) {
+    bytes += 640 + retainedStringBytes(reference.identity) + retainedStringBytes(reference.file_path) +
+      retainedStringBytes(reference.owner_symbol_identity) + retainedStringBytes(reference.kind) +
+      retainedStringBytes(reference.native_kind) + retainedStringBytes(reference.module_specifier) +
+      retainedRangeBytes(reference.module_specifier_range) + retainedRangeBytes(reference.statement_range);
+    for (const binding of reference.bindings) {
+      bytes += 192 + retainedStringBytes(binding.imported) + retainedStringBytes(binding.local) +
+        retainedStringBytes(binding.exported);
+    }
+  }
+  for (const resolution of generation.resolutions) {
+    bytes += 512 + retainedStringBytes(resolution.reference_identity) + retainedStringBytes(resolution.status) +
+      retainedStringBytes(resolution.rule) + retainedStringBytes(resolution.resolver_configuration_digest) +
+      retainedStringBytes(resolution.target_file_path) + retainedStringBytes(resolution.target_symbol_identity);
+    for (const candidate of resolution.candidate_targets) bytes += 24 + retainedStringBytes(candidate);
+    for (const diagnostic of resolution.diagnostics) bytes += 24 + retainedStringBytes(diagnostic);
+  }
+  for (const edge of generation.edges) {
+    bytes += 384 + retainedStringBytes(edge.identity) + retainedStringBytes(edge.kind) +
+      retainedStringBytes(edge.source.generation_identity) + retainedStringBytes(edge.source.symbol_identity) +
+      retainedStringBytes(edge.target.generation_identity) + retainedStringBytes(edge.target.symbol_identity) +
+      retainedStringBytes(edge.reference_identity);
+  }
+  return bytes;
 }
 
 export function codeTopologyFactsDigest(

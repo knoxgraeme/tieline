@@ -142,63 +142,120 @@ function failure(
 }
 
 function buildCoordinates(text: string): SourceCoordinates {
-  const byUtf16 = new Map<number, SourcePosition>();
-  const byUtf8 = new Map<number, SourcePosition>();
+  const lineUtf16Starts = [0];
+  const lineUtf8Starts = [0];
   let utf16Offset = 0;
   let utf8ByteOffset = 0;
-  let line = 0;
-  let utf16Column = 0;
-  let utf8ByteColumn = 0;
-
-  const record = (): void => {
-    const position = Object.freeze({
-      utf16Offset,
-      utf8ByteOffset,
-      line,
-      utf16Column,
-      utf8ByteColumn,
-    });
-    byUtf16.set(utf16Offset, position);
-    byUtf8.set(utf8ByteOffset, position);
-  };
-  record();
   while (utf16Offset < text.length) {
-    const codePoint = text.codePointAt(utf16Offset)!;
-    const value = String.fromCodePoint(codePoint);
-    const utf16Length = value.length;
-    const utf8Length = Buffer.byteLength(value);
+    const codeUnit = text.charCodeAt(utf16Offset);
+    const pairedSurrogate =
+      codeUnit >= 0xd800 && codeUnit <= 0xdbff &&
+      text.charCodeAt(utf16Offset + 1) >= 0xdc00 &&
+      text.charCodeAt(utf16Offset + 1) <= 0xdfff;
+    const utf16Length = pairedSurrogate ? 2 : 1;
+    const utf8Length = pairedSurrogate
+      ? 4
+      : codeUnit <= 0x7f
+        ? 1
+        : codeUnit <= 0x7ff
+          ? 2
+          : 3;
     utf16Offset += utf16Length;
     utf8ByteOffset += utf8Length;
-    if (value === "\n") {
-      line += 1;
-      utf16Column = 0;
-      utf8ByteColumn = 0;
-    } else if (value === "\r" && text[utf16Offset] !== "\n") {
-      line += 1;
-      utf16Column = 0;
-      utf8ByteColumn = 0;
-    } else {
-      utf16Column += utf16Length;
-      utf8ByteColumn += utf8Length;
+    if (
+      codeUnit === 0x0a ||
+      (codeUnit === 0x0d && text.charCodeAt(utf16Offset) !== 0x0a)
+    ) {
+      lineUtf16Starts.push(utf16Offset);
+      lineUtf8Starts.push(utf8ByteOffset);
     }
-    record();
   }
 
-  const lookup = (
-    positions: ReadonlyMap<number, SourcePosition>,
+  const lineForOffset = (starts: readonly number[], offset: number): number => {
+    let low = 0;
+    let high = starts.length;
+    while (low + 1 < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (starts[middle]! <= offset) low = middle;
+      else high = middle;
+    }
+    return low;
+  };
+
+  const validateOffset = (
     offset: number,
+    maximum: number,
     coordinate: "UTF-16" | "UTF-8 byte"
-  ): SourcePosition => {
+  ): void => {
     if (!Number.isInteger(offset) || offset < 0) {
       throw new RangeError(`${coordinate} offset must be a non-negative integer`);
     }
-    const position = positions.get(offset);
-    if (!position) {
+    if (offset > maximum) {
       throw new RangeError(
         `${coordinate} offset ${offset} is outside the source or not a Unicode code-point boundary`
       );
     }
-    return position;
+  };
+
+  const atUtf16Offset = (offset: number): SourcePosition => {
+    validateOffset(offset, text.length, "UTF-16");
+    const line = lineForOffset(lineUtf16Starts, offset);
+    const current = text.charCodeAt(offset);
+    const previous = text.charCodeAt(offset - 1);
+    if (
+      current >= 0xdc00 && current <= 0xdfff &&
+      previous >= 0xd800 && previous <= 0xdbff
+    ) {
+      throw new RangeError(
+        `UTF-16 offset ${offset} is outside the source or not a Unicode code-point boundary`
+      );
+    }
+    const lineUtf16Start = lineUtf16Starts[line]!;
+    const lineUtf8Start = lineUtf8Starts[line]!;
+    const cursor8 = lineUtf8Start + Buffer.byteLength(text.slice(lineUtf16Start, offset));
+    return Object.freeze({
+      utf16Offset: offset,
+      utf8ByteOffset: cursor8,
+      line,
+      utf16Column: offset - lineUtf16Start,
+      utf8ByteColumn: cursor8 - lineUtf8Start,
+    });
+  };
+
+  const atUtf8ByteOffset = (offset: number): SourcePosition => {
+    validateOffset(offset, utf8ByteOffset, "UTF-8 byte");
+    const line = lineForOffset(lineUtf8Starts, offset);
+    let cursor16 = lineUtf16Starts[line]!;
+    let cursor8 = lineUtf8Starts[line]!;
+    while (cursor8 < offset) {
+      const codeUnit = text.charCodeAt(cursor16);
+      const pairedSurrogate =
+        codeUnit >= 0xd800 && codeUnit <= 0xdbff &&
+        text.charCodeAt(cursor16 + 1) >= 0xdc00 &&
+        text.charCodeAt(cursor16 + 1) <= 0xdfff;
+      const utf16Length = pairedSurrogate ? 2 : 1;
+      const bytes = pairedSurrogate
+        ? 4
+        : codeUnit <= 0x7f
+          ? 1
+          : codeUnit <= 0x7ff
+            ? 2
+            : 3;
+      if (cursor8 + bytes > offset) {
+        throw new RangeError(
+          `UTF-8 byte offset ${offset} is outside the source or not a Unicode code-point boundary`
+        );
+      }
+      cursor16 += utf16Length;
+      cursor8 += bytes;
+    }
+    return Object.freeze({
+      utf16Offset: cursor16,
+      utf8ByteOffset: cursor8,
+      line,
+      utf16Column: cursor16 - lineUtf16Starts[line]!,
+      utf8ByteColumn: cursor8 - lineUtf8Starts[line]!,
+    });
   };
   const range = (start: SourcePosition, end: SourcePosition): SourceRange => {
     if (end.utf16Offset < start.utf16Offset) {
@@ -217,16 +274,16 @@ function buildCoordinates(text: string): SourceCoordinates {
 
   return Object.freeze({
     atUtf16Offset(offset: number) {
-      return lookup(byUtf16, offset, "UTF-16");
+      return atUtf16Offset(offset);
     },
     atUtf8ByteOffset(offset: number) {
-      return lookup(byUtf8, offset, "UTF-8 byte");
+      return atUtf8ByteOffset(offset);
     },
     rangeFromUtf16(start: number, end: number) {
-      return range(lookup(byUtf16, start, "UTF-16"), lookup(byUtf16, end, "UTF-16"));
+      return range(atUtf16Offset(start), atUtf16Offset(end));
     },
     rangeFromUtf8Bytes(start: number, end: number) {
-      return range(lookup(byUtf8, start, "UTF-8 byte"), lookup(byUtf8, end, "UTF-8 byte"));
+      return range(atUtf8ByteOffset(start), atUtf8ByteOffset(end));
     },
   });
 }

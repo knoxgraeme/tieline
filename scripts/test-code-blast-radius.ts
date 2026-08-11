@@ -82,9 +82,9 @@ capability:
   });
 
   await test("defaults to dependents and joins exact direct/fallback authored claims", async () => {
-    const calls = { generations: 0, paths: 0, reverse: 0, frontiers: 0 };
+    const calls = { comparison: 0, paths: 0, reverse: 0, frontiers: 0 };
     for (const [method, key] of [
-      ["getGenerations", "generations"],
+      ["compareGenerations", "comparison"],
       ["listSymbolsByPaths", "paths"],
       ["listReverseEdges", "reverse"],
       ["listDependencyFrontiers", "frontiers"],
@@ -112,8 +112,8 @@ capability:
     assert.ok(!result.visited.some((node) => node.locator.path === "src/c.ts"), "sharing an AC must not manufacture an edge");
     assert.ok(result.intent_impacts.every((impact) => impact.relationship === "contract_coupling" && impact.semantic_support === "not_assessed"));
     assert.equal(result.revision_divergence.current, "aligned");
-    assert.equal(calls.generations, 1, "base/current select in one store snapshot");
-    assert.ok(calls.paths <= 2, "one locator batch per generation role");
+    assert.equal(calls.comparison, 1, "base/current compare in one store snapshot");
+    assert.ok(calls.paths <= 4, "comparison and traversal each batch locators per role");
     assert.equal(calls.reverse, calls.frontiers);
   });
 

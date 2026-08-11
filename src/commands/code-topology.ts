@@ -16,19 +16,14 @@ import {
   type CodeTopologyTraversalLimits,
 } from "../contract/code-topology.js";
 import {
-  buildCommittedTopologyGeneration,
-  buildTopologyRoles,
-  TopologyGenerationService,
+  buildCommittedTopologyReadModel,
+  TopologyReadModelService,
 } from "../contract/topology-generation.js";
 import { codeTopologyRuntimeCompatibility } from "../contract/code-topology-indexer.js";
 import type {
-  CompleteCodeTopologyGeneration,
-  StoredCodeTopologyGeneration,
+  CodeTopologyReadStore,
+  CodeTopologyTraversalGenerationSummary,
   TopologyAssetKind,
-} from "../domain/code-topology-store.js";
-import {
-  codeTopologyFactsDigest,
-  codeTopologyGenerationCounts,
 } from "../domain/code-topology-store.js";
 import { config } from "../config.js";
 import { getCodeTopologyStore } from "../code-topology-store.js";
@@ -98,10 +93,10 @@ export type BlastRadiusPrimitiveResult =
       generation_identity?: string;
     };
 
-const generationService = new TopologyGenerationService();
+const readModelService = new TopologyReadModelService();
 
 function persistedCompatibilityDetail(
-  generation: StoredCodeTopologyGeneration
+  generation: CodeTopologyTraversalGenerationSummary
 ): string | null {
   const expected = codeTopologyRuntimeCompatibility();
   const actual = generation.header;
@@ -112,18 +107,6 @@ function persistedCompatibilityDetail(
     actual.fact_policy_digest !== expected.fact_policy_digest
     ? `Persisted topology generation '${actual.identity}' was produced by an incompatible parser, resolver, schema, or fact policy.`
     : null;
-}
-
-function stored(
-  generation: CompleteCodeTopologyGeneration
-): StoredCodeTopologyGeneration {
-  return {
-    ...generation,
-    facts_digest: codeTopologyFactsDigest(generation),
-    counts: codeTopologyGenerationCounts(generation),
-    completed_at: "1970-01-01T00:00:00.000Z",
-    pinned: false,
-  };
 }
 
 function workspaceAt(path: string | undefined): TielineWorkspace | null {
@@ -167,10 +150,11 @@ function sourceOptions(workspace: TielineWorkspace, repository: string) {
 
 function buildFailure(
   repository: string,
-  result: Exclude<
-    Awaited<ReturnType<TopologyGenerationService["buildWorkspace"]>>,
-    { status: "complete" }
-  >
+  result: {
+    status: "capacity_exceeded" | "source_unavailable" | "workspace_changed";
+    path: string | null;
+    detail: string;
+  }
 ): CodeTopologyUnavailableResult {
   return {
     status: result.status,
@@ -183,7 +167,11 @@ async function selectedGeneration(
   options: SharedCodeTopologyOptions,
   workspace: TielineWorkspace | null
 ): Promise<
-  | { status: "complete"; generation: StoredCodeTopologyGeneration }
+  | {
+      status: "complete";
+      store: CodeTopologyReadStore;
+      summary: CodeTopologyTraversalGenerationSummary;
+    }
   | CodeTopologyUnavailableResult
 > {
   if (options.generation) {
@@ -195,9 +183,8 @@ async function selectedGeneration(
         detail: "A persisted generation was requested, but DATABASE_URL is not configured.",
       };
     }
-    const generation = await getCodeTopologyStore().getGeneration(
-      options.generation
-    );
+    const store = getCodeTopologyStore();
+    const generation = await store.getGenerationSummary(options.generation);
     if (!generation || generation.header.repository !== options.repository) {
       return {
         status: "generation_unavailable",
@@ -215,7 +202,7 @@ async function selectedGeneration(
         detail: incompatibility,
       };
     }
-    return { status: "complete", generation };
+    return { status: "complete", store, summary: generation };
   }
   if (!workspace) {
     if (options.revision) {
@@ -242,7 +229,8 @@ async function selectedGeneration(
         detail: `No current complete topology generation is available for '${options.repository}'.`,
       };
     }
-    const generation = await getCodeTopologyStore().getGeneration(identity);
+    const store = getCodeTopologyStore();
+    const generation = await store.getGenerationSummary(identity);
     if (!generation) {
       return {
         status: "generation_unavailable",
@@ -260,18 +248,20 @@ async function selectedGeneration(
         detail: incompatibility,
       };
     }
-    return { status: "complete", generation };
+    return { status: "complete", store, summary: generation };
   }
   const built = options.revision
-    ? await buildCommittedTopologyGeneration({
+    ? await buildCommittedTopologyReadModel({
         ...sourceOptions(workspace, options.repository),
         revision: options.revision,
       })
-    : await generationService.buildWorkspace(
+    : await readModelService.buildWorkspace(
         sourceOptions(workspace, options.repository)
       );
   if (built.status !== "complete") return buildFailure(options.repository, built);
-  return { status: "complete", generation: stored(built.generation) };
+  const snapshot = new ImmutableCodeTopologySnapshotStore();
+  const summary = snapshot.addReadModel(built.read_model);
+  return { status: "complete", store: snapshot, summary };
 }
 
 /** Shared primitive used unchanged by CLI and MCP structured output. */
@@ -292,8 +282,8 @@ export async function executeDependencyTrace(
   const selected = await selectedGeneration(options, workspace);
   if (selected.status !== "complete") return selected;
   return traceCodeTopology({
-    store: new ImmutableCodeTopologySnapshotStore([selected.generation]),
-    generation_identity: selected.generation.header.identity,
+    store: selected.store,
+    generation_identity: selected.summary.header.identity,
     generation_role: options.role,
     locator: locator(options.repository, options.locator),
     direction: options.direction,
@@ -346,28 +336,44 @@ export async function executeChangeBlastRadius(
     };
   }
   const common = sourceOptions(workspace, options.repository);
-  let base: StoredCodeTopologyGeneration | undefined;
-  let current: StoredCodeTopologyGeneration;
+  let base: {
+    store: CodeTopologyReadStore;
+    summary: CodeTopologyTraversalGenerationSummary;
+  } | undefined;
+  let current: {
+    store: CodeTopologyReadStore;
+    summary: CodeTopologyTraversalGenerationSummary;
+  };
   if (options.base) {
-    const roles = await buildTopologyRoles({
-      base: { ...common, revision: options.base },
-      current: common,
-      currentKind: "workspace",
+    const snapshot = new ImmutableCodeTopologySnapshotStore();
+    const baseBuild = await buildCommittedTopologyReadModel({
+      ...common,
+      revision: options.base,
     });
-    if (roles.status !== "complete") return buildFailure(options.repository, roles);
-    base = stored(roles.base);
-    current = stored(roles.current);
+    if (baseBuild.status !== "complete") return buildFailure(options.repository, baseBuild);
+    const baseSummary = snapshot.addReadModel(baseBuild.read_model);
+    const currentBuild = await readModelService.buildWorkspace(common);
+    if (currentBuild.status !== "complete") return buildFailure(options.repository, currentBuild);
+    const currentSummary = snapshot.addReadModel(currentBuild.read_model);
+    base = { store: snapshot, summary: baseSummary };
+    current = { store: snapshot, summary: currentSummary };
   } else {
     const selected = await selectedGeneration(options, workspace);
     if (selected.status !== "complete") return selected;
-    current = selected.generation;
+    current = { store: selected.store, summary: selected.summary };
   }
-  const generations = base ? [base, current] : [current];
-  const snapshot = new ImmutableCodeTopologySnapshotStore(generations);
   return analyzeCodeBlastRadius({
-    current: { store: snapshot, generation_identity: current.header.identity },
+    current: {
+      store: current.store,
+      generation_identity: current.summary.header.identity,
+    },
     ...(base
-      ? { base: { store: snapshot, generation_identity: base.header.identity } }
+      ? {
+          base: {
+            store: base.store,
+            generation_identity: base.summary.header.identity,
+          },
+        }
       : {}),
     manifest,
     changes: explicitChanges(options.repository, options.changes),

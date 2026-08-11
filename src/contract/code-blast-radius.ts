@@ -1,7 +1,7 @@
 import type {
-  CodeTopologyEdgeRecord,
   CodeTopologyReadStore,
-  CompleteCodeTopologyGeneration,
+  CodeTopologyStoreComparison,
+  CodeTopologyTraversalSymbolRecord,
 } from "../domain/code-topology-store.js";
 import { manifestDigest, type ContractManifest } from "./manifest.js";
 import {
@@ -9,11 +9,10 @@ import {
   compareContractClaims,
   type ClaimingCriterion,
 } from "./reconciliation.js";
-import { compareTopologyGenerations, type TopologyFileChange } from "./topology-generation.js";
+import type { TopologyFileChange } from "./topology-generation.js";
 import {
   resolveCodeTopologyLimits,
   traceCodeTopologyBatch,
-  ImmutableCodeTopologySnapshotStore,
   type CodeTopologyBatchStartOutcome,
   type CodeTopologyDirection,
   type CodeTopologyGenerationRole,
@@ -129,41 +128,6 @@ export type CodeBlastRadiusResult =
       current_generation_identity: string;
     };
 
-interface GenerationLocatorIndex {
-  by_symbol_identity: ReadonlyMap<string, CodeTopologyLocator>;
-  by_path: ReadonlyMap<string, readonly CodeTopologyLocator[]>;
-}
-
-function buildGenerationLocatorIndex(
-  generation: CompleteCodeTopologyGeneration
-): GenerationLocatorIndex {
-  const files = new Map(generation.files.map((file) => [file.path, file]));
-  const bySymbolIdentity = new Map<string, CodeTopologyLocator>();
-  const byPath = new Map<string, CodeTopologyLocator[]>();
-  for (const symbol of generation.symbols) {
-    const file = files.get(symbol.file_path);
-    if (!file) continue;
-    const locator: CodeTopologyLocator = {
-      repository: generation.header.repository,
-      kind: file.kind,
-      path: symbol.file_path,
-      selector: symbol.canonical_selector,
-      framework_hint: file.framework_hint,
-    };
-    bySymbolIdentity.set(symbol.identity, locator);
-    const pathLocators = byPath.get(symbol.file_path);
-    if (pathLocators) pathLocators.push(locator);
-    else byPath.set(symbol.file_path, [locator]);
-  }
-  for (const locators of byPath.values()) {
-    locators.sort((left, right) => locatorKey(left).localeCompare(locatorKey(right)));
-  }
-  return {
-    by_symbol_identity: bySymbolIdentity,
-    by_path: byPath,
-  };
-}
-
 function locatorKey(locator: CodeTopologyLocator): string {
   return [
     locator.repository,
@@ -172,62 +136,6 @@ function locatorKey(locator: CodeTopologyLocator): string {
     locator.selector ?? "",
     locator.framework_hint ?? "",
   ].join("\0");
-}
-
-function edgeKey(
-  locators: GenerationLocatorIndex,
-  edge: CodeTopologyEdgeRecord
-): string | null {
-  const source = locators.by_symbol_identity.get(edge.source.symbol_identity);
-  const target = locators.by_symbol_identity.get(edge.target.symbol_identity);
-  return source && target
-    ? `${edge.kind}\0${locatorKey(source)}\0${locatorKey(target)}`
-    : null;
-}
-
-function edgeChanges(
-  base: CompleteCodeTopologyGeneration,
-  current: CompleteCodeTopologyGeneration,
-  baseLocators: GenerationLocatorIndex,
-  currentLocators: GenerationLocatorIndex
-): CodeTopologyEdgeChange[] {
-  const before = new Map(
-    base.edges.flatMap((edge) => {
-      const key = edgeKey(baseLocators, edge);
-      return key ? [[key, edge] as const] : [];
-    })
-  );
-  const after = new Map(
-    current.edges.flatMap((edge) => {
-      const key = edgeKey(currentLocators, edge);
-      return key ? [[key, edge] as const] : [];
-    })
-  );
-  const changes: CodeTopologyEdgeChange[] = [];
-  for (const [key, edge] of before) {
-    if (after.has(key)) continue;
-    const source = baseLocators.by_symbol_identity.get(edge.source.symbol_identity);
-    const target = baseLocators.by_symbol_identity.get(edge.target.symbol_identity);
-    if (source && target) changes.push({ status: "deleted", kind: edge.kind, source, target });
-  }
-  for (const [key, edge] of after) {
-    if (before.has(key)) continue;
-    const source = currentLocators.by_symbol_identity.get(edge.source.symbol_identity);
-    const target = currentLocators.by_symbol_identity.get(edge.target.symbol_identity);
-    if (source && target) changes.push({ status: "added", kind: edge.kind, source, target });
-  }
-  return changes.sort((left, right) =>
-    `${left.status}\0${locatorKey(left.source)}\0${locatorKey(left.target)}`.localeCompare(
-      `${right.status}\0${locatorKey(right.source)}\0${locatorKey(right.target)}`
-    )
-  );
-}
-
-function fileLocators(
-  locators: GenerationLocatorIndex,
-  path: string
-): CodeTopologyLocator[] {
-  return [...(locators.by_path.get(path) ?? [])];
 }
 
 interface Start {
@@ -252,26 +160,58 @@ function startsFromExplicit(changes: readonly CodeBlastRadiusExplicitChange[]): 
   });
 }
 
-function startsFromComparison(
+function symbolLocator(
+  repository: string,
+  symbol: CodeTopologyTraversalSymbolRecord
+): CodeTopologyLocator {
+  return {
+    repository,
+    kind: symbol.asset_kind,
+    path: symbol.file_path,
+    selector: symbol.canonical_selector,
+    framework_hint: symbol.framework_hint,
+  };
+}
+
+async function startsFromComparison(
   files: readonly TopologyFileChange[],
   edges: readonly CodeTopologyEdgeChange[],
-  baseLocators: GenerationLocatorIndex,
-  currentLocators: GenerationLocatorIndex
-): Start[] {
+  base: CodeTopologyRoleInput,
+  current: CodeTopologyRoleInput,
+  repository: string
+): Promise<Start[]> {
   const starts: Start[] = [];
+  const basePaths = new Set<string>();
+  const currentPaths = new Set<string>();
   for (const change of files) {
-    if (change.status === "added") {
-      starts.push(...fileLocators(currentLocators, change.path).map((locator) => ({ role: "current" as const, locator })));
-    } else if (change.status === "deleted") {
-      starts.push(...fileLocators(baseLocators, change.path).map((locator) => ({ role: "base" as const, locator })));
-    } else if (change.status === "renamed") {
-      starts.push(...fileLocators(baseLocators, change.previous_path).map((locator) => ({ role: "base" as const, locator })));
-      starts.push(...fileLocators(currentLocators, change.path).map((locator) => ({ role: "current" as const, locator })));
+    if (change.status === "added") currentPaths.add(change.path);
+    else if (change.status === "deleted") basePaths.add(change.path);
+    else if (change.status === "renamed") {
+      basePaths.add(change.previous_path);
+      currentPaths.add(change.path);
     } else {
-      starts.push(...fileLocators(baseLocators, change.path).map((locator) => ({ role: "base" as const, locator })));
-      starts.push(...fileLocators(currentLocators, change.path).map((locator) => ({ role: "current" as const, locator })));
+      basePaths.add(change.path);
+      currentPaths.add(change.path);
     }
   }
+  const [baseSymbols, currentSymbols] = await Promise.all([
+    base.store.listSymbolsByPaths({
+      generation_identity: base.generation_identity,
+      paths: [...basePaths].sort(),
+    }),
+    current.store.listSymbolsByPaths({
+      generation_identity: current.generation_identity,
+      paths: [...currentPaths].sort(),
+    }),
+  ]);
+  starts.push(...baseSymbols.map((symbol) => ({
+    role: "base" as const,
+    locator: symbolLocator(repository, symbol),
+  })));
+  starts.push(...currentSymbols.map((symbol) => ({
+    role: "current" as const,
+    locator: symbolLocator(repository, symbol),
+  })));
   for (const change of edges) {
     const role = change.status === "added" ? "current" : "base";
     starts.push({ role, locator: change.source }, { role, locator: change.target });
@@ -307,22 +247,10 @@ function claimsForNode(
 export async function analyzeCodeBlastRadius(
   input: AnalyzeCodeBlastRadiusInput
 ): Promise<CodeBlastRadiusResult> {
-  let base: Awaited<ReturnType<CodeTopologyReadStore["getGeneration"]>> = null;
-  let current: Awaited<ReturnType<CodeTopologyReadStore["getGeneration"]>> = null;
-  if (input.base && input.base.store === input.current.store) {
-    const selected = await input.current.store.getGenerations([
-      input.base.generation_identity,
-      input.current.generation_identity,
-    ]);
-    const byIdentity = new Map(selected.map((generation) => [generation.header.identity, generation]));
-    base = byIdentity.get(input.base.generation_identity) ?? null;
-    current = byIdentity.get(input.current.generation_identity) ?? null;
-  } else {
-    [base, current] = await Promise.all([
-      input.base?.store.getGeneration(input.base.generation_identity) ?? Promise.resolve(null),
-      input.current.store.getGeneration(input.current.generation_identity),
-    ]);
-  }
+  const [base, current] = await Promise.all([
+    input.base?.store.getGenerationSummary(input.base.generation_identity) ?? Promise.resolve(null),
+    input.current.store.getGenerationSummary(input.current.generation_identity),
+  ]);
   if (!current) {
     return {
       status: "generation_unavailable",
@@ -337,10 +265,39 @@ export async function analyzeCodeBlastRadius(
       generation_identity: input.base.generation_identity,
     };
   }
-  const snapshotStore = new ImmutableCodeTopologySnapshotStore(
-    base ? [base, current] : [current]
-  );
-  const comparison = base ? compareTopologyGenerations(base, current) : null;
+  let comparison: CodeTopologyStoreComparison | null = null;
+  if (input.base && base) {
+    comparison = input.base.store === input.current.store
+      ? await input.current.store.compareGenerations({
+          base_generation_identity: input.base.generation_identity,
+          current_generation_identity: input.current.generation_identity,
+        })
+      : input.changes
+        ? {
+            base_generation_identity: base.header.identity,
+            current_generation_identity: current.header.identity,
+            compatibility:
+              [base.header.parser_compatibility_digest, base.header.resolver_implementation,
+                base.header.topology_schema_version, base.header.fact_policy_digest].join("\0") ===
+              [current.header.parser_compatibility_digest, current.header.resolver_implementation,
+                current.header.topology_schema_version, current.header.fact_policy_digest].join("\0")
+                ? "compatible"
+                : "incompatible",
+            configuration_changed:
+              base.header.resolver_configuration_digest !==
+              current.header.resolver_configuration_digest,
+            files: [],
+            edges: [],
+          }
+        : null;
+    if (!comparison) {
+      return {
+        status: "generation_unavailable",
+        generation_role: "base",
+        generation_identity: input.base.generation_identity,
+      };
+    }
+  }
   if (comparison?.compatibility === "incompatible") {
     return {
       status: "incompatible_generations",
@@ -348,11 +305,7 @@ export async function analyzeCodeBlastRadius(
       current_generation_identity: current.header.identity,
     };
   }
-  const currentLocators = buildGenerationLocatorIndex(current);
-  const baseLocators = base ? buildGenerationLocatorIndex(base) : null;
-  const edges = base && baseLocators
-    ? edgeChanges(base, current, baseLocators, currentLocators)
-    : [];
+  const edges: CodeTopologyEdgeChange[] = comparison?.edges ?? [];
   const topologyChanges: CodeTopologyChangeSet = {
     source: input.changes ? "explicit" : "generation_comparison",
     files: input.changes
@@ -366,17 +319,18 @@ export async function analyzeCodeBlastRadius(
   };
   let starts = input.changes
     ? startsFromExplicit(input.changes)
-    : baseLocators
-      ? startsFromComparison(
+    : input.base && base
+      ? await startsFromComparison(
           topologyChanges.files,
           edges,
-          baseLocators,
-          currentLocators
+          input.base,
+          input.current,
+          current.header.repository
         )
       : [];
   const seenStarts = new Set<string>();
   starts = starts.filter((start) => {
-    if (start.role === "base" && !base) return false;
+    if (start.role === "base" && !input.base) return false;
     const key = `${start.role}\0${locatorKey(start.locator)}`;
     if (seenStarts.has(key)) return false;
     seenStarts.add(key);
@@ -415,7 +369,7 @@ export async function analyzeCodeBlastRadius(
       continue;
     }
     const trace = await traceCodeTopologyBatch({
-      store: snapshotStore,
+      store: roleName === "base" ? input.base!.store : input.current.store,
       generation_identity: roleIdentity,
       generation_role: roleName,
       locators: roleStarts.map((start) => start.locator),

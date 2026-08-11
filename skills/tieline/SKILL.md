@@ -100,6 +100,38 @@ Only use `find_related` or `search_knowledge` for discovery when the exact path,
 selector, or AC ID is unknown, or when the task explicitly needs broader
 semantic candidates.
 
+## Trace derived code relationships when needed
+
+After reading exact authored intent, use derived topology only when the task
+needs dependency direction or potential change propagation:
+
+- Call `trace_code_dependencies`, or run
+  `tieline code trace --path <path> [--selector <selector>] --direction dependencies|dependents --json`,
+  for one exact locator.
+- Call `analyze_code_blast_radius`, or run
+  `tieline code blast-radius --base <base-ref> --json`, for advisory AC-aware
+  impact. Its default direction is `dependents`.
+- Keep the default limits unless the task needs a smaller result. Defaults are
+  depth 4, 500 nodes, 2,000 edges/frontiers, and 100 paths; hard maxima are
+  depth 8, 1,000 nodes, 4,000 edges/frontiers, and 200 paths.
+
+Local topology is language-aware for JavaScript/JSX/TypeScript/TSX, Python, and
+Rust and works without Postgres. It parses immutable snapshots, then resolves
+only supported static project-local module forms. Treat `ambiguous`,
+`unresolved`, `external`, dynamic, glob, generated, and unsupported outcomes as
+frontiers to investigate, never as license to guess an edge. Hosted dependency
+trace may use a compatible complete Postgres generation; hosted topology
+without a readable authored manifest cannot perform the AC join.
+
+Preserve the result vocabulary exactly: code reachability is
+`derived_code_dependency`; accepted links are `contract_coupling`; impact is
+only `may_be_impacted`; semantic support stays `not_assessed`. Sharing an AC
+never creates a code edge. Neither parser evidence, a current hash, a resolved
+selector, nor topology proves that implementation satisfies the AC or that a
+test ran. Repository YAML and its compiled manifest remain business-intent
+authority; committed topology is a derived relational projection, and dirty
+working-tree topology is ephemeral.
+
 ## Search before creating
 
 1. Run `tieline status --json` and inspect its capability flags.

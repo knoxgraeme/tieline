@@ -468,6 +468,71 @@ remain explicit. Semantic support is always `not_assessed` in these reads. No
 state proves the criterion is implemented correctly, and a linked test is an
 evidence locator—not a receipt that the test ran or passed.
 
+### Derived code topology and blast radius
+
+Tieline can separately derive a conservative code topology from repository
+source. This does not replace the authored contract and does not use a graph
+database. Complete committed generations are stored as immutable relational
+rows in PostgreSQL; dirty working-tree generations stay in a bounded in-memory
+cache. The compiled manifest remains the authority for business intent.
+
+Local trace and blast-radius reads retain a thin traversal projection: file
+hashes, locator-bearing symbols, adjacency, and unresolved dependency
+frontiers. Parser diagnostics, source ranges, reference facts, and resolved
+explanations remain available in committed PostgreSQL generations but are not
+duplicated in the runtime graph. Parsing is reduced to resolution inputs before
+cross-file resolution, and the cache coalesces identical workspace builds while
+holding at most two projections, 256 MiB, or five minutes of state.
+
+```bash
+# Follow statically derived imports from one exact symbol.
+tieline code trace --path src/commands/code-topology.ts \
+  --selector function:executeDependencyTrace --direction dependencies --json
+
+# Find code that may depend on changes since a Git base, then join visited
+# locators to authored AC claims. The default direction is dependents.
+tieline code blast-radius --base origin/main --json
+```
+
+The equivalent read-only MCP tools are `trace_code_dependencies` and
+`analyze_code_blast_radius`. CLI and MCP delegate to the same domain results.
+Local reads need no database: they parse the selected revision or working tree
+ephemerally. A hosted dependency trace can select a compatible complete
+Postgres generation when no checkout is available. AC-aware blast radius still
+requires a readable workspace manifest; hosted topology alone cannot supply or
+infer authored intent.
+
+Supported structural facts are intentionally narrower than each language:
+
+| Language | Parsed symbols and module forms | Conservative resolution |
+| --- | --- | --- |
+| JavaScript, JSX, TypeScript, TSX | Classes, functions, methods, interfaces, types, enums, namespaces, top-level bindings, static imports, exports, re-exports, and literal dynamic imports | Relative files with supported extensions and index files, static `baseUrl`/`paths` aliases, and named exports/re-exports |
+| Python | Classes, functions, methods, `import`, `from ... import`, relative imports, and public top-level exports | Repository and statically declared source roots, modules, packages, and named public symbols |
+| Rust | Structs, enums, traits, types, modules, functions, constants, statics, impl owners/methods, `mod`, `use`, `pub use`, and grouped paths | Static Cargo crate roots, conventional module files, and `crate`, `self`, and `super` paths |
+
+Dynamic module names, glob imports, generated modules, unsupported or
+non-static configuration, external packages/crates, conditional package
+exports, and multiple possible targets remain named `unresolved`, `external`,
+or `ambiguous` frontiers. Tieline never guesses an exact edge for them. Parser
+recovery and capture truncation are also explicit.
+
+Every fact is tied to immutable source bytes and records zero-based UTF-16 code
+unit offsets plus zero-based UTF-8 byte offsets; line and column values use the
+same named coordinate systems. Persisted compatibility includes the pinned
+parser/grammar set, normalized query contract, resolver implementation and
+configuration digest, topology schema, and fact policy. Incompatible
+generations are refused rather than silently mixed.
+
+Traversal locates an exact repository path and optional canonical selector
+before walking. Defaults are depth 4, 500 visited nodes, 2,000 edges/frontiers,
+and 100 returned paths. Hard maxima are depth 8, 1,000 nodes, 4,000
+edges/frontiers, and 200 paths. Results are cycle-safe and report each
+independent truncation reason. Code paths are labeled
+`derived_code_dependency`; authored joins are `contract_coupling` and say only
+`may_be_impacted` with `semantic_support: not_assessed`. Two files sharing an
+AC do not thereby depend on one another, and no topology result proves that an
+implementation satisfies an AC or that a linked test passed.
+
 Use semantic discovery only when the exact path, selector, or AC ID is unknown.
 For the compatibility path-to-AC list without selector-aware neighborhood
 context, ask which criteria the reviewed manifest records:

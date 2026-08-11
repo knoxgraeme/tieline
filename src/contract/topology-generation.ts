@@ -11,6 +11,7 @@ import {
 import {
   buildCodeTopologyGeneration,
   type TopologyGenerationBuildResult,
+  type TopologyReadModelBuildResult,
   type TopologySourceCollection,
 } from "./code-topology-indexer.js";
 import { createGitSourceSnapshotCollection } from "./git-source-snapshot.js";
@@ -152,6 +153,39 @@ export async function buildCommittedTopologyGeneration(
   }
 }
 
+export async function buildCommittedTopologyReadModel(
+  options: BuildCommittedTopologyGenerationOptions
+): Promise<TopologyReadModelBuildResult> {
+  let source;
+  try {
+    source = createGitSourceSnapshotCollection({
+      repositoryRoot: options.repositoryRoot,
+      revision: options.revision,
+      sourceRoots: options.sourceRoots,
+      ignore: options.ignore,
+      maxSourceBytes: options.maxSourceBytes,
+      maxTotalSourceBytes: options.maxTotalSourceBytes,
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      status: /exceeds the .* limit/i.test(detail)
+        ? "capacity_exceeded"
+        : "source_unavailable",
+      path: null,
+      detail,
+    };
+  }
+  try {
+    return await buildCodeTopologyGeneration({
+      ...indexOptions(options, source),
+      output: "read_model",
+    });
+  } finally {
+    source.dispose();
+  }
+}
+
 /** Retry exactly once rather than return facts from a mixed working tree. */
 export async function buildWorkspaceTopologyGeneration(
   options: BuildWorkspaceTopologyGenerationOptions
@@ -200,6 +234,56 @@ export async function buildWorkspaceTopologyGeneration(
     return result;
   }
   throw new Error("Unreachable workspace topology retry state.");
+}
+
+/** Build only the persistence-independent traversal projection, retrying once on mutation. */
+export async function buildWorkspaceTopologyReadModel(
+  options: BuildWorkspaceTopologyGenerationOptions
+): Promise<TopologyReadModelBuildResult> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    let inventory: SourceInventory;
+    try {
+      inventory = workspaceInventory(options);
+    } catch (error) {
+      return {
+        status: "source_unavailable",
+        path: null,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+    const source = workspaceCollection(options, inventory);
+    let result: TopologyReadModelBuildResult;
+    try {
+      result = await buildCodeTopologyGeneration({
+        ...indexOptions(options, source),
+        output: "read_model",
+      });
+      await options.afterBuildAttempt?.(attempt);
+    } finally {
+      source.reader.dispose?.();
+    }
+    let after: SourceInventory;
+    try {
+      after = workspaceInventory(options);
+    } catch (error) {
+      if (attempt === 1) continue;
+      return {
+        status: "workspace_changed",
+        path: null,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+    if (result.status === "workspace_changed" || after.digest !== inventory.digest) {
+      if (attempt === 1) continue;
+      return {
+        status: "workspace_changed",
+        path: result.status === "complete" ? null : result.path,
+        detail: "Workspace changed during both topology read-model build attempts.",
+      };
+    }
+    return result;
+  }
+  throw new Error("Unreachable workspace topology read-model retry state.");
 }
 
 export async function persistCommittedTopologyGeneration(input: {
@@ -306,10 +390,20 @@ export function compareTopologyGenerations(
 }
 
 interface EphemeralCacheEntry {
-  generation: CompleteCodeTopologyGeneration;
+  value: unknown;
   bytes: number;
   expiresAt: number;
   lastAccess: number;
+}
+
+interface EphemeralCacheAdapter<Result, Value> {
+  completed(result: Result): {
+    identity: string;
+    value: Value;
+    bytes: number;
+    cacheable: boolean;
+  } | null;
+  hit(value: Value, bytes: number): Result;
 }
 
 export interface EphemeralTopologyGenerationCacheOptions {
@@ -319,11 +413,11 @@ export interface EphemeralTopologyGenerationCacheOptions {
   now?: () => number;
 }
 
-/** Bounded complete-identity cache plus same-workspace request coalescing. */
-export class EphemeralTopologyGenerationCache {
+/** Shared bounded complete-identity cache plus same-request build coalescing. */
+class EphemeralTopologyCache<Result, Value> {
   private readonly entries = new Map<string, EphemeralCacheEntry>();
   private readonly aliases = new Map<string, string>();
-  private readonly pending = new Map<string, Promise<TopologyGenerationBuildResult>>();
+  private readonly pending = new Map<string, Promise<Result>>();
   private readonly maxEntries: number;
   private readonly maxBytes: number;
   private readonly ttlMs: number;
@@ -331,7 +425,10 @@ export class EphemeralTopologyGenerationCache {
   private sequence = 0;
   private disposed = false;
 
-  constructor(options: EphemeralTopologyGenerationCacheOptions = {}) {
+  constructor(
+    private readonly adapter: EphemeralCacheAdapter<Result, Value>,
+    options: EphemeralTopologyGenerationCacheOptions = {}
+  ) {
     this.maxEntries = options.maxEntries ?? 2;
     this.maxBytes = options.maxBytes ?? 256 * 1024 * 1024;
     this.ttlMs = options.ttlMs ?? 5 * 60 * 1_000;
@@ -340,8 +437,8 @@ export class EphemeralTopologyGenerationCache {
 
   async getOrBuild(
     requestIdentity: string,
-    build: () => Promise<TopologyGenerationBuildResult>
-  ): Promise<TopologyGenerationBuildResult> {
+    build: () => Promise<Result>
+  ): Promise<Result> {
     if (this.disposed) throw new Error("Ephemeral topology cache has been disposed.");
     this.prune();
     const aliased = this.aliases.get(requestIdentity);
@@ -349,25 +446,15 @@ export class EphemeralTopologyGenerationCache {
       const cached = this.entries.get(aliased);
       if (cached) {
         cached.lastAccess = ++this.sequence;
-        return {
-          status: "complete",
-          source_kind: "workspace",
-          generation: cached.generation,
-          retained_bytes: cached.bytes,
-        };
+        return this.adapter.hit(cached.value as Value, cached.bytes);
       }
       this.aliases.delete(requestIdentity);
     }
     const inflight = this.pending.get(requestIdentity);
     if (inflight) return inflight;
     const pending = build().then((result) => {
-      if (
-        !this.disposed &&
-        result.status === "complete" &&
-        result.source_kind === "workspace"
-      ) {
-        this.insert(requestIdentity, result);
-      }
+      const completed = this.adapter.completed(result);
+      if (!this.disposed && completed?.cacheable) this.insert(requestIdentity, completed);
       return result;
     }).finally(() => this.pending.delete(requestIdentity));
     this.pending.set(requestIdentity, pending);
@@ -376,17 +463,16 @@ export class EphemeralTopologyGenerationCache {
 
   private insert(
     requestIdentity: string,
-    result: Extract<TopologyGenerationBuildResult, { status: "complete" }>
+    completed: { identity: string; value: Value; bytes: number }
   ): void {
-    if (result.retained_bytes > this.maxBytes) return;
-    const identity = result.generation.header.identity;
-    this.entries.set(identity, {
-      generation: result.generation,
-      bytes: result.retained_bytes,
+    if (completed.bytes > this.maxBytes) return;
+    this.entries.set(completed.identity, {
+      value: completed.value,
+      bytes: completed.bytes,
       expiresAt: this.now() + this.ttlMs,
       lastAccess: ++this.sequence,
     });
-    this.aliases.set(requestIdentity, identity);
+    this.aliases.set(requestIdentity, completed.identity);
     this.prune();
   }
 
@@ -427,6 +513,100 @@ export class EphemeralTopologyGenerationCache {
   }
 }
 
+/** Bounded rich-generation cache retained for persistence-oriented callers. */
+export class EphemeralTopologyGenerationCache {
+  private readonly cache: EphemeralTopologyCache<
+    TopologyGenerationBuildResult,
+    CompleteCodeTopologyGeneration
+  >;
+
+  constructor(options: EphemeralTopologyGenerationCacheOptions = {}) {
+    this.cache = new EphemeralTopologyCache({
+      completed: (result) => result.status === "complete" ? {
+        identity: result.generation.header.identity,
+        value: result.generation,
+        bytes: result.retained_bytes,
+        cacheable: result.source_kind === "workspace",
+      } : null,
+      hit: (generation, retainedBytes) => ({
+        status: "complete",
+        source_kind: "workspace",
+        generation,
+        retained_bytes: retainedBytes,
+      }),
+    }, options);
+  }
+
+  getOrBuild(
+    requestIdentity: string,
+    build: () => Promise<TopologyGenerationBuildResult>
+  ): Promise<TopologyGenerationBuildResult> {
+    return this.cache.getOrBuild(requestIdentity, build);
+  }
+
+  stats(): { entries: number; bytes: number; pending: number } {
+    return this.cache.stats();
+  }
+
+  dispose(): void {
+    this.cache.dispose();
+  }
+}
+
+/** Runtime cache stores only the persistence-independent traversal projection. */
+export class EphemeralTopologyReadModelCache {
+  private readonly cache: EphemeralTopologyCache<
+    TopologyReadModelBuildResult,
+    Extract<TopologyReadModelBuildResult, { status: "complete" }>["read_model"]
+  >;
+
+  constructor(options: EphemeralTopologyGenerationCacheOptions = {}) {
+    this.cache = new EphemeralTopologyCache({
+      completed: (result) => result.status === "complete" ? {
+        identity: result.read_model.summary.header.identity,
+        value: result.read_model,
+        bytes: result.retained_bytes,
+        cacheable: result.source_kind === "workspace",
+      } : null,
+      hit: (readModel, retainedBytes) => ({
+        status: "complete",
+        source_kind: "workspace",
+        read_model: readModel,
+        retained_bytes: retainedBytes,
+      }),
+    }, options);
+  }
+
+  getOrBuild(
+    requestIdentity: string,
+    build: () => Promise<TopologyReadModelBuildResult>
+  ): Promise<TopologyReadModelBuildResult> {
+    return this.cache.getOrBuild(requestIdentity, build);
+  }
+
+  stats(): { entries: number; bytes: number; pending: number } {
+    return this.cache.stats();
+  }
+
+  dispose(): void {
+    this.cache.dispose();
+  }
+}
+
+async function workspaceRequestIdentity(
+  options: BuildWorkspaceTopologyGenerationOptions
+): Promise<string> {
+  const root = await realpath(options.repositoryRoot);
+  const inventory = workspaceInventory(options);
+  return digest({
+    root,
+    repository: options.repository,
+    sourceRoots: options.sourceRoots,
+    ignore: options.ignore ?? [],
+    inventory: inventory.digest,
+  });
+}
+
 export class TopologyGenerationService {
   readonly cache: EphemeralTopologyGenerationCache;
 
@@ -437,17 +617,30 @@ export class TopologyGenerationService {
   async buildWorkspace(
     options: BuildWorkspaceTopologyGenerationOptions
   ): Promise<TopologyGenerationBuildResult> {
-    const root = await realpath(options.repositoryRoot);
-    const inventory = workspaceInventory(options);
-    const requestIdentity = digest({
-      root,
-      repository: options.repository,
-      sourceRoots: options.sourceRoots,
-      ignore: options.ignore ?? [],
-      inventory: inventory.digest,
-    });
+    const requestIdentity = await workspaceRequestIdentity(options);
     return this.cache.getOrBuild(requestIdentity, () =>
       buildWorkspaceTopologyGeneration(options)
+    );
+  }
+
+  dispose(): void {
+    this.cache.dispose();
+  }
+}
+
+export class TopologyReadModelService {
+  readonly cache: EphemeralTopologyReadModelCache;
+
+  constructor(cache = new EphemeralTopologyReadModelCache()) {
+    this.cache = cache;
+  }
+
+  async buildWorkspace(
+    options: BuildWorkspaceTopologyGenerationOptions
+  ): Promise<TopologyReadModelBuildResult> {
+    const requestIdentity = await workspaceRequestIdentity(options);
+    return this.cache.getOrBuild(requestIdentity, () =>
+      buildWorkspaceTopologyReadModel(options)
     );
   }
 

@@ -682,3 +682,258 @@ capability:
                 repository: tieline
                 path: scripts/test-impact.ts
                 framework_hint: custom-script
+    - key: CONTRACT-004
+      title: Inspect derived code topology without weakening contract authority
+      actor: implementing agent
+      goal: trace conservative multi-language code relationships and their potentially affected accepted intent
+      benefit: code changes can be investigated with bounded structural evidence while reviewed product intent remains authoritative
+      lifecycle: production
+      aliases:
+        - multi-language code topology
+        - AC-aware blast radius
+        - derived dependency trace
+      acceptance_criteria:
+        - key: CONTRACT-004-AC1
+          criterion: Tieline must extract deterministic symbols, owner chains, module references, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, and Rust snapshots while retaining syntax recovery, ambiguity, and truncation explicitly.
+          rationale: Structural evidence is useful only when callers can identify the exact bytes and parser compatibility that produced it without treating a best-effort parse as semantic proof.
+          scenarios:
+            - given: supported source contains nested declarations, Unicode names, imports, and a recoverable syntax error
+              when: the source is structurally analyzed
+              then: facts must preserve canonical selectors, complete owners, both coordinate systems, syntax status, diagnostics, and deterministic compatibility identity
+            - given: a reviewed selector resolves uniquely against hash-current source
+              when: exact intent context is read
+              then: a bounded parser-backed snippet may be returned while semantic support remains not_assessed
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/source-snapshot.ts
+                selector: function:createFilesystemSourceSnapshotReader
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/structural-support.ts
+                selector: function:createStructuralAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/javascript.ts
+                selector: function:createJavaScriptAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/python.ts
+                selector: function:createPythonAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/rust.ts
+                selector: function:createRustAnalyzer
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-source-snapshot.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-analysis-python-rust.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC2
+          criterion: Tieline must resolve supported project-local JavaScript and TypeScript, Python, and Rust module forms in a separate conservative phase and must preserve exact, ambiguous, unresolved, external, dynamic, glob, generated, and unsupported outcomes instead of guessing a dependency.
+          rationale: A false edge produces a misleading blast radius, while an explicit frontier gives an agent a precise place to continue investigation.
+          scenarios:
+            - given: a static local import has one inventory-backed target
+              when: module resolution runs
+              then: Tieline must record its rule, target, configuration identity, and derived edge
+            - given: a dynamic name, glob, generated module, unsupported configuration, external package, or multiple target is encountered
+              when: module resolution runs
+              then: Tieline must retain a named non-resolved outcome and candidates or diagnostics without manufacturing an exact edge
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-topology-indexer.ts
+                selector: function:buildCodeTopologyGeneration
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-resolution/javascript.ts
+                selector: function:createJavaScriptModuleResolver
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-resolution/python.ts
+                selector: function:createPythonModuleResolver
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-resolution/rust.ts
+                selector: function:createRustModuleResolver
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-resolution-javascript.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-resolution-python-rust.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC3
+          criterion: Tieline must identify committed topology generations by exact Git tree and parser, resolver, configuration, schema, and fact-policy compatibility, must publish only complete atomically persisted generations, and must keep dirty working-tree generations ephemeral, bounded, and revision-distinct.
+          rationale: Readers must never observe a mixed or partial graph, and authored repository state must not be confused with an unreviewed working tree.
+          scenarios:
+            - given: persistence fails after any generation write stage
+              when: the transaction ends
+              then: no partial generation may replace the previous complete checkpoint
+            - given: files change while a working-tree generation is built
+              when: the consistency check retries and observes another change
+              then: Tieline must return workspace_changed instead of caching mixed facts
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-generation.ts
+                selector: function:persistCommittedTopologyGeneration
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-generation.ts
+                selector: class:TopologyReadModelService
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/compact-code-topology-store.ts
+                selector: class:ImmutableCodeTopologySnapshotStore
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/code-topology-repository.ts
+                selector: class:PostgresCodeTopologyRepository
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-topology-generation.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-code-topology.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC4
+          criterion: Tieline must locate an exact path and optional selector before traversing dependencies or dependents, must default AC-aware blast radius to dependents, and must return cycle-safe deterministic paths, unresolved frontiers, generation identities, and independent depth, node, edge, and path truncation within fixed hard maxima.
+          rationale: Bounded topology is safe for agent use only when ambiguity and omitted work stay visible and the caller cannot bypass product limits.
+          scenarios:
+            - given: a dependency graph contains a cycle, diamond, ambiguous start, and unresolved reference
+              when: a trace is requested
+              then: Tieline must preserve all applicable start and frontier outcomes without revisiting nodes indefinitely
+            - given: a changed locator and another unrelated locator share one Acceptance Criterion
+              when: AC-aware blast radius runs
+              then: the unrelated locator must not be traversed unless a derived code edge reaches it
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-topology.ts
+                selector: function:traceCodeTopology
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-blast-radius.ts
+                selector: function:analyzeCodeBlastRadius
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-topology.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-blast-radius.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC5
+          criterion: Tieline must expose equivalent read-only CLI and MCP dependency-trace and AC-aware blast-radius results, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.
+          rationale: Derived topology can prioritize investigation, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.
+          scenarios:
+            - given: a local workspace has no database connection
+              when: dependency trace or AC-aware blast radius is requested
+              then: both surfaces must use ephemeral topology and return equivalent structured membership
+            - given: hosted mode has a compatible complete topology generation but no readable authored manifest
+              when: the tools are called
+              then: dependency trace may run while AC-aware contract joining must report contract_unavailable
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology.ts
+                selector: function:executeDependencyTrace
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology.ts
+                selector: function:executeChangeBlastRadius
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/code-topology.ts
+                selector: function:registerCodeTopologyTools
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-topology-command.ts
+                framework_hint: custom-script

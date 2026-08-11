@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {
   codeTopologyGenerationIdentity,
+  estimateCodeTopologyGenerationRetainedBytes,
+  normalizeCompleteCodeTopologyGeneration,
+  normalizeOwnedCompleteCodeTopologyGeneration,
   type CompleteCodeTopologyGeneration,
   type CodeTopologyGenerationHeader,
 } from "../src/domain/code-topology-store.js";
@@ -101,6 +104,24 @@ function generation(
 
 const store = new FakeCodeTopologyStore();
 const first = generation("a");
+const unordered = generation("0", {
+  files: [
+    { ...generation("0").files[0]!, path: "src/z.ts" },
+    { ...generation("0").files[0]!, path: "src/a.ts" },
+  ],
+});
+const defensivelyNormalized = normalizeCompleteCodeTopologyGeneration(unordered);
+assert.notEqual(defensivelyNormalized, unordered);
+assert.deepEqual(unordered.files.map((file) => file.path), ["src/z.ts", "src/a.ts"]);
+assert.deepEqual(defensivelyNormalized.files.map((file) => file.path), ["src/a.ts", "src/z.ts"]);
+const owned = structuredClone(unordered);
+assert.equal(normalizeOwnedCompleteCodeTopologyGeneration(owned), owned);
+assert.deepEqual(owned.files.map((file) => file.path), ["src/a.ts", "src/z.ts"]);
+assert.ok(
+  estimateCodeTopologyGenerationRetainedBytes(first) >
+    Buffer.byteLength(JSON.stringify(first)),
+  "cache estimate conservatively exceeds serialized wire bytes"
+);
 const firstCommit = await store.commitGeneration({
   generation: first,
   expected_previous_generation_identity: null,

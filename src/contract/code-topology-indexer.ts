@@ -1,9 +1,16 @@
 import { createHash } from "node:crypto";
 import {
+  codeTopologyDerivedEdgeIdentity,
   codeTopologyGenerationIdentity,
-  normalizeCompleteCodeTopologyGeneration,
+  estimateCodeTopologyGenerationRetainedBytes,
+  normalizeOwnedCompleteCodeTopologyGeneration,
   validateCompleteCodeTopologyGeneration,
   type CodeTopologyEdgeRecord,
+  type CodeTopologyFrontierRecord,
+  type CodeTopologyReadModelEdge,
+  type CodeTopologyReadModelGeneration,
+  type CodeTopologyTraversalSymbolRecord,
+  type CodeTopologyReferenceRecord,
   type CodeTopologyResolutionRecord,
   type CodeTopologySymbolRecord,
   type CompleteCodeTopologyGeneration,
@@ -40,11 +47,16 @@ import {
 } from "./code-resolution/rust.js";
 import type {
   CodeModuleResolver,
-  CodeResolutionOutcome,
   CodeResolutionTarget,
+  ResolutionAnalysis,
 } from "./code-resolution/types.js";
 import type { SourceInventory } from "./source-inventory.js";
-import type { SourceSnapshotReader } from "./source-snapshot.js";
+import type {
+  SourceCoordinates,
+  SourceRange,
+  SourceSnapshot,
+  SourceSnapshotReader,
+} from "./source-snapshot.js";
 
 export const CODE_TOPOLOGY_SCHEMA_VERSION = 1;
 export const CODE_TOPOLOGY_RESOLVER_IMPLEMENTATION =
@@ -82,6 +94,19 @@ export type TopologyGenerationBuildResult =
       detail: string;
     };
 
+export type TopologyReadModelBuildResult =
+  | {
+      status: "complete";
+      source_kind: "committed" | "workspace";
+      read_model: CodeTopologyReadModelGeneration;
+      retained_bytes: number;
+    }
+  | {
+      status: TopologyGenerationBuildFailure;
+      path: string | null;
+      detail: string;
+    };
+
 export interface BuildCodeTopologyGenerationOptions {
   repository: string;
   source: TopologySourceCollection;
@@ -90,6 +115,11 @@ export interface BuildCodeTopologyGenerationOptions {
   maxSymbols?: number;
   maxEdges?: number;
   parserConcurrency?: number;
+}
+
+export interface BuildCodeTopologyReadModelOptions
+  extends BuildCodeTopologyGenerationOptions {
+  output: "read_model";
 }
 
 function canonicalDigest(value: unknown): string {
@@ -173,21 +203,49 @@ function generationReferenceIdentity(path: string, factIdentity: string): string
   return `reference:${canonicalDigest({ path, factIdentity })}`;
 }
 
-function edgeIdentity(
-  referenceIdentity: string,
-  sourceIdentity: string,
-  targetIdentity: string
-): string {
-  return `edge:${canonicalDigest({
-    kind: "imports",
-    referenceIdentity,
-    sourceIdentity,
-    targetIdentity,
-  })}`;
-}
-
 function targetKey(target: CodeResolutionTarget, targetIdentity: string): string {
   return `${target.path}#${targetIdentity}`;
+}
+
+function estimateReadModelRetainedBytes(model: CodeTopologyReadModelGeneration): number {
+  const stringBytes = (value: string | null) => value === null ? 0 : 16 + value.length * 2;
+  let bytes = 2_048;
+  for (const file of model.files) {
+    bytes += 160 + stringBytes(file.path) + stringBytes(file.framework_hint) + stringBytes(file.source_hash);
+  }
+  for (const symbol of model.symbols) {
+    bytes += 224 + stringBytes(symbol.identity) + stringBytes(symbol.file_path) +
+      stringBytes(symbol.native_kind) + stringBytes(symbol.canonical_selector) +
+      stringBytes(symbol.framework_hint);
+  }
+  for (const edge of model.edges) {
+    bytes += 224 + stringBytes(edge.kind) +
+      stringBytes(edge.source_symbol_identity) + stringBytes(edge.target_symbol_identity) +
+      stringBytes(edge.reference_identity);
+  }
+  for (const frontier of model.frontiers) {
+    bytes += 384 + stringBytes(frontier.reference_identity) +
+      stringBytes(frontier.source_symbol_identity) + stringBytes(frontier.file_path) +
+      stringBytes(frontier.kind) + stringBytes(frontier.module_specifier) +
+      stringBytes(frontier.status) + stringBytes(frontier.rule);
+    for (const candidate of frontier.candidate_targets) bytes += 24 + stringBytes(candidate);
+    for (const diagnostic of frontier.diagnostics) bytes += 24 + stringBytes(diagnostic);
+  }
+  return bytes;
+}
+
+function readModelProjectionDigest(input: {
+  files: CodeTopologyReadModelGeneration["files"];
+  symbols: CodeTopologyReadModelGeneration["symbols"];
+  edges: CodeTopologyReadModelGeneration["edges"];
+  frontiers: CodeTopologyReadModelGeneration["frontiers"];
+}): string {
+  const hash = createHash("sha256");
+  for (const [group, records] of Object.entries(input)) {
+    hash.update(`${group}:${records.length}\0`);
+    for (const record of records) hash.update(`${canonicalDigest(record)}\0`);
+  }
+  return hash.digest("hex");
 }
 
 function sourceFailure(
@@ -220,6 +278,84 @@ function fileKind(path: string): "code" | "test" {
     : "code";
 }
 
+function compactResolutionAnalysis(
+  analysis: LanguageAnalysisResult
+): ResolutionAnalysis {
+  return {
+    compatibility: analysis.compatibility,
+    path: analysis.path,
+    language: analysis.language,
+    sourceHash: analysis.sourceHash,
+    symbols: analysis.symbols.map((symbol) => ({
+      identity: symbol.identity,
+      name: symbol.name,
+      nativeKind: symbol.nativeKind,
+      selector: symbol.selector,
+      ownerChain: symbol.ownerChain.length === 0 ? [] : [true],
+      bodyRange: {
+        utf16: {
+          start: symbol.bodyRange.utf16.start,
+          end: symbol.bodyRange.utf16.end,
+        },
+      },
+    })),
+    references: analysis.references.map((reference) => ({
+      identity: reference.identity,
+      kind: reference.kind,
+      nativeKind: reference.nativeKind,
+      moduleSpecifier: reference.moduleSpecifier,
+      statementRange: {
+        utf16: {
+          start: reference.statementRange.utf16.start,
+          end: reference.statementRange.utf16.end,
+        },
+      },
+      ownerIdentity: reference.ownerIdentity,
+      isTypeOnly: reference.isTypeOnly,
+      bindings: reference.bindings,
+      resolution: "unresolved" as const,
+    })),
+    diagnostics: analysis.diagnostics.length === 0 ? [] : [true],
+    truncated: analysis.truncated,
+  };
+}
+
+/**
+ * Resolution needs only UTF-16 ordering. Supplying that narrow coordinate view
+ * prevents the ephemeral path from allocating rich UTF-8/line positions that
+ * are immediately discarded; persistence analysis still receives the complete
+ * immutable snapshot.
+ */
+function resolutionAnalysisSnapshot(snapshot: SourceSnapshot): SourceSnapshot {
+  const unsupported = (): never => {
+    throw new Error("Resolution-only analysis requested a persistence coordinate.");
+  };
+  const coordinates: SourceCoordinates = {
+    atUtf16Offset: unsupported,
+    atUtf8ByteOffset: unsupported,
+    rangeFromUtf16(start: number, end: number): SourceRange {
+      if (
+        !Number.isInteger(start) || !Number.isInteger(end) ||
+        start < 0 || end < start || end > snapshot.text.length
+      ) {
+        throw new RangeError("Resolution analysis received an invalid UTF-16 range.");
+      }
+      return { utf16: { start, end } } as SourceRange;
+    },
+    rangeFromUtf8Bytes: unsupported,
+  };
+  return {
+    path: snapshot.path,
+    text: snapshot.text,
+    sha256: snapshot.sha256,
+    language: snapshot.language,
+    metadata: snapshot.metadata,
+    inventoryDigest: snapshot.inventoryDigest,
+    coordinates,
+    originalBytes: () => snapshot.originalBytes(),
+  };
+}
+
 function resolverForLanguage(
   language: LanguageAnalysisResult["language"],
   resolvers: readonly CodeModuleResolver[]
@@ -228,9 +364,15 @@ function resolverForLanguage(
 }
 
 /** Parse, resolve, and immediately reduce one immutable source collection. */
-export async function buildCodeTopologyGeneration(
+export function buildCodeTopologyGeneration(
+  options: BuildCodeTopologyReadModelOptions
+): Promise<TopologyReadModelBuildResult>;
+export function buildCodeTopologyGeneration(
   options: BuildCodeTopologyGenerationOptions
-): Promise<TopologyGenerationBuildResult> {
+): Promise<TopologyGenerationBuildResult>;
+export async function buildCodeTopologyGeneration(
+  options: BuildCodeTopologyGenerationOptions | BuildCodeTopologyReadModelOptions
+): Promise<TopologyGenerationBuildResult | TopologyReadModelBuildResult> {
   const maxFiles = Math.min(options.maxFiles ?? MAX_TOPOLOGY_FILES, MAX_TOPOLOGY_FILES);
   const maxTotalSourceBytes = Math.min(
     options.maxTotalSourceBytes ?? MAX_TOPOLOGY_SOURCE_BYTES,
@@ -242,6 +384,7 @@ export async function buildCodeTopologyGeneration(
   );
   const maxEdges = Math.min(options.maxEdges ?? MAX_TOPOLOGY_EDGES, MAX_TOPOLOGY_EDGES);
   const parserConcurrency = options.parserConcurrency ?? 4;
+  const buildingReadModel = "output" in options && options.output === "read_model";
   if (!Number.isInteger(parserConcurrency) || parserConcurrency < 1 || parserConcurrency > 4) {
     throw new Error("Topology parser concurrency must be an integer from 1 to 4.");
   }
@@ -265,6 +408,8 @@ export async function buildCodeTopologyGeneration(
     createRustAnalyzer({ runtime }),
   ];
   const analyses = new Map<string, LanguageAnalysisResult>();
+  const resolutionAnalyses = new Map<string, ResolutionAnalysis>();
+  const readSymbolsByIdentity = new Map<string, CodeTopologyTraversalSymbolRecord>();
   const contentInventory: Array<{ path: string; sha256: string }> = [];
   try {
     await mapBounded(
@@ -293,7 +438,51 @@ export async function buildCodeTopologyGeneration(
         );
         if (!analyzer) throw new Error(`No topology analyzer for '${file.path}'.`);
         try {
-          analyses.set(file.path, await analyzer.analyze(snapshot));
+          const analysis = await analyzer.analyze(
+            buildingReadModel ? resolutionAnalysisSnapshot(snapshot) : snapshot
+          );
+          if (buildingReadModel) {
+            const assetKind = fileKind(analysis.path);
+            const moduleIdentity = syntheticModuleIdentity(
+              analysis.path,
+              analysis.sourceHash
+            );
+            readSymbolsByIdentity.set(moduleIdentity, {
+              identity: moduleIdentity,
+              file_path: analysis.path,
+              native_kind: "source_file",
+              canonical_selector: null,
+              asset_kind: assetKind,
+              framework_hint: null,
+            });
+            for (const symbol of analysis.symbols) {
+              for (const owner of symbol.ownerChain) {
+                const identity = generationSymbolIdentity(analysis.path, owner.identity);
+                if (!readSymbolsByIdentity.has(identity)) {
+                  readSymbolsByIdentity.set(identity, {
+                    identity,
+                    file_path: analysis.path,
+                    native_kind: owner.nativeKind,
+                    canonical_selector: owner.selector,
+                    asset_kind: assetKind,
+                    framework_hint: null,
+                  });
+                }
+              }
+              const identity = generationSymbolIdentity(analysis.path, symbol.identity);
+              readSymbolsByIdentity.set(identity, {
+                identity,
+                file_path: analysis.path,
+                native_kind: symbol.nativeKind,
+                canonical_selector: symbol.selector,
+                asset_kind: assetKind,
+                framework_hint: null,
+              });
+            }
+            resolutionAnalyses.set(file.path, compactResolutionAnalysis(analysis));
+          } else {
+            analyses.set(file.path, analysis);
+          }
         } finally {
           options.source.reader.release?.(file.path);
         }
@@ -329,17 +518,17 @@ export async function buildCodeTopologyGeneration(
   const resolvers: CodeModuleResolver[] = [
     createJavaScriptModuleResolver({
       inventory: options.source.inventory,
-      analyses,
+      analyses: buildingReadModel ? resolutionAnalyses : analyses,
       configuration: javascriptConfiguration,
     }),
     createPythonModuleResolver({
       inventory: options.source.inventory,
-      analyses,
+      analyses: buildingReadModel ? resolutionAnalyses : analyses,
       configuration: pythonConfiguration,
     }),
     createRustModuleResolver({
       inventory: options.source.inventory,
-      analyses,
+      analyses: buildingReadModel ? resolutionAnalyses : analyses,
       configuration: rustConfiguration,
     }),
   ];
@@ -366,12 +555,148 @@ export async function buildCodeTopologyGeneration(
     fact_policy_digest: compatibility.fact_policy_digest,
   };
   const generationIdentity = codeTopologyGenerationIdentity(identityFields);
+  const selectedAnalyses = buildingReadModel ? resolutionAnalyses : analyses;
   const moduleIdentities = new Map(
-    [...analyses.values()].map((analysis) => [
+    [...selectedAnalyses.values()].map((analysis) => [
       analysis.path,
       syntheticModuleIdentity(analysis.path, analysis.sourceHash),
     ])
   );
+  if (buildingReadModel) {
+    const symbolsByIdentity = readSymbolsByIdentity;
+    if (symbolsByIdentity.size > maxSymbols) {
+      return {
+        status: "capacity_exceeded",
+        path: null,
+        detail: `Topology contains ${symbolsByIdentity.size} symbols; limit is ${maxSymbols}.`,
+      };
+    }
+    const knownSymbols = new Set(symbolsByIdentity.keys());
+    const edges: CodeTopologyReadModelEdge[] = [];
+    const frontiers: CodeTopologyFrontierRecord[] = [];
+    let referenceCount = 0;
+    for (const analysis of resolutionAnalyses.values()) {
+      const resolver = resolverForLanguage(analysis.language, resolvers);
+      const outcomes = new Map(
+        (resolver?.resolveFile(analysis.path) ?? []).map((outcome) => [
+          outcome.reference.identity,
+          outcome,
+        ])
+      );
+      for (const reference of analysis.references) {
+        referenceCount += 1;
+        const referenceIdentity = generationReferenceIdentity(analysis.path, reference.identity);
+        const remappedOwner = reference.ownerIdentity
+          ? generationSymbolIdentity(analysis.path, reference.ownerIdentity)
+          : null;
+        const sourceIdentity = remappedOwner && knownSymbols.has(remappedOwner)
+          ? remappedOwner
+          : moduleIdentities.get(analysis.path)!;
+        const outcome = outcomes.get(reference.identity);
+        const targetIdentity = (target: CodeResolutionTarget): string | null =>
+          target.symbolIdentity
+            ? generationSymbolIdentity(target.path, target.symbolIdentity)
+            : moduleIdentities.get(target.path) ?? null;
+        const targets = outcome?.status === "resolved" ? outcome.targets : [];
+        for (const target of targets) {
+          const resolvedTarget = targetIdentity(target);
+          if (!resolvedTarget || !knownSymbols.has(resolvedTarget)) continue;
+          edges.push({
+            kind: "imports",
+            source_symbol_identity: sourceIdentity,
+            target_symbol_identity: resolvedTarget,
+            reference_identity: referenceIdentity,
+          });
+        }
+        if (
+          outcome?.status !== "resolved" &&
+          reference.moduleSpecifier !== null &&
+          ["import", "dynamic_import", "reexport"].includes(reference.kind)
+        ) {
+          frontiers.push({
+            reference_identity: referenceIdentity,
+            source_symbol_identity: sourceIdentity,
+            file_path: analysis.path,
+            kind: reference.kind,
+            module_specifier: reference.moduleSpecifier,
+            status: outcome?.status ?? "unresolved",
+            rule: outcome?.rule ?? "no_static_resolution",
+            candidate_targets: (outcome?.candidates ?? []).map((target) => {
+              const identity = targetIdentity(target);
+              return identity ? targetKey(target, identity) : `${target.path}#unindexed`;
+            }).sort(),
+            diagnostics: [
+              ...(outcome
+                ? [`resolver_configuration:${outcome.configurationDigest}`]
+                : []),
+              ...(outcome?.reason ? [`reason:${outcome.reason}`] : []),
+              ...(outcome?.diagnostics.map(
+                (diagnostic) => `${diagnostic.code}:${diagnostic.detail}`
+              ) ?? []),
+            ],
+          });
+        }
+      }
+    }
+    if (edges.length > maxEdges) {
+      return {
+        status: "capacity_exceeded",
+        path: null,
+        detail: `Topology contains ${edges.length} edges; limit is ${maxEdges}.`,
+      };
+    }
+    const files = [...resolutionAnalyses.values()].map((analysis) => ({
+      path: analysis.path,
+      kind: fileKind(analysis.path),
+      framework_hint: null,
+      source_hash: analysis.sourceHash,
+    })).sort((left, right) => left.path.localeCompare(right.path));
+    const symbols = [...symbolsByIdentity.values()].sort((left, right) =>
+      left.identity.localeCompare(right.identity)
+    );
+    edges.sort((left, right) =>
+      [left.source_symbol_identity, left.target_symbol_identity,
+        left.reference_identity ?? ""].join("\0").localeCompare(
+        [right.source_symbol_identity, right.target_symbol_identity,
+          right.reference_identity ?? ""].join("\0")
+      )
+    );
+    frontiers.sort((left, right) =>
+      left.reference_identity.localeCompare(right.reference_identity)
+    );
+    analyses.clear();
+    resolutionAnalyses.clear();
+    resolvers.length = 0;
+    moduleIdentities.clear();
+    symbolsByIdentity.clear();
+    knownSymbols.clear();
+    const summary = {
+      header: { ...identityFields, identity: generationIdentity },
+      counts: {
+        files: files.length,
+        symbols: symbols.length,
+        references: referenceCount,
+        resolutions: referenceCount,
+        edges: edges.length,
+      },
+    };
+    const readModel: CodeTopologyReadModelGeneration = {
+      summary,
+      projection_digest: readModelProjectionDigest({ files, symbols, edges, frontiers }),
+      files,
+      symbols,
+      edges,
+      frontiers,
+      retained_bytes: 0,
+    };
+    readModel.retained_bytes = estimateReadModelRetainedBytes(readModel);
+    return {
+      status: "complete",
+      source_kind: options.source.kind,
+      read_model: readModel,
+      retained_bytes: readModel.retained_bytes,
+    };
+  }
   const symbolsByIdentity = new Map<string, CodeTopologySymbolRecord>();
   for (const analysis of analyses.values()) {
     const moduleIdentity = moduleIdentities.get(analysis.path)!;
@@ -444,97 +769,106 @@ export async function buildCodeTopologyGeneration(
     };
   }
   const knownSymbols = new Set(symbols.map((symbol) => symbol.identity));
-
-  const outcomes = new Map<string, CodeResolutionOutcome>();
-  for (const analysis of analyses.values()) {
-    const resolver = resolverForLanguage(analysis.language, resolvers);
-    for (const outcome of resolver?.resolveFile(analysis.path) ?? []) {
-      outcomes.set(`${analysis.path}\0${outcome.reference.identity}`, outcome);
-    }
-  }
-  const referenceEntries = [...analyses.values()].flatMap((analysis) =>
-    analysis.references.map((reference) => {
-      const remappedOwner = reference.ownerIdentity
-        ? generationSymbolIdentity(analysis.path, reference.ownerIdentity)
-        : null;
-      return {
-        path: analysis.path,
-        rawIdentity: reference.identity,
-        record: {
-          identity: generationReferenceIdentity(analysis.path, reference.identity),
-          file_path: analysis.path,
-          owner_symbol_identity:
-            remappedOwner !== null && knownSymbols.has(remappedOwner)
-              ? remappedOwner
-              : null,
-          kind: reference.kind,
-          native_kind: reference.nativeKind,
-          module_specifier: reference.moduleSpecifier,
-          module_specifier_range: reference.moduleSpecifierRange,
-          statement_range: reference.statementRange,
-          is_type_only: reference.isTypeOnly,
-          bindings: reference.bindings,
-        },
-      };
-    })
-  );
-  const references = referenceEntries.map((entry) => entry.record);
+  const files = [...analyses.values()].map((analysis) => ({
+    path: analysis.path,
+    kind: fileKind(analysis.path),
+    framework_hint: null,
+    language: analysis.language,
+    source_hash: analysis.sourceHash,
+    parser_identity: analysis.compatibility.identity,
+    diagnostics: analysis.diagnostics,
+    symbols_truncated: analysis.truncated.symbols,
+    references_truncated: analysis.truncated.references,
+    diagnostics_truncated: analysis.truncated.diagnostics,
+  }));
+  const references: CodeTopologyReferenceRecord[] = [];
   const resolutions: CodeTopologyResolutionRecord[] = [];
   const edges: CodeTopologyEdgeRecord[] = [];
-  for (const entry of referenceEntries) {
-    const reference = entry.record;
-    const outcome = outcomes.get(`${entry.path}\0${entry.rawIdentity}`);
-    const targetModule = (target: CodeResolutionTarget): string | null =>
-      moduleIdentities.get(target.path) ?? null;
-    const targetIdentity = (target: CodeResolutionTarget): string | null =>
-      target.symbolIdentity
-        ? generationSymbolIdentity(target.path, target.symbolIdentity)
-        : targetModule(target);
-    const targets = outcome?.status === "resolved" ? outcome.targets : [];
-    const uniqueTarget = targets.length === 1 ? targets[0]! : null;
-    const uniqueTargetIdentity = uniqueTarget ? targetIdentity(uniqueTarget) : null;
-    const candidates = (outcome?.candidates ?? [])
-      .map((target) => {
-        const identity = targetIdentity(target);
-        return identity ? targetKey(target, identity) : `${target.path}#unindexed`;
-      })
-      .sort();
-    resolutions.push({
-      reference_identity: reference.identity,
-      status: outcome?.status ?? "unresolved",
-      rule: outcome?.rule ?? "no_static_resolution",
-      resolver_configuration_digest: resolverConfigurationDigest,
-      target_file_path: uniqueTarget?.path ?? null,
-      target_symbol_identity: uniqueTargetIdentity,
-      candidate_targets: candidates,
-      diagnostics: [
-        ...(outcome
-          ? [`resolver_configuration:${outcome.configurationDigest}`]
-          : []),
-        ...(outcome?.reason ? [`reason:${outcome.reason}`] : []),
-        ...(outcome?.diagnostics.map(
-          (diagnostic) => `${diagnostic.code}:${diagnostic.detail}`
-        ) ?? []),
-      ],
-    });
-    const sourceIdentity =
-      reference.owner_symbol_identity ?? moduleIdentities.get(reference.file_path)!;
-    for (const target of targets) {
-      const resolvedTargetIdentity = targetIdentity(target);
-      if (!resolvedTargetIdentity || !knownSymbols.has(resolvedTargetIdentity)) continue;
-      edges.push({
-        identity: edgeIdentity(reference.identity, sourceIdentity, resolvedTargetIdentity),
-        kind: "imports",
-        source: {
-          generation_identity: generationIdentity,
-          symbol_identity: sourceIdentity,
-        },
-        target: {
-          generation_identity: generationIdentity,
-          symbol_identity: resolvedTargetIdentity,
-        },
+  for (const analysis of analyses.values()) {
+    const resolver = resolverForLanguage(analysis.language, resolvers);
+    const outcomes = new Map(
+      (resolver?.resolveFile(analysis.path) ?? []).map((outcome) => [
+        outcome.reference.identity,
+        outcome,
+      ])
+    );
+    for (const rawReference of analysis.references) {
+      const remappedOwner = rawReference.ownerIdentity
+        ? generationSymbolIdentity(analysis.path, rawReference.ownerIdentity)
+        : null;
+      const reference = {
+        identity: generationReferenceIdentity(analysis.path, rawReference.identity),
+        file_path: analysis.path,
+        owner_symbol_identity:
+          remappedOwner !== null && knownSymbols.has(remappedOwner)
+            ? remappedOwner
+            : null,
+        kind: rawReference.kind,
+        native_kind: rawReference.nativeKind,
+        module_specifier: rawReference.moduleSpecifier,
+        module_specifier_range: rawReference.moduleSpecifierRange,
+        statement_range: rawReference.statementRange,
+        is_type_only: rawReference.isTypeOnly,
+        bindings: rawReference.bindings,
+      };
+      references.push(reference);
+      const outcome = outcomes.get(rawReference.identity);
+      const targetModule = (target: CodeResolutionTarget): string | null =>
+        moduleIdentities.get(target.path) ?? null;
+      const targetIdentity = (target: CodeResolutionTarget): string | null =>
+        target.symbolIdentity
+          ? generationSymbolIdentity(target.path, target.symbolIdentity)
+          : targetModule(target);
+      const targets = outcome?.status === "resolved" ? outcome.targets : [];
+      const uniqueTarget = targets.length === 1 ? targets[0]! : null;
+      const uniqueTargetIdentity = uniqueTarget ? targetIdentity(uniqueTarget) : null;
+      const candidates = (outcome?.candidates ?? [])
+        .map((target) => {
+          const identity = targetIdentity(target);
+          return identity ? targetKey(target, identity) : `${target.path}#unindexed`;
+        })
+        .sort();
+      resolutions.push({
         reference_identity: reference.identity,
+        status: outcome?.status ?? "unresolved",
+        rule: outcome?.rule ?? "no_static_resolution",
+        resolver_configuration_digest: resolverConfigurationDigest,
+        target_file_path: uniqueTarget?.path ?? null,
+        target_symbol_identity: uniqueTargetIdentity,
+        candidate_targets: candidates,
+        diagnostics: [
+          ...(outcome
+            ? [`resolver_configuration:${outcome.configurationDigest}`]
+            : []),
+          ...(outcome?.reason ? [`reason:${outcome.reason}`] : []),
+          ...(outcome?.diagnostics.map(
+            (diagnostic) => `${diagnostic.code}:${diagnostic.detail}`
+          ) ?? []),
+        ],
       });
+      const sourceIdentity =
+        reference.owner_symbol_identity ?? moduleIdentities.get(reference.file_path)!;
+      for (const target of targets) {
+        const resolvedTargetIdentity = targetIdentity(target);
+        if (!resolvedTargetIdentity || !knownSymbols.has(resolvedTargetIdentity)) continue;
+        edges.push({
+          identity: codeTopologyDerivedEdgeIdentity({
+            referenceIdentity: reference.identity,
+            sourceIdentity,
+            targetIdentity: resolvedTargetIdentity,
+          }),
+          kind: "imports",
+          source: {
+            generation_identity: generationIdentity,
+            symbol_identity: sourceIdentity,
+          },
+          target: {
+            generation_identity: generationIdentity,
+            symbol_identity: resolvedTargetIdentity,
+          },
+          reference_identity: reference.identity,
+        });
+      }
     }
   }
   if (edges.length > maxEdges) {
@@ -545,20 +879,17 @@ export async function buildCodeTopologyGeneration(
     };
   }
 
-  const generation = normalizeCompleteCodeTopologyGeneration({
+  // Final records retain only the required ranges, bindings, and diagnostics.
+  // Release parser and resolver indexes before normalization and validation.
+  analyses.clear();
+  resolvers.length = 0;
+  moduleIdentities.clear();
+  symbolsByIdentity.clear();
+  knownSymbols.clear();
+
+  const generation = normalizeOwnedCompleteCodeTopologyGeneration({
     header: { ...identityFields, identity: generationIdentity },
-    files: [...analyses.values()].map((analysis) => ({
-      path: analysis.path,
-      kind: fileKind(analysis.path),
-      framework_hint: null,
-      language: analysis.language,
-      source_hash: analysis.sourceHash,
-      parser_identity: analysis.compatibility.identity,
-      diagnostics: analysis.diagnostics,
-      symbols_truncated: analysis.truncated.symbols,
-      references_truncated: analysis.truncated.references,
-      diagnostics_truncated: analysis.truncated.diagnostics,
-    })),
+    files,
     symbols,
     references,
     resolutions,
@@ -569,6 +900,6 @@ export async function buildCodeTopologyGeneration(
     status: "complete",
     source_kind: options.source.kind,
     generation,
-    retained_bytes: Buffer.byteLength(JSON.stringify(generation)),
+    retained_bytes: estimateCodeTopologyGenerationRetainedBytes(generation),
   };
 }

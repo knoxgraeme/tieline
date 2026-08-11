@@ -105,6 +105,49 @@ try {
   ]);
   assert.deepEqual(postgresTrace, fakeTrace, "fake and Postgres traversal reads stay contract-equivalent");
 
+  writeFileSync(
+    join(root, "src/main.ts"),
+    'import { replacement } from "./replacement";\nexport const main = replacement;\n'
+  );
+  writeFileSync(join(root, "src/replacement.ts"), "export const replacement = true;\n");
+  git(["add", "."]);
+  git(["commit", "-qm", "retarget fixture"]);
+  const retargeted = await buildCommittedTopologyGeneration({
+    repositoryRoot: root,
+    repository,
+    revision: "HEAD",
+    sourceRoots: ["src"],
+  });
+  assert.equal(retargeted.status, "complete");
+  if (retargeted.status !== "complete") throw new Error(retargeted.detail);
+  const current = await persistCommittedTopologyGeneration({
+    store: topology,
+    result: retargeted,
+    expectedPreviousGenerationIdentity: first.generation_identity,
+  });
+  await fake.commitGeneration({
+    generation: retargeted.generation,
+    expected_previous_generation_identity: first.generation_identity,
+  });
+  const comparisonInput = {
+    base_generation_identity: first.generation_identity,
+    current_generation_identity: current.generation_identity,
+  };
+  const [postgresComparison, fakeComparison] = await Promise.all([
+    topology.compareGenerations(comparisonInput),
+    fake.compareGenerations(comparisonInput),
+  ]);
+  assert.deepEqual(
+    postgresComparison,
+    fakeComparison,
+    "SQL comparison must match the compact in-memory generation comparison"
+  );
+  assert.ok(postgresComparison?.files.some(
+    (change) => change.status === "modified" && change.path === "src/main.ts"
+  ));
+  assert.ok(postgresComparison?.edges.some((change) => change.status === "deleted"));
+  assert.ok(postgresComparison?.edges.some((change) => change.status === "added"));
+
   const plans = await sql.begin(async (tx) => {
     await tx`set local enable_seqscan = off`;
     return tx<{ "QUERY PLAN": unknown }[]>`
@@ -114,7 +157,18 @@ try {
         and source_symbol_identity = ${result.generation.edges[0]!.source.symbol_identity}`;
   });
   const plan = JSON.stringify(plans);
-  assert.match(plan, /code_topology_edges_(?:forward|pkey)/i);
+  assert.match(plan, /Index (?:Only )?Scan/i);
+  assert.doesNotMatch(plan, /Seq Scan/i);
+  const [forwardIndex] = await sql<{ indexdef: string }[]>`
+    select indexdef from pg_indexes
+    where schemaname = 'public'
+      and indexname = 'code_topology_edges_forward'`;
+  assert.ok(forwardIndex);
+  assert.match(
+    forwardIndex.indexdef,
+    /\(generation_identity, source_symbol_identity\)/i,
+    "the forward frontier index must retain source as its second key"
+  );
 } finally {
   rmSync(root, { recursive: true, force: true });
   await sql.end({ timeout: 5 });

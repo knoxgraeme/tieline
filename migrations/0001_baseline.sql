@@ -523,20 +523,16 @@ create table code_topology_edges (
   generation_identity text not null references code_topology_generations(identity) on delete cascade,
   identity text not null,
   kind text not null,
-  source_generation_identity text not null,
   source_symbol_identity text not null,
-  target_generation_identity text not null,
   target_symbol_identity text not null,
   reference_identity text,
   primary key (generation_identity, identity),
-  foreign key (source_generation_identity, source_symbol_identity)
+  foreign key (generation_identity, source_symbol_identity)
     references code_topology_symbols(generation_identity, identity),
-  foreign key (target_generation_identity, target_symbol_identity)
+  foreign key (generation_identity, target_symbol_identity)
     references code_topology_symbols(generation_identity, identity),
   foreign key (generation_identity, reference_identity)
-    references code_topology_references(generation_identity, identity),
-  check (generation_identity = source_generation_identity),
-  check (generation_identity = target_generation_identity)
+    references code_topology_references(generation_identity, identity)
 );
 
 create index code_topology_symbols_locator
@@ -776,40 +772,51 @@ select
 from observations;
 
 create function tieline_require_incomplete_topology_generation() returns trigger
-language plpgsql as $$
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
 declare
-  generation_complete boolean;
+  invalid_generation text;
+  invalid_complete boolean;
 begin
-  select complete
-    into generation_complete
-    from code_topology_generations
-   where identity = new.generation_identity
-   for share;
-  if generation_complete is null then
-    raise exception 'topology generation % does not exist', new.generation_identity;
+  select batch.generation_identity, generation.complete
+    into invalid_generation, invalid_complete
+    from (select distinct generation_identity from inserted) batch
+    left join code_topology_generations generation
+      on generation.identity = batch.generation_identity
+   where generation.identity is null or generation.complete
+   limit 1;
+  if invalid_generation is null then
+    return null;
   end if;
-  if generation_complete then
-    raise exception 'topology generation % is immutable', new.generation_identity;
+  if invalid_complete is null then
+    raise exception 'topology generation % does not exist', invalid_generation;
   end if;
-  return new;
+  raise exception 'topology generation % is immutable', invalid_generation;
 end;
 $$;
 
 create trigger code_topology_files_incomplete
-  before insert on code_topology_files
-  for each row execute function tieline_require_incomplete_topology_generation();
+  after insert on code_topology_files
+  referencing new table as inserted
+  for each statement execute function tieline_require_incomplete_topology_generation();
 create trigger code_topology_symbols_incomplete
-  before insert on code_topology_symbols
-  for each row execute function tieline_require_incomplete_topology_generation();
+  after insert on code_topology_symbols
+  referencing new table as inserted
+  for each statement execute function tieline_require_incomplete_topology_generation();
 create trigger code_topology_references_incomplete
-  before insert on code_topology_references
-  for each row execute function tieline_require_incomplete_topology_generation();
+  after insert on code_topology_references
+  referencing new table as inserted
+  for each statement execute function tieline_require_incomplete_topology_generation();
 create trigger code_topology_resolutions_incomplete
-  before insert on code_topology_resolutions
-  for each row execute function tieline_require_incomplete_topology_generation();
+  after insert on code_topology_resolutions
+  referencing new table as inserted
+  for each statement execute function tieline_require_incomplete_topology_generation();
 create trigger code_topology_edges_incomplete
-  before insert on code_topology_edges
-  for each row execute function tieline_require_incomplete_topology_generation();
+  after insert on code_topology_edges
+  referencing new table as inserted
+  for each statement execute function tieline_require_incomplete_topology_generation();
 
 create function promote_code_topology_generation(
   p_repository_id uuid,

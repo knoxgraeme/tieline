@@ -1,5 +1,4 @@
 import { posix } from "node:path";
-import type { LanguageAnalysisResult, UnresolvedModuleLinkageFact } from "../code-analysis/types.js";
 import type { SourceInventory } from "../source-inventory.js";
 import { canonicalRepositoryRelativePath } from "../paths.js";
 import type { SourceSnapshotReader } from "../source-snapshot.js";
@@ -9,6 +8,8 @@ import {
   type CodeResolutionDiagnostic,
   type CodeResolutionOutcome,
   type CodeResolutionTarget,
+  type ResolutionAnalysis,
+  type ResolutionReferenceFact,
 } from "./types.js";
 import {
   indexResolutionSymbols,
@@ -43,7 +44,7 @@ export interface ReadPythonResolutionConfigurationOptions {
 
 export interface CreatePythonModuleResolverOptions {
   inventory: SourceInventory;
-  analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  analyses: ReadonlyMap<string, ResolutionAnalysis>;
   configuration: PythonResolutionConfiguration;
 }
 
@@ -192,7 +193,7 @@ class PythonModuleResolver implements CodeModuleResolver {
   readonly compatibility = pythonResolutionCompatibility;
   readonly configurationDigest: string;
   readonly #files: ReadonlySet<string>;
-  readonly #analyses: ReadonlyMap<string, LanguageAnalysisResult>;
+  readonly #analyses: ReadonlyMap<string, ResolutionAnalysis>;
   readonly #symbols: ReadonlyMap<string, ResolutionSymbolIndex>;
   readonly #configuration: PythonResolutionConfiguration;
 
@@ -265,7 +266,7 @@ class PythonModuleResolver implements CodeModuleResolver {
     };
   }
 
-  #namedTargets(analysis: LanguageAnalysisResult, imported: string): CodeResolutionTarget[] {
+  #namedTargets(analysis: ResolutionAnalysis, imported: string): CodeResolutionTarget[] {
     const name = imported.split(".").at(-1)!.normalize("NFC");
     return uniqueResolutionTargets(
       (this.#symbols.get(analysis.path)?.topLevelByName.get(name) ?? [])
@@ -274,8 +275,8 @@ class PythonModuleResolver implements CodeModuleResolver {
   }
 
   #resolveReference(
-    source: LanguageAnalysisResult,
-    reference: UnresolvedModuleLinkageFact
+    source: ResolutionAnalysis,
+    reference: ResolutionReferenceFact
   ): CodeResolutionOutcome {
     let status: CodeResolutionOutcome["status"] = "unresolved";
     let rule = "python_dynamic_specifier";

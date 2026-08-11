@@ -58,8 +58,8 @@ assert.match(
 );
 assert.match(
   sql,
-  /foreign\s+key\s*\(\s*source_generation_identity\s*,\s*source_symbol_identity\s*\)[\s\S]+foreign\s+key\s*\(\s*target_generation_identity\s*,\s*target_symbol_identity\s*\)/i,
-  "both edge endpoints must be protected by generation-bearing foreign keys"
+  /foreign\s+key\s*\(\s*generation_identity\s*,\s*source_symbol_identity\s*\)[\s\S]+foreign\s+key\s*\(\s*generation_identity\s*,\s*target_symbol_identity\s*\)/i,
+  "both edge endpoints must share the edge generation"
 );
 assert.match(
   sql,

@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { Sql, TransactionSql } from "postgres";
 import {
   CodeTopologyCheckpointConflictError,
@@ -10,6 +12,7 @@ import {
   type CodeTopologyFrontierRecord,
   type CodeTopologyGenerationSummary,
   type CodeTopologyLocatedSymbolRecord,
+  type CodeTopologyStoreComparison,
   type CodeTopologyStore,
   type CommitCodeTopologyGenerationResult,
   type CompleteCodeTopologyGeneration,
@@ -32,8 +35,6 @@ export interface PostgresCodeTopologyRepositoryOptions {
   /** Transaction-bound test seam for proving rollback at every write boundary. */
   afterWrite?: (stage: CodeTopologyWriteStage) => void | Promise<void>;
 }
-
-export const CODE_TOPOLOGY_INSERT_BATCH_SIZE = 1_000;
 
 interface GenerationRow {
   identity: string;
@@ -102,6 +103,42 @@ function locatedSymbol(row: any): CodeTopologyLocatedSymbolRecord {
   };
 }
 
+function compareFileRows(
+  rows: readonly { generation_identity: string; path: string; source_hash: string }[],
+  baseIdentity: string,
+  currentIdentity: string
+): CodeTopologyStoreComparison["files"] {
+  const base = new Map(rows.filter((row) => row.generation_identity === baseIdentity)
+    .map((row) => [row.path, row.source_hash]));
+  const current = new Map(rows.filter((row) => row.generation_identity === currentIdentity)
+    .map((row) => [row.path, row.source_hash]));
+  const deleted = [...base].filter(([path]) => !current.has(path));
+  const added = [...current].filter(([path]) => !base.has(path));
+  const deletedByHash = new Map<string, typeof deleted>();
+  const addedByHash = new Map<string, typeof added>();
+  for (const value of deleted) deletedByHash.set(value[1], [...(deletedByHash.get(value[1]) ?? []), value]);
+  for (const value of added) addedByHash.set(value[1], [...(addedByHash.get(value[1]) ?? []), value]);
+  const renamedFrom = new Set<string>();
+  const renamedTo = new Set<string>();
+  const changes: CodeTopologyStoreComparison["files"] = [];
+  for (const [hash, before] of deletedByHash) {
+    const after = addedByHash.get(hash) ?? [];
+    if (before.length !== 1 || after.length !== 1) continue;
+    renamedFrom.add(before[0]![0]);
+    renamedTo.add(after[0]![0]);
+    changes.push({ status: "renamed", previous_path: before[0]![0], path: after[0]![0] });
+  }
+  for (const [path] of deleted) if (!renamedFrom.has(path)) changes.push({ status: "deleted", path });
+  for (const [path] of added) if (!renamedTo.has(path)) changes.push({ status: "added", path });
+  for (const [path, hash] of base) {
+    const after = current.get(path);
+    if (after && after !== hash) changes.push({ status: "modified", path });
+  }
+  return changes.sort((left, right) =>
+    left.path.localeCompare(right.path) || left.status.localeCompare(right.status)
+  );
+}
+
 async function repositoryId(sql: QuerySql, repository: string): Promise<string> {
   const rows = await sql<{ id: string }[]>`
     select id from repositories where key = ${repository}`;
@@ -117,16 +154,42 @@ function json(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function batches<T>(values: readonly T[]): T[][] {
-  const result: T[][] = [];
-  for (
-    let offset = 0;
-    offset < values.length;
-    offset += CODE_TOPOLOGY_INSERT_BATCH_SIZE
-  ) {
-    result.push(values.slice(offset, offset + CODE_TOPOLOGY_INSERT_BATCH_SIZE));
+function copyCell(value: unknown): string {
+  if (value === undefined) {
+    throw new CodeTopologyIntegrityError(
+      "Cannot persist an undefined topology value; use null for an absent fact."
+    );
   }
-  return result;
+  if (value === null) return "\\N";
+  const source = typeof value === "boolean" ? (value ? "true" : "false") : String(value);
+  return source
+    .replaceAll("\\", "\\\\")
+    .replaceAll("\t", "\\t")
+    .replaceAll("\n", "\\n")
+    .replaceAll("\r", "\\r");
+}
+
+async function copyRows(
+  tx: TransactionSql<Record<string, never>>,
+  table: string,
+  columns: readonly string[],
+  rows: Iterable<readonly unknown[]>
+): Promise<void> {
+  const query = `copy ${table} (${columns.join(", ")}) from stdin`;
+  const writable = await tx.unsafe(query).writable();
+  await pipeline(
+    Readable.from((function* () {
+      for (const row of rows) yield `${row.map(copyCell).join("\t")}\n`;
+    })()),
+    writable
+  );
+}
+
+function* copyValues<T>(
+  values: readonly T[],
+  row: (value: T) => readonly unknown[]
+): Generator<readonly unknown[]> {
+  for (const value of values) yield row(value);
 }
 
 async function insertRows(
@@ -135,98 +198,58 @@ async function insertRows(
   afterWrite: (stage: CodeTopologyWriteStage) => Promise<void>
 ): Promise<void> {
   const generationIdentity = generation.header.identity;
-  for (const batch of batches(generation.files)) {
-    await tx`insert into code_topology_files ${tx(
-      batch.map((file) => ({
-        generation_identity: generationIdentity,
-        path: file.path,
-        asset_kind: file.kind,
-        framework_hint: file.framework_hint,
-        language: file.language,
-        source_hash: file.source_hash,
-        parser_identity: file.parser_identity,
-        diagnostics: json(file.diagnostics),
-        symbols_truncated: file.symbols_truncated,
-        references_truncated: file.references_truncated,
-        diagnostics_truncated: file.diagnostics_truncated,
-      }))
-    )}`;
-  }
+  await copyRows(tx, "code_topology_files", [
+    "generation_identity", "path", "asset_kind", "framework_hint", "language",
+    "source_hash", "parser_identity", "diagnostics", "symbols_truncated",
+    "references_truncated", "diagnostics_truncated",
+  ], copyValues(generation.files, (file) => [
+    generationIdentity, file.path, file.kind, file.framework_hint, file.language,
+    file.source_hash, file.parser_identity, json(file.diagnostics),
+    file.symbols_truncated, file.references_truncated, file.diagnostics_truncated,
+  ]));
   await afterWrite("files");
-  for (const batch of batches(generation.symbols)) {
-    await tx`insert into code_topology_symbols ${tx(
-      batch.map((symbol) => ({
-        generation_identity: generationIdentity,
-        identity: symbol.identity,
-        file_path: symbol.file_path,
-        name: symbol.name,
-        native_kind: symbol.native_kind,
-        kind: symbol.kind,
-        canonical_selector: symbol.canonical_selector,
-        owner_identity: symbol.owner_identity,
-        owner_chain: json(symbol.owner_chain),
-        name_range: symbol.name_range === null ? null : json(symbol.name_range),
-        body_range: symbol.body_range === null ? null : json(symbol.body_range),
-        syntax_status: symbol.syntax_status,
-      }))
-    )}`;
-  }
+  await copyRows(tx, "code_topology_symbols", [
+    "generation_identity", "identity", "file_path", "name", "native_kind",
+    "kind", "canonical_selector", "owner_identity", "owner_chain", "name_range",
+    "body_range", "syntax_status",
+  ], copyValues(generation.symbols, (symbol) => [
+    generationIdentity, symbol.identity, symbol.file_path, symbol.name,
+    symbol.native_kind, symbol.kind, symbol.canonical_selector, symbol.owner_identity,
+    json(symbol.owner_chain), symbol.name_range === null ? null : json(symbol.name_range),
+    symbol.body_range === null ? null : json(symbol.body_range), symbol.syntax_status,
+  ]));
   await afterWrite("symbols");
-  for (const batch of batches(generation.references)) {
-    await tx`insert into code_topology_references ${tx(
-      batch.map((reference) => ({
-        generation_identity: generationIdentity,
-        identity: reference.identity,
-        file_path: reference.file_path,
-        owner_symbol_identity: reference.owner_symbol_identity,
-        kind: reference.kind,
-        native_kind: reference.native_kind,
-        module_specifier: reference.module_specifier,
-        module_specifier_range:
-          reference.module_specifier_range === null
-            ? null
-            : json(reference.module_specifier_range),
-        statement_range:
-          reference.statement_range === null
-            ? null
-            : json(reference.statement_range),
-        is_type_only: reference.is_type_only,
-        bindings: json(reference.bindings),
-      }))
-    )}`;
-  }
+  await copyRows(tx, "code_topology_references", [
+    "generation_identity", "identity", "file_path", "owner_symbol_identity",
+    "kind", "native_kind", "module_specifier", "module_specifier_range",
+    "statement_range", "is_type_only", "bindings",
+  ], copyValues(generation.references, (reference) => [
+    generationIdentity, reference.identity, reference.file_path,
+    reference.owner_symbol_identity, reference.kind, reference.native_kind,
+    reference.module_specifier,
+    reference.module_specifier_range === null ? null : json(reference.module_specifier_range),
+    reference.statement_range === null ? null : json(reference.statement_range),
+    reference.is_type_only, json(reference.bindings),
+  ]));
   await afterWrite("references");
-  for (const batch of batches(generation.resolutions)) {
-    await tx`insert into code_topology_resolutions ${tx(
-      batch.map((resolution) => ({
-        generation_identity: generationIdentity,
-        reference_identity: resolution.reference_identity,
-        status: resolution.status,
-        rule: resolution.rule,
-        resolver_configuration_digest:
-          resolution.resolver_configuration_digest,
-        target_file_path: resolution.target_file_path,
-        target_symbol_identity: resolution.target_symbol_identity,
-        candidate_targets: json(resolution.candidate_targets),
-        diagnostics: json(resolution.diagnostics),
-      }))
-    )}`;
-  }
+  await copyRows(tx, "code_topology_resolutions", [
+    "generation_identity", "reference_identity", "status", "rule",
+    "resolver_configuration_digest", "target_file_path", "target_symbol_identity",
+    "candidate_targets", "diagnostics",
+  ], copyValues(generation.resolutions, (resolution) => [
+    generationIdentity, resolution.reference_identity, resolution.status,
+    resolution.rule, resolution.resolver_configuration_digest,
+    resolution.target_file_path, resolution.target_symbol_identity,
+    json(resolution.candidate_targets), json(resolution.diagnostics),
+  ]));
   await afterWrite("resolutions");
-  for (const batch of batches(generation.edges)) {
-    await tx`insert into code_topology_edges ${tx(
-      batch.map((edge) => ({
-        generation_identity: generationIdentity,
-        identity: edge.identity,
-        kind: edge.kind,
-        source_generation_identity: edge.source.generation_identity,
-        source_symbol_identity: edge.source.symbol_identity,
-        target_generation_identity: edge.target.generation_identity,
-        target_symbol_identity: edge.target.symbol_identity,
-        reference_identity: edge.reference_identity,
-      }))
-    )}`;
-  }
+  await copyRows(tx, "code_topology_edges", [
+    "generation_identity", "identity", "kind", "source_symbol_identity",
+    "target_symbol_identity", "reference_identity",
+  ], copyValues(generation.edges, (edge) => [
+    generationIdentity, edge.identity, edge.kind, edge.source.symbol_identity,
+    edge.target.symbol_identity, edge.reference_identity,
+  ]));
   await afterWrite("edges");
 }
 
@@ -454,11 +477,11 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
           identity: edge.identity,
           kind: edge.kind,
           source: {
-            generation_identity: edge.source_generation_identity,
+            generation_identity: edge.generation_identity,
             symbol_identity: edge.source_symbol_identity,
           },
           target: {
-            generation_identity: edge.target_generation_identity,
+            generation_identity: edge.generation_identity,
             symbol_identity: edge.target_symbol_identity,
           },
           reference_identity: edge.reference_identity,
@@ -530,11 +553,11 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
       identity: edge.identity,
       kind: edge.kind,
       source: {
-        generation_identity: edge.source_generation_identity,
+        generation_identity: edge.generation_identity,
         symbol_identity: edge.source_symbol_identity,
       },
       target: {
-        generation_identity: edge.target_generation_identity,
+        generation_identity: edge.generation_identity,
         symbol_identity: edge.target_symbol_identity,
       },
       reference_identity: edge.reference_identity,
@@ -556,11 +579,11 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
       identity: edge.identity,
       kind: edge.kind,
       source: {
-        generation_identity: edge.source_generation_identity,
+        generation_identity: edge.generation_identity,
         symbol_identity: edge.source_symbol_identity,
       },
       target: {
-        generation_identity: edge.target_generation_identity,
+        generation_identity: edge.generation_identity,
         symbol_identity: edge.target_symbol_identity,
       },
       reference_identity: edge.reference_identity,
@@ -610,6 +633,110 @@ export class PostgresCodeTopologyRepository implements CodeTopologyStore {
       candidate_targets: row.candidate_targets,
       diagnostics: row.diagnostics,
     }));
+  }
+
+  async compareGenerations(input: {
+    base_generation_identity: string;
+    current_generation_identity: string;
+  }): Promise<CodeTopologyStoreComparison | null> {
+    const selected = [input.base_generation_identity, input.current_generation_identity];
+    const sql = this.readProvider();
+    return sql.begin("read only isolation level repeatable read", async (tx) => {
+      const generations = await tx<GenerationRow[]>`
+        select generation.*, repository.key as repository
+        from complete_code_topology_generations generation
+        join repositories repository on repository.id = generation.repository_id
+        where generation.identity in ${tx(selected)}`;
+      const byIdentity = new Map(generations.map((row) => [row.identity, row]));
+      const base = byIdentity.get(input.base_generation_identity);
+      const current = byIdentity.get(input.current_generation_identity);
+      if (!base || !current) return null;
+      const files = await tx<{ generation_identity: string; path: string; source_hash: string }[]>`
+        select generation_identity, path, source_hash
+        from complete_code_topology_files
+        where generation_identity in ${tx(selected)}
+        order by generation_identity, path`;
+      const edges = await tx<any[]>`
+        with logical_edges as (
+          select
+            edge.generation_identity,
+            edge.kind,
+            source_file.asset_kind as source_kind,
+            source_symbol.file_path as source_path,
+            source_symbol.canonical_selector as source_selector,
+            source_file.framework_hint as source_framework_hint,
+            target_file.asset_kind as target_kind,
+            target_symbol.file_path as target_path,
+            target_symbol.canonical_selector as target_selector,
+            target_file.framework_hint as target_framework_hint
+          from complete_code_topology_edges edge
+          join complete_code_topology_symbols source_symbol
+            on source_symbol.generation_identity = edge.generation_identity
+           and source_symbol.identity = edge.source_symbol_identity
+          join complete_code_topology_files source_file
+            on source_file.generation_identity = source_symbol.generation_identity
+           and source_file.path = source_symbol.file_path
+          join complete_code_topology_symbols target_symbol
+            on target_symbol.generation_identity = edge.generation_identity
+           and target_symbol.identity = edge.target_symbol_identity
+          join complete_code_topology_files target_file
+            on target_file.generation_identity = target_symbol.generation_identity
+           and target_file.path = target_symbol.file_path
+          where edge.generation_identity in ${tx(selected)}
+        ), base_edges as (
+          select kind, source_kind, source_path, source_selector, source_framework_hint,
+            target_kind, target_path, target_selector, target_framework_hint
+          from logical_edges where generation_identity = ${input.base_generation_identity}
+        ), current_edges as (
+          select kind, source_kind, source_path, source_selector, source_framework_hint,
+            target_kind, target_path, target_selector, target_framework_hint
+          from logical_edges where generation_identity = ${input.current_generation_identity}
+        )
+        select 'deleted'::text as status, removed.* from (
+          select * from base_edges except select * from current_edges
+        ) removed
+        union all
+        select 'added'::text as status, added.* from (
+          select * from current_edges except select * from base_edges
+        ) added
+        order by status, kind, source_path, source_selector, target_path, target_selector`;
+      const compatibility = (row: GenerationRow) => [
+        row.parser_compatibility_digest,
+        row.resolver_implementation,
+        Number(row.topology_schema_version),
+        row.fact_policy_digest,
+      ].join("\0");
+      const repositoryFor = (status: "added" | "deleted"): string =>
+        status === "deleted" ? base.repository : current.repository;
+      return {
+        base_generation_identity: base.identity,
+        current_generation_identity: current.identity,
+        compatibility: compatibility(base) === compatibility(current)
+          ? "compatible"
+          : "incompatible",
+        configuration_changed:
+          base.resolver_configuration_digest !== current.resolver_configuration_digest,
+        files: compareFileRows(files, base.identity, current.identity),
+        edges: edges.map((edge) => ({
+          status: edge.status,
+          kind: edge.kind,
+          source: {
+            repository: repositoryFor(edge.status),
+            kind: edge.source_kind,
+            path: edge.source_path,
+            selector: edge.source_selector,
+            framework_hint: edge.source_framework_hint,
+          },
+          target: {
+            repository: repositoryFor(edge.status),
+            kind: edge.target_kind,
+            path: edge.target_path,
+            selector: edge.target_selector,
+            framework_hint: edge.target_framework_hint,
+          },
+        })),
+      };
+    });
   }
 
   async deleteGenerations(input: {

@@ -100,7 +100,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bdb9d787b3b72d85b4e7ec18e9a6d72090169614e0d2dcf09741bac422ba99f2",
+                "reviewed_content_hash": "c8c72f2099d00f505997d28000d49ccda5570a1223e1a2b6d7c22137fa46dafc",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/selector.ts",
@@ -150,7 +150,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f63c53142fcba1441d9caa80fdcbcb61f8f5d9bfab398e23af1ca87a0a8bc028",
+                "reviewed_content_hash": "b68fbd32c123b233e938a88c5ec4f9ba31d39d8f9beac5515bba421519bfaae9",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",

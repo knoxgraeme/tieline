@@ -11,12 +11,16 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeCodeTopologyStore } from "../src/adapters/fakes/fake-code-topology-store.js";
+import { ImmutableCodeTopologySnapshotStore } from "../src/contract/compact-code-topology-store.js";
 import {
   EphemeralTopologyGenerationCache,
+  EphemeralTopologyReadModelCache,
+  buildCommittedTopologyReadModel,
   buildCommittedTopologyGeneration,
   buildPersistedBaseWorkspaceRoles,
   buildTopologyRoles,
   buildWorkspaceTopologyGeneration,
+  buildWorkspaceTopologyReadModel,
   compareTopologyGenerations,
   loadPersistedTopologyGeneration,
   persistCommittedTopologyGeneration,
@@ -125,6 +129,69 @@ try {
     }
   });
 
+  await test("direct read models preserve full-generation traversal facts without rich ranges", async () => {
+    const result = await buildCommittedTopologyReadModel({
+      ...options(),
+      revision: "HEAD",
+    });
+    assert.equal(result.status, "complete");
+    if (result.status !== "complete") return;
+    const repeated = await buildCommittedTopologyReadModel({
+      ...options(),
+      revision: "HEAD",
+    });
+    assert.deepEqual(repeated, result);
+    assert.equal(result.read_model.summary.header.identity, baseline.header.identity);
+    assert.deepEqual(result.read_model.summary.counts, {
+      files: baseline.files.length,
+      symbols: baseline.symbols.length,
+      references: baseline.references.length,
+      resolutions: baseline.resolutions.length,
+      edges: baseline.edges.length,
+    });
+
+    const rich = new ImmutableCodeTopologySnapshotStore([{
+      ...baseline,
+      facts_digest: "rich-fixture",
+      counts: result.read_model.summary.counts,
+      completed_at: "1970-01-01T00:00:00.000Z",
+      pinned: false,
+    }]);
+    const thin = new ImmutableCodeTopologySnapshotStore();
+    thin.addReadModel(result.read_model);
+    const paths = baseline.files.map((file) => file.path);
+    const richSymbols = await rich.listSymbolsByPaths({
+      generation_identity: baseline.header.identity,
+      paths,
+    });
+    const thinSymbols = await thin.listSymbolsByPaths({
+      generation_identity: baseline.header.identity,
+      paths,
+    });
+    assert.deepEqual(thinSymbols, richSymbols);
+    const identities = richSymbols.map((symbol) => symbol.identity);
+    assert.deepEqual(
+      await thin.listForwardEdges({
+        generation_identity: baseline.header.identity,
+        source_symbol_identities: identities,
+      }),
+      await rich.listForwardEdges({
+        generation_identity: baseline.header.identity,
+        source_symbol_identities: identities,
+      })
+    );
+    assert.deepEqual(
+      await thin.listDependencyFrontiers({
+        generation_identity: baseline.header.identity,
+        source_symbol_identities: identities,
+      }),
+      await rich.listDependencyFrontiers({
+        generation_identity: baseline.header.identity,
+        source_symbol_identities: identities,
+      })
+    );
+  });
+
   await test("persists only committed generations with independent CAS", async () => {
     const store = new FakeCodeTopologyStore();
     const committedResult = await buildCommittedTopologyGeneration({
@@ -219,6 +286,19 @@ try {
     assert.equal(result.status, "workspace_changed");
   });
 
+  await test("read-model builds use the same exactly-once workspace retry", async () => {
+    let mutations = 0;
+    const result = await buildWorkspaceTopologyReadModel({
+      ...options(),
+      afterBuildAttempt(attempt) {
+        mutations += 1;
+        write("src/value.ts", `export const value = ${20 + attempt};\n`);
+      },
+    });
+    assert.equal(mutations, 2);
+    assert.equal(result.status, "workspace_changed");
+  });
+
   await test("coalesces builds and evicts by entry, byte, and TTL caps", async () => {
     const fixture = await buildWorkspaceTopologyGeneration(options());
     assert.equal(fixture.status, "complete");
@@ -263,6 +343,38 @@ try {
     releaseBuild(fixture);
     await inflight;
     assert.deepEqual(disposing.stats(), { entries: 0, bytes: 0, pending: 0 });
+  });
+
+  await test("coalesces and bounds the thin runtime projection independently", async () => {
+    const fixture = await buildWorkspaceTopologyReadModel(options());
+    assert.equal(fixture.status, "complete");
+    if (fixture.status !== "complete") return;
+    let builds = 0;
+    const cache = new EphemeralTopologyReadModelCache({
+      maxEntries: 1,
+      maxBytes: fixture.retained_bytes * 2,
+    });
+    const builder = async () => {
+      builds += 1;
+      await Promise.resolve();
+      return fixture;
+    };
+    const [first, second] = await Promise.all([
+      cache.getOrBuild("same-workspace", builder),
+      cache.getOrBuild("same-workspace", builder),
+    ]);
+    assert.equal(builds, 1);
+    assert.equal(first.status, "complete");
+    assert.equal(second.status, "complete");
+    await cache.getOrBuild("same-workspace", builder);
+    assert.equal(builds, 1);
+    assert.deepEqual(cache.stats(), {
+      entries: 1,
+      bytes: fixture.retained_bytes,
+      pending: 0,
+    });
+    cache.dispose();
+    assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, pending: 0 });
   });
 
   await test("returns named capacity outcomes", async () => {

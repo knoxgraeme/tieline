@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import type {
-  CodeSymbolFact,
-  LanguageAnalysisResult,
-} from "../code-analysis/types.js";
-import type { CodeResolutionTarget } from "./types.js";
+  CodeResolutionTarget,
+  ResolutionAnalysis,
+  ResolutionSymbolFact,
+} from "./types.js";
 
 export function resolutionDigest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -32,18 +32,18 @@ export function uniqueResolutionTargets(
 }
 
 export interface ResolutionSymbolIndex {
-  readonly byIdentity: ReadonlyMap<string, CodeSymbolFact>;
-  readonly topLevel: readonly CodeSymbolFact[];
-  readonly topLevelByName: ReadonlyMap<string, readonly CodeSymbolFact[]>;
+  readonly byIdentity: ReadonlyMap<string, ResolutionSymbolFact>;
+  readonly topLevel: readonly ResolutionSymbolFact[];
+  readonly topLevelByName: ReadonlyMap<string, readonly ResolutionSymbolFact[]>;
 }
 
 export function indexResolutionSymbols(
-  analysis: LanguageAnalysisResult
+  analysis: ResolutionAnalysis
 ): ResolutionSymbolIndex {
   const topLevel = analysis.symbols.filter(
     (symbol) => symbol.ownerChain.length === 0
   );
-  const topLevelByName = new Map<string, CodeSymbolFact[]>();
+  const topLevelByName = new Map<string, ResolutionSymbolFact[]>();
   for (const symbol of topLevel) {
     if (symbol.name === null) continue;
     const existing = topLevelByName.get(symbol.name);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import {
   cpSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -121,7 +122,7 @@ await test("ships an offline-installable parser set without native grammar packa
   try {
     const packed = JSON.parse(
       execFileSync("npm", ["pack", "--json", "--ignore-scripts"], { encoding: "utf8" })
-    ) as Array<{ filename: string; size: number; files: Array<{ path: string }> }>;
+    ) as Array<{ filename: string; size: number; files: Array<{ path: string; size: number }> }>;
     const result = packed[0]!;
     tarballPath = resolve(result.filename);
     assert.ok(result.size <= 7 * 1024 * 1024, `tarball is ${result.size} bytes`);
@@ -144,24 +145,49 @@ await test("ships an offline-installable parser set without native grammar packa
       ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
       { cwd: projectRoot, stdio: "pipe" }
     );
+    const sourceRoot = resolve(projectRoot, "sources");
+    mkdirSync(sourceRoot);
+    for (const [index, language] of supportedCodeLanguages.entries()) {
+      const extension = language.extensions[0]!;
+      writeFileSync(resolve(sourceRoot, `source-${index}${extension}`), language.smokeSource);
+    }
     const smokePath = resolve(projectRoot, "smoke.mjs");
     writeFileSync(
       smokePath,
-      `import assert from "node:assert/strict";
-import { createCodeParserRuntime } from "./node_modules/tieline/dist/contract/code-analysis/runtime.js";
-import { supportedCodeLanguages } from "./node_modules/tieline/dist/contract/code-analysis/languages.js";
-const runtime = createCodeParserRuntime();
-for (const language of supportedCodeLanguages) {
-  await runtime.withParser(language.id, (parser) => {
-    const tree = parser.parse(language.smokeSource);
-    assert.ok(tree);
-    tree.delete();
-  });
+      `import { createHash } from "node:crypto";
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { createJavaScriptAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/javascript.js";
+import { createPythonAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/python.js";
+import { createRustAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/rust.js";
+import { createFilesystemSourceSnapshotReader } from "./node_modules/tieline/dist/contract/source-snapshot.js";
+const root = resolve("sources");
+const reader = createFilesystemSourceSnapshotReader({ repositoryRoot: root });
+const analyzers = [createJavaScriptAnalyzer(), createPythonAnalyzer(), createRustAnalyzer()];
+const facts = [];
+for (const path of readdirSync(root).sort()) {
+  const read = reader.read(path);
+  if (read.status !== "read" || read.snapshot.language === null) throw new Error("unreadable fixture: " + path);
+  const analyzer = analyzers.find((candidate) => candidate.languages.has(read.snapshot.language));
+  if (!analyzer) throw new Error("unsupported fixture: " + path);
+  facts.push(await analyzer.analyze(read.snapshot));
+  reader.release?.(path);
 }
-process.stdout.write("installed parser smoke passed\\n");
+for (const analyzer of analyzers) await analyzer.dispose();
+reader.dispose?.();
+const digest = createHash("sha256").update(JSON.stringify(facts)).digest("hex");
+process.stdout.write(JSON.stringify({ digest, languages: facts.map((fact) => fact.language), node: process.versions.node }));
 `
     );
-    assert.match(execFileSync(process.execPath, [smokePath], { encoding: "utf8" }), /passed/);
+    const runs = Array.from({ length: 5 }, () =>
+      JSON.parse(execFileSync(process.execPath, [smokePath], {
+        cwd: projectRoot,
+        encoding: "utf8",
+        env: { ...process.env, npm_config_offline: "true" },
+      })) as { digest: string; languages: string[]; node: string }
+    );
+    assert.equal(new Set(runs.map((run) => run.digest)).size, 1, "five installed-package fact runs agree");
+    assert.deepEqual(runs[0]!.languages.sort(), supportedCodeLanguages.map((language) => language.id).sort());
 
     const parserAssetBytes = directoryBytes(
       resolve(projectRoot, "node_modules/tieline/assets/parsers/web-tree-sitter-0.26.12")
@@ -173,6 +199,20 @@ process.stdout.write("installed parser smoke passed\\n");
       installedParserBytes <= 10 * 1024 * 1024,
       `installed parser footprint is ${installedParserBytes} bytes`
     );
+    const parserAssetEntryBytes = result.files
+      .filter((file) => file.path.startsWith("assets/parsers/"))
+      .reduce((total, file) => total + file.size, 0);
+    assert.ok(parserAssetEntryBytes > 0, "packed parser asset entries were measured");
+    assert.ok(parserAssetEntryBytes <= 7 * 1024 * 1024, `packed parser asset entries are ${parserAssetEntryBytes} bytes`);
+    console.log(JSON.stringify({
+      node: process.versions.node,
+      fact_digest: runs[0]!.digest,
+      repeated_runs: runs.length,
+      packed_tarball_bytes: result.size,
+      parser_asset_entry_bytes: parserAssetEntryBytes,
+      parser_asset_bytes: parserAssetBytes,
+      installed_parser_bytes: installedParserBytes,
+    }));
   } finally {
     if (tarballPath) rmSync(tarballPath, { force: true });
     rmSync(projectRoot, { recursive: true, force: true });
