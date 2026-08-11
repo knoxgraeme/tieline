@@ -313,25 +313,32 @@ export function createFilesystemSourceSnapshotReader(
                 observedBytes: before.size,
               });
             } else {
-              const bytes = Buffer.from(readBytes(realPath));
+              const retainedBytes = Buffer.from(readBytes(realPath));
               const after = inspectFile(realPath);
-              if (!metadataEqual(before, after) || bytes.length !== before.size) {
+              if (
+                !metadataEqual(before, after) ||
+                retainedBytes.length !== before.size
+              ) {
                 result = failure(
                   "changed_during_read",
                   canonicalPath,
                   "file metadata or byte length changed while the source was read"
                 );
               } else {
-                const text = decodeSource(bytes);
+                const text = decodeSource(retainedBytes);
                 if (text === null) {
                   result = failure(
                     "binary",
                     canonicalPath,
                     "source contains NUL bytes or is not valid UTF-8",
-                    { sha256: createHash("sha256").update(bytes).digest("hex") }
+                    {
+                      sha256: createHash("sha256")
+                        .update(retainedBytes)
+                        .digest("hex"),
+                    }
                   );
                 } else {
-                  const retainedBytes = Buffer.from(bytes);
+                  let coordinates: SourceCoordinates | undefined;
                   const snapshot: SourceSnapshot = Object.freeze({
                     path: canonicalPath,
                     text,
@@ -341,7 +348,9 @@ export function createFilesystemSourceSnapshotReader(
                     inventoryDigest: inventoried
                       ? (options.inventory?.digest ?? null)
                       : null,
-                    coordinates: buildCoordinates(text),
+                    get coordinates() {
+                      return (coordinates ??= buildCoordinates(text));
+                    },
                     originalBytes: () => Buffer.from(retainedBytes),
                   });
                   result = Object.freeze({ status: "read", snapshot });

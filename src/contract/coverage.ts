@@ -209,7 +209,7 @@ export function computeRepositoryMappingCoverage(
 
   return {
     status: sorted.length === 0 ? "no_eligible_files" : "measured",
-    source_roots: inventory.sourceRoots,
+    source_roots: [...inventory.sourceRoots],
     eligible_files: sorted.length,
     mapped_files: mappedFiles.length,
     unmapped_files: unmappedFiles,

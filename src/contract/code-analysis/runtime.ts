@@ -40,7 +40,10 @@ export function defaultParserAssetRoot(): string {
   );
 }
 
-async function verifyArtifact(assetRoot: string, artifact: ParserArtifactManifest): Promise<string> {
+async function verifyArtifact(
+  assetRoot: string,
+  artifact: ParserArtifactManifest
+): Promise<{ bytes: Buffer; path: string }> {
   const path = resolve(assetRoot, artifact.file);
   let bytes: Buffer;
   try {
@@ -54,7 +57,7 @@ async function verifyArtifact(assetRoot: string, artifact: ParserArtifactManifes
       `Parser asset integrity mismatch for ${path}: expected ${artifact.sha256}, received ${digest}`
     );
   }
-  return path;
+  return { bytes, path };
 }
 
 function validateAbi(manifest: ParserCompatibilityManifest): void {
@@ -131,8 +134,8 @@ class WasmCodeParserRuntime implements CodeParserRuntime {
 
   private async initializeOnce(): Promise<void> {
     const manifest = await this.manifest;
-    const runtimePath = await verifyArtifact(this.assetRoot, manifest.artifacts.runtime);
-    treeSitterInitialization ??= Parser.init({ locateFile: () => runtimePath });
+    const runtime = await verifyArtifact(this.assetRoot, manifest.artifacts.runtime);
+    treeSitterInitialization ??= Parser.init({ locateFile: () => runtime.path });
     await treeSitterInitialization;
     validateAbi(manifest);
   }
@@ -151,8 +154,8 @@ class WasmCodeParserRuntime implements CodeParserRuntime {
     const manifest = await this.manifest;
     const definition = codeLanguageDefinition(language);
     const artifact = manifest.artifacts[definition.artifact];
-    const path = await verifyArtifact(this.assetRoot, artifact);
-    const grammar = await Language.load(path);
+    const verified = await verifyArtifact(this.assetRoot, artifact);
+    const grammar = await Language.load(verified.bytes);
     if (
       artifact.abi === null ||
       grammar.abiVersion !== artifact.abi ||

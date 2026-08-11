@@ -34,11 +34,11 @@ export interface SourceInventoryFile {
 
 export interface SourceInventory {
   schemaVersion: 1;
-  sourceRoots: string[];
-  ignore: string[];
-  files: SourceInventoryFile[];
+  sourceRoots: readonly string[];
+  ignore: readonly string[];
+  files: readonly SourceInventoryFile[];
   /** Ignored paths are pruned before symlinks are resolved. */
-  excludedPaths: string[];
+  excludedPaths: readonly string[];
   /** SHA-256 over normalized configuration, paths, and observed file metadata. */
   digest: string;
 }
@@ -116,7 +116,7 @@ function stableDigest(value: unknown): string {
 
 interface WalkState {
   repositoryRoot: string;
-  patterns: readonly string[];
+  ignoredPatterns: readonly RegExp[];
   excluded: Set<string>;
   visitedDirectories: Set<string>;
   files: Map<string, SourceInventoryFile>;
@@ -124,7 +124,10 @@ interface WalkState {
 
 function walk(path: string, state: WalkState): void {
   const repositoryPath = normalizeInventoryPath(relative(state.repositoryRoot, path));
-  if (repositoryPath && sourcePathIgnored(repositoryPath, state.patterns)) {
+  if (
+    repositoryPath &&
+    state.ignoredPatterns.some((pattern) => pattern.test(repositoryPath))
+  ) {
     state.excluded.add(repositoryPath);
     return;
   }
@@ -193,7 +196,10 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
   const patterns = options.ignore ?? [];
   const state: WalkState = {
     repositoryRoot,
-    patterns,
+    ignoredPatterns: patterns
+      .map(normalizePattern)
+      .filter((pattern) => pattern.length > 0)
+      .map(wildcardPattern),
     excluded: new Set(),
     visitedDirectories: new Set(),
     files: new Map(),
@@ -209,7 +215,11 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
       );
     }
     if (!existsSync(sourceRoot)) {
-      throw inventoryError("missing", configuredRoot, "the configured source root does not exist");
+      throw inventoryError(
+        "missing",
+        configuredRoot,
+        "the configured source root does not exist"
+      );
     }
     walk(sourceRoot, state);
   }
@@ -230,14 +240,14 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
   });
   return Object.freeze({
     schemaVersion: 1 as const,
-    sourceRoots: Object.freeze([...sourceRoots]) as unknown as string[],
-    ignore: Object.freeze([...ignore]) as unknown as string[],
+    sourceRoots: Object.freeze([...sourceRoots]),
+    ignore: Object.freeze([...ignore]),
     files: Object.freeze(
       files.map((file) =>
         Object.freeze({ ...file, metadata: Object.freeze({ ...file.metadata }) })
       )
-    ) as unknown as SourceInventoryFile[],
-    excludedPaths: Object.freeze([...excludedPaths]) as unknown as string[],
+    ),
+    excludedPaths: Object.freeze([...excludedPaths]),
     digest,
   });
 }

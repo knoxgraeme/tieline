@@ -14,6 +14,7 @@ import {
 import { selectorVocabularyForRepository } from "./validate.js";
 import {
   createFilesystemSourceSnapshotReader,
+  type SourceSnapshotFailureStatus,
   type SourceSnapshotReader,
 } from "./source-snapshot.js";
 
@@ -126,6 +127,25 @@ function locatorFromResolution(
   };
 }
 
+function selectorReasonForSnapshotFailure(
+  status: SourceSnapshotFailureStatus
+): SelectorNotCheckedReason {
+  switch (status) {
+    case "missing":
+      return "file_missing";
+    case "not_file":
+      return "not_a_file";
+    case "binary":
+      return "binary_content";
+    case "oversized":
+      return "file_too_large";
+    case "unreadable":
+    case "repository_escape":
+    case "changed_during_read":
+      return "unreadable";
+  }
+}
+
 /**
  * Creates the structural inspector for one context/impact request.
  *
@@ -157,19 +177,10 @@ export function createArtifactAssuranceInspector(
             ? { status: "skipped", reason: "file_too_large" }
             : { status: "read", content: source.snapshot.text };
         }
-        const reason: SelectorNotCheckedReason =
-          source.status === "missing"
-            ? "file_missing"
-            : source.status === "not_file"
-              ? "not_a_file"
-              : source.status === "binary"
-                ? "binary_content"
-                : source.status === "oversized"
-                  ? "file_too_large"
-                  : source.status === "repository_escape"
-                    ? "unreadable"
-                    : "unreadable";
-        return { status: "skipped", reason };
+        return {
+          status: "skipped",
+          reason: selectorReasonForSnapshotFailure(source.status),
+        };
       },
     });
   type Measurement =
