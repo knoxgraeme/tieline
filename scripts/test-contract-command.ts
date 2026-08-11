@@ -75,6 +75,7 @@ ${Array.from(
                 kind: code
                 repository: contract-command-test
                 path: src/behavior.ts
+                selector: const:behavior
             - relation: tests
               provenance: authored
               target:
@@ -170,6 +171,7 @@ const io: TielineCliIO = {
 };
 
 try {
+  output = "";
   const validateExit = await runCli(
     ["contract", "validate", root, "--json"],
     io,
@@ -521,7 +523,7 @@ try {
   });
   writeFileSync(
     resolve(root, "src/behavior.ts"),
-    "export const behavior = true;\nexport const reconciled = true;\n"
+    "export const reconciled = true;\n"
   );
   writeFileSync(
     resolve(root, "src/unmapped-1.ts"),
@@ -612,6 +614,60 @@ try {
   assert.match(output, /src\/unmapped-1\.ts/);
   assert.match(output, /a refactor needs no new criterion/);
   assert.match(output, /the contract definition itself/);
+
+  // Selector drift is reported through the real CLI in both output modes, but
+  // remains advisory. The stale manifest is deliberately downgraded here so
+  // the exit assertion isolates selector state from the existing gate.
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "check",
+        root,
+        "--base",
+        "HEAD",
+        "--no-fail-on-stale-manifest",
+        "--json",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  const selectorImpactReport = JSON.parse(output);
+  const unresolvedSelectorImpact = selectorImpactReport.impacts.find(
+    (impact: { selector: string | null }) =>
+      impact.selector === "const:behavior"
+  );
+  assert.ok(unresolvedSelectorImpact);
+  assert.equal(unresolvedSelectorImpact.target_kind, "code");
+  assert.equal(unresolvedSelectorImpact.repository, "contract-command-test");
+  assert.equal(unresolvedSelectorImpact.framework_hint, null);
+  assert.equal(unresolvedSelectorImpact.freshness, "stale");
+  assert.equal(unresolvedSelectorImpact.locator_resolution, "unresolved");
+  assert.equal(unresolvedSelectorImpact.locator_reason, null);
+  assert.equal(selectorImpactReport.exit_code, 0);
+  assert.equal(selectorImpactReport.exit_reason, "stale_manifest_warn_only");
+
+  output = "";
+  assert.equal(
+    await runCli(
+      [
+        "check",
+        root,
+        "--base",
+        "HEAD",
+        "--no-fail-on-stale-manifest",
+      ],
+      io,
+      {}
+    ),
+    0
+  );
+  assert.match(
+    output,
+    /selector const:behavior unresolved; re-read the exact locator/i
+  );
 
   // A branch that deletes a linked file without updating its link is drift the
   // advisory commands exist to report, so neither may die trying to hash the

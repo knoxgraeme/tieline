@@ -532,6 +532,145 @@ await test("rejects a manifest file whose name disagrees with the capability it 
   }
 });
 
+await test("rejects duplicate stable IDs across kinds and manifest shards", () => {
+  type MutableShard = {
+    capability: {
+      stable_id: string;
+      stories: Array<{
+        stable_id: string;
+        acceptance_criteria: Array<{
+          stable_id: string;
+          scenarios: Array<{ stable_id: string }>;
+        }>;
+      }>;
+    };
+  };
+  const cases: Array<{
+    name: string;
+    mutate(contract: MutableShard, search: MutableShard): string;
+    locations: RegExp;
+  }> = [
+    {
+      name: "story across shards",
+      mutate: (contract, search) => {
+        const duplicateId = contract.capability.stories[0]!.stable_id;
+        search.capability.stories[0]!.stable_id = duplicateId;
+        return duplicateId;
+      },
+      locations: /CONTRACT\.json.*SEARCH\.json/,
+    },
+    {
+      name: "acceptance criterion across shards",
+      mutate: (contract, search) => {
+        const duplicateId =
+          contract.capability.stories[0]!.acceptance_criteria[0]!.stable_id;
+        search.capability.stories[0]!.acceptance_criteria[0]!.stable_id =
+          duplicateId;
+        return duplicateId;
+      },
+      locations: /CONTRACT\.json.*SEARCH\.json/,
+    },
+    {
+      name: "scenario across shards",
+      mutate: (contract, search) => {
+        const duplicateId =
+          contract.capability.stories[0]!.acceptance_criteria[0]!.scenarios[0]!
+            .stable_id;
+        search.capability.stories[0]!.acceptance_criteria[0]!.scenarios[0]!
+          .stable_id = duplicateId;
+        return duplicateId;
+      },
+      locations: /CONTRACT\.json.*SEARCH\.json/,
+    },
+    {
+      name: "capability and story in one shard",
+      mutate: (contract) => {
+        const duplicateId = contract.capability.stable_id;
+        contract.capability.stories[0]!.stable_id = duplicateId;
+        return duplicateId;
+      },
+      locations: /CONTRACT\.json.*CONTRACT\.json/,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const root = fixture();
+    try {
+      addSearchCapability(root);
+      const directory = manifestDirectory(root);
+      writeContractManifest(directory, compile(root));
+      const contractPath = resolve(directory, "CONTRACT.json");
+      const searchPath = resolve(directory, "SEARCH.json");
+      const contract = JSON.parse(
+        readFileSync(contractPath, "utf8")
+      ) as MutableShard;
+      const search = JSON.parse(
+        readFileSync(searchPath, "utf8")
+      ) as MutableShard;
+      const duplicateId = testCase.mutate(contract, search);
+      writeFileSync(contractPath, `${JSON.stringify(contract, null, 2)}\n`);
+      writeFileSync(searchPath, `${JSON.stringify(search, null, 2)}\n`);
+
+      assert.throws(
+        () => readContractManifest(directory),
+        (error: unknown) => {
+          assert.ok(error instanceof ContractManifestError);
+          assert.match(error.message, /duplicate stable ID/i, testCase.name);
+          assert.match(error.message, new RegExp(duplicateId), testCase.name);
+          assert.match(error.message, testCase.locations, testCase.name);
+          return true;
+        },
+        testCase.name
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+await test("rejects authored stable IDs that collide with generated scenario IDs", () => {
+  const root = fixture();
+  try {
+    const original = readFileSync(
+      resolve(root, ".tieline/spec/contract.yaml"),
+      "utf8"
+    );
+    writeFileSync(
+      resolve(root, ".tieline/spec/scenario-collision.yaml"),
+      original
+        .replace("key: CONTRACT\n", "key: CONTRACT-001-AC1-S1\n")
+        .replace("key: CONTRACT-001\n", "key: COLLISION-STORY\n")
+        .replace("key: CONTRACT-001-AC1\n", "key: COLLISION-AC\n")
+        .replace(
+          `      planning_origin:
+        record_id: 00000000-0000-4000-8000-000000000001
+        revision: 2
+`,
+          ""
+        )
+    );
+
+    assert.throws(
+      () => compile(root),
+      (error: unknown) => {
+        assert.ok(error instanceof ContractManifestError);
+        assert.match(error.message, /duplicate stable ID/i);
+        assert.match(error.message, /CONTRACT-001-AC1-S1/);
+        assert.match(error.message, /contract\.yaml/);
+        assert.match(error.message, /scenario-collision\.yaml/);
+        return true;
+      }
+    );
+    assert.equal(
+      existsSync(manifestDirectory(root)),
+      false,
+      "compilation fails before an unreadable manifest can be written"
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 await test("refuses to build a manifest file name that escapes the manifest directory", () => {
   const root = fixture();
   try {

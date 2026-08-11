@@ -25,11 +25,97 @@ export interface ScannedSource {
   strings: string[];
 }
 
-function readLiteral(
+interface LiteralRead {
+  literal: string;
+  next: number;
+}
+
+function readTemplateLiteral(content: string, start: number): LiteralRead {
+  let index = start + 1;
+  let literal = "";
+  let outerInterpolationStart: number | null = null;
+  const stack: Array<
+    | { type: "template" }
+    | { type: "interpolation"; braceDepth: number; appendToOuter: boolean }
+  > = [{ type: "template" }];
+
+  while (index < content.length) {
+    const frame = stack[stack.length - 1]!;
+    const char = content[index];
+    const next = content[index + 1];
+
+    if (frame.type === "template") {
+      if (char === "\\") {
+        index += 2;
+        continue;
+      }
+      if (char === "`") {
+        stack.pop();
+        index += 1;
+        if (stack.length === 0) return { literal, next: index };
+        continue;
+      }
+      if (char === "$" && next === "{") {
+        const appendToOuter = stack.length === 1;
+        if (appendToOuter) outerInterpolationStart = index;
+        stack.push({ type: "interpolation", braceDepth: 1, appendToOuter });
+        index += 2;
+        continue;
+      }
+      if (stack.length === 1) literal += char;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      const end = content.indexOf("\n", index + 2);
+      index = end === -1 ? content.length : end;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = content.indexOf("*/", index + 2);
+      index = end === -1 ? content.length : end + 2;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      index = readQuotedLiteral(content, index, char).next;
+      continue;
+    }
+    if (char === "`") {
+      stack.push({ type: "template" });
+      index += 1;
+      continue;
+    }
+    if (char === "{") {
+      frame.braceDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (char === "}") {
+      frame.braceDepth -= 1;
+      index += 1;
+      if (frame.braceDepth === 0) {
+        stack.pop();
+        if (frame.appendToOuter && outerInterpolationStart !== null) {
+          literal += content.slice(outerInterpolationStart, index);
+          outerInterpolationStart = null;
+        }
+      }
+      continue;
+    }
+    index += 1;
+  }
+  if (outerInterpolationStart !== null) {
+    literal += content.slice(outerInterpolationStart);
+  }
+  return { literal, next: content.length };
+}
+
+function readQuotedLiteral(
   content: string,
   start: number,
   quote: string
-): { literal: string; next: number } {
+): LiteralRead {
   let index = start + 1;
   let literal = "";
   while (index < content.length) {
@@ -39,13 +125,22 @@ function readLiteral(
       continue;
     }
     if (char === quote) return { literal, next: index + 1 };
-    // An unterminated quote must not swallow the rest of the file. Template
-    // literals legitimately span lines; the other two do not.
-    if (char === "\n" && quote !== "`") return { literal, next: index };
+    // An unterminated quote must not swallow the rest of the file.
+    if (char === "\n") return { literal, next: index };
     literal += char;
     index += 1;
   }
   return { literal, next: content.length };
+}
+
+function readLiteral(
+  content: string,
+  start: number,
+  quote: string
+): LiteralRead {
+  return quote === "`"
+    ? readTemplateLiteral(content, start)
+    : readQuotedLiteral(content, start, quote);
 }
 
 export function scanSource(content: string): ScannedSource {

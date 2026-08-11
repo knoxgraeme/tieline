@@ -159,6 +159,15 @@ capability:
   assert.equal(feature.entries[0]?.relation, "implements");
   assert.equal(feature.entries[0]?.provenance, "authored");
   assert.equal(feature.entries[0]?.link_scope, "direct");
+  assert.deepEqual(
+    [
+      feature.entries[0]?.target_kind,
+      feature.entries[0]?.repository,
+      feature.entries[0]?.selector,
+      feature.entries[0]?.framework_hint,
+    ],
+    ["code", REPOSITORY, null, null]
+  );
   assert.equal(feature.entries[0]?.path, "src/feature.ts");
   assert.equal(feature.entries[0]?.previous_path, null);
   assert.equal(feature.entries[0]?.reason, "modified");
@@ -169,6 +178,66 @@ capability:
   assert.equal(feature.entries[0]?.symbols.includes("function:commentOnlyFeature"), false);
   assert.match(feature.entries[0]?.id ?? "", /^grade:[a-f0-9]{64}$/);
   assert.deepEqual(scopeFor([{ status: "modified", path: "src/feature.ts" }]), feature);
+
+  const selectorManifest = structuredClone(manifest);
+  const selectorLinks =
+    selectorManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links;
+  const selectorLinkIndex = selectorLinks.findIndex(
+    (link) =>
+      link.target.kind === "code" &&
+      link.target.repository === REPOSITORY &&
+      link.target.path === "src/feature.ts"
+  );
+  const selectorLink = selectorLinks[selectorLinkIndex];
+  assert.equal(selectorLink?.target.kind, "code");
+  if (selectorLink?.target.kind !== "code") {
+    throw new Error("expected a code link fixture");
+  }
+  selectorLink.target.selector = "function:computeFeature";
+  const secondSelector = structuredClone(selectorLink);
+  secondSelector.target.selector = "const:featureLocal";
+  selectorLinks.splice(selectorLinkIndex + 1, 0, secondSelector);
+  const selectorScope = buildGradeScope({
+    repositoryRoot: root,
+    base: "HEAD",
+    manifest: selectorManifest,
+    baseManifest: selectorManifest,
+    changes: [{ status: "modified", path: "src/feature.ts" }],
+    sourceRoots: ["src"],
+  });
+  assert.equal(selectorScope.scoped_links, 2);
+  assert.equal(new Set(selectorScope.entries.map((entry) => entry.id)).size, 2);
+  assert.deepEqual(
+    selectorScope.entries.map((entry) => [
+      entry.target_kind,
+      entry.repository,
+      entry.linked_path,
+      entry.selector,
+      entry.framework_hint,
+      entry.relation,
+      entry.link_scope,
+    ]),
+    [
+      [
+        "code",
+        REPOSITORY,
+        "src/feature.ts",
+        "const:featureLocal",
+        null,
+        "implements",
+        "direct",
+      ],
+      [
+        "code",
+        REPOSITORY,
+        "src/feature.ts",
+        "function:computeFeature",
+        null,
+        "implements",
+        "direct",
+      ],
+    ]
+  );
 
   // Direct and Story-fallback claims are different assertions and both remain
   // in scope. The deliberately unrelated identifier proves grading does not

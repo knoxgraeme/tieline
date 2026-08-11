@@ -433,7 +433,44 @@ tieline contract compile .
 tieline contract coverage . --json
 ```
 
-Before editing code, ask the reviewed manifest which criteria apply:
+When an asset locator or Acceptance Criterion ID is already known, read its exact
+reviewed context before editing or using semantic discovery. Asset mode accepts a
+repository-relative path plus optional `code`/`test` kind and canonical selector;
+AC mode accepts one stable ID:
+
+```bash
+tieline contract context --path src/contract/impact.ts \
+  --kind code --selector function:analyzeContractImpact
+tieline contract context --ac CONTRACT-001-AC3 --json
+```
+
+The equivalent read-only MCP tools are `get_asset_intent_context` and
+`get_acceptance_criterion_context`. Both CLI modes and MCP tools answer from the
+compiled manifest without Postgres, embeddings, or network access. Results
+include the stable repository key and a content-derived `manifest_digest` for
+the reviewed contract that answered.
+
+Asset context returns `has_context`, `no_criteria`, or `not_found`. A
+selector-qualified query includes exact-selector and file-level claims while
+excluding claims for other selectors in the same file; a path-only query keeps
+every claim's full kind, repository, path, selector, and framework-hint identity.
+AC context returns the exact Capability, Story, AC, scenarios, direct links, and
+Story-fallback links. Both entry points stop after one AC-mediated hop. The
+associated code and tests are an **intent neighborhood** and their shared AC
+links are **contract coupling**; they are not a runtime dependency graph or a
+comprehensive blast radius.
+
+Each returned claim reports authored provenance, direct or Story-fallback link
+scope, content freshness, locator resolution, and semantic support separately.
+`resolved` or current means only that structural inspection succeeded;
+`unresolved`, `not_checked`, broken causes, and unknown cross-repository states
+remain explicit. Semantic support is always `not_assessed` in these reads. No
+state proves the criterion is implemented correctly, and a linked test is an
+evidence locator—not a receipt that the test ran or passed.
+
+Use semantic discovery only when the exact path, selector, or AC ID is unknown.
+For the compatibility path-to-AC list without selector-aware neighborhood
+context, ask which criteria the reviewed manifest records:
 
 ```bash
 tieline contract criteria src/commands/check.ts src/server.ts
@@ -589,6 +626,8 @@ Reads:
 | `search_knowledge` | Cross-type semantic search with a required retrieval profile and optional typed context |
 | `find_related` | Engineering-oriented semantic discovery with applied profile metadata |
 | `query_stories` | Exact Story/AC lookup by authority, lifecycle, IDs, or locators |
+| `get_asset_intent_context` | Exact selector-aware asset-to-intent neighborhood from the compiled manifest; no database required |
+| `get_acceptance_criterion_context` | Exact AC-to-associated-assets neighborhood from the compiled manifest; no database required |
 | `get_path_criteria` | Exact path-to-AC lookup from the compiled manifest; no database required |
 | `get_backlog_item` | Read a Backlog Item revision and its complete Observation/Story/AC link set |
 | `list_handoff_conflicts` | Read unresolved or historical planning-to-repository conflicts |
@@ -647,13 +686,14 @@ constraints and cannot broaden it.
 | `discovery` | Planning and repository contract, Backlog Items, and Observations |
 | `all` | Full corpus permitted by the connected database role |
 
-Use `search_knowledge` when a caller needs heterogeneous results, explicit
-profile selection, narrowing filters, or graph/artifact context. Use
-`find_related` for a shorter engineering-oriented semantic lookup, and
-`query_stories` for exact IDs, lifecycle, authority, capability, or artifact
-locators without semantic ranking. Use `get_path_criteria` when the question is
-which acceptance criteria the accepted contract records for an exact path; use
-`search_knowledge` when the question is what context is related to that path.
+Use `get_asset_intent_context` for a known path or selector and
+`get_acceptance_criterion_context` for a known AC stable ID before semantic
+search. Use `get_path_criteria` for the compatibility path-to-AC list without
+the selector-aware neighborhood. Use `query_stories` for broader exact filters
+such as lifecycle, authority, or capability. Use `find_related` for shorter
+engineering-oriented semantic discovery and `search_knowledge` for
+heterogeneous retrieval only when exact identity is unknown or the caller needs
+explicit profile selection and narrowing filters.
 
 An MCP `search_knowledge` input can carry a reusable Story/AC anchor and
 artifacts from the caller's current task:

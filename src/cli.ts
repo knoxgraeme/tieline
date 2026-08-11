@@ -28,6 +28,10 @@ import {
   statusFromPath,
   type TielineStatus,
 } from "./tieline/status.js";
+import type {
+  ContractAction,
+  ContractCommandOptions,
+} from "./commands/contract.js";
 
 export interface TielineCliIO {
   write(message: string): void;
@@ -156,7 +160,7 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "contract") {
-    if (args[0] === "criteria") {
+    if (args[0] === "criteria" || args[0] === "context") {
       return optionValue(args, "repository") ?? process.cwd();
     }
     return (
@@ -189,20 +193,11 @@ function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
 
-interface ContractActionOptions {
-  repo?: string;
-  commit?: string;
-  output?: string;
-  spec?: string;
-  expectedPreviousCommit?: string;
-  base?: string;
-  emitScope?: boolean;
-  verify?: string;
-  strict?: boolean;
-  save?: boolean;
-  json?: boolean;
-  paths?: string[];
-}
+type SharedContractAction = Exclude<
+  ContractAction,
+  "criteria" | "context" | "grade"
+>;
+type ContractActionOptions = Omit<ContractCommandOptions, "repository">;
 
 function buildProgram(
   io: TielineCliIO,
@@ -341,7 +336,7 @@ function buildProgram(
     .command("contract")
     .description("Validate, review, compile, query, and sync the living contract");
   const contractAction = (
-    name: string,
+    name: SharedContractAction,
     description: string
   ): Command => {
     const sub = contract
@@ -359,16 +354,7 @@ function buildProgram(
       const { runContractCommand } = await import("./commands/contract.js");
       setExit(
         await runContractCommand(
-          name as
-            | "validate"
-            | "review"
-            | "compile"
-            | "coverage"
-            | "link-review"
-            | "reconcile"
-            | "criteria"
-            | "grade"
-            | "sync",
+          name,
           { repository, ...(opts as ContractActionOptions) },
           io
         )
@@ -453,6 +439,39 @@ function buildProgram(
             paths,
             repository: opts.repository,
             repo: opts.repo,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+  contract
+    .command("context")
+    .description(
+      "Inspect the exact intent neighborhood for an asset or Acceptance Criterion"
+    )
+    .option("--path <repository-relative-path>", "exact repository asset path")
+    .option("--kind <kind>", "asset kind (with --path): code or test")
+    .option(
+      "--selector <canonical-selector>",
+      "canonical asset selector (with --path)"
+    )
+    .option("--ac <stable-id>", "exact Acceptance Criterion stable ID")
+    .option("--repository <path>", "repository path")
+    .option("--repo <key>", "stable repository key")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runContractCommand } = await import("./commands/contract.js");
+      setExit(
+        await runContractCommand(
+          "context",
+          {
+            repository: opts.repository,
+            repo: opts.repo,
+            path: opts.path,
+            kind: opts.kind,
+            selector: opts.selector,
+            ac: opts.ac,
             json: Boolean(opts.json),
           },
           io

@@ -4,7 +4,6 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -28,7 +27,12 @@ import type {
   ContractScenario,
 } from "./schema.js";
 import { loadAcceptedContractWithSources } from "./load.js";
-import { withinRepository } from "./paths.js";
+import {
+  createCachedRepositoryEntryInspection,
+  repositoryEntryKindExactly,
+  withinRepository,
+  type RepositoryEntryInspection,
+} from "./paths.js";
 
 export const CONTRACT_MANIFEST_VERSION = 2 as const;
 
@@ -208,6 +212,10 @@ export interface ArtifactHashResolver {
   measure(path: string): ArtifactHashResult;
 }
 
+export interface CreateArtifactHashResolverOptions {
+  entryInspection?: RepositoryEntryInspection;
+}
+
 export class ContractManifestError extends Error {
   constructor(message: string) {
     super(message);
@@ -241,10 +249,14 @@ function missingPath(error: unknown): boolean {
 }
 
 export function createArtifactHashResolver(
-  repositoryRoot: string
+  repositoryRoot: string,
+  options: CreateArtifactHashResolverOptions = {}
 ): ArtifactHashResolver {
   const root = resolve(repositoryRoot);
   const realRoot = realpathSync(root);
+  const entryInspection = createCachedRepositoryEntryInspection(
+    options.entryInspection
+  );
   const measured = new Map<string, ArtifactHashResult>();
   return {
     measure(path) {
@@ -253,7 +265,14 @@ export function createArtifactHashResolver(
       const targetPath = resolve(root, path);
       let result: ArtifactHashResult;
       try {
-        if (!statSync(targetPath).isFile()) {
+        const kind = repositoryEntryKindExactly(
+          root,
+          path,
+          entryInspection
+        );
+        if (kind === "missing") {
+          result = { status: "missing" };
+        } else if (kind !== "file") {
           result = { status: "not_file" };
         } else {
           const realTarget = realpathSync(targetPath);
@@ -533,7 +552,65 @@ interface ManifestAssemblyErrors {
   missingIndex(): string;
   shardNameMismatch(name: string, stableId: string, expected: string): string;
   duplicateInput(path: string, claimedBy: string, stableId: string): string;
+  duplicateStableId(
+    stableId: string,
+    first: ManifestStableIdLocation,
+    duplicate: ManifestStableIdLocation
+  ): string;
   noCapabilities(): string;
+}
+
+type ManifestStableIdKind =
+  | "capability"
+  | "story"
+  | "acceptance criterion"
+  | "scenario";
+
+interface ManifestStableIdLocation {
+  kind: ManifestStableIdKind;
+  shard: string;
+}
+
+function manifestStableIds(
+  capability: ManifestCapability
+): Array<{ stableId: string; kind: ManifestStableIdKind }> {
+  const records: Array<{
+    stableId: string;
+    kind: ManifestStableIdKind;
+  }> = [
+    { stableId: capability.stable_id, kind: "capability" },
+  ];
+  for (const story of capability.stories) {
+    records.push({ stableId: story.stable_id, kind: "story" });
+    for (const criterion of story.acceptance_criteria) {
+      records.push({
+        stableId: criterion.stable_id,
+        kind: "acceptance criterion",
+      });
+      for (const scenario of criterion.scenarios) {
+        records.push({ stableId: scenario.stable_id, kind: "scenario" });
+      }
+    }
+  }
+  return records;
+}
+
+function claimManifestStableIds(
+  capability: ManifestCapability,
+  shard: string,
+  claimedStableIds: Map<string, ManifestStableIdLocation>,
+  duplicateStableId: ManifestAssemblyErrors["duplicateStableId"]
+): void {
+  for (const record of manifestStableIds(capability)) {
+    const location = { kind: record.kind, shard };
+    const claimed = claimedStableIds.get(record.stableId);
+    if (claimed) {
+      throw new ContractManifestError(
+        duplicateStableId(record.stableId, claimed, location)
+      );
+    }
+    claimedStableIds.set(record.stableId, location);
+  }
 }
 
 /**
@@ -570,6 +647,10 @@ function assembleContractManifest(
   const inputs: ManifestInput[] = [];
   const capabilities: ManifestCapability[] = [];
   const claimedInputs = new Map<string, string>();
+  const claimedStableIds = new Map<
+    string,
+    ManifestStableIdLocation
+  >();
   const shards = files
     .filter(
       (file) =>
@@ -594,6 +675,12 @@ function assembleContractManifest(
         errors.shardNameMismatch(file.name, shard.capability.stable_id, expected)
       );
     }
+    claimManifestStableIds(
+      shard.capability,
+      file.name,
+      claimedStableIds,
+      errors.duplicateStableId
+    );
     const claimedBy = claimedInputs.get(shard.input.path);
     if (claimedBy) {
       throw new ContractManifestError(
@@ -649,6 +736,8 @@ export function readContractManifest(directory: string): ContractManifest {
       `Contract manifest file '${resolve(root, name)}' holds capability '${stableId}', which belongs in '${expected}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     duplicateInput: (path, claimedBy, stableId) =>
       `Contract manifest capabilities '${claimedBy}' and '${stableId}' both record spec file '${path}'. Each spec file declares exactly one capability. Run 'tieline contract compile .' to regenerate the manifest.`,
+    duplicateStableId: (stableId, first, duplicate) =>
+      `Contract manifest duplicate stable ID '${stableId}' is used by ${first.kind} in '${resolve(root, first.shard)}' and ${duplicate.kind} in '${resolve(root, duplicate.shard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     noCapabilities: () =>
       `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`,
   });
@@ -688,6 +777,8 @@ export function parseContractManifestSnapshot(
       `The contract manifest file '${name}' at ${origin} holds capability '${stableId}', which belongs in '${expected}'.`,
     duplicateInput: (path, claimedBy, stableId) =>
       `The contract manifest at ${origin} records spec file '${path}' under capabilities '${claimedBy}' and '${stableId}'. Each spec file declares exactly one capability.`,
+    duplicateStableId: (stableId, first, duplicate) =>
+      `The contract manifest at ${origin} has duplicate stable ID '${stableId}', used by ${first.kind} in '${first.shard}' and ${duplicate.kind} in '${duplicate.shard}'.`,
     noCapabilities: () =>
       `The contract manifest at ${origin} has an index but no capabilities.`,
   });
@@ -955,6 +1046,7 @@ export function compileContractManifestWithSources(
     onUnhashableArtifact: options.onUnhashableArtifact ?? "throw",
   };
   const sources = new Map<string, ManifestInput>();
+  const claimedStableIds = new Map<string, ManifestStableIdLocation>();
   const capabilities = loaded.documents.map((document, index) => {
     const capability = compileCapability(context, document.capability);
     const source = loaded.sources[index]!;
@@ -964,6 +1056,13 @@ export function compileContractManifestWithSources(
         `Capability '${capability.stable_id}' is declared by both '${existing.path}' and '${source.path}'. A capability stable ID identifies exactly one spec file.`
       );
     }
+    claimManifestStableIds(
+      capability,
+      source.path,
+      claimedStableIds,
+      (stableId, first, duplicate) =>
+        `Contract duplicate stable ID '${stableId}' is used by ${first.kind} in '${first.shard}' and ${duplicate.kind} in '${duplicate.shard}'. Stable IDs must be unique before a manifest can be compiled.`
+    );
     sources.set(capability.stable_id, {
       path: source.path,
       sha256: sha256(source.content),

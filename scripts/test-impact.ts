@@ -20,6 +20,7 @@ import {
   analyzeContractImpact,
   parseNameStatus,
 } from "../src/contract/impact.js";
+import type { ArtifactAssuranceInspector } from "../src/contract/artifact-assurance.js";
 import { runCheckCommand } from "../src/commands/check.js";
 import { tielineConfigJson } from "./lib/fixtures.js";
 
@@ -30,9 +31,19 @@ try {
   mkdirSync(resolve(root, ".tieline/contract"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   mkdirSync(resolve(root, "scripts"), { recursive: true });
-  writeFileSync(resolve(root, "src/feature.ts"), "export const feature = 1;\n");
+  writeFileSync(
+    resolve(root, "src/feature.ts"),
+    "export const feature = 1;\nexport const alternate = 1;\n"
+  );
+  writeFileSync(
+    resolve(root, "src/unsupported.rb"),
+    "def unsupported\n  true\nend\n"
+  );
   writeFileSync(resolve(root, "src/legacy.ts"), "export const legacy = 1;\n");
-  writeFileSync(resolve(root, "scripts/feature.test.ts"), "assert(feature);\n");
+  writeFileSync(
+    resolve(root, "scripts/feature.test.ts"),
+    "export function featureBehavior() { assert(feature); }\n"
+  );
   writeFileSync(
     resolve(root, ".tieline/config.json"),
     tielineConfigJson({
@@ -55,6 +66,14 @@ capability:
       goal: see which behavior a code change affects
       benefit: drift is visible during review
       lifecycle: production
+      links:
+        - relation: implements
+          provenance: authored
+          target:
+            kind: code
+            repository: impact-fixture
+            path: src/feature.ts
+            selector: const:feature
       acceptance_criteria:
         - key: AC-FEATURE-001
           criterion: Tieline must report a changed implementation path.
@@ -65,13 +84,29 @@ capability:
                 kind: code
                 repository: impact-fixture
                 path: src/feature.ts
+                selector: const:feature
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: impact-fixture
+                path: src/feature.ts
+                selector: const:alternate
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: impact-fixture
                 path: scripts/feature.test.ts
+                selector: function:featureBehavior
                 framework_hint: custom-script
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: impact-fixture
+                path: src/unsupported.rb
+                selector: function:unsupported
 `
   );
   execFileSync("git", ["init"], { cwd: root });
@@ -106,15 +141,92 @@ capability:
   assert.equal(baselineReport.manifest_current, true);
   assert.equal(baselineReport.impacts.length, 0);
 
-  writeFileSync(resolve(root, "src/feature.ts"), "export const feature = 2;\n");
+  let freshnessInspections = 0;
+  let fullInspections = 0;
+  const freshnessOnlyInspector: ArtifactAssuranceInspector = {
+    inspectFreshness() {
+      freshnessInspections += 1;
+      return {
+        freshness: "current",
+        freshness_reason: null,
+        broken_cause: null,
+      };
+    },
+    inspect() {
+      fullInspections += 1;
+      throw new Error("healthy all-links sweep must not resolve selectors");
+    },
+  };
+  assert.deepEqual(
+    analyzeContractImpact({
+      repositoryRoot: root,
+      manifest,
+      changes: [],
+      assuranceInspector: freshnessOnlyInspector,
+    }),
+    []
+  );
+  assert.ok(freshnessInspections > 0);
+  assert.equal(fullInspections, 0);
+
+  writeFileSync(
+    resolve(root, "src/feature.ts"),
+    "export const feature = 2;\nexport const alternate = 2;\n"
+  );
   const changed = analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "modified", path: "src/feature.ts" }],
   });
-  assert.equal(changed.length, 1);
-  assert.equal(changed[0].acceptance_criterion_stable_id, "AC-FEATURE-001");
-  assert.equal(changed[0].freshness, "stale");
+  assert.deepEqual(
+    changed.map((impact) => [
+      impact.target_kind,
+      impact.repository,
+      impact.path,
+      impact.selector,
+      impact.framework_hint,
+      impact.link_scope,
+      impact.freshness,
+      impact.locator_resolution,
+      impact.locator_reason,
+    ]),
+    [
+      [
+        "code",
+        "impact-fixture",
+        "src/feature.ts",
+        "const:alternate",
+        null,
+        "direct",
+        "stale",
+        "resolved",
+        null,
+      ],
+      [
+        "code",
+        "impact-fixture",
+        "src/feature.ts",
+        "const:feature",
+        null,
+        "direct",
+        "stale",
+        "resolved",
+        null,
+      ],
+      [
+        "code",
+        "impact-fixture",
+        "src/feature.ts",
+        "const:feature",
+        null,
+        "story_fallback",
+        "stale",
+        "resolved",
+        null,
+      ],
+    ],
+    "same-file selectors and direct versus Story fallback remain distinct and ordered"
+  );
 
   const renamed = analyzeContractImpact({
     repositoryRoot: root,
@@ -129,6 +241,12 @@ capability:
   });
   assert.equal(renamed[0].reason, "renamed");
   assert.equal(renamed[0].freshness, "current");
+  assert.equal(renamed[0].freshness_reason, null);
+  assert.equal(renamed[0].target_kind, "test");
+  assert.equal(renamed[0].selector, "function:featureBehavior");
+  assert.equal(renamed[0].framework_hint, "custom-script");
+  assert.equal(renamed[0].locator_resolution, "resolved");
+  assert.equal(renamed[0].locator_reason, null);
 
   const contractChanged = analyzeContractImpact({
     repositoryRoot: root,
@@ -141,6 +259,11 @@ capability:
   assert.equal(contractChanged.length, 1);
   assert.equal(contractChanged[0].reason, "contract_definition_changed");
   assert.equal(contractChanged[0].provenance, null);
+  assert.equal(contractChanged[0].target_kind, null);
+  assert.equal(contractChanged[0].selector, null);
+  assert.equal(contractChanged[0].framework_hint, null);
+  assert.equal(contractChanged[0].locator_resolution, "not_applicable");
+  assert.equal(contractChanged[0].locator_reason, null);
   assert.equal(contractChanged[0].path, ".tieline/contract");
   assert.equal(
     contractChanged[0].acceptance_criterion,
@@ -177,7 +300,13 @@ capability:
   assert.equal(brokenOutsideDiff[0].reason, "link_target_broken");
   assert.equal(brokenOutsideDiff[0].provenance, "authored");
   assert.equal(brokenOutsideDiff[0].freshness, "broken");
+  assert.equal(brokenOutsideDiff[0].freshness_reason, null);
   assert.equal(brokenOutsideDiff[0].broken_cause, "missing");
+  assert.equal(brokenOutsideDiff[0].target_kind, "test");
+  assert.equal(brokenOutsideDiff[0].selector, "function:featureBehavior");
+  assert.equal(brokenOutsideDiff[0].framework_hint, "custom-script");
+  assert.equal(brokenOutsideDiff[0].locator_resolution, "not_checked");
+  assert.equal(brokenOutsideDiff[0].locator_reason, "file_missing");
   assert.equal(
     brokenOutsideDiff[0].acceptance_criterion,
     "Tieline must report a changed implementation path."
@@ -238,7 +367,20 @@ capability:
   assert.equal(warnOnlyReport.exit_reason, "broken_links_warn_only");
   assert.equal(warnOnlyReport.broken_links.length, 1);
 
-  writeFileSync(resolve(root, "scripts/feature.test.ts"), "assert(feature);\n");
+  writeFileSync(
+    resolve(root, "scripts/feature.test.ts"),
+    "export function featureBehavior() { assert(feature); }\n"
+  );
+
+  const unsupported = analyzeContractImpact({
+    repositoryRoot: root,
+    manifest,
+    changes: [{ status: "modified", path: "src/unsupported.rb" }],
+  });
+  assert.equal(unsupported.length, 1);
+  assert.equal(unsupported[0].freshness, "current");
+  assert.equal(unsupported[0].locator_resolution, "not_checked");
+  assert.equal(unsupported[0].locator_reason, "unsupported_language");
 
   // A link pointing at a directory is broken for a different, reportable reason.
   const notFile = analyzeContractImpact({
@@ -285,6 +427,11 @@ capability:
   // This fixture is stale by construction — `src/feature.ts` changed after the
   // manifest was compiled — so the stale gate is downgraded here to keep these
   // assertions about impact reporting. The gate itself is covered below.
+  writeFileSync(resolve(root, "src/feature.ts"), "export const feature = 2;\n");
+  writeFileSync(
+    resolve(root, "src/unsupported.rb"),
+    "def unsupported\n  false\nend\n"
+  );
   const output: string[] = [];
   assert.equal(
     await runCheckCommand(
@@ -304,14 +451,46 @@ capability:
       acceptance_criterion: string;
       story_title: string;
       freshness: string;
+      selector: string | null;
+      link_scope: string;
+      locator_resolution: string;
+      locator_reason: string | null;
     }[];
     broken_links: unknown[];
     exit_code: number;
     exit_reason: string;
   };
   assert.equal(report.manifest_current, false);
-  assert.equal(report.impacts.length, 1);
-  assert.equal(report.impacts[0].freshness, "stale");
+  assert.equal(report.impacts.length, 4);
+  const alternateImpact = report.impacts.find(
+    (impact) => impact.selector === "const:alternate"
+  );
+  assert.ok(alternateImpact);
+  assert.equal(alternateImpact.freshness, "stale");
+  assert.equal(alternateImpact.locator_resolution, "unresolved");
+  assert.equal(alternateImpact.locator_reason, null);
+  const featureImpacts = report.impacts.filter(
+    (impact) => impact.selector === "const:feature"
+  );
+  assert.deepEqual(
+    featureImpacts.map((impact) => [
+      impact.link_scope,
+      impact.freshness,
+      impact.locator_resolution,
+    ]),
+    [
+      ["direct", "stale", "resolved"],
+      ["story_fallback", "stale", "resolved"],
+    ],
+    "freshness and locator resolution remain separate assurance dimensions"
+  );
+  const unsupportedImpact = report.impacts.find(
+    (impact) => impact.selector === "function:unsupported"
+  );
+  assert.ok(unsupportedImpact);
+  assert.equal(unsupportedImpact.freshness, "stale");
+  assert.equal(unsupportedImpact.locator_resolution, "not_checked");
+  assert.equal(unsupportedImpact.locator_reason, "unsupported_language");
   assert.equal(
     report.impacts[0].acceptance_criterion,
     "Tieline must report a changed implementation path."
@@ -337,6 +516,20 @@ capability:
   assert.match(human, /Review semantic impact/);
   assert.match(human, /Does this change still satisfy this criterion\?/);
   assert.match(human, /AC-FEATURE-001/);
+  assert.match(human, /selector const:feature resolved/i);
+  assert.match(
+    human,
+    /selector const:alternate unresolved; re-read the exact locator/i
+  );
+  assert.match(
+    human,
+    /selector function:unsupported not checked \(unsupported_language; inspection limitation\)/i
+  );
+  assert.doesNotMatch(
+    human,
+    /selector function:unsupported unresolved/i,
+    "an unsupported language is a limitation, not evidence of selector drift"
+  );
 
   // Completeness: changed source files that no acceptance criterion names.
   // Only files that survive the change and are eligible under the configured
@@ -420,7 +613,10 @@ capability:
   // A rename is judged under its new path, and a link naming either end of the
   // rename already claims it. The vanished old path also breaks that link, so
   // this is the case where a broken link and an unclaimed change coexist.
-  writeFileSync(resolve(root, "src/feature.ts"), "export const feature = 1;\n");
+  writeFileSync(
+    resolve(root, "src/feature.ts"),
+    "export const feature = 1;\nexport const alternate = 1;\n"
+  );
   renameSync(
     resolve(root, "src/feature.ts"),
     resolve(root, "src/feature-moved.ts")
@@ -455,7 +651,10 @@ capability:
     resolve(root, "src/feature-moved.ts"),
     resolve(root, "src/feature.ts")
   );
-  writeFileSync(resolve(root, "src/feature.ts"), "export const feature = 2;\n");
+  writeFileSync(
+    resolve(root, "src/feature.ts"),
+    "export const feature = 2;\nexport const alternate = 2;\n"
+  );
   execFileSync(
     "git",
     ["add", "--", "src/feature.ts", "src/feature-moved.ts"],
@@ -495,11 +694,15 @@ capability:
   writeContractManifest(resolve(looseRoot, ".tieline/manifest"), compiled);
   writeFileSync(
     resolve(looseRoot, "src/feature.ts"),
-    "export const feature = 1;\n"
+    "export const feature = 1;\nexport const alternate = 1;\n"
+  );
+  writeFileSync(
+    resolve(looseRoot, "src/unsupported.rb"),
+    "def unsupported\n  true\nend\n"
   );
   writeFileSync(
     resolve(looseRoot, "scripts/feature.test.ts"),
-    "assert(feature);\n"
+    "export function featureBehavior() { assert(feature); }\n"
   );
   execFileSync("git", ["init"], { cwd: looseRoot });
   execFileSync("git", ["config", "user.email", "test@example.test"], {

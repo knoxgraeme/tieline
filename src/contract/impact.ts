@@ -6,25 +6,25 @@ import type {
   ManifestStory,
 } from "./manifest.js";
 import {
-  createArtifactHashResolver,
-  type ArtifactHashResolver,
-} from "./manifest.js";
+  createArtifactAssuranceInspector,
+  type ArtifactAssuranceInspector,
+  type ArtifactFreshnessReason,
+  type ArtifactLocatorNotCheckedReason,
+  type ArtifactLocatorResolution,
+  type BrokenLinkCause,
+} from "./artifact-assurance.js";
 import type { LinkProvenance } from "./schema.js";
+
+export type { BrokenLinkCause } from "./artifact-assurance.js";
 
 export type RepositoryPathChange =
   | { status: "modified" | "added" | "deleted"; path: string }
   | { status: "renamed"; old_path: string; path: string };
 
-/**
- * Why a link is structurally broken. These causes require no human judgement:
- * the manifest points somewhere that cannot hold reviewable evidence.
- */
-export type BrokenLinkCause =
-  | "missing"
-  | "not_file"
-  | "outside_repository";
-
 export interface AcceptanceCriterionImpact {
+  /** Linked target kind; null for a synthetic contract-definition impact. */
+  target_kind: "code" | "test" | null;
+  /** Repository named by the target, or the manifest repository for contract impacts. */
   repository: string;
   story_stable_id: string;
   /** Story title, so a reviewer sees the behaviour, not only the identifier. */
@@ -37,6 +37,10 @@ export interface AcceptanceCriterionImpact {
   provenance: LinkProvenance | null;
   link_scope: "direct" | "story_fallback" | "contract";
   path: string;
+  /** Canonical selector; null for file-level and contract-definition impacts. */
+  selector: string | null;
+  /** Test framework hint when authored; null for code and contract impacts. */
+  framework_hint: string | null;
   reason:
     | "modified"
     | "added"
@@ -50,13 +54,11 @@ export interface AcceptanceCriterionImpact {
     | "unknown"
     | "not_applicable"
     | "broken";
+  freshness_reason: ArtifactFreshnessReason | null;
   /** Present only when `freshness` is `broken`. */
   broken_cause?: BrokenLinkCause;
-}
-
-interface LinkFreshness {
-  freshness: AcceptanceCriterionImpact["freshness"];
-  broken_cause?: BrokenLinkCause;
+  locator_resolution: ArtifactLocatorResolution;
+  locator_reason: ArtifactLocatorNotCheckedReason | null;
 }
 
 export function isBrokenImpact(
@@ -74,26 +76,6 @@ export function describeBrokenCause(cause: BrokenLinkCause): string {
     case "outside_repository":
       return "the linked path resolves outside the repository";
   }
-}
-
-function linkFreshness(
-  hashes: ArtifactHashResolver,
-  ownerRepository: string,
-  link: ManifestLink
-): LinkFreshness {
-  if (link.target.kind === "help") return { freshness: "not_applicable" };
-  if (link.target.repository !== ownerRepository) {
-    return { freshness: "unknown" };
-  }
-  const measured = hashes.measure(link.target.path);
-  if (measured.status !== "hashed") {
-    return { freshness: "broken", broken_cause: measured.status };
-  }
-  if (!link.reviewed_content_hash) return { freshness: "stale" };
-  return {
-    freshness:
-      measured.hash === link.reviewed_content_hash ? "current" : "stale",
-  };
 }
 
 function changeForPath(
@@ -114,7 +96,7 @@ function reason(
 }
 
 function linkedImpact(input: {
-  hashes: ArtifactHashResolver;
+  inspector: ArtifactAssuranceInspector;
   manifest: ContractManifest;
   changes: RepositoryPathChange[];
   story: ManifestStory;
@@ -128,13 +110,13 @@ function linkedImpact(input: {
     input.link.target.path
   );
   if (!change) return null;
-  const freshness = linkFreshness(
-    input.hashes,
-    input.manifest.repository.key,
-    input.link
-  );
+  const assurance = input.inspector.inspect({
+    target: input.link.target,
+    reviewed_content_hash: input.link.reviewed_content_hash,
+  });
   return {
-    repository: input.manifest.repository.key,
+    target_kind: input.link.target.kind,
+    repository: input.link.target.repository,
     story_stable_id: input.story.stable_id,
     story_title: input.story.title,
     acceptance_criterion_stable_id: input.criterion.stable_id,
@@ -143,11 +125,19 @@ function linkedImpact(input: {
     provenance: input.link.provenance,
     link_scope: input.scope,
     path: input.link.target.path,
+    selector: input.link.target.selector ?? null,
+    framework_hint:
+      input.link.target.kind === "test"
+        ? (input.link.target.framework_hint ?? null)
+        : null,
     reason: reason(change),
-    freshness: freshness.freshness,
-    ...(freshness.broken_cause
-      ? { broken_cause: freshness.broken_cause }
+    freshness: assurance.freshness,
+    freshness_reason: assurance.freshness_reason,
+    ...(assurance.broken_cause
+      ? { broken_cause: assurance.broken_cause }
       : {}),
+    locator_resolution: assurance.locator_resolution,
+    locator_reason: assurance.locator_reason,
   };
 }
 
@@ -156,7 +146,7 @@ function linkedImpact(input: {
  * are swept independently of the diff.
  */
 function brokenLinkImpact(input: {
-  hashes: ArtifactHashResolver;
+  inspector: ArtifactAssuranceInspector;
   manifest: ContractManifest;
   story: ManifestStory;
   criterion: ManifestAcceptanceCriterion;
@@ -164,16 +154,20 @@ function brokenLinkImpact(input: {
   scope: "direct" | "story_fallback";
 }): AcceptanceCriterionImpact | null {
   if (input.link.target.kind === "help") return null;
-  const freshness = linkFreshness(
-    input.hashes,
-    input.manifest.repository.key,
-    input.link
-  );
+  const freshness = input.inspector.inspectFreshness({
+    target: input.link.target,
+    reviewed_content_hash: input.link.reviewed_content_hash,
+  });
   if (freshness.freshness !== "broken" || !freshness.broken_cause) {
     return null;
   }
+  const assurance = input.inspector.inspect({
+    target: input.link.target,
+    reviewed_content_hash: input.link.reviewed_content_hash,
+  });
   return {
-    repository: input.manifest.repository.key,
+    target_kind: input.link.target.kind,
+    repository: input.link.target.repository,
     story_stable_id: input.story.stable_id,
     story_title: input.story.title,
     acceptance_criterion_stable_id: input.criterion.stable_id,
@@ -182,18 +176,50 @@ function brokenLinkImpact(input: {
     provenance: input.link.provenance,
     link_scope: input.scope,
     path: input.link.target.path,
+    selector: input.link.target.selector ?? null,
+    framework_hint:
+      input.link.target.kind === "test"
+        ? (input.link.target.framework_hint ?? null)
+        : null,
     reason: "link_target_broken",
     freshness: "broken",
+    freshness_reason: null,
     broken_cause: freshness.broken_cause,
+    locator_resolution: assurance.locator_resolution,
+    locator_reason: assurance.locator_reason,
   };
 }
 
-function linkKey(impact: AcceptanceCriterionImpact): string {
+function impactIdentityFields(
+  impact: AcceptanceCriterionImpact
+): readonly string[] {
   return [
     impact.acceptance_criterion_stable_id,
+    impact.target_kind ?? "",
+    impact.repository,
     impact.path,
+    impact.selector ?? "",
+    impact.framework_hint ?? "",
+    impact.relation,
     impact.link_scope,
-  ].join("\0");
+  ];
+}
+
+function linkKey(impact: AcceptanceCriterionImpact): string {
+  return impactIdentityFields(impact).join("\0");
+}
+
+function compareImpacts(
+  left: AcceptanceCriterionImpact,
+  right: AcceptanceCriterionImpact
+): number {
+  const leftIdentity = impactIdentityFields(left);
+  const rightIdentity = impactIdentityFields(right);
+  for (let index = 0; index < leftIdentity.length; index++) {
+    const compared = leftIdentity[index]!.localeCompare(rightIdentity[index]!);
+    if (compared !== 0) return compared;
+  }
+  return left.reason.localeCompare(right.reason);
 }
 
 export function analyzeContractImpact(input: {
@@ -201,10 +227,16 @@ export function analyzeContractImpact(input: {
   manifest: ContractManifest;
   changes: RepositoryPathChange[];
   specDirectory?: string;
+  assuranceInspector?: ArtifactAssuranceInspector;
 }): AcceptanceCriterionImpact[] {
   const impacts: AcceptanceCriterionImpact[] = [];
   const broken: AcceptanceCriterionImpact[] = [];
-  const hashes = createArtifactHashResolver(input.repositoryRoot);
+  const inspector =
+    input.assuranceInspector ??
+    createArtifactAssuranceInspector({
+      repositoryRoot: input.repositoryRoot,
+      repositoryKey: input.manifest.repository.key,
+    });
   const specPrefix = `${(input.specDirectory ?? ".tieline/spec").replace(/\/+$/, "")}/`;
   const contractChanged = input.changes.some((change) => {
     const paths =
@@ -219,6 +251,7 @@ export function analyzeContractImpact(input: {
       for (const criterion of story.acceptance_criteria) {
         if (contractChanged) {
           impacts.push({
+            target_kind: null,
             repository: input.manifest.repository.key,
             story_stable_id: story.stable_id,
             story_title: story.title,
@@ -228,8 +261,13 @@ export function analyzeContractImpact(input: {
             provenance: null,
             link_scope: "contract",
             path: input.specDirectory ?? ".tieline/spec",
+            selector: null,
+            framework_hint: null,
             reason: "contract_definition_changed",
             freshness: "not_applicable",
+            freshness_reason: null,
+            locator_resolution: "not_applicable",
+            locator_reason: null,
           });
         }
         const scoped: Array<{
@@ -247,7 +285,7 @@ export function analyzeContractImpact(input: {
         ];
         for (const { link, scope } of scoped) {
           const impact = linkedImpact({
-            hashes,
+            inspector,
             manifest: input.manifest,
             changes: input.changes,
             story,
@@ -257,7 +295,7 @@ export function analyzeContractImpact(input: {
           });
           if (impact) impacts.push(impact);
           const brokenImpact = brokenLinkImpact({
-            hashes,
+            inspector,
             manifest: input.manifest,
             story,
             criterion,
@@ -271,15 +309,7 @@ export function analyzeContractImpact(input: {
   }
   const unique = new Map<string, AcceptanceCriterionImpact>();
   for (const impact of impacts) {
-    unique.set(
-      [
-        impact.acceptance_criterion_stable_id,
-        impact.path,
-        impact.reason,
-        impact.link_scope,
-      ].join("\0"),
-      impact
-    );
+    unique.set(`${linkKey(impact)}\0${impact.reason}`, impact);
   }
   // A diff-driven finding for the same link already carries `freshness:
   // "broken"`, so the sweep only adds links the diff never touched.
@@ -297,12 +327,7 @@ export function analyzeContractImpact(input: {
   for (const [key, impact] of brokenUnique) {
     unique.set(`${key}\0link_target_broken`, impact);
   }
-  return [...unique.values()].sort(
-    (left, right) =>
-      left.acceptance_criterion_stable_id.localeCompare(
-        right.acceptance_criterion_stable_id
-      ) || left.path.localeCompare(right.path)
-  );
+  return [...unique.values()].sort(compareImpacts);
 }
 
 export function parseNameStatus(

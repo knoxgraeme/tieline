@@ -52,6 +52,8 @@ import {
   renderGradeScopeText,
   verifyGradeVerdicts,
 } from "../contract/grade.js";
+import { runContractContext } from "./contract-context.js";
+export { renderIntentContextText } from "./contract-context.js";
 import { resolveCommandContext, wrap, type CommandIO } from "./shared.js";
 
 export type ContractAction =
@@ -62,6 +64,7 @@ export type ContractAction =
   | "link-review"
   | "reconcile"
   | "criteria"
+  | "context"
   | "grade"
   | "sync";
 
@@ -79,6 +82,10 @@ export interface ContractCommandOptions {
   strict?: boolean;
   json?: boolean;
   paths?: string[];
+  path?: string;
+  kind?: string;
+  selector?: string;
+  ac?: string;
   /** `link-review` only: persist review candidates as attribution suggestions. */
   save?: boolean;
 }
@@ -100,6 +107,10 @@ interface ParsedContractCommand {
   strict: boolean;
   json: boolean;
   paths: string[];
+  path?: string;
+  kind?: string;
+  selector?: string;
+  ac?: string;
   save: boolean;
 }
 
@@ -150,6 +161,10 @@ function resolveContractCommand(
     strict: options.strict === true,
     json: options.json === true,
     paths: options.paths ?? [],
+    path: options.path,
+    kind: options.kind,
+    selector: options.selector,
+    ac: options.ac,
     save: options.save === true,
   };
 }
@@ -553,6 +568,10 @@ export async function runContractCommand(
 
   if (parsed.action === "grade") {
     return runGrade(parsed, io);
+  }
+
+  if (parsed.action === "context") {
+    return runContractContext(parsed, io);
   }
 
   if (parsed.action === "criteria") {

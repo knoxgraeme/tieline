@@ -154,6 +154,14 @@ assert.equal(
 assert.equal(
   workspaceStartForCommand(
     "contract",
+    ["context", "--repository", "/tmp/context-repo", "--path", "src/a.ts"],
+    {}
+  ),
+  "/tmp/context-repo"
+);
+assert.equal(
+  workspaceStartForCommand(
+    "contract",
     [
       "sync",
       "--expected-previous-commit",
@@ -1482,6 +1490,15 @@ capability:
   assert.match(tielineSkill, /installed skill or MCP prompt/i);
   assert.match(tielineSkill, /semantic onboarding/i);
   assert.match(tielineSkill, /references\/onboarding\.md/);
+  assert.match(tielineSkill, /get_asset_intent_context/);
+  assert.match(tielineSkill, /get_acceptance_criterion_context/);
+  assert.match(tielineSkill, /tieline contract context --path/);
+  assert.match(tielineSkill, /tieline contract context --ac/);
+  assert.match(tielineSkill, /Only use `find_related` or `search_knowledge`[\s\S]*exact path,[\s\S]*unknown/i);
+  assert.match(tielineSkill, /intent neighborhood[\s\S]*contract coupling/i);
+  assert.match(tielineSkill, /not a runtime dependency graph or comprehensive blast radius/i);
+  assert.match(tielineSkill, /not_assessed[\s\S]*not semantic proof/i);
+  assert.match(tielineSkill, /linked test[\s\S]*not a claim that it ran or passed/i);
   assert.match(
     onboardingReference,
     /Discover these repository sources directly/
@@ -1712,6 +1729,15 @@ capability:
   );
   assert.match(readme, /--agent codex[\s\S]*--agent claude-code/);
   assert.match(readme, /--skill-scope project/);
+  assert.match(readme, /get_asset_intent_context/);
+  assert.match(readme, /get_acceptance_criterion_context/);
+  assert.match(readme, /tieline contract context --path/);
+  assert.match(readme, /tieline contract context --ac/);
+  assert.match(readme, /Use semantic discovery only when the exact path, selector, or AC ID is unknown/i);
+  assert.match(readme, /intent neighborhood[\s\S]*contract coupling/i);
+  assert.match(readme, /not a runtime dependency graph or a[\s\S]*comprehensive blast radius/i);
+  assert.match(readme, /not_assessed[\s\S]*No[\s\S]*proves the criterion is implemented correctly/i);
+  assert.match(readme, /linked test is an[\s\S]*evidence locator[—-]not a receipt that the test ran or passed/i);
   assert.doesNotMatch(readme, /agent_onboarding_prompt/);
   assert.doesNotMatch(readme, /copyable,? self-contained prompt/i);
 
@@ -1727,6 +1753,47 @@ capability:
   // The stdin questioner lives in main(), so runCli-based tests bypass it;
   // spawn the built CLI with piped stdin to exercise buffering and EOF.
   const cliBin = resolve(process.cwd(), "dist/cli.js");
+  const packagedCompile = spawnSync(
+    "node",
+    [
+      cliBin,
+      "contract",
+      "compile",
+      target,
+      "--repo",
+      "example-repository",
+      "--json",
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(packagedCompile.status, 0, packagedCompile.stderr);
+  const packagedContext = spawnSync(
+    "node",
+    [
+      cliBin,
+      "contract",
+      "context",
+      "--repository",
+      target,
+      "--ac",
+      "STATUS-001-AC1",
+      "--json",
+    ],
+    {
+      encoding: "utf8",
+      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    }
+  );
+  assert.equal(packagedContext.status, 0, packagedContext.stderr);
+  const packagedContextResult = JSON.parse(packagedContext.stdout);
+  assert.equal(packagedContextResult.status, "found");
+  assert.equal(packagedContextResult.requested_stable_id, "STATUS-001-AC1");
+  assert.equal(packagedContextResult.repository.key, "example-repository");
+  assert.match(packagedContextResult.manifest_digest, /^[a-f0-9]{64}$/);
+
   const pipedTarget = resolve(root, "piped-init");
   mkdirSync(resolve(pipedTarget, "src"), { recursive: true });
   writeFileSync(

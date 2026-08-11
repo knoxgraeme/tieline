@@ -542,16 +542,26 @@ function notChecked(
   };
 }
 
-type SourceRead =
+export type SelectorSourceRead =
   | { status: "read"; content: string }
   | { status: "skipped"; reason: SelectorNotCheckedReason };
 
-function readSource(absolute: string, maxSourceBytes: number): SourceRead {
+function readSource(
+  absolute: string,
+  maxSourceBytes: number
+): SelectorSourceRead {
   let stat;
   try {
     stat = statSync(absolute);
-  } catch {
-    return { status: "skipped", reason: "file_missing" };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    return {
+      status: "skipped",
+      reason:
+        code === "ENOENT" || code === "ENOTDIR"
+          ? "file_missing"
+          : "unreadable",
+    };
   }
   if (!stat.isFile()) return { status: "skipped", reason: "not_a_file" };
   if (stat.size > maxSourceBytes) {
@@ -569,33 +579,14 @@ function readSource(absolute: string, maxSourceBytes: number): SourceRead {
   return { status: "read", content: buffer.toString("utf8") };
 }
 
-/**
- * Looks for the selector's symbols in an already-read source string.
- *
- * A qualified selector is satisfied when every resolvable segment's name appears
- * somewhere in the file. It deliberately does NOT assert containment — these
- * regexes cannot tell whether `searchSemantic` is a member of `PostgresStore` —
- * so `class:PostgresStore/method:searchSemantic` resolving means "both names are
- * declared here", which is the strongest claim the evidence supports.
- */
-export function resolveSelectorInSource(
-  source: string,
-  selector: string,
-  options: { path?: string; vocabulary?: SelectorVocabulary } = {}
+function resolveValidatedSelectorInIndex(
+  index: SymbolIndex,
+  selector: ParsedSelector,
+  path: string,
+  vocabulary: SelectorVocabulary
 ): SelectorResolution {
-  const path = options.path ?? "";
-  const vocabulary = options.vocabulary ?? CORE_SELECTOR_VOCABULARY;
-  const validated = validateSelector(selector, vocabulary);
-  if (!validated.ok) {
-    return notChecked(
-      typeof selector === "string" ? selector.trim() : String(selector),
-      path,
-      "invalid_selector",
-      validated.error
-    );
-  }
-  const canonical = validated.selector.canonical;
-  const segments = validated.selector.segments;
+  const canonical = selector.canonical;
+  const segments = selector.segments;
 
   const checkable: SelectorSegment[] = [];
   const skipped: SelectorSegment[] = [];
@@ -626,7 +617,6 @@ export function resolveSelectorInSource(
     );
   }
 
-  const index = indexSourceSymbols(source);
   if (index.all.length === 0) {
     return notChecked(
       canonical,
@@ -677,6 +667,129 @@ export function resolveSelectorInSource(
     missing,
     skipped,
     detail: `Read '${path}' and found ${index.all.length} declaration(s), but ${notes.join("; ")}.`,
+  };
+}
+
+/**
+ * Looks for the selector's symbols in an already-read source string.
+ *
+ * A qualified selector is satisfied when every resolvable segment's name appears
+ * somewhere in the file. It deliberately does NOT assert containment — these
+ * regexes cannot tell whether `searchSemantic` is a member of `PostgresStore` —
+ * so `class:PostgresStore/method:searchSemantic` resolving means "both names are
+ * declared here", which is the strongest claim the evidence supports.
+ */
+export function resolveSelectorInSource(
+  source: string,
+  selector: string,
+  options: { path?: string; vocabulary?: SelectorVocabulary } = {}
+): SelectorResolution {
+  const path = options.path ?? "";
+  const vocabulary = options.vocabulary ?? CORE_SELECTOR_VOCABULARY;
+  const validated = validateSelector(selector, vocabulary);
+  if (!validated.ok) {
+    return notChecked(
+      typeof selector === "string" ? selector.trim() : String(selector),
+      path,
+      "invalid_selector",
+      validated.error
+    );
+  }
+  return resolveValidatedSelectorInIndex(
+    indexSourceSymbols(source),
+    validated.selector,
+    path,
+    vocabulary
+  );
+}
+
+export interface CreateCachedSelectorResolverOptions {
+  readSource?: (
+    absolutePath: string,
+    maxSourceBytes: number
+  ) => SelectorSourceRead;
+  indexSource?: (content: string) => SymbolIndex;
+}
+
+/**
+ * Creates a request-local resolver that reads and indexes each normalized local
+ * path at most once. The cache is intentionally not global: checkout contents
+ * may change between requests.
+ */
+export function createCachedSelectorResolver(
+  options: CreateCachedSelectorResolverOptions = {}
+): (input: ResolveSelectorOptions) => SelectorResolution {
+  const sourceReader = options.readSource ?? readSource;
+  const sourceIndexer = options.indexSource ?? indexSourceSymbols;
+  const sources = new Map<
+    string,
+    | { status: "indexed"; index: SymbolIndex }
+    | { status: "skipped"; reason: SelectorNotCheckedReason }
+  >();
+
+  return (input) => {
+    const vocabulary = input.vocabulary ?? CORE_SELECTOR_VOCABULARY;
+    const maxSourceBytes =
+      input.maxSourceBytes ?? DEFAULT_MAX_SELECTOR_SOURCE_BYTES;
+    const path = input.path;
+    const validated = validateSelector(input.selector, vocabulary);
+    if (!validated.ok) {
+      return notChecked(
+        typeof input.selector === "string"
+          ? input.selector.trim()
+          : String(input.selector),
+        path,
+        "invalid_selector",
+        validated.error
+      );
+    }
+    const canonical = validated.selector.canonical;
+    const anyResolvable = validated.selector.segments.some(
+      (segment) => vocabulary.kinds.get(segment.kind)?.resolvable === true
+    );
+    if (!anyResolvable) {
+      return notChecked(
+        canonical,
+        path,
+        "kind_not_resolvable",
+        `No part of '${canonical}' names a kind this repository marks resolvable, so no symbol check was attempted.`,
+        validated.selector.segments
+      );
+    }
+    if (!RESOLVABLE_SOURCE_EXTENSIONS.has(extname(path).toLowerCase())) {
+      return notChecked(
+        canonical,
+        path,
+        "unsupported_language",
+        `'${path}' is not a language these declaration patterns understand, so '${canonical}' was not checked.`
+      );
+    }
+
+    const absolutePath = resolve(input.repositoryRoot, path);
+    const key = `${absolutePath}\0${maxSourceBytes}`;
+    let source = sources.get(key);
+    if (!source) {
+      const read = sourceReader(absolutePath, maxSourceBytes);
+      source =
+        read.status === "read"
+          ? { status: "indexed", index: sourceIndexer(read.content) }
+          : read;
+      sources.set(key, source);
+    }
+    if (source.status === "skipped") {
+      return notChecked(
+        canonical,
+        path,
+        source.reason,
+        `'${path}' could not be examined (${source.reason}), so '${canonical}' was not checked.`
+      );
+    }
+    return resolveValidatedSelectorInIndex(
+      source.index,
+      validated.selector,
+      path,
+      vocabulary
+    );
   };
 }
 

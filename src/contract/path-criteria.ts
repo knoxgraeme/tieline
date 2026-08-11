@@ -6,8 +6,7 @@
  * rather than walking capabilities, Stories, and criteria a third time.
  */
 
-import { existsSync, readdirSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import {
   buildContractClaimIndex,
   normalizeContractPath,
@@ -16,10 +15,14 @@ import {
   type ReconciliationRelation,
 } from "./reconciliation.js";
 import { manifestDigest, type ContractManifest } from "./manifest.js";
-import { withinRepository } from "./paths.js";
+import { repositoryEntryKindExactly } from "./paths.js";
 
 export interface PathCriterion {
   path: string;
+  target_kind: ClaimingCriterion["target_kind"];
+  repository: string;
+  selector: string | null;
+  framework_hint: string | null;
   capability_stable_id: string;
   story_stable_id: string;
   story_title: string;
@@ -64,6 +67,10 @@ export interface PathCriteriaReport {
 function pathCriterion(claim: ClaimingCriterion): PathCriterion {
   return {
     path: claim.linked_path,
+    target_kind: claim.target_kind,
+    repository: claim.repository,
+    selector: claim.selector,
+    framework_hint: claim.framework_hint,
     capability_stable_id: claim.capability_stable_id,
     story_stable_id: claim.story_stable_id,
     story_title: claim.story_title,
@@ -100,29 +107,6 @@ function repositoryRelativePath(
   return normalized.length > 0 ? normalized : ".";
 }
 
-/**
- * Match the exact repository spelling used by the contract index. On a
- * case-insensitive filesystem, `existsSync("src/Foo.ts")` also succeeds for an
- * actual `src/foo.ts`; treating that alias as an existing path with no criteria
- * would hide the criteria that apply to the real file.
- */
-function repositoryPathExistsExactly(root: string, target: string): boolean {
-  if (!withinRepository(root, target) || !existsSync(target)) return false;
-  const path = relative(root, target);
-  if (path.length === 0) return true;
-
-  let directory = root;
-  for (const segment of path.split(sep)) {
-    try {
-      if (!readdirSync(directory).includes(segment)) return false;
-    } catch {
-      return false;
-    }
-    directory = resolve(directory, segment);
-  }
-  return true;
-}
-
 function answerFor(
   path: string,
   criterionCount: number,
@@ -153,8 +137,7 @@ export function lookupPathCriteria(input: {
   const results = input.paths.map((requested): PathCriteriaResult => {
     const path = repositoryRelativePath(root, requested);
     const criteria = [...(index.get(path) ?? [])];
-    const target = resolve(root, path);
-    const exists = repositoryPathExistsExactly(root, target);
+    const exists = repositoryEntryKindExactly(root, path) !== "missing";
     const acceptanceCriterionCount = new Set(
       criteria.map((entry) => entry.acceptance_criterion_stable_id)
     ).size;

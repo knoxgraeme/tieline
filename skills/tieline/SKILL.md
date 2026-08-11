@@ -66,11 +66,46 @@ from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
 The remaining sections apply only to onboarding, planning, implementation, and
 reconciliation; the grading-only flow returns after its report.
 
+## Read exact intent before discovery
+
+When the task already names a repository path, canonical selector, or exact
+Acceptance Criterion stable ID, read its accepted context before editing or
+semantic search:
+
+- For a known code or test locator, call `get_asset_intent_context` with its
+  repository-relative `path` and optional `kind` and `selector`, or run
+  `tieline contract context --path <path> [--kind code|test] [--selector <selector>] --json`.
+- For a known AC ID, call `get_acceptance_criterion_context` with `stable_id`,
+  or run `tieline contract context --ac <stable-id> --json`.
+- Use `get_path_criteria` only when the compatibility path-to-AC list is enough.
+  Prefer asset context when selector identity or associated code/tests matter.
+
+These two primitive reads answer from the compiled manifest without Postgres,
+embeddings, or network access. They return the repository key and
+content-derived manifest digest that identify the reviewed contract. Asset
+context reports `has_context`, `no_criteria`, or `not_found`; AC context returns
+the exact product ancestry, criterion, scenarios, direct links, and
+Story-fallback links or an explicit `not_found` result for an unknown ID.
+
+Treat associated code and tests as a bounded **intent neighborhood** and shared
+AC links as **contract coupling**. The result stops after one AC-mediated hop;
+it is not a runtime dependency graph or comprehensive blast radius. Keep
+provenance, link scope, freshness, locator resolution, and semantic support as
+separate assurance facts. `resolved` and current are structural observations,
+while `unresolved`, `not_checked`, broken causes, and unknown states remain
+explicit. `not_assessed` is not semantic proof, and a linked test is an evidence
+locator, not a claim that it ran or passed.
+
+Only use `find_related` or `search_knowledge` for discovery when the exact path,
+selector, or AC ID is unknown, or when the task explicitly needs broader
+semantic candidates.
+
 ## Search before creating
 
 1. Run `tieline status --json` and inspect its capability flags.
 2. Search local YAML and the manifest for stable IDs, aliases, and related
-   criteria.
+   criteria. If an exact locator or AC ID emerges, use its exact context before
+   continuing discovery.
 3. If semantic matching is unavailable, continue with the local search and
    state that org-wide duplicate checking was not performed. Otherwise call
    `find_related` with `profile=discovery` and the intended behavior.

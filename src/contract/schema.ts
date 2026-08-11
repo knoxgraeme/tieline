@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { parseSelector } from "./selector.js";
 
-const stableKeySchema = z
+export const stableKeySchema = z
   .string()
   .trim()
   .min(1)
