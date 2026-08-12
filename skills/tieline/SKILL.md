@@ -27,7 +27,9 @@ visible action is the orientation and setup exchange in onboarding.md — the
 not before it. Init records auto-detected values, so
 verify rather than interrogate: confirm detected identity with the user and
 correct `.tieline/config.json` when a detection is wrong, but never ask for
-anything the repository can answer.
+anything the repository can answer. Treat the initial contract as a
+repository-wide semantic baseline, not a narrow seed that merely makes the
+workspace non-empty.
 
 ## Orient to this repository
 

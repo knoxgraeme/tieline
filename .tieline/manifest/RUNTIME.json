@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -102,7 +102,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -200,7 +200,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -265,7 +265,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -309,7 +309,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -353,7 +353,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -408,7 +408,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -452,7 +452,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -516,7 +516,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -769,7 +769,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7b89e8547fcf8eed63948567cbd098e3b8822d60d33e963babcb9ce2b26f61a5",
+                "reviewed_content_hash": "cd1155c2f158e90eebf1764f98d0d087ec1330fcbff27caeffc993ee8d05d56f",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/onboarding.md",
@@ -779,7 +779,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a1ee3811cb241f6e872b91e7f74fa8bd884140d1097f96aaf24793674bd1f3d7",
+                "reviewed_content_hash": "77093b40337a8426b9393ef19de8c839c5f07af92f091e8320de06205ab91cdb",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -820,7 +820,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c2c0526f7de9b732030a70b06149b97c862ebf4661e16ed9b5377f9cd66ae97e",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -833,6 +833,50 @@
             "rationale": null,
             "scenarios": [],
             "stable_id": "RUNTIME-002-AC4",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3eb8f069073282db940d4d0d6d82ac6784517b5db18c137045575e84854b0360",
+            "criterion": "Tieline semantic onboarding must produce a repository-wide evidence-backed initial contract by assessing every configured source root and discovered application boundary, covering or explaining every high-confidence observable behavior cluster, and treating path mapping only as a gap diagnostic.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "cd1155c2f158e90eebf1764f98d0d087ec1330fcbff27caeffc993ee8d05d56f",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/onboarding.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "77093b40337a8426b9393ef19de8c839c5f07af92f091e8320de06205ab91cdb",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/SKILL.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 4,
+            "rationale": "A valid small seed can hide most of a monorepo, while maximizing mapped files would reward implementation-shaped criteria instead of coherent product behavior.",
+            "scenarios": [],
+            "stable_id": "RUNTIME-002-AC5",
             "supersedes": null
           }
         ],
@@ -907,6 +951,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "7b444fd069d9a66b42582f48a276ae80b4be14cd5798220bb407c6b958025993"
+    "sha256": "b99800a1de30f84ec450b22b0fbc845697c2a280253593441f817eb513b6b144"
   }
 }
