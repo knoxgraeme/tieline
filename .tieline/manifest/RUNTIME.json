@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -102,7 +102,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -200,7 +200,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -265,7 +265,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -309,7 +309,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -353,7 +353,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -408,7 +408,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -452,7 +452,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -516,7 +516,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -617,7 +617,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "65d2177a53cc8384741af8f3aa7b9c3b1f39e47c10929a915305b25d70137aad",
+                "reviewed_content_hash": "fec9050cd5ef0c87ea32187cef60f1302a2c8d4001909a3e7faa894389e8d3e0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -779,7 +779,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "19b56b59ced8904f033db9c6f04a2f7730682d6f6ff025f37a867065d5d4a42d",
+                "reviewed_content_hash": "4581891dd1d0be7dcd1f2e7d022c4c0fb3dd75e3d4b9e52c606ea99bab2c0646",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -789,7 +789,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d5ffff1580e8f76d657f72e75699ca93729908ec82915017567cc34bbe546d48",
+                "reviewed_content_hash": "94be8b91f0f800d0e5428794490172d74057451522a3622673f8352e6db6fc30",
                 "target": {
                   "kind": "code",
                   "path": "src/prompts.ts",
@@ -809,7 +809,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "65d2177a53cc8384741af8f3aa7b9c3b1f39e47c10929a915305b25d70137aad",
+                "reviewed_content_hash": "fec9050cd5ef0c87ea32187cef60f1302a2c8d4001909a3e7faa894389e8d3e0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -820,7 +820,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -854,7 +854,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "19b56b59ced8904f033db9c6f04a2f7730682d6f6ff025f37a867065d5d4a42d",
+                "reviewed_content_hash": "4581891dd1d0be7dcd1f2e7d022c4c0fb3dd75e3d4b9e52c606ea99bab2c0646",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -864,7 +864,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -877,6 +877,61 @@
             "rationale": "A valid small seed can hide most of a monorepo, while maximizing mapped files would reward implementation-shaped criteria instead of coherent product behavior.",
             "scenarios": [],
             "stable_id": "RUNTIME-002-AC5",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f52c8c4680d86e1514fe4b30575c2384553cc33da00d718f873f2ec070bb3484",
+            "criterion": "Tieline's project-installed skill and equivalent MCP prompt must make semantic closeout discoverable before handoff or branch publication, classify every changed behavior cluster including relevant untracked files, directly apply and validate justified contract changes within the authorized commit or publication boundary, and rerun after later implementation changes.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "4581891dd1d0be7dcd1f2e7d022c4c0fb3dd75e3d4b9e52c606ea99bab2c0646",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/SKILL.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "94be8b91f0f800d0e5428794490172d74057451522a3622673f8352e6db6fc30",
+                "target": {
+                  "kind": "code",
+                  "path": "src/prompts.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "fec9050cd5ef0c87ea32187cef60f1302a2c8d4001909a3e7faa894389e8d3e0",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/smoke.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 5,
+            "rationale": "The semantic workflow supplies the cross-agent trigger, while the resulting pull-request diff remains the review and approval surface.",
+            "scenarios": [],
+            "stable_id": "RUNTIME-002-AC6",
             "supersedes": null
           }
         ],
@@ -951,6 +1006,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "b99800a1de30f84ec450b22b0fbc845697c2a280253593441f817eb513b6b144"
+    "sha256": "443044e6966cdfce43219c2189a9daf592edd75f1a53ab472537204c3c566106"
   }
 }

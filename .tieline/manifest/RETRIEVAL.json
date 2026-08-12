@@ -150,7 +150,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "65d2177a53cc8384741af8f3aa7b9c3b1f39e47c10929a915305b25d70137aad",
+                "reviewed_content_hash": "fec9050cd5ef0c87ea32187cef60f1302a2c8d4001909a3e7faa894389e8d3e0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

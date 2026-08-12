@@ -690,7 +690,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "869d5788439a3a0b47070b478128ce2ffc6bd768ef9456b9c55693189bf8cc2b",
+                "reviewed_content_hash": "17a648e1d12e53225e8c6c5314a1eff235d4919494a066e8c9edef6d1f85e6a8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1153,7 +1153,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "65d2177a53cc8384741af8f3aa7b9c3b1f39e47c10929a915305b25d70137aad",
+                "reviewed_content_hash": "fec9050cd5ef0c87ea32187cef60f1302a2c8d4001909a3e7faa894389e8d3e0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

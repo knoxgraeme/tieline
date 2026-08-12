@@ -468,6 +468,36 @@ capability:
                 repository: tieline
                 path: scripts/test-tieline.ts
                 framework_hint: custom-script
+        - key: RUNTIME-002-AC6
+          criterion: Tieline's project-installed skill and equivalent MCP prompt must make semantic closeout discoverable before handoff or branch publication, classify every changed behavior cluster including relevant untracked files, directly apply and validate justified contract changes within the authorized commit or publication boundary, and rerun after later implementation changes.
+          rationale: The semantic workflow supplies the cross-agent trigger, while the resulting pull-request diff remains the review and approval surface.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/SKILL.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/prompts.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script
     - key: RUNTIME-003
       title: Verify the lifecycle as one system
       actor: maintainer
