@@ -359,6 +359,14 @@ npx --yes --package=skillfish@latest skillfish add knoxgraeme/tieline \
   --json
 ```
 
+The installed skill runs semantic closeout before implementation handoff,
+commit, push, or pull-request creation and updates. It classifies each changed
+behavior cluster, directly updates and compiles justified contract changes, and
+reruns if the implementation diff changes. The pull-request diff is the review
+surface; the agent does not stop at a comment and wait for separate approval to
+write the contract. The deterministic Contract workflow still validates the
+result and never invokes a model or authors branch changes.
+
 If a requested install fails or does not finish within two minutes, the
 workspace and private runtime profile remain ready. Tieline terminates the
 installer, exits non-zero, and prints a retry command using its stable agent

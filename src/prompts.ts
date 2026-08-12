@@ -44,9 +44,10 @@ export function registerPrompts(server: McpServer): void {
   server.registerPrompt(
     "tieline",
     {
-      title: "Onboard, author, grade, or reconcile with Tieline",
+      title:
+        "Onboard, author, grade, reconcile, or close out branch semantics with Tieline",
       description:
-        "Onboard repository behavior, shape planning Stories/ACs, grade evidence, or reconcile a branch while preserving Tieline authority boundaries.",
+        "Onboard repository behavior, shape planning Stories/ACs, grade evidence, reconcile a branch, or close out semantic changes before implementation handoff, commit, push, or pull-request publication while preserving Tieline authority boundaries.",
     },
     tielinePrompt
   );

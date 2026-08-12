@@ -1,6 +1,6 @@
 ---
 name: tieline
-description: Semantically onboard an initialized Tieline repository, or author, plan, implement, grade, and reconcile Tieline User Stories and Acceptance Criteria. Use after `tieline init` to inspect configured context and create the first repository-specific capabilities, Stories, and ACs; also use to refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, grade changed contract evidence, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
+description: Semantically onboard an initialized Tieline repository, or author, plan, implement, grade, and reconcile Tieline User Stories and Acceptance Criteria. Use after `tieline init` to inspect configured context and create the first repository-specific capabilities, Stories, and ACs. Use before handing off implementation, committing, pushing, or opening or updating a pull request so final branch work receives semantic closeout. Also use to refine planning Stories/ACs or Backlog Items in Postgres, materialize planning records into repository YAML, connect branch work to product behavior, grade changed contract evidence, resolve likely duplicate definitions, or prepare a semantic contract change for pull-request review.
 ---
 
 # Tieline
@@ -67,6 +67,53 @@ An Observation is evidence, not a required starting point. A flow may begin
 from an Observation, Backlog Item, planning Story, existing AC, or branch diff.
 The remaining sections apply only to onboarding, planning, implementation, and
 reconciliation; the grading-only flow returns after its report.
+
+## Close out branch semantics before handoff
+
+For any flow that changes implementation or the repository-owned contract, run
+semantic closeout against the final branch diff before handing off
+implementation, committing, pushing, or opening or updating a pull request.
+Project installation of this skill, or explicit invocation through the
+equivalent MCP prompt, is the trigger; do not add a separate
+`.tieline/config.json` existence check before deciding whether closeout applies.
+Planning-only and grading-only flows keep their earlier stopping points.
+
+1. Determine the comparison base as described under **Materialize or reconcile
+   repository behavior**, then inspect the tracked diff, the reconcile output,
+   and the untracked-file inventory from
+   `git ls-files --others --exclude-standard`. Because the tracked diff and
+   reconcile output omit untracked paths, read every relevant untracked file and
+   fold its observable behavior into a behavior cluster below, or retain an
+   exclusion reason. Group related changes by coherent, externally observable
+   behavior rather than by file, package, or internal implementation layer.
+2. Classify every changed behavior cluster as exactly one of:
+   - `covered`: an accepted AC already expresses the behavior accurately and its
+     evidence links still identify the right implementation or tests.
+   - `exclude`: the cluster is internal-only, generated, test-only, or otherwise
+     does not change observable product behavior. Retain the reason in the
+     closeout report; do not create an AC merely to eliminate an unmapped file.
+   - `update`: an accepted Story, AC, scenario, rationale, or evidence link must
+     change to remain truthful.
+   - `add`: distinct observable behavior is not represented by an accepted AC.
+   - `unresolved`: a material ambiguity prevents an accurate decision. Surface
+     the exact ambiguity instead of silently choosing another disposition.
+3. For every `update` or `add`, edit the repository YAML and compile its manifest
+   directly. Do not post a comment or request separate approval first. The
+   pull-request diff is the review surface and merge is approval.
+4. Complete the validation, coverage, reconciliation, check, and grading steps
+   below. Report the disposition of each cluster, including exclusions and any
+   unresolved item.
+5. When the active workflow already includes a commit, push, or pull-request
+   update, include closeout artifacts in the same pending commit. If the
+   implementation was already committed, create a focused local follow-up
+   commit. Push that follow-up without asking again only when the active workflow
+   explicitly includes push or opening or updating a pull request, or when a
+   pull request for the branch is already open and the active request is not
+   commit-only. A commit-only request always overrides the open-pull-request
+   exception: stop after the local follow-up commit and do not push. This
+   authority covers only the in-scope contract and generated artifacts.
+6. If the implementation diff changes after closeout, run closeout again against
+   the new final diff before handoff or publication.
 
 ## Read exact intent before discovery
 
@@ -180,6 +227,9 @@ branch and let normal PR review accept or reject it.
 ## Completion
 
 Leave the branch with valid YAML and a byte-current `.tieline/manifest/`.
+For implementation and repository-contract flows, completion also requires a
+semantic-closeout disposition for every changed behavior cluster against the
+final diff; later implementation changes invalidate the earlier closeout.
 Warnings are review input, not a second gate. Do not claim that linked tests ran;
 test links are framework-agnostic evidence locators only.
 

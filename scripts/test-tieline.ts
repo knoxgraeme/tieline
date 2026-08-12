@@ -1500,6 +1500,46 @@ capability:
   assert.match(tielineSkill, /not_assessed[\s\S]*not semantic proof/i);
   assert.match(tielineSkill, /linked test[\s\S]*not a claim that it ran or passed/i);
   assert.match(
+    tielineSkill,
+    /before handing off implementation, committing, pushing, or opening or updating a pull request/i,
+    "the installed skill must trigger semantic closeout before implementation leaves the agent"
+  );
+  assert.match(
+    tielineSkill,
+    /project installation of this skill, or explicit invocation through the\s+equivalent MCP prompt, is the trigger[\s\S]*do not add a separate\s+`\.tieline\/config\.json` existence check/i,
+    "the installed skill and equivalent MCP prompt must trigger closeout without a redundant config guard"
+  );
+  assert.match(
+    tielineSkill,
+    /covered[\s\S]*exclude[\s\S]*update[\s\S]*add[\s\S]*unresolved/i,
+    "semantic closeout must classify every changed behavior cluster"
+  );
+  assert.match(
+    tielineSkill,
+    /edit the repository YAML and compile its manifest\s+directly[\s\S]*do not post a comment or request separate approval first/i,
+    "justified contract changes must be reviewable branch changes rather than comment-only proposals"
+  );
+  assert.match(
+    tielineSkill,
+    /git ls-files --others --exclude-standard[\s\S]*relevant untracked file[\s\S]*behavior cluster[\s\S]*exclusion reason/i,
+    "semantic closeout must classify behavior in new untracked files"
+  );
+  assert.match(
+    tielineSkill,
+    /push that follow-up without asking again only when[\s\S]*explicitly includes push or opening or updating a pull request[\s\S]*pull request for the branch is already open and the active request is not[\s\S]*commit-only/i,
+    "already-authorized push and PR flows must carry follow-up closeout changes without another approval round"
+  );
+  assert.match(
+    tielineSkill,
+    /commit-only request always overrides the open-pull-request[\s\S]*exception:[\s\S]*stop after the local follow-up commit and do not push/i,
+    "commit-only closeout must preserve the local-only authorization ceiling"
+  );
+  assert.match(
+    tielineSkill,
+    /implementation diff changes after closeout[\s\S]*run closeout again/i,
+    "later implementation changes must invalidate an earlier semantic closeout"
+  );
+  assert.match(
     onboardingReference,
     /Discover these repository sources directly/
   );
@@ -1766,6 +1806,11 @@ capability:
   assert.match(
     readme,
     /npx --yes --package=skillfish@latest skillfish add knoxgraeme\/tieline/
+  );
+  assert.match(
+    readme,
+    /installed skill runs semantic closeout[\s\S]*pull-request diff is the review\s+surface/i,
+    "README must explain that project skill installation supplies the semantic handoff hook"
   );
   assert.match(readme, /--agent codex[\s\S]*--agent claude-code/);
   assert.match(readme, /--skill-scope project/);
