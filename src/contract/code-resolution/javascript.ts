@@ -21,7 +21,7 @@ import {
   type ResolutionSymbolIndex,
 } from "./support.js";
 
-export const javascriptResolutionCompatibility = "javascript-module-resolution-v1";
+export const javascriptResolutionCompatibility = "javascript-module-resolution-v2";
 
 const javascriptLanguages = new Set<SupportedCodeLanguage>([
   "javascript",
@@ -30,6 +30,11 @@ const javascriptLanguages = new Set<SupportedCodeLanguage>([
   "tsx",
 ]);
 const supportedExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
+const emittedSourceExtensions: Readonly<Record<string, readonly string[]>> = {
+  ".js": [".ts", ".tsx"],
+  ".mjs": [".mts"],
+  ".cjs": [".cts"],
+};
 
 export interface JavaScriptResolutionConfigurationFile {
   path: string;
@@ -303,7 +308,22 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
     const normalized = canonicalRepositoryRelativePath(path);
     if (!normalized) return [];
     if (extension(normalized)) {
-      return this.#files.has(normalized) ? [{ path: normalized, rule: extensionlessRule.replace("extensionless", "exact") }] : [];
+      if (this.#files.has(normalized)) {
+        return [{ path: normalized, rule: extensionlessRule.replace("extensionless", "exact") }];
+      }
+      const inputExtension = extension(normalized);
+      const stem = normalized.slice(0, -inputExtension.length);
+      return uniqueCandidates(
+        (emittedSourceExtensions[inputExtension] ?? []).flatMap((sourceExtension) => {
+          const file = `${stem}${sourceExtension}`;
+          return this.#files.has(file)
+            ? [{
+                path: file,
+                rule: extensionlessRule.replace("extensionless", "emitted_source"),
+              }]
+            : [];
+        })
+      );
     }
     const candidates: ModuleCandidate[] = [];
     for (const candidateExtension of supportedExtensions) {

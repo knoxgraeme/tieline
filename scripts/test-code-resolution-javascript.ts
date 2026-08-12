@@ -112,6 +112,31 @@ await test("resolves conservative JS/TS modules and unique exported symbols", as
   assertOutcome(explicit, "resolved", "javascript_relative_exact");
   assert.equal(explicit.targets[0]?.path, "src/lib/explicit.js");
 
+  const emittedJavaScript = outcomeFor(outcomes, "./emitted/value.js");
+  assertOutcome(emittedJavaScript, "resolved", "javascript_relative_emitted_source");
+  assert.equal(emittedJavaScript.targets[0]?.path, "src/emitted/value.ts");
+  assert.equal(emittedJavaScript.targets[0]?.selector, "const:emittedValue");
+
+  const emittedModule = outcomeFor(outcomes, "./emitted/module.mjs");
+  assertOutcome(emittedModule, "resolved", "javascript_relative_emitted_source");
+  assert.equal(emittedModule.targets[0]?.path, "src/emitted/module.mts");
+
+  const emittedCommon = outcomeFor(outcomes, "./emitted/common.cjs");
+  assertOutcome(emittedCommon, "resolved", "javascript_relative_emitted_source");
+  assert.equal(emittedCommon.targets[0]?.path, "src/emitted/common.cts");
+
+  const ambiguousEmitted = outcomeFor(outcomes, "./emitted/ambiguous.js");
+  assertOutcome(ambiguousEmitted, "ambiguous", "javascript_relative_emitted_source");
+  assert.equal(ambiguousEmitted.reason, "ambiguous_module");
+  assert.deepEqual(
+    ambiguousEmitted.candidates.map((candidate) => candidate.path),
+    ["src/emitted/ambiguous.ts", "src/emitted/ambiguous.tsx"]
+  );
+
+  const missingEmitted = outcomeFor(outcomes, "./emitted/missing.js");
+  assertOutcome(missingEmitted, "unresolved", "javascript_relative_exact");
+  assert.equal(missingEmitted.reason, "module_not_found");
+
   const ambiguousModule = outcomeFor(outcomes, "./multiple");
   assertOutcome(ambiguousModule, "ambiguous", "javascript_relative_extensionless");
   assert.equal(ambiguousModule.reason, "ambiguous_module");

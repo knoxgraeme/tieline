@@ -12,6 +12,7 @@ import {
   buildCommittedTopologyGeneration,
   persistCommittedTopologyGeneration,
 } from "../src/contract/topology-generation.js";
+import { codeTopologySelectedInputDigest } from "../src/domain/code-topology-store.js";
 
 const adminUrl = process.env.DATABASE_URL_ADMIN;
 if (!adminUrl) {
@@ -34,7 +35,7 @@ try {
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(
     join(root, "src/main.ts"),
-    'import { dependency } from "./dependency";\nexport const main = dependency;\n'
+    'import { dependency } from "./dependency.js";\nexport const main = dependency;\n'
   );
   writeFileSync(join(root, "src/dependency.ts"), "export const dependency = true;\n");
   git(["init", "-q"]);
@@ -68,11 +69,10 @@ try {
   assert.ok(stored);
   assert.equal(stored.counts.files, 2);
   assert.ok(stored.counts.edges > 0);
-  assert.equal(stored.header.revision, execFileSync(
-    "git",
-    ["rev-parse", "HEAD^{tree}"],
-    { cwd: root, encoding: "utf8" }
-  ).trim());
+  assert.equal(
+    stored.header.revision,
+    codeTopologySelectedInputDigest(stored.header)
+  );
   const repeated = await persistCommittedTopologyGeneration({
     store: topology,
     result,

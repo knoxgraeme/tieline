@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   codeTopologyDerivedEdgeIdentity,
   codeTopologyGenerationIdentity,
+  codeTopologySelectedInputDigest,
   estimateCodeTopologyGenerationRetainedBytes,
   normalizeOwnedCompleteCodeTopologyGeneration,
   validateCompleteCodeTopologyGeneration,
@@ -60,7 +61,7 @@ import type {
 
 export const CODE_TOPOLOGY_SCHEMA_VERSION = 1;
 export const CODE_TOPOLOGY_RESOLVER_IMPLEMENTATION =
-  "tieline-static-modules@1";
+  "tieline-static-modules@2";
 export const CODE_TOPOLOGY_FACT_POLICY = "tieline-code-topology-facts@1";
 const MAX_TOPOLOGY_FILES = 5_000;
 const MAX_TOPOLOGY_SOURCE_BYTES = 50 * 1024 * 1024;
@@ -69,7 +70,7 @@ const MAX_TOPOLOGY_EDGES = 250_000;
 
 export interface TopologySourceCollection {
   kind: "committed" | "workspace";
-  /** Exact Git tree for committed input; content identity for a workspace. */
+  /** Source-selection metadata kept outside logical generation identity. */
   revision: string;
   inventory: SourceInventory;
   reader: SourceSnapshotReader;
@@ -541,18 +542,18 @@ export async function buildCodeTopologyGeneration(
       .sort((left, right) => left.path.localeCompare(right.path)),
   });
   const compatibility = codeTopologyRuntimeCompatibility();
-  const identityFields = {
-    repository: options.repository,
-    revision:
-      options.source.kind === "committed"
-        ? options.source.revision
-        : inventoryDigest,
+  const selectedInputFields = {
     inventory_digest: inventoryDigest,
     parser_compatibility_digest: compatibility.parser_compatibility_digest,
     resolver_implementation: compatibility.resolver_implementation,
     resolver_configuration_digest: resolverConfigurationDigest,
     topology_schema_version: compatibility.topology_schema_version,
     fact_policy_digest: compatibility.fact_policy_digest,
+  };
+  const identityFields = {
+    repository: options.repository,
+    revision: codeTopologySelectedInputDigest(selectedInputFields),
+    ...selectedInputFields,
   };
   const generationIdentity = codeTopologyGenerationIdentity(identityFields);
   const selectedAnalyses = buildingReadModel ? resolutionAnalyses : analyses;

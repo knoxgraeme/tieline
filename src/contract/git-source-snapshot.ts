@@ -34,7 +34,7 @@ interface GitTreeEntry {
 
 export interface GitSourceSnapshotCollection {
   kind: "committed";
-  /** Exact tree object whose blobs supplied this collection. */
+  /** Exact queried tree metadata; it does not participate in logical generation identity. */
   revision: string;
   inventory: SourceInventory;
   reader: SourceSnapshotReader;

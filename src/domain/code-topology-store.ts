@@ -21,7 +21,10 @@ export type TopologyResolutionStatus =
 
 export interface CodeTopologyGenerationIdentityFields {
   repository: string;
-  /** Full committed Git tree identity; dirty/worktree identities are never persisted. */
+  /**
+   * Versioned digest of selected source and fact-producing compatibility inputs.
+   * The legacy persistence column is still named `revision` during Phase 1.
+   */
   revision: string;
   inventory_digest: string;
   parser_compatibility_digest: string;
@@ -375,9 +378,31 @@ function hashCanonical(value: unknown): string {
 export function codeTopologyGenerationIdentity(
   fields: CodeTopologyGenerationIdentityFields
 ): string {
+  if (fields.resolver_implementation.startsWith("tieline-static-modules@2:")) {
+    return hashCanonical({
+      identity_semantics: "selected-topology-inputs-v2",
+      repository: fields.repository,
+      selected_input_digest: fields.revision,
+    });
+  }
   return hashCanonical({
     repository: fields.repository,
     revision: fields.revision,
+    inventory_digest: fields.inventory_digest,
+    parser_compatibility_digest: fields.parser_compatibility_digest,
+    resolver_implementation: fields.resolver_implementation,
+    resolver_configuration_digest: fields.resolver_configuration_digest,
+    topology_schema_version: fields.topology_schema_version,
+    fact_policy_digest: fields.fact_policy_digest,
+  });
+}
+
+/** Selected-input identity deliberately excludes any enclosing Git object. */
+export function codeTopologySelectedInputDigest(
+  fields: Omit<CodeTopologyGenerationIdentityFields, "repository" | "revision">
+): string {
+  return hashCanonical({
+    identity_semantics: "selected-topology-inputs-v2",
     inventory_digest: fields.inventory_digest,
     parser_compatibility_digest: fields.parser_compatibility_digest,
     resolver_implementation: fields.resolver_implementation,
@@ -539,7 +564,7 @@ export function validateCompleteCodeTopologyGeneration(
   }
   if (!committedRevisionPattern.test(header.revision)) {
     throw new CodeTopologyIntegrityError(
-      "Persisted topology revision must be a full committed Git tree identity."
+      "Persisted topology source identity must be a full Git or SHA-256 identity."
     );
   }
   assertDigest(header.inventory_digest, "Inventory digest");
@@ -551,6 +576,14 @@ export function validateCompleteCodeTopologyGeneration(
   }
   if (!Number.isSafeInteger(header.topology_schema_version) || header.topology_schema_version < 1) {
     throw new CodeTopologyIntegrityError("Topology schema version must be a positive integer.");
+  }
+  if (
+    header.resolver_implementation.startsWith("tieline-static-modules@2:") &&
+    header.revision !== codeTopologySelectedInputDigest(header)
+  ) {
+    throw new CodeTopologyIntegrityError(
+      "Topology selected-input digest does not match its fact-producing inputs."
+    );
   }
 
   assertUnique(generation.files.map((file) => file.path), "topology file path");

@@ -26,7 +26,11 @@ import {
   persistCommittedTopologyGeneration,
   type TopologyGenerationComparison,
 } from "../src/contract/topology-generation.js";
-import type { CompleteCodeTopologyGeneration } from "../src/domain/code-topology-store.js";
+import {
+  codeTopologyGenerationIdentity,
+  codeTopologySelectedInputDigest,
+  type CompleteCodeTopologyGeneration,
+} from "../src/domain/code-topology-store.js";
 import { report, test } from "./lib/harness.js";
 
 const root = mkdtempSync(join(tmpdir(), "tieline-topology-"));
@@ -86,16 +90,31 @@ try {
 
   let baseline!: CompleteCodeTopologyGeneration;
 
-  await test("builds deterministic committed generations from the exact Git tree", async () => {
+  await test("builds deterministic committed generations from selected inputs", async () => {
     baseline = await committed();
     const repeated = await committed();
-    assert.equal(baseline.header.revision, git(["rev-parse", "HEAD^{tree}"]));
+    assert.notEqual(baseline.header.revision, git(["rev-parse", "HEAD^{tree}"]));
     assert.notEqual(baseline.header.revision, git(["rev-parse", "HEAD"]));
+    assert.equal(
+      baseline.header.revision,
+      codeTopologySelectedInputDigest(baseline.header)
+    );
     assert.equal(repeated.header.identity, baseline.header.identity);
     assert.deepEqual(repeated, baseline);
     assert.equal(compareTopologyGenerations(baseline, repeated).files.length, 0);
     assert.ok(baseline.edges.length > 0);
     assert.equal(baseline.references.length, baseline.resolutions.length);
+  });
+
+  await test("excludes generated topology bytes and enclosing trees from logical identity", async () => {
+    const beforeTree = git(["rev-parse", "HEAD^{tree}"]);
+    write(".tieline/topology/topology.json", '{"generated":true}\n');
+    git(["add", ".tieline/topology/topology.json"]);
+    git(["commit", "-qm", "generated topology only"]);
+    assert.notEqual(git(["rev-parse", "HEAD^{tree}"]), beforeTree);
+    const after = await committed();
+    assert.equal(after.header.identity, baseline.header.identity);
+    assert.equal(after.header.inventory_digest, baseline.header.inventory_digest);
   });
 
   await test("path-scopes identical facts and retains synthetic modules and impl owners", () => {
@@ -271,6 +290,28 @@ try {
       roles.current
     );
     assert.equal(comparison.compatibility, "incompatible");
+
+    const legacy: CompleteCodeTopologyGeneration = structuredClone(roles.base);
+    legacy.header.revision = git(["rev-parse", "HEAD~1^{tree}"]);
+    legacy.header.resolver_implementation = "tieline-static-modules@1:legacy-fixture";
+    legacy.header.identity = codeTopologyGenerationIdentity(legacy.header);
+    for (const edge of legacy.edges) {
+      edge.source.generation_identity = legacy.header.identity;
+      edge.target.generation_identity = legacy.header.identity;
+    }
+    const legacyStore = new FakeCodeTopologyStore();
+    await legacyStore.commitGeneration({
+      generation: legacy,
+      expected_previous_generation_identity: null,
+    });
+    assert.equal(
+      (await loadPersistedTopologyGeneration(legacyStore, legacy.header.identity)).status,
+      "available"
+    );
+    assert.equal(
+      compareTopologyGenerations(legacy, roles.current).compatibility,
+      "incompatible"
+    );
   });
 
   await test("retries one workspace mutation then returns workspace_changed", async () => {
