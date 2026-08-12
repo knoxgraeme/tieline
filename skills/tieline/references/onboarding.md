@@ -76,32 +76,73 @@ a human first sees them. Verify, do not re-ask.
 
 ## Author the initial contract
 
-1. Build a context inventory from the configured sources, README, product and
-   architecture documentation, public code entry points, source-root package
-   metadata, and tests. Discover these repository sources directly instead of
-   asking the user to enumerate them.
-2. Treat configured sources according to `.tieline/config.json`: use inline
+Optimize this first pass for maximum coherent, accurate coverage of the
+repository's observable behavior. "Initial" means the first repository-wide
+semantic baseline, not the smallest valid seed. There is no default Story or
+AC count and no brevity target: let evidence-backed behavior determine the
+size, while avoiding duplicate or speculative definitions.
+
+1. Map the repository before defining capabilities. Assess every configured
+   source root and each discovered application, service, worker, CLI, and
+   shared package boundary. Use workspace and package metadata to find them;
+   then inspect their README and architecture documentation, public entry
+   points, UI routes, APIs, commands and tools, events, scheduled jobs,
+   deployment surfaces, schemas and migrations, and tests. A shared package is
+   in semantic scope when it exposes observable behavior or enforces a product
+   invariant across applications. Discover these repository sources directly
+   instead of asking the user to enumerate them.
+2. Build a working coverage ledger for every assessed boundary. Record its
+   actors, public interfaces, coherent behavior clusters, strongest evidence
+   paths, and a disposition of `cover`, `exclude` with a reason, or
+   `unresolved`. Keep discovery in bounded passes so repository size or context
+   pressure does not silently narrow the scope.
+3. Treat configured sources according to `.tieline/config.json`: use inline
    descriptions as product framing, read local files, and fetch websites only
    when `allow_external_fetch` is `true`. Record which sources were actually
    inspected and which were unavailable.
-3. Infer repository-specific capability boundaries, actors, user goals,
-   benefits, observable behavior, and existing terminology. Prefer evidence
-   repeated across product documentation, public interfaces, and tests.
-4. Ask focused questions only when unresolved product meaning would materially
+4. Infer repository-specific capability boundaries, actors, user goals,
+   benefits, observable behavior, and existing terminology. Triangulate product
+   documentation, public interfaces, schemas, and tests when possible.
+   Repeated evidence increases confidence but is not a prerequisite for
+   inclusion when one authoritative repository source clearly establishes an
+   observable outcome.
+5. Cover the whole product surface, not only its primary end-user path. Include
+   distinct admin, operator, seller, developer, and machine actors when the
+   repository supports them, plus cross-cutting behavior such as identity and
+   tenancy, billing and usage, validation and cryptography, persistence
+   invariants, scheduling and delivery, and observability when repository
+   evidence makes those outcomes part of the product contract. Group by user
+   or business outcome rather than mirroring the directory tree.
+6. Ask focused questions only when unresolved product meaning would materially
    change a capability boundary or acceptance criterion. Do not ask for context
    that can be discovered from the repository.
-5. Search for likely duplicate IDs and behavior using the local YAML and
+7. Search for likely duplicate IDs and behavior using the local YAML and
    manifest plus database-backed semantic matching when available.
-6. Author the initial capabilities, Stories, and ACs under `.tieline/spec/`.
-   Never create generic starter content merely to make the directory non-empty.
-7. Validate and compile the contract.
-8. Read [grading.md](grading.md) and grade the initial contract. With no manifest
+8. Author the initial capabilities, Stories, and ACs under `.tieline/spec/`.
+   Give each AC one observable outcome. Do not compress independent behaviors
+   into a few broad ACs to keep the contract small, and never create generic
+   starter content merely to make the directory non-empty.
+9. Audit semantic coverage before completion. Reconcile every coverage-ledger
+   row with the authored contract: each high-confidence behavior cluster must
+   be represented by a Story and AC or have an explicit exclusion reason, and
+   every application boundary must have been assessed. Compare the result back
+   to the discovered public interfaces, tests, and cross-cutting invariants. A
+   small contract for a large or multi-application repository is a reassessment
+   signal, not proof that only a small product spine matters; run another
+   discovery pass until no known high-confidence behavior remains unrepresented
+   or unexplained.
+10. Use repository mapping coverage only as a diagnostic for possible missed
+    surfaces. It is not a proxy for semantic completeness: do not create an AC
+    per file or chase 100 percent path coverage, but investigate concentrated
+    unmapped areas before declaring the baseline complete.
+11. Validate and compile the contract.
+12. Read [grading.md](grading.md) and grade the initial contract. With no manifest
    at the comparison base, every authored link enters the grading scope as
    `link_added`. You authored every one of them, so dispatch fresh subagents
    batched by artifact path, passing only the emitted scope entries and never
    the authoring rationale; a link none of your reasoning can defend to a cold
    reader should be graded down, not argued for.
-9. Close with the completion report shaped by
+13. Close with the completion report shaped by
    [report.md](references/report.md): `.tieline/review.html` is the
    deliverable and leads the reply, followed by at most three
    needs-your-review bullets and two caveats. Do not enumerate the authored
