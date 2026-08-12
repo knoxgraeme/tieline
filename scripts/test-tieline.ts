@@ -1526,12 +1526,12 @@ capability:
   );
   assert.match(
     tielineSkill,
-    /push that follow-up without asking again only when[\s\S]*explicitly includes push or opening or updating a pull request[\s\S]*pull request for the branch is already open/i,
+    /push that follow-up without asking again only when[\s\S]*explicitly includes push or opening or updating a pull request[\s\S]*pull request for the branch is already open and the active request is not[\s\S]*commit-only/i,
     "already-authorized push and PR flows must carry follow-up closeout changes without another approval round"
   );
   assert.match(
     tielineSkill,
-    /commit-only workflow[\s\S]*stops\s+after the local follow-up commit and must not push/i,
+    /commit-only request always overrides the open-pull-request[\s\S]*exception:[\s\S]*stop after the local follow-up commit and do not push/i,
     "commit-only closeout must preserve the local-only authorization ceiling"
   );
   assert.match(

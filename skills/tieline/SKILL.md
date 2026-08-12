@@ -108,9 +108,10 @@ Planning-only and grading-only flows keep their earlier stopping points.
    implementation was already committed, create a focused local follow-up
    commit. Push that follow-up without asking again only when the active workflow
    explicitly includes push or opening or updating a pull request, or when a
-   pull request for the branch is already open. A commit-only workflow stops
-   after the local follow-up commit and must not push. This authority covers only
-   the in-scope contract and generated artifacts.
+   pull request for the branch is already open and the active request is not
+   commit-only. A commit-only request always overrides the open-pull-request
+   exception: stop after the local follow-up commit and do not push. This
+   authority covers only the in-scope contract and generated artifacts.
 6. If the implementation diff changes after closeout, run closeout again against
    the new final diff before handoff or publication.
 
