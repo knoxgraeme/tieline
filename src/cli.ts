@@ -184,6 +184,9 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "code") {
+    if (args[0] === "compile" || args[0] === "validate") {
+      return firstPositional(args, new Set(), 1) ?? process.cwd();
+    }
     return optionValue(args, "repository") ?? process.cwd();
   }
   if (command === "status") {
@@ -517,6 +520,23 @@ function buildProgram(
   const code = program
     .command("code")
     .description("Read bounded derived code topology and advisory AC impact");
+  for (const [action, description] of [
+    ["compile", "Compile the repository topology artifact"],
+    ["validate", "Validate topology integrity and freshness without parsing"],
+  ] as const) {
+    code
+      .command(action)
+      .description(description)
+      .argument("[repository]", "repository path")
+      .option("--json", "emit machine-readable JSON")
+      .action(async (repository: string | undefined, opts) => {
+        const { runCodeTopologyArtifactCommand } = await import("./commands/code-topology-artifact.js");
+        setExit(await runCodeTopologyArtifactCommand(action, {
+          repository,
+          json: Boolean(opts.json),
+        }, io));
+      });
+  }
   const addTopologyLimits = (command: Command): Command => command
     .option("--depth <n>", "maximum traversal depth (1-8)")
     .option("--nodes <n>", "maximum visited nodes (1-1000)")

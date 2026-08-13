@@ -151,9 +151,13 @@ await test("stable file shards keep edits and renames local", () => {
     files: edited.files, symbols: edited.symbols, edges: edited.edges, frontiers: edited.frontiers,
   });
   const afterEdit = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(edited));
-  const changed = [...before.files].filter(([name, bytes]) => !bytes.equals(afterEdit.files.get(name)!));
-  assert.equal(changed.length, 2, "one shard plus the root index change");
-  assert.ok(changed.reduce((bytes, [, content]) => bytes + content.byteLength, 0) < 2 * 1024 * 1024);
+  const changed = new Set([...before.files.keys(), ...afterEdit.files.keys()].filter((name) =>
+    !before.files.get(name)?.equals(afterEdit.files.get(name) ?? Buffer.alloc(0))
+  ));
+  assert.equal(changed.size, 3, "old/new immutable shards plus the root index change");
+  assert.ok([...changed].reduce((bytes, name) =>
+    bytes + (before.files.get(name)?.byteLength ?? 0) + (afterEdit.files.get(name)?.byteLength ?? 0), 0
+  ) < 2 * 1024 * 1024);
 
   const renamed = structuredClone(logical);
   renamed.files.find((file) => file.path === "src/worker.py")!.path = "src/renamed.py";
@@ -165,7 +169,7 @@ await test("stable file shards keep edits and renames local", () => {
   const touched = new Set([...before.files.keys(), ...afterRename.files.keys()].filter((name) =>
     !before.files.get(name)?.equals(afterRename.files.get(name) ?? Buffer.alloc(0))
   ));
-  assert.equal(touched.size, 4, "old/new shards, root index, and the shard with an edge to the renamed file change");
+  assert.equal(touched.size, 5, "old/new renamed and edge shards plus the root index change");
   assert.ok(touched.size <= 8);
 });
 

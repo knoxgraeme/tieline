@@ -10,10 +10,15 @@ import {
 } from "../domain/code-topology-store.js";
 import {
   buildCodeTopologyGeneration,
+  codeTopologyRuntimeCompatibility,
   type TopologyGenerationBuildResult,
   type TopologyReadModelBuildResult,
   type TopologySourceCollection,
 } from "./code-topology-indexer.js";
+import { readJavaScriptResolutionConfiguration } from "./code-resolution/javascript.js";
+import { readPythonResolutionConfiguration } from "./code-resolution/python.js";
+import { readRustResolutionConfiguration } from "./code-resolution/rust.js";
+import { codeTopologySelectedInputDigest } from "../domain/code-topology-store.js";
 import { createGitSourceSnapshotCollection } from "./git-source-snapshot.js";
 import {
   createSourceInventory,
@@ -61,6 +66,21 @@ function digest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function canonicalDigest(value: unknown): string {
+  const canonical = (entry: unknown): string => {
+    if (Array.isArray(entry)) return `[${entry.map(canonical).join(",")}]`;
+    if (entry !== null && typeof entry === "object") {
+      return `{${Object.entries(entry as Record<string, unknown>)
+        .filter(([, child]) => child !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`)
+        .join(",")}}`;
+    }
+    return JSON.stringify(entry);
+  };
+  return createHash("sha256").update(canonical(value)).digest("hex");
+}
+
 function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInventory {
   const base = createSourceInventory({
     repositoryRoot: options.repositoryRoot,
@@ -106,6 +126,136 @@ function workspaceCollection(
       maxSourceBytes: options.maxSourceBytes,
     }),
   };
+}
+
+export type TopologySelectedInputResult =
+  | {
+      status: "complete";
+      selected_input_digest: string;
+      inventory_digest: string;
+      resolver_configuration_digest: string;
+    }
+  | {
+      status: "capacity_exceeded" | "source_unavailable" | "workspace_changed";
+      path: string | null;
+      detail: string;
+    };
+
+/**
+ * Compute topology freshness from one immutable byte capture without starting
+ * a parser. Configuration readers consume the same cached snapshots as the
+ * content inventory, so each selected path is read from the filesystem once.
+ */
+export function readTopologySourceSelectedInput(
+  options: TopologyGenerationSourceOptions,
+  source: TopologySourceCollection
+): TopologySelectedInputResult {
+  const { inventory } = source;
+  const parserFiles = inventory.files.filter((file) => file.language !== null);
+  const maxFiles = Math.min(options.maxFiles ?? 5_000, 5_000);
+  if (parserFiles.length > maxFiles) {
+    return {
+      status: "capacity_exceeded",
+      path: null,
+      detail: `Source inventory contains ${parserFiles.length} parser files; limit is ${maxFiles}.`,
+    };
+  }
+  const maxTotalSourceBytes = Math.min(
+    options.maxTotalSourceBytes ?? 50 * 1024 * 1024,
+    50 * 1024 * 1024
+  );
+  const files: Array<{ path: string; sha256: string }> = [];
+  let totalBytes = 0;
+  for (const file of inventory.files) {
+    const read = source.reader.read(file.path);
+    if (read.status !== "read") {
+      return {
+        status: read.status === "oversized"
+          ? "capacity_exceeded"
+          : read.status === "changed_during_read"
+            ? "workspace_changed"
+            : "source_unavailable",
+        path: file.path,
+        detail: read.detail,
+      };
+    }
+    totalBytes += read.snapshot.metadata.size;
+    if (totalBytes > maxTotalSourceBytes) {
+      return {
+        status: "capacity_exceeded",
+        path: file.path,
+        detail: `Source inventory exceeds the ${maxTotalSourceBytes}-byte repository limit.`,
+      };
+    }
+    files.push({ path: read.snapshot.path, sha256: read.snapshot.sha256 });
+  }
+  const javascript = readJavaScriptResolutionConfiguration({ inventory, reader: source.reader });
+  const python = readPythonResolutionConfiguration({ inventory, reader: source.reader });
+  const rust = readRustResolutionConfiguration({ inventory, reader: source.reader });
+  const resolverConfigurationDigest = canonicalDigest({
+    javascript: javascript.digest,
+    python: python.digest,
+    rust: rust.digest,
+  });
+  const inventoryDigest = canonicalDigest({
+    schemaVersion: 1,
+    sourceRoots: inventory.sourceRoots,
+    ignore: inventory.ignore,
+    files: files.sort((left, right) => left.path.localeCompare(right.path)),
+  });
+  const compatibility = codeTopologyRuntimeCompatibility();
+  return {
+    status: "complete",
+    selected_input_digest: codeTopologySelectedInputDigest({
+      inventory_digest: inventoryDigest,
+      parser_compatibility_digest: compatibility.parser_compatibility_digest,
+      resolver_implementation: compatibility.resolver_implementation,
+      resolver_configuration_digest: resolverConfigurationDigest,
+      topology_schema_version: compatibility.topology_schema_version,
+      fact_policy_digest: compatibility.fact_policy_digest,
+    }),
+    inventory_digest: inventoryDigest,
+    resolver_configuration_digest: resolverConfigurationDigest,
+  };
+}
+
+export function readWorkspaceTopologySelectedInput(
+  options: TopologyGenerationSourceOptions
+): TopologySelectedInputResult {
+  let inventory: SourceInventory;
+  try {
+    inventory = workspaceInventory(options);
+  } catch (error) {
+    return {
+      status: "source_unavailable",
+      path: null,
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+  const source = workspaceCollection(options, inventory);
+  try {
+    const result = readTopologySourceSelectedInput(options, source);
+    if (result.status !== "complete") return result;
+    let after: SourceInventory;
+    try {
+      after = workspaceInventory(options);
+    } catch (error) {
+      return {
+        status: "workspace_changed",
+        path: null,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+    return after.digest === inventory.digest
+      ? result
+      : {
+          status: "workspace_changed",
+          path: null,
+          detail: "Workspace changed while topology freshness was captured.",
+        };
+  } finally {
+    source.reader.dispose?.();
+  }
 }
 
 function indexOptions(

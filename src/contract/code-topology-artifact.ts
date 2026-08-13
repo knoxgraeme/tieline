@@ -25,6 +25,11 @@ import type {
 export const CODE_TOPOLOGY_ARTIFACT_INDEX = "topology.json";
 export const CODE_TOPOLOGY_ARTIFACT_MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 export const CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES = 8 * 1024 * 1024;
+export const CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS = 5_000;
+export const CODE_TOPOLOGY_ARTIFACT_MAX_PATH_LENGTH = 1_000;
+export const CODE_TOPOLOGY_ARTIFACT_MAX_STRING_LENGTH = 8_000;
+export const CODE_TOPOLOGY_ARTIFACT_MAX_RECORDS =
+  CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS + 100_000 + CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS;
 
 type CompactSymbol = readonly [string, number, number | null];
 type RawCompactEdge = readonly [number, number, number, string, string | null];
@@ -306,8 +311,8 @@ export function topologyArtifactFromReadModel(
   return normalizedEnvelope(artifact);
 }
 
-function shardName(path: string): string {
-  return `files/${sha256(path).slice(0, 32)}.json`;
+function shardName(digest: string): string {
+  return `files/${digest}.json`;
 }
 
 /** Selected sharded compact JSON encoder. Local symbol IDs are sorted array indexes. */
@@ -423,13 +428,14 @@ export function serializeCodeTopologyArtifact(
     if (content.byteLength > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
       throw new Error(`Artifact shard for '${file.path}' exceeds the per-file byte limit.`);
     }
-    const name = shardName(file.path);
+    const digest = sha256(content);
+    const name = shardName(digest);
     if (files.has(name)) throw new Error(`Artifact shard-name collision for '${file.path}'.`);
     files.set(name, content);
     shards.push({
       file_path: file.path,
       name,
-      digest: sha256(content),
+      digest,
       bytes: content.byteLength,
       symbols: shard.symbols.length,
       edges: shard.edges.length,
@@ -473,6 +479,36 @@ function parseJson(bytes: Buffer, label: string): any {
   catch (error) { throw new Error(`${label} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`); }
 }
 
+function assertBoundedJson(value: unknown, label: string): void {
+  let visited = 0;
+  const visit = (entry: unknown, depth: number): void => {
+    visited += 1;
+    if (visited > 2_000_000) throw new Error(`${label} exceeds the decoded-value limit.`);
+    if (depth > 32) throw new Error(`${label} exceeds the nesting limit.`);
+    if (typeof entry === "string" && entry.length > CODE_TOPOLOGY_ARTIFACT_MAX_STRING_LENGTH) {
+      throw new Error(`${label} contains a string longer than ${CODE_TOPOLOGY_ARTIFACT_MAX_STRING_LENGTH} characters.`);
+    }
+    if (Array.isArray(entry)) {
+      if (entry.length > CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS) {
+        throw new Error(`${label} contains an oversized array.`);
+      }
+      for (const child of entry) visit(child, depth + 1);
+    } else if (entry !== null && typeof entry === "object") {
+      for (const [key, child] of Object.entries(entry as Record<string, unknown>)) {
+        if (key.length > CODE_TOPOLOGY_ARTIFACT_MAX_STRING_LENGTH) {
+          throw new Error(`${label} contains an oversized property name.`);
+        }
+        visit(child, depth + 1);
+      }
+    }
+  };
+  visit(value, 0);
+}
+
+function nonnegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
 /**
  * Parser-free production reader for the selected physical candidate.
  *
@@ -496,7 +532,9 @@ export function readCodeTopologyArtifact(
         return { status: "capacity_exceeded", detail: `Artifact file '${name}' exceeds the per-file byte limit.` };
       }
     }
-    const index = asObject(parseJson(indexBytes, CODE_TOPOLOGY_ARTIFACT_INDEX), "Artifact index") as unknown as ArtifactIndex;
+    const parsedIndex = parseJson(indexBytes, CODE_TOPOLOGY_ARTIFACT_INDEX);
+    assertBoundedJson(parsedIndex, "Artifact index");
+    const index = asObject(parsedIndex, "Artifact index") as unknown as ArtifactIndex;
     if (index.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION) {
       return { status: "incompatible", detail: `Unsupported artifact schema '${index.schema_version}'.` };
     }
@@ -509,10 +547,33 @@ export function readCodeTopologyArtifact(
       return { status: "incompatible", detail: "Unsupported topology artifact producer/provider." };
     }
     if (!Array.isArray(index.shards) || !index.generation || !index.counts) return invalid("Artifact index fields are incomplete.");
+    if (index.shards.length > CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS) {
+      return { status: "capacity_exceeded", detail: `Artifact exceeds the ${CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS}-shard limit.` };
+    }
+    if (!index.shards.every((entry) =>
+      nonnegativeInteger(entry?.bytes) && nonnegativeInteger(entry?.symbols) &&
+      nonnegativeInteger(entry?.edges) && nonnegativeInteger(entry?.frontiers)
+    )) return invalid("Artifact shard counts are malformed.");
+    if (![index.counts.files, index.counts.symbols, index.counts.references,
+      index.counts.resolutions, index.counts.edges, index.counts.frontiers,
+      index.counts.dependency_records].every(nonnegativeInteger)) {
+      return invalid("Artifact counts are malformed.");
+    }
+    if (index.shards.reduce((sum, entry) => sum + entry.edges + entry.frontiers, 0) > CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS) {
+      return { status: "capacity_exceeded", detail: "Artifact shard declarations exceed the dependency-record limit." };
+    }
+    if (index.shards.reduce((sum, entry) =>
+      sum + 1 + entry.symbols + entry.edges + entry.frontiers, 0
+    ) > CODE_TOPOLOGY_ARTIFACT_MAX_RECORDS) {
+      return { status: "capacity_exceeded", detail: "Artifact shard declarations exceed the total record limit." };
+    }
     if (index.selected_input_digest !== index.generation.revision) return invalid("Selected-input digest does not match the generation.");
     if (!sha256Pattern.test(index.artifact_digest) || !sha256Pattern.test(index.projection_digest)) return invalid("Artifact digests are malformed.");
     if (index.counts.dependency_records > CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS) {
       return { status: "capacity_exceeded", detail: "Artifact exceeds the dependency-record limit." };
+    }
+    if (!indexBytes.equals(Buffer.from(serializeIndex(index)))) {
+      return invalid("Artifact index bytes are not canonical.");
     }
 
     const files: CodeTopologyArtifactFileRecord[] = [];
@@ -527,12 +588,19 @@ export function readCodeTopologyArtifact(
       if (seenNames.has(entry.name) || seenPaths.has(entry.file_path)) return invalid("Artifact contains a duplicate shard identity.");
       seenNames.add(entry.name);
       seenPaths.add(entry.file_path);
-      if (entry.name !== shardName(entry.file_path) || entry.name.startsWith("/") || entry.name.includes("..")) return invalid(`Unsafe or mismatched shard name '${entry.name}'.`);
+      if (typeof entry.file_path !== "string" || entry.file_path.length > CODE_TOPOLOGY_ARTIFACT_MAX_PATH_LENGTH ||
+          typeof entry.name !== "string" || entry.name !== shardName(entry.digest) ||
+          entry.name.startsWith("/") || entry.name.includes("..")) return invalid(`Unsafe or mismatched shard name '${entry.name}'.`);
       const bytes = inputFiles.get(entry.name);
       if (!bytes || bytes.byteLength !== entry.bytes || sha256(bytes) !== entry.digest) return invalid(`Artifact shard '${entry.name}' is missing or corrupt.`);
-      const shard = asObject(parseJson(bytes, entry.name), "Artifact shard") as unknown as CompactShard;
+      const parsedShard = parseJson(bytes, entry.name);
+      assertBoundedJson(parsedShard, `Artifact shard '${entry.name}'`);
+      const shard = asObject(parsedShard, "Artifact shard") as unknown as CompactShard;
+      if (!bytes.equals(Buffer.from(`${canonicalCodeTopologyJson(shard)}\n`))) {
+        return invalid(`Artifact shard '${entry.name}' bytes are not canonical.`);
+      }
       if (shard.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION || shard.generation_identity !== index.generation.identity) return invalid(`Artifact shard '${entry.name}' belongs to another generation.`);
-      if (!shard.file || shard.file.path !== entry.file_path || !Array.isArray(shard.symbols) || !Array.isArray(shard.edges) || !Array.isArray(shard.frontiers) || !shard.symbol_dictionary || !Array.isArray(shard.edge_kinds) || !shard.frontier_dictionary) return invalid(`Artifact shard '${entry.name}' has an invalid shape.`);
+      if (!shard.file || shard.file.path !== entry.file_path || shard.file.path.length > CODE_TOPOLOGY_ARTIFACT_MAX_PATH_LENGTH || !Array.isArray(shard.symbols) || !Array.isArray(shard.edges) || !Array.isArray(shard.frontiers) || !shard.symbol_dictionary || !Array.isArray(shard.edge_kinds) || !shard.frontier_dictionary) return invalid(`Artifact shard '${entry.name}' has an invalid shape.`);
       if (shard.symbols.length !== entry.symbols || shard.edges.length !== entry.edges || shard.frontiers.length !== entry.frontiers) return invalid(`Artifact shard '${entry.name}' count mismatch.`);
       const localSymbols = shard.symbols.map((symbol): CodeTopologyTraversalSymbolRecord => {
         if (!Array.isArray(symbol) || symbol.length !== 3) throw new Error(`Artifact shard '${entry.name}' contains an invalid symbol.`);
