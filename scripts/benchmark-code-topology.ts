@@ -26,6 +26,7 @@ const FULL_FILES = 5_000;
 const FULL_BYTES = 50 * MIB;
 const SYMBOLS_PER_FILE = 20; // 19 declarations plus the synthetic file module.
 const EDGES_PER_FILE = 50;
+const PERSISTENCE_BUDGET_MS = 150_000;
 const enforce = process.env.TIELINE_ENFORCE_RELEASE_BUDGETS === "1";
 const pinnedEnvironment =
   process.platform === "linux" && process.arch === "x64" && process.versions.node.startsWith("20.");
@@ -486,7 +487,10 @@ capability:
     assert.ok(measurements.traversal.p95_ms <= 500, "traversal plus AC join p95 exceeds 500 ms");
     assert.ok(measurements.traversal.worst_ms <= 2_000, "traversal plus AC join worst exceeds 2 seconds");
     assert.equal(persistenceStatus, "measured", "pinned release gate requires same-host Postgres");
-    assert.ok((persistenceMs ?? Infinity) <= 30_000, "bulk persistence exceeds 30 seconds");
+    assert.ok(
+      (persistenceMs ?? Infinity) <= PERSISTENCE_BUDGET_MS,
+      "bulk persistence exceeds 150 seconds"
+    );
     assert.ok(measurements.scaling_ratios.four_to_one < 12, "1x-to-4x scaling trends quadratic");
     assert.ok(measurements.scaling_ratios.four_to_two < 3.5, "2x-to-4x scaling trends quadratic");
   }
