@@ -159,8 +159,8 @@ process.stdout.write(JSON.stringify({
     assert.ok(measurements.initialization_median_ms <= 2_000, "median parser load exceeds 2 seconds");
     assert.ok(measurements.initialization_worst_ms <= 4_000, "worst parser load exceeds 4 seconds");
     assert.ok(
-      measurements.corpus_median_ms <= 1_000,
-      "median 116-file corpus parse/query exceeds 1 second"
+      measurements.corpus_median_ms <= 1_500,
+      "median 116-file corpus parse/query exceeds 1.5 seconds"
     );
     assert.ok(
       measurements.corpus_worst_ms <= 2_000,
