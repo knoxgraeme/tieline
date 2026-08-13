@@ -45,10 +45,12 @@ change and pull request.
   or \`search_knowledge\` when no exact locator or AC ID is known.
 - \`trace_code_dependencies\` traverses bounded, statically derived project-local
   dependencies or dependents from one exact code locator. It reports the selected
-  generation, ordered paths, unresolved frontiers, and truncation state.
+  artifact provenance, generation, ordered paths, unresolved frontiers, and
+  truncation state. Repository reads never parse, compile, repair, or write.
 - \`analyze_code_blast_radius\` compares a Git base or explicit changed locators,
   computes derived reachability first, and then joins visited code to authored
-  direct or Story-fallback AC claims. Its \`may_be_impacted\` result is advisory,
+  direct or Story-fallback AC claims from the matching base/current manifest
+  roles. Its \`may_be_impacted\` result is advisory,
   keeps \`semantic_support: not_assessed\`, and never treats a shared AC as a code edge.
 - \`get_backlog_item\` returns a Backlog Item's optimistic revision and complete
   Observation/Story/AC link set before an update replaces state.

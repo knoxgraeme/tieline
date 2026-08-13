@@ -1,4 +1,3 @@
-import { readContractManifest } from "../contract/manifest.js";
 import { canonicalRepositoryRelativePath } from "../contract/paths.js";
 import { parseSelector } from "../contract/selector.js";
 import {
@@ -7,7 +6,6 @@ import {
   type CodeBlastRadiusResult,
 } from "../contract/code-blast-radius.js";
 import {
-  ImmutableCodeTopologySnapshotStore,
   traceCodeTopology,
   type CodeTopologyDirection,
   type CodeTopologyGenerationRole,
@@ -15,10 +13,16 @@ import {
   type CodeTopologyTraceResult,
   type CodeTopologyTraversalLimits,
 } from "../contract/code-topology.js";
+import { selectWorkspaceTopologyRole, type TopologyRoleSnapshot } from "../contract/topology-role-snapshot.js";
+import { selectGitTopologyRole } from "../contract/git-artifact-snapshot.js";
+import { ImmutableCodeTopologySnapshotStore } from "../contract/compact-code-topology-store.js";
 import {
-  buildCommittedTopologyReadModel,
-  TopologyReadModelService,
-} from "../contract/topology-generation.js";
+  composeIntentAwareRoleSnapshot,
+  selectGitManifestRole,
+  selectWorkspaceManifestRole,
+  type IntentAwareRoleSnapshot,
+  type ManifestLifecycleStatus,
+} from "../contract/intent-aware-role-snapshot.js";
 import { codeTopologyRuntimeCompatibility } from "../contract/code-topology-indexer.js";
 import type {
   CodeTopologyReadStore,
@@ -71,7 +75,14 @@ export type CodeTopologyUnavailableStatus =
   | "repository_mismatch"
   | "capacity_exceeded"
   | "source_unavailable"
-  | "workspace_changed";
+  | "workspace_changed"
+  | "topology_missing"
+  | "topology_missing_at_revision"
+  | "topology_stale"
+  | "topology_incompatible"
+  | "topology_invalid"
+  | "topology_capacity_exceeded"
+  | "topology_unsafe_path";
 
 export interface CodeTopologyUnavailableResult {
   status: CodeTopologyUnavailableStatus;
@@ -81,19 +92,46 @@ export interface CodeTopologyUnavailableResult {
 }
 
 export type DependencyTracePrimitiveResult =
-  | CodeTopologyTraceResult
+  | (CodeTopologyTraceResult & { topology_provenance: TopologyRoleProvenance })
   | CodeTopologyUnavailableResult;
 
+type RoleManifestStatus = `base_${ManifestLifecycleStatus}` | `current_${ManifestLifecycleStatus}`;
+
 export type BlastRadiusPrimitiveResult =
-  | CodeBlastRadiusResult
+  | (Extract<CodeBlastRadiusResult, { status: "complete" }> & {
+      topology_provenance: {
+        base: TopologyRoleProvenance | null;
+        current: TopologyRoleProvenance;
+      };
+      contract_provenance: {
+        base: ContractRoleProvenance | null;
+        current: ContractRoleProvenance;
+      };
+    })
+  | Exclude<CodeBlastRadiusResult, { status: "complete" }>
   | {
-      status: CodeTopologyUnavailableStatus | "contract_unavailable";
+      status: CodeTopologyUnavailableStatus | "contract_unavailable" | RoleManifestStatus;
       repository: string;
       detail: string;
       generation_identity?: string;
+      generation_role?: CodeTopologyGenerationRole;
     };
 
-const readModelService = new TopologyReadModelService();
+export interface TopologyRoleProvenance {
+  source: "workspace" | "git" | "persisted";
+  queried_revision: string | null;
+  generation_identity: string;
+  selected_input_digest: string | null;
+  artifact_digest: string | null;
+  projection_digest: string | null;
+  warnings: string[];
+}
+
+export interface ContractRoleProvenance {
+  source: "workspace" | "git";
+  queried_revision: string | null;
+  manifest_digest: string;
+}
 
 function persistedCompatibilityDetail(
   generation: CodeTopologyTraversalGenerationSummary
@@ -148,18 +186,15 @@ function sourceOptions(workspace: TielineWorkspace, repository: string) {
   };
 }
 
-function buildFailure(
-  repository: string,
-  result: {
-    status: "capacity_exceeded" | "source_unavailable" | "workspace_changed";
-    path: string | null;
-    detail: string;
-  }
-): CodeTopologyUnavailableResult {
+function artifactProvenance(snapshot: TopologyRoleSnapshot): TopologyRoleProvenance {
   return {
-    status: result.status,
-    repository,
-    detail: result.detail,
+    source: snapshot.source,
+    queried_revision: snapshot.queried_revision,
+    generation_identity: snapshot.generation_identity,
+    selected_input_digest: snapshot.selected_input_digest,
+    artifact_digest: snapshot.artifact_digest,
+    projection_digest: snapshot.projection_digest,
+    warnings: [...snapshot.warnings],
   };
 }
 
@@ -171,6 +206,8 @@ async function selectedGeneration(
       status: "complete";
       store: CodeTopologyReadStore;
       summary: CodeTopologyTraversalGenerationSummary;
+      provenance: TopologyRoleProvenance;
+      dispose(): void;
     }
   | CodeTopologyUnavailableResult
 > {
@@ -202,7 +239,21 @@ async function selectedGeneration(
         detail: incompatibility,
       };
     }
-    return { status: "complete", store, summary: generation };
+    return {
+      status: "complete",
+      store,
+      summary: generation,
+      provenance: {
+        source: "persisted",
+        queried_revision: null,
+        generation_identity: generation.header.identity,
+        selected_input_digest: null,
+        artifact_digest: null,
+        projection_digest: null,
+        warnings: [],
+      },
+      dispose() {},
+    };
   }
   if (!workspace) {
     if (options.revision) {
@@ -248,20 +299,46 @@ async function selectedGeneration(
         detail: incompatibility,
       };
     }
-    return { status: "complete", store, summary: generation };
+    return {
+      status: "complete",
+      store,
+      summary: generation,
+      provenance: {
+        source: "persisted",
+        queried_revision: null,
+        generation_identity: generation.header.identity,
+        selected_input_digest: null,
+        artifact_digest: null,
+        projection_digest: null,
+        warnings: [],
+      },
+      dispose() {},
+    };
   }
-  const built = options.revision
-    ? await buildCommittedTopologyReadModel({
+  const selected = options.revision
+    ? selectGitTopologyRole({
         ...sourceOptions(workspace, options.repository),
         revision: options.revision,
       })
-    : await readModelService.buildWorkspace(
-        sourceOptions(workspace, options.repository)
-      );
-  if (built.status !== "complete") return buildFailure(options.repository, built);
-  const snapshot = new ImmutableCodeTopologySnapshotStore();
-  const summary = snapshot.addReadModel(built.read_model);
-  return { status: "complete", store: snapshot, summary };
+    : selectWorkspaceTopologyRole(sourceOptions(workspace, options.repository));
+  if (selected.status !== "current") {
+    return {
+      status: selected.status,
+      repository: options.repository,
+      detail: selected.detail,
+      ...(selected.generation_identity
+        ? { generation_identity: selected.generation_identity }
+        : {}),
+    };
+  }
+  const snapshot = selected.snapshot;
+  return {
+    status: "complete",
+    store: snapshot.store,
+    summary: { header: snapshot.metadata.generation, counts: snapshot.metadata.counts },
+    provenance: artifactProvenance(snapshot),
+    dispose() { snapshot.dispose(); },
+  };
 }
 
 /** Shared primitive used unchanged by CLI and MCP structured output. */
@@ -281,14 +358,19 @@ export async function executeDependencyTrace(
   }
   const selected = await selectedGeneration(options, workspace);
   if (selected.status !== "complete") return selected;
-  return traceCodeTopology({
-    store: selected.store,
-    generation_identity: selected.summary.header.identity,
-    generation_role: options.role,
-    locator: locator(options.repository, options.locator),
-    direction: options.direction,
-    limits: options.limits,
-  });
+  try {
+    const result = await traceCodeTopology({
+      store: selected.store,
+      generation_identity: selected.summary.header.identity,
+      generation_role: options.role,
+      locator: locator(options.repository, options.locator),
+      direction: options.direction,
+      limits: options.limits,
+    });
+    return { ...result, topology_provenance: selected.provenance };
+  } finally {
+    selected.dispose();
+  }
 }
 
 function explicitChanges(
@@ -325,61 +407,115 @@ export async function executeChangeBlastRadius(
       detail: `Workspace '${workspace.root}' declares repository '${workspace.config.product.repo_name}', not '${options.repository}'.`,
     };
   }
-  let manifest;
-  try {
-    manifest = readContractManifest(workspace.manifestPath);
-  } catch (error) {
-    return {
-      status: "no_manifest",
-      repository: options.repository,
-      detail: `The contract manifest '${workspace.manifestPath}' is missing or unreadable: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
   const common = sourceOptions(workspace, options.repository);
-  let base: {
-    store: CodeTopologyReadStore;
-    summary: CodeTopologyTraversalGenerationSummary;
-  } | undefined;
-  let current: {
-    store: CodeTopologyReadStore;
-    summary: CodeTopologyTraversalGenerationSummary;
-  };
-  if (options.base) {
-    const snapshot = new ImmutableCodeTopologySnapshotStore();
-    const baseBuild = await buildCommittedTopologyReadModel({
-      ...common,
-      revision: options.base,
+  const selectCurrent = (): IntentAwareRoleSnapshot | BlastRadiusPrimitiveResult => {
+    const topology = selectWorkspaceTopologyRole(common);
+    if (topology.status !== "current") {
+      return {
+        status: topology.status,
+        repository: options.repository,
+        generation_role: "current",
+        detail: topology.detail,
+      };
+    }
+    const contract = selectWorkspaceManifestRole(workspace, options.repository);
+    if (contract.status !== "current") {
+      topology.snapshot.dispose();
+      return {
+        status: `current_${contract.status}`,
+        repository: options.repository,
+        generation_role: "current",
+        detail: contract.detail,
+      };
+    }
+    return composeIntentAwareRoleSnapshot({
+      topology: topology.snapshot,
+      contract: contract.snapshot,
     });
-    if (baseBuild.status !== "complete") return buildFailure(options.repository, baseBuild);
-    const baseSummary = snapshot.addReadModel(baseBuild.read_model);
-    const currentBuild = await readModelService.buildWorkspace(common);
-    if (currentBuild.status !== "complete") return buildFailure(options.repository, currentBuild);
-    const currentSummary = snapshot.addReadModel(currentBuild.read_model);
-    base = { store: snapshot, summary: baseSummary };
-    current = { store: snapshot, summary: currentSummary };
-  } else {
-    const selected = await selectedGeneration(options, workspace);
-    if (selected.status !== "complete") return selected;
-    current = { store: selected.store, summary: selected.summary };
+  };
+  const current = selectCurrent();
+  if (!("topology" in current)) return current;
+  let base: IntentAwareRoleSnapshot | undefined;
+  let comparisonStore: ImmutableCodeTopologySnapshotStore | undefined;
+  try {
+    if (options.base) {
+      const topology = selectGitTopologyRole({ ...common, revision: options.base });
+      if (topology.status !== "current") {
+        return {
+          status: topology.status,
+          repository: options.repository,
+          generation_role: "base",
+          detail: topology.detail,
+        };
+      }
+      const commit = topology.snapshot.queried_revision!;
+      const contract = selectGitManifestRole({
+        repositoryRoot: workspace.root,
+        repository: options.repository,
+        commit,
+        manifestPath: workspace.manifestPath,
+      });
+      if (contract.status !== "current") {
+        topology.snapshot.dispose();
+        return {
+          status: `base_${contract.status}`,
+          repository: options.repository,
+          generation_role: "base",
+          detail: contract.detail,
+        };
+      }
+      base = composeIntentAwareRoleSnapshot({
+        topology: topology.snapshot,
+        contract: contract.snapshot,
+      });
+      comparisonStore = new ImmutableCodeTopologySnapshotStore();
+      comparisonStore.addReadModel(base.topology.read_model);
+      comparisonStore.addReadModel(current.topology.read_model);
+    }
+    const currentStore = comparisonStore ?? current.topology.store;
+    const result = await analyzeCodeBlastRadius({
+      current: {
+        store: currentStore,
+        generation_identity: current.topology.generation_identity,
+      },
+      ...(base ? {
+        base: {
+          store: comparisonStore!,
+          generation_identity: base.topology.generation_identity,
+        },
+      } : {}),
+      manifests: {
+        current: current.contract.manifest,
+        ...(base ? { base: base.contract.manifest } : {}),
+      },
+      changes: explicitChanges(options.repository, options.changes),
+      direction: options.direction,
+      limits: options.limits,
+    });
+    return result.status === "complete" ? {
+      ...result,
+      topology_provenance: {
+        base: base ? artifactProvenance(base.topology) : null,
+        current: artifactProvenance(current.topology),
+      },
+      contract_provenance: {
+        base: base ? {
+          source: base.contract.source,
+          queried_revision: base.contract.queried_revision,
+          manifest_digest: base.contract.manifest_digest,
+        } : null,
+        current: {
+          source: current.contract.source,
+          queried_revision: current.contract.queried_revision,
+          manifest_digest: current.contract.manifest_digest,
+        },
+      },
+    } : result;
+  } finally {
+    comparisonStore?.dispose();
+    base?.dispose();
+    current.dispose();
   }
-  return analyzeCodeBlastRadius({
-    current: {
-      store: current.store,
-      generation_identity: current.summary.header.identity,
-    },
-    ...(base
-      ? {
-          base: {
-            store: base.store,
-            generation_identity: base.summary.header.identity,
-          },
-        }
-      : {}),
-    manifest,
-    changes: explicitChanges(options.repository, options.changes),
-    direction: options.direction,
-    limits: options.limits,
-  });
 }
 
 export function renderDependencyTraceText(
@@ -411,7 +547,10 @@ export function renderBlastRadiusText(
   text += `Direction: ${result.direction}; relationship: derived_code_dependency\n`;
   text += `Current generation: ${result.generations.current.identity}\n`;
   if (result.generations.base) text += `Base generation: ${result.generations.base.identity}\n`;
-  text += `Manifest: ${result.authored_contract.manifest_digest}\n`;
+  text += `Current manifest: ${result.authored_contracts.current.manifest_digest}\n`;
+  if (result.authored_contracts.base) {
+    text += `Base manifest: ${result.authored_contracts.base.manifest_digest}\n`;
+  }
   text += `Visited: ${result.visited.length}; paths: ${result.paths.length}; frontiers: ${result.frontiers.length}; AC joins: ${result.intent_impacts.length}\n`;
   text += `Truncated: ${result.truncation.truncated}${result.truncation.reasons.length ? ` (${result.truncation.reasons.join(", ")})` : ""}\n`;
   for (const impact of result.intent_impacts) {
@@ -430,7 +569,7 @@ export async function runDependencyTraceCommand(
       ? `${JSON.stringify(result, null, 2)}\n`
       : renderDependencyTraceText(result)
   );
-  return 0;
+  return result.status === "complete" ? 0 : 1;
 }
 
 export async function runBlastRadiusCommand(
@@ -443,5 +582,5 @@ export async function runBlastRadiusCommand(
       ? `${JSON.stringify(result, null, 2)}\n`
       : renderBlastRadiusText(result)
   );
-  return 0;
+  return result.status === "complete" ? 0 : 1;
 }

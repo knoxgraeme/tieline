@@ -472,19 +472,25 @@ evidence locator—not a receipt that the test ran or passed.
 
 Tieline can separately derive a conservative code topology from repository
 source. This does not replace the authored contract and does not use a graph
-database. Complete committed generations are stored as immutable relational
-rows in PostgreSQL; dirty working-tree generations stay in a bounded in-memory
-cache. The compiled manifest remains the authority for business intent.
+database. Developers explicitly compile a thin, reviewable artifact under
+`.tieline/topology/`; local and historical reads select that artifact without
+parsing source or writing files. Complete hosted generations remain available
+as immutable relational rows in PostgreSQL. The compiled manifest remains the
+authority for business intent.
 
-Local trace and blast-radius reads retain a thin traversal projection: file
+The repository artifact retains a thin traversal projection: file
 hashes, locator-bearing symbols, adjacency, and unresolved dependency
 frontiers. Parser diagnostics, source ranges, reference facts, and resolved
 explanations remain available in committed PostgreSQL generations but are not
-duplicated in the runtime graph. Parsing is reduced to resolution inputs before
-cross-file resolution, and the cache coalesces identical workspace builds while
-holding at most two projections, 256 MiB, or five minutes of state.
+duplicated in the artifact.
 
 ```bash
+# Explicitly derive the artifact after selected source or resolver changes.
+tieline code compile . --json
+
+# Verify integrity and freshness without parsing or writing.
+tieline code validate . --json
+
 # Follow statically derived imports from one exact symbol.
 tieline code trace --path src/commands/code-topology.ts \
   --selector function:executeDependencyTrace --direction dependencies --json
@@ -496,11 +502,13 @@ tieline code blast-radius --base origin/main --json
 
 The equivalent read-only MCP tools are `trace_code_dependencies` and
 `analyze_code_blast_radius`. CLI and MCP delegate to the same domain results.
-Local reads need no database: they parse the selected revision or working tree
-ephemerally. A hosted dependency trace can select a compatible complete
-Postgres generation when no checkout is available. AC-aware blast radius still
-requires a readable workspace manifest; hosted topology alone cannot supply or
-infer authored intent.
+Local reads need no database and never compile or silently repair topology.
+Missing, stale, incompatible, invalid, over-capacity, and unsafe artifacts are
+named nonzero outcomes with an explicit compile remediation only for mutable
+workspace state. Historical reads load the topology and, for blast radius, the
+manifest from the same resolved commit. A hosted dependency trace can continue
+to select a compatible complete Postgres generation when no checkout is
+available.
 
 Supported structural facts are intentionally narrower than each language:
 

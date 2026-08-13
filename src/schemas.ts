@@ -443,6 +443,20 @@ const topologyTruncationOutput = z.object({
   edges: topologyDimensionOutput,
   paths: topologyDimensionOutput,
 });
+const topologyRoleProvenanceOutput = z.object({
+  source: z.enum(["workspace", "git", "persisted"]),
+  queried_revision: z.string().nullable(),
+  generation_identity: z.string(),
+  selected_input_digest: z.string().nullable(),
+  artifact_digest: z.string().nullable(),
+  projection_digest: z.string().nullable(),
+  warnings: z.array(z.string()),
+});
+const contractRoleProvenanceOutput = z.object({
+  source: z.enum(["workspace", "git"]),
+  queried_revision: z.string().nullable(),
+  manifest_digest: z.string(),
+});
 const traceUnavailableStatus = z.enum([
   "no_workspace",
   "generation_unavailable",
@@ -450,6 +464,13 @@ const traceUnavailableStatus = z.enum([
   "capacity_exceeded",
   "source_unavailable",
   "workspace_changed",
+  "topology_missing",
+  "topology_missing_at_revision",
+  "topology_stale",
+  "topology_incompatible",
+  "topology_invalid",
+  "topology_capacity_exceeded",
+  "topology_unsafe_path",
   "repository_mismatch",
   "unresolved_start",
   "ambiguous_start",
@@ -474,6 +495,7 @@ const completeTraceCodeDependenciesOutput = z.object({
   paths: z.array(topologyPathOutput),
   frontiers: z.array(topologyFrontierOutput),
   truncation: topologyTruncationOutput,
+  topology_provenance: topologyRoleProvenanceOutput,
 });
 export const traceCodeDependenciesOutputSchema = z.union([
   completeTraceCodeDependenciesOutput,
@@ -485,6 +507,7 @@ export const traceCodeDependenciesOutputShape = {
   detail: z.string().optional(),
   locator: topologyLocatorOutput.optional(),
   matches: z.array(topologyNodeOutput).optional(),
+  topology_provenance: topologyRoleProvenanceOutput.optional(),
 };
 
 const topologyFileChangeOutput = z.union([
@@ -539,7 +562,38 @@ const blastUnavailableStatus = z.enum([
   "workspace_changed",
   "repository_mismatch",
   "incompatible_generations",
+  "topology_missing",
+  "topology_missing_at_revision",
+  "topology_stale",
+  "topology_incompatible",
+  "topology_invalid",
+  "topology_capacity_exceeded",
+  "topology_unsafe_path",
+  "base_manifest_missing",
+  "base_manifest_stale",
+  "base_manifest_incompatible",
+  "base_manifest_invalid",
+  "current_manifest_missing",
+  "current_manifest_stale",
+  "current_manifest_incompatible",
+  "current_manifest_invalid",
 ]);
+const authoredContractRoleOutput = z.object({
+  manifest_digest: z.string(),
+  checkpoint_identity: z.string().nullable(),
+  revision: z.string().nullable(),
+});
+const intentCoverageOutput = z.object({
+  visited_locators: z.array(z.object({
+    locator: topologyLocatorOutput,
+    claim_scope: z.enum(["direct", "story_fallback", "no_claim"]),
+  })),
+  counts: z.object({
+    direct: z.number().int(),
+    story_fallback: z.number().int(),
+    no_claim: z.number().int(),
+  }),
+});
 const completeAnalyzeCodeBlastRadiusOutput = z.object({
   status: z.literal("complete"),
   advisory: z.literal(true),
@@ -554,10 +608,9 @@ const completeAnalyzeCodeBlastRadiusOutput = z.object({
     base: z.object({ identity: z.string(), revision: z.string() }).nullable(),
     current: z.object({ identity: z.string(), revision: z.string() }),
   }),
-  authored_contract: z.object({
-    manifest_digest: z.string(),
-    checkpoint_identity: z.string().nullable(),
-    revision: z.string().nullable(),
+  authored_contracts: z.object({
+    base: authoredContractRoleOutput.nullable(),
+    current: authoredContractRoleOutput,
   }),
   revision_divergence: z.object({
     base: z.enum(["aligned", "diverged", "unknown"]).nullable(),
@@ -568,6 +621,18 @@ const completeAnalyzeCodeBlastRadiusOutput = z.object({
   frontiers: z.array(topologyFrontierOutput),
   start_outcomes: z.array(topologyStartOutcomeOutput),
   intent_impacts: z.array(topologyIntentImpactOutput),
+  intent_coverage: z.object({
+    base: intentCoverageOutput.nullable(),
+    current: intentCoverageOutput,
+  }),
+  topology_provenance: z.object({
+    base: topologyRoleProvenanceOutput.nullable(),
+    current: topologyRoleProvenanceOutput,
+  }),
+  contract_provenance: z.object({
+    base: contractRoleProvenanceOutput.nullable(),
+    current: contractRoleProvenanceOutput,
+  }),
   truncation: topologyTruncationOutput.extend({
     omitted_starts: z.number().int(),
   }),

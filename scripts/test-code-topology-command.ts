@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -82,9 +82,9 @@ const io: TielineCliIO = {
   async question() { throw new Error("code topology commands must not prompt"); },
 };
 
-async function cli(args: string[]): Promise<Record<string, unknown>> {
+async function cli(args: string[], expectedExit = 0): Promise<Record<string, unknown>> {
   output = "";
-  assert.equal(await runCli(args, io, {}), 0);
+  assert.equal(await runCli(args, io, {}), expectedExit);
   return JSON.parse(output) as Record<string, unknown>;
 }
 
@@ -93,6 +93,17 @@ console.log("Code topology command and MCP parity");
 try {
   await test("compile fixture manifest", async () => {
     await cli(["contract", "compile", fixtureRoot, "--repo", "topology-fixture", "--json"]);
+  });
+
+  await test("compile the explicit repository topology artifact", async () => {
+    const compiled = await cli(["code", "compile", fixtureRoot, "--json"]);
+    assert.equal(compiled.status, "current");
+    execFileSync("git", ["add", "."], { cwd: fixtureRoot });
+    execFileSync(
+      "git",
+      ["-c", "user.name=Tieline Test", "-c", "user.email=test@tieline.invalid", "commit", "-qm", "compiled artifacts"],
+      { cwd: fixtureRoot }
+    );
   });
 
   const traceArgs = [
@@ -113,6 +124,38 @@ try {
         (path) => path.relationship === "derived_code_dependency"
       )
     );
+  });
+
+  await test("stale artifact reads fail without repairing or rewriting", async () => {
+    const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
+    const artifactPath = resolve(fixtureRoot, ".tieline/topology/topology.json");
+    const source = readFileSync(sourcePath, "utf8");
+    const artifact = readFileSync(artifactPath);
+    writeFileSync(sourcePath, `${source}// selected input changed\n`);
+    try {
+      const stale = await cli(traceArgs, 1);
+      assert.equal(stale.status, "topology_stale");
+      assert.deepEqual(readFileSync(artifactPath), artifact);
+    } finally {
+      writeFileSync(sourcePath, source);
+    }
+  });
+
+  await test("trace ignores manifest health while blast fails the current contract role", async () => {
+    const manifest = resolve(fixtureRoot, ".tieline/manifest");
+    const hidden = resolve(fixtureRoot, ".tieline/manifest.hidden");
+    renameSync(manifest, hidden);
+    try {
+      const traced = await cli(traceArgs);
+      assert.equal(traced.status, "complete");
+      const blast = await cli([
+        "code", "blast-radius", "--repository", fixtureRoot, "--repo", "topology-fixture",
+        "--changed", "src/consumer.ts", "--json",
+      ], 1);
+      assert.equal(blast.status, "current_manifest_missing");
+    } finally {
+      renameSync(hidden, manifest);
+    }
   });
 
   await test("CLI text renders the same bounded trace semantics", async () => {
@@ -155,6 +198,39 @@ try {
     assert.ok(impacts.every((impact) => impact.semantic_support === "not_assessed"));
   });
 
+  await test("Git base selects topology and manifest from one resolved commit", async () => {
+    const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: fixtureRoot,
+      encoding: "utf8",
+    }).trim();
+    const result = await cli([
+      "code", "blast-radius", "--repository", fixtureRoot, "--repo", "topology-fixture",
+      "--base", "HEAD", "--json",
+    ]);
+    assert.equal(result.status, "complete");
+    const topology = result.topology_provenance as {
+      base: { queried_revision: string };
+      current: { source: string };
+    };
+    const contract = result.contract_provenance as {
+      base: { queried_revision: string };
+      current: { source: string };
+    };
+    assert.equal(topology.base.queried_revision, commit);
+    assert.equal(contract.base.queried_revision, commit);
+    assert.equal(topology.current.source, "workspace");
+    assert.equal(contract.current.source, "workspace");
+  });
+
+  await test("pre-bootstrap Git topology is a named immutable-revision outcome", async () => {
+    const result = await cli([
+      "code", "trace", "--repository", fixtureRoot, "--repo", "topology-fixture",
+      "--revision", "HEAD~1", "--path", "src/consumer.ts", "--json",
+    ], 1);
+    assert.equal(result.status, "topology_missing_at_revision");
+    assert.doesNotMatch(String(result.detail), /compile/i);
+  });
+
   await test("CLI rejects a blast request without exactly one change source", async () => {
     await assert.rejects(
       runCli([
@@ -168,8 +244,8 @@ try {
     const invalidBase = await cli([
       "code", "blast-radius", "--repository", fixtureRoot, "--repo", "topology-fixture",
       "--base", "refs/heads/does-not-exist", "--json",
-    ]);
-    assert.equal(invalidBase.status, "source_unavailable");
+    ], 1);
+    assert.equal(invalidBase.status, "topology_invalid");
     assert.match(String(invalidBase.detail), /does-not-exist|unknown revision|ambiguous argument/i);
   });
 
@@ -222,6 +298,30 @@ try {
       });
       assert.notEqual(blast.isError, true);
       assert.deepEqual(blast.structuredContent, cliBlast!);
+
+      const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
+      const source = readFileSync(sourcePath, "utf8");
+      writeFileSync(sourcePath, `${source}// stale for parity\n`);
+      try {
+        const staleCli = await cli(traceArgs, 1);
+        const staleMcp = await client.callTool({
+          name: "trace_code_dependencies",
+          arguments: {
+            repository: "topology-fixture",
+            path: "./src/consumer.ts",
+            direction: "dependencies",
+            generation_role: "current",
+            depth: 2,
+            nodes: 10,
+            edges: 20,
+            paths: 10,
+          },
+        });
+        assert.notEqual(staleMcp.isError, true);
+        assert.deepEqual(staleMcp.structuredContent, staleCli);
+      } finally {
+        writeFileSync(sourcePath, source);
+      }
     } finally {
       await client.close();
       await server.close();
@@ -298,7 +398,7 @@ try {
       assert.equal(await runCli([
         "code", "trace", "--repo", "topology-fixture", "--revision", "HEAD",
         "--path", "src/consumer.ts", "--json",
-      ], io, { DATABASE_URL: "postgres://configured-for-fake" }), 0);
+      ], io, { DATABASE_URL: "postgres://configured-for-fake" }), 1);
       const revisionWithoutWorkspace = JSON.parse(output) as Record<string, unknown>;
       assert.equal(revisionWithoutWorkspace.status, "source_unavailable");
       assert.match(String(revisionWithoutWorkspace.detail), /requires a readable local workspace/);
@@ -322,7 +422,7 @@ try {
       assert.equal(await runCli([
         "code", "trace", "--repo", "topology-fixture", "--generation",
         incompatible.header.identity, "--path", "src/consumer.ts", "--json",
-      ], io, { DATABASE_URL: "postgres://configured-for-fake" }), 0);
+      ], io, { DATABASE_URL: "postgres://configured-for-fake" }), 1);
       const incompatibleResult = JSON.parse(output) as Record<string, unknown>;
       assert.equal(incompatibleResult.status, "incompatible_generation");
       assert.match(String(incompatibleResult.detail), /incompatible parser, resolver, schema, or fact policy/);
@@ -338,7 +438,7 @@ try {
     const mismatch = await cli([
       "code", "trace", "--repository", fixtureRoot, "--repo", "different-repository",
       "--path", "src/consumer.ts", "--json",
-    ]);
+    ], 1);
     assert.equal(mismatch.status, "repository_mismatch");
     assert.match(String(mismatch.detail), /declares repository 'topology-fixture'/);
   });
@@ -352,7 +452,7 @@ try {
       process.chdir(empty);
       const result = await cli([
         "code", "trace", "--repo", "hosted-repository", "--path", "src/missing.ts", "--json",
-      ]);
+      ], 1);
       assert.equal(result.status, "no_workspace");
       assert.match(String(result.detail), /DATABASE_URL is not configured/);
     } finally {

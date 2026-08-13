@@ -81,7 +81,12 @@ export interface CodeBlastRadiusIntentImpact {
 export interface AnalyzeCodeBlastRadiusInput {
   current: CodeTopologyRoleInput;
   base?: CodeTopologyRoleInput;
-  manifest: ContractManifest;
+  /** Legacy single-role manifest; hosted Phase 1 callers may continue to supply it. */
+  manifest?: ContractManifest;
+  manifests?: {
+    current: ContractManifest;
+    base?: ContractManifest;
+  };
   authored_checkpoint?: AuthoredContractCheckpoint;
   changes?: readonly CodeBlastRadiusExplicitChange[];
   direction?: CodeTopologyDirection;
@@ -98,10 +103,17 @@ interface CompleteCodeBlastRadiusResult {
     base: { identity: string; revision: string } | null;
     current: { identity: string; revision: string };
   };
-  authored_contract: {
-    manifest_digest: string;
-    checkpoint_identity: string | null;
-    revision: string | null;
+  authored_contracts: {
+    base: {
+      manifest_digest: string;
+      checkpoint_identity: string | null;
+      revision: string | null;
+    } | null;
+    current: {
+      manifest_digest: string;
+      checkpoint_identity: string | null;
+      revision: string | null;
+    };
   };
   revision_divergence: {
     base: RevisionDivergence | null;
@@ -112,7 +124,23 @@ interface CompleteCodeBlastRadiusResult {
   frontiers: CodeTopologyTraversalFrontier[];
   start_outcomes: CodeTopologyBatchStartOutcome[];
   intent_impacts: CodeBlastRadiusIntentImpact[];
+  intent_coverage: {
+    base: CodeBlastRadiusIntentCoverage | null;
+    current: CodeBlastRadiusIntentCoverage;
+  };
   truncation: CodeTopologyTruncation & { omitted_starts: number };
+}
+
+export interface CodeBlastRadiusIntentCoverage {
+  visited_locators: Array<{
+    locator: CodeTopologyLocator;
+    claim_scope: "direct" | "story_fallback" | "no_claim";
+  }>;
+  counts: {
+    direct: number;
+    story_fallback: number;
+    no_claim: number;
+  };
 }
 
 export type CodeBlastRadiusResult =
@@ -247,6 +275,9 @@ function claimsForNode(
 export async function analyzeCodeBlastRadius(
   input: AnalyzeCodeBlastRadiusInput
 ): Promise<CodeBlastRadiusResult> {
+  const currentManifest = input.manifests?.current ?? input.manifest;
+  if (!currentManifest) throw new Error("A current authored manifest role is required.");
+  const baseManifest = input.manifests?.base ?? input.manifest ?? currentManifest;
   const [base, current] = await Promise.all([
     input.base?.store.getGenerationSummary(input.base.generation_identity) ?? Promise.resolve(null),
     input.current.store.getGenerationSummary(input.current.generation_identity),
@@ -406,8 +437,15 @@ export async function analyzeCodeBlastRadius(
     omitted.paths += omittedStarts;
   }
   const visited = [...nodeMap.values()];
-  const index = buildContractIntentIndex(input.manifest);
+  const indexes = {
+    base: buildContractIntentIndex(baseManifest),
+    current: buildContractIntentIndex(currentManifest),
+  };
   const impacts: CodeBlastRadiusIntentImpact[] = [];
+  const coverage: Record<CodeTopologyGenerationRole, CodeBlastRadiusIntentCoverage> = {
+    base: { visited_locators: [], counts: { direct: 0, story_fallback: 0, no_claim: 0 } },
+    current: { visited_locators: [], counts: { direct: 0, story_fallback: 0, no_claim: 0 } },
+  };
   const reachedByPath = new Set(
     [...pathMap.values()].flatMap((path) => path.nodes.slice(1).map((node) =>
       `${node.generation_role}\0${node.generation_identity}\0${node.symbol_identity}`
@@ -415,7 +453,19 @@ export async function analyzeCodeBlastRadius(
   );
   for (const node of visited) {
     const nodeKey = `${node.generation_role}\0${node.generation_identity}\0${node.symbol_identity}`;
-    for (const claim of claimsForNode(node, index.claims_by_path.get(node.locator.path) ?? [])) {
+    const index = indexes[node.generation_role];
+    const claims = claimsForNode(node, index.claims_by_path.get(node.locator.path) ?? []);
+    const claimScope = claims.some((claim) => claim.link_scope === "direct")
+      ? "direct"
+      : claims.length > 0
+        ? "story_fallback"
+        : "no_claim";
+    coverage[node.generation_role].visited_locators.push({
+      locator: node.locator,
+      claim_scope: claimScope,
+    });
+    coverage[node.generation_role].counts[claimScope] += 1;
+    for (const claim of claims) {
       impacts.push({
         impact: "may_be_impacted",
         relationship: "contract_coupling",
@@ -457,10 +507,17 @@ export async function analyzeCodeBlastRadius(
       base: base ? { identity: base.header.identity, revision: base.header.revision } : null,
       current: { identity: current.header.identity, revision: current.header.revision },
     },
-    authored_contract: {
-      manifest_digest: manifestDigest(input.manifest),
-      checkpoint_identity: input.authored_checkpoint?.identity ?? null,
-      revision: input.authored_checkpoint?.revision ?? null,
+    authored_contracts: {
+      base: base ? {
+        manifest_digest: manifestDigest(baseManifest),
+        checkpoint_identity: input.authored_checkpoint?.identity ?? null,
+        revision: input.authored_checkpoint?.revision ?? null,
+      } : null,
+      current: {
+        manifest_digest: manifestDigest(currentManifest),
+        checkpoint_identity: input.authored_checkpoint?.identity ?? null,
+        revision: input.authored_checkpoint?.revision ?? null,
+      },
     },
     revision_divergence: {
       base: base ? divergence(base.header.revision, input.authored_checkpoint?.revision) : null,
@@ -475,6 +532,10 @@ export async function analyzeCodeBlastRadius(
     ),
     start_outcomes: startOutcomes,
     intent_impacts: impacts,
+    intent_coverage: {
+      base: base ? coverage.base : null,
+      current: coverage.current,
+    },
     truncation: {
       truncated: reasons.size > 0,
       reasons: (["depth", "nodes", "edges", "paths"] as const).filter((reason) => reasons.has(reason)),

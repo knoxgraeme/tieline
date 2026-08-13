@@ -24,11 +24,11 @@ const READ_ONLY_ANNOTATIONS = {
 
 const TRACE_DESCRIPTION = `Trace statically derived project-local code dependencies or dependents from one exact path and optional canonical selector. The traversal is bounded, cycle-safe, generation-identified, and retains unresolved or ambiguous frontiers.
 
-This is derived_code_dependency evidence, not contract authority or proof that implementation satisfies an Acceptance Criterion. Local workspace reads build an ephemeral topology without Postgres. Hosted reads may select a complete persisted generation when DATABASE_URL is configured.`;
+This is derived_code_dependency evidence, not contract authority or proof that implementation satisfies an Acceptance Criterion. Repository reads select the existing committed topology artifact and never compile, parse source, repair, or write. Hosted reads preserve complete persisted-generation selection when DATABASE_URL is configured. Lifecycle failures are returned as structured read results.`;
 
 const BLAST_DESCRIPTION = `Analyze advisory AC-aware code blast radius from either a Git base or explicit changed locators. Code reachability is computed first, then visited exact locators are joined to authored direct or Story-fallback contract_coupling claims.
 
-Results mean may_be_impacted with semantic_support:not_assessed. Sharing an Acceptance Criterion never creates a code dependency. The default direction is dependents. A readable workspace manifest is required so authored authority is never inferred from hosted topology alone.`;
+Results mean may_be_impacted with semantic_support:not_assessed. Sharing an Acceptance Criterion never creates a code dependency. The default direction is dependents. Base and current topology and manifest roles are selected independently from matching immutable snapshots; repository reads never compile, parse source, repair, or write. Lifecycle failures are returned as structured read results.`;
 
 function limits(input: {
   depth?: number;

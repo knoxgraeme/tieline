@@ -135,6 +135,32 @@ capability:
     if (divergent.status === "complete") assert.equal(divergent.revision_divergence.current, "diverged");
   });
 
+  await test("joins base and current intent independently and reports no-claim coverage", async () => {
+    const currentManifest = structuredClone(manifest);
+    currentManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links =
+      currentManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links.filter(
+        (link) => link.target.path !== "src/b.ts"
+      );
+    const result = await analyzeCodeBlastRadius({
+      base: { store, generation_identity: base.header.identity },
+      current: { store, generation_identity: current.header.identity },
+      manifests: { base: manifest, current: currentManifest },
+    });
+    assert.equal(result.status, "complete");
+    if (result.status !== "complete") return;
+    assert.ok(result.intent_impacts.some((impact) =>
+      impact.generation_role === "base" && impact.locator.path === "src/b.ts"
+    ));
+    assert.ok(!result.intent_impacts.some((impact) =>
+      impact.generation_role === "current" && impact.locator.path === "src/b.ts"
+    ));
+    assert.ok(result.intent_coverage.base!.counts.direct > 0);
+    assert.ok(result.intent_coverage.current.counts.no_claim > 0);
+    assert.ok(result.intent_coverage.current.visited_locators.some((entry) =>
+      entry.locator.path === "src/b.ts" && entry.claim_scope === "no_claim"
+    ));
+  });
+
   await test("compares rename and edge-retarget roles without losing deleted-side intent", async () => {
     renameSync(join(root, "src/b.ts"), join(root, "src/d.ts"));
     writeFileSync(join(root, "src/a.ts"), 'import { b } from "./d";\nexport const a = b;\n');

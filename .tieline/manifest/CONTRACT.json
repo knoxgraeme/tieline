@@ -352,7 +352,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b68fbd32c123b233e938a88c5ec4f9ba31d39d8f9beac5515bba421519bfaae9",
+                "reviewed_content_hash": "c48819eb119a6ff1f5450d173860c8c3af51d3720961269f50c8ba8a17c56f37",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -566,7 +566,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b68fbd32c123b233e938a88c5ec4f9ba31d39d8f9beac5515bba421519bfaae9",
+                "reviewed_content_hash": "c48819eb119a6ff1f5450d173860c8c3af51d3720961269f50c8ba8a17c56f37",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -616,7 +616,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4e9633ad50dccb25940d769eea77a3bf87bd76175e931a25ef381c483befeceb",
+                "reviewed_content_hash": "6168c256c745d40be0088ff2ff057f8347a35be2c38728aa5872274efb480453",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -755,7 +755,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b68fbd32c123b233e938a88c5ec4f9ba31d39d8f9beac5515bba421519bfaae9",
+                "reviewed_content_hash": "c48819eb119a6ff1f5450d173860c8c3af51d3720961269f50c8ba8a17c56f37",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -841,7 +841,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4e9633ad50dccb25940d769eea77a3bf87bd76175e931a25ef381c483befeceb",
+                "reviewed_content_hash": "6168c256c745d40be0088ff2ff057f8347a35be2c38728aa5872274efb480453",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -851,7 +851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "82bd526c3c95957a732d9387ea0e050b5ded63b11ad45e6c62e2f8608a814a6b",
+                "reviewed_content_hash": "9750cbb3505ae8977300814e848899e06b067b17f40629ddd8ff5cc0131daa50",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",
@@ -1383,7 +1383,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1f6e9f69b4ace54e29a1985899636e7ff17be4f41a41fe161dfdf3af4ede5967",
+                "reviewed_content_hash": "a85d3782f4c75349a6024d5e2d2fc4141330e036099d629f3f408bbe565e60ed",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-resolution/javascript.ts",
@@ -1416,7 +1416,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "031c3c7acc9e6310d83e1e2d4a623118c82fce67385f4f01593a08399d23bc26",
+                "reviewed_content_hash": "7b354133b5558e9dbedc96fb9c281a8dca523284e9fc4312671122e7d2c6ac2b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-topology-indexer.ts",
@@ -1427,7 +1427,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "45b5d1242e9859bfd6108282f2a8b84fb9c235ca61bd0d004dbd5180e9623033",
+                "reviewed_content_hash": "6d9e199960935ac0b53c98f171f9c1bb1ba466c056e440473fbb678a3e7b4fc1",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1471,8 +1471,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "314fbca13f68d23f6a6729212252f7320b6ebd23cafa658de1080d2e8f4660da",
-            "criterion": "Tieline must identify committed topology generations by exact Git tree and parser, resolver, configuration, schema, and fact-policy compatibility, must publish only complete atomically persisted generations, and must keep dirty working-tree generations ephemeral, bounded, and revision-distinct.",
+            "contract_hash": "09f67a228a32c26f9f3eeaaf438b6c5782e68e988a3529718c0b09a16623097e",
+            "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish a deterministic bounded repository artifact only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
                 "provenance": "authored",
@@ -1483,6 +1483,17 @@
                   "path": "src/adapters/postgres/code-topology-repository.ts",
                   "repository": "tieline",
                   "selector": "class:PostgresCodeTopologyRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "09b306f9cebc9db03e8d7e7f8987d29c33a972b7608ec2214c6e5d4812a4413b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/code-topology-artifact.ts",
+                  "repository": "tieline",
+                  "selector": "function:publishCodeTopologyArtifact"
                 }
               },
               {
@@ -1499,18 +1510,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a857dd5f8d94f7d89df55d755e5c9dba64113f32c1410d4124a6319ada55eb65",
-                "target": {
-                  "kind": "code",
-                  "path": "src/contract/topology-generation.ts",
-                  "repository": "tieline",
-                  "selector": "class:TopologyReadModelService"
-                }
-              },
-              {
-                "provenance": "authored",
-                "relation": "implements",
-                "reviewed_content_hash": "a857dd5f8d94f7d89df55d755e5c9dba64113f32c1410d4124a6319ada55eb65",
+                "reviewed_content_hash": "344b5f0c0fea4372806d78ae5d499206b5fc30fb0b3cad2136d9ad61f9602ec7",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/topology-generation.ts",
@@ -1520,8 +1520,19 @@
               },
               {
                 "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5b65bebe3b6f084777406140479181d42e78dc2fe4381b4aa785494447dd4096",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/topology-role-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectWorkspaceTopologyRole"
+                }
+              },
+              {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "92268104a30d33db80bfb45ca8b03f1964a97f043445c5172ceae652afef8876",
+                "reviewed_content_hash": "db685f152a34711fd6c5f6dd6604878ed1e23dc270ce8c1732b89eac84091a7c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1532,7 +1543,18 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2cf53a6e6f67d4e913431b325eae9f15d82a8133038460248844075d6957c964",
+                "reviewed_content_hash": "fcfafba85483376f4b41247ea9d06b71b74a7597400b9bee46cb7fcf1aa2e3c0",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-topology-artifact-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "209a8b07302e0320c1703fd01ba171437c5042a63e0863e941a19f44249d03ee",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1542,21 +1564,28 @@
               }
             ],
             "position": 2,
-            "rationale": "Readers must never observe a mixed or partial graph, and authored repository state must not be confused with an unreviewed working tree.",
+            "rationale": "Readers must never observe a mixed or partial graph, generated artifact bytes must not make identity self-referential, and reviewed repository topology must remain distinct from richer hosted persistence.",
             "scenarios": [
               {
-                "given": "persistence fails after any generation write stage",
+                "given": "topology compilation is interrupted or loses a concurrent publication race",
                 "position": 0,
                 "stable_id": "CONTRACT-004-AC3-S1",
-                "then": "no partial generation may replace the previous complete checkpoint",
-                "when": "the transaction ends"
+                "then": "readers must observe either the previous complete artifact or the complete winning artifact and never a mixed shard set",
+                "when": "the artifact authority is selected"
               },
               {
                 "given": "files change while a working-tree generation is built",
                 "position": 1,
                 "stable_id": "CONTRACT-004-AC3-S2",
-                "then": "Tieline must return workspace_changed instead of caching mixed facts",
+                "then": "Tieline must return workspace_changed without publishing mixed facts",
                 "when": "the consistency check retries and observes another change"
+              },
+              {
+                "given": "only generated topology bytes or unrelated authored intent change",
+                "position": 2,
+                "stable_id": "CONTRACT-004-AC3-S3",
+                "then": "the selected-input identity must remain unchanged",
+                "when": "topology identity and artifact bytes are recomputed"
               }
             ],
             "stable_id": "CONTRACT-004-AC3",
@@ -1571,7 +1600,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "540e042c19e561bb7f0b5286dc2752bedaf2992edeb846c54d58fc18f1424c42",
+                "reviewed_content_hash": "6f602a025032881a9a574192b3e7549f4e7683b1945e1e337ec2e345d68cbc9c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-blast-radius.ts",
@@ -1593,7 +1622,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e290880fda80ef22f242ef126ccce858a64a56abc6249f6f31414877c88c9370",
+                "reviewed_content_hash": "f0b4450d8ae880f35c27b0d6bc6f462efbecacc398a354e0a1b26da37b1a8d94",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1637,13 +1666,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "9411c679ec64dd35cea3e87a8043565c47c7c8ee773b6851f1b08bfc0eeeec31",
-            "criterion": "Tieline must expose equivalent read-only CLI and MCP dependency-trace and AC-aware blast-radius results, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
+            "contract_hash": "00176c0fe08796585d8cbabcbd186e8254b3636c72d9ac043f6bc470e4545798",
+            "criterion": "Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5345dce57920aefd3e27e20735543cf06464c093ee36987255e20de580dfd851",
+                "reviewed_content_hash": "948c1c91059068da791574b3fef1eb743aca0d89dbee667c8c470774fd6ba670",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1654,7 +1683,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5345dce57920aefd3e27e20735543cf06464c093ee36987255e20de580dfd851",
+                "reviewed_content_hash": "948c1c91059068da791574b3fef1eb743aca0d89dbee667c8c470774fd6ba670",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1665,7 +1694,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "234241ece8a5dad18e4f91aeeeca23fcfc57b818141dba6a5003a7875ed46c85",
+                "reviewed_content_hash": "8feb9cf3a98c934c35466578d2558128088add474a3ba900fc983c9705b0e570",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/code-topology.ts",
@@ -1676,7 +1705,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ff0c1038c86775582c816f6e69f2410943bda68051c0ac7c641158594b6b91bc",
+                "reviewed_content_hash": "1128d3d8b2030650131406be6d6b749a5ef2ee7e0c1aa85343fafadbf58665bc",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1686,19 +1715,26 @@
               }
             ],
             "position": 4,
-            "rationale": "Derived topology can prioritize investigation, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.",
+            "rationale": "Derived topology can prioritize investigation and preserve deleted-side intent, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.",
             "scenarios": [
               {
                 "given": "a local workspace has no database connection",
                 "position": 0,
                 "stable_id": "CONTRACT-004-AC5-S1",
-                "then": "both surfaces must use ephemeral topology and return equivalent structured membership",
+                "then": "both surfaces must select the existing current repository artifact without parsing or writing and return equivalent structured membership",
                 "when": "dependency trace or AC-aware blast radius is requested"
               },
               {
-                "given": "hosted mode has a compatible complete topology generation but no readable authored manifest",
+                "given": "a base commit removes linked code or the current manifest removes its authored claim",
                 "position": 1,
                 "stable_id": "CONTRACT-004-AC5-S2",
+                "then": "each visited locator must join only to its matching manifest role while unclaimed locators remain visible",
+                "when": "AC-aware blast radius compares base and current"
+              },
+              {
+                "given": "hosted mode has a compatible complete topology generation but no readable authored manifest",
+                "position": 2,
+                "stable_id": "CONTRACT-004-AC5-S3",
                 "then": "dependency trace may run while AC-aware contract joining must report contract_unavailable",
                 "when": "the tools are called"
               }
@@ -1730,6 +1766,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "5c36d7e7d9ccc10e88011ad0277acdb155778bd7c4f273285c1fa434b2b37ced"
+    "sha256": "48b8333d6541e4d9b9ed011fea6317e424774e3478daa9b3de0265beae4e4134"
   }
 }

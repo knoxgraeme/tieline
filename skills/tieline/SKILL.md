@@ -107,6 +107,9 @@ semantic candidates.
 After reading exact authored intent, use derived topology only when the task
 needs dependency direction or potential change propagation:
 
+- After selected source or resolver changes, explicitly run
+  `tieline code compile . --json`, review and commit `.tieline/topology/`, then
+  use `tieline code validate . --json` for a parser-free freshness check.
 - Call `trace_code_dependencies`, or run
   `tieline code trace --path <path> [--selector <selector>] --direction dependencies|dependents --json`,
   for one exact locator.
@@ -118,8 +121,10 @@ needs dependency direction or potential change propagation:
   depth 8, 1,000 nodes, 4,000 edges/frontiers, and 200 paths.
 
 Local topology is language-aware for JavaScript/JSX/TypeScript/TSX, Python, and
-Rust and works without Postgres. It parses immutable snapshots, then resolves
-only supported static project-local module forms. Treat `ambiguous`,
+Rust and works without Postgres. Trace and blast select an existing workspace
+or exact-commit artifact; they never parse, compile, write, or silently repair
+it. The explicit compiler parses an immutable source snapshot and resolves only
+supported static project-local module forms. Treat `ambiguous`,
 `unresolved`, `external`, dynamic, glob, generated, and unsupported outcomes as
 frontiers to investigate, never as license to guess an edge. Hosted dependency
 trace may use a compatible complete Postgres generation; hosted topology
@@ -131,8 +136,8 @@ only `may_be_impacted`; semantic support stays `not_assessed`. Sharing an AC
 never creates a code edge. Neither parser evidence, a current hash, a resolved
 selector, nor topology proves that implementation satisfies the AC or that a
 test ran. Repository YAML and its compiled manifest remain business-intent
-authority; committed topology is a derived relational projection, and dirty
-working-tree topology is ephemeral.
+authority; committed topology is a derived traversal projection, while hosted
+Postgres generations preserve the richer relational projection.
 
 ## Search before creating
 

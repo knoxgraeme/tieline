@@ -807,15 +807,18 @@ capability:
                 path: scripts/test-code-resolution-python-rust.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC3
-          criterion: Tieline must identify committed topology generations by exact Git tree and parser, resolver, configuration, schema, and fact-policy compatibility, must publish only complete atomically persisted generations, and must keep dirty working-tree generations ephemeral, bounded, and revision-distinct.
-          rationale: Readers must never observe a mixed or partial graph, and authored repository state must not be confused with an unreviewed working tree.
+          criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish a deterministic bounded repository artifact only through explicit compilation, and must publish hosted relational generations only when complete.
+          rationale: Readers must never observe a mixed or partial graph, generated artifact bytes must not make identity self-referential, and reviewed repository topology must remain distinct from richer hosted persistence.
           scenarios:
-            - given: persistence fails after any generation write stage
-              when: the transaction ends
-              then: no partial generation may replace the previous complete checkpoint
+            - given: topology compilation is interrupted or loses a concurrent publication race
+              when: the artifact authority is selected
+              then: readers must observe either the previous complete artifact or the complete winning artifact and never a mixed shard set
             - given: files change while a working-tree generation is built
               when: the consistency check retries and observes another change
-              then: Tieline must return workspace_changed instead of caching mixed facts
+              then: Tieline must return workspace_changed without publishing mixed facts
+            - given: only generated topology bytes or unrelated authored intent change
+              when: topology identity and artifact bytes are recomputed
+              then: the selected-input identity must remain unchanged
           links:
             - relation: implements
               provenance: authored
@@ -829,8 +832,15 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/contract/topology-generation.ts
-                selector: class:TopologyReadModelService
+                path: src/commands/code-topology-artifact.ts
+                selector: function:publishCodeTopologyArtifact
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-role-snapshot.ts
+                selector: function:selectWorkspaceTopologyRole
             - relation: implements
               provenance: authored
               target:
@@ -845,6 +855,13 @@ capability:
                 repository: tieline
                 path: src/adapters/postgres/code-topology-repository.ts
                 selector: class:PostgresCodeTopologyRepository
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-topology-artifact-command.ts
+                framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
@@ -899,12 +916,15 @@ capability:
                 path: scripts/test-code-blast-radius.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC5
-          criterion: Tieline must expose equivalent read-only CLI and MCP dependency-trace and AC-aware blast-radius results, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.
-          rationale: Derived topology can prioritize investigation, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.
+          criterion: Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.
+          rationale: Derived topology can prioritize investigation and preserve deleted-side intent, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.
           scenarios:
             - given: a local workspace has no database connection
               when: dependency trace or AC-aware blast radius is requested
-              then: both surfaces must use ephemeral topology and return equivalent structured membership
+              then: both surfaces must select the existing current repository artifact without parsing or writing and return equivalent structured membership
+            - given: a base commit removes linked code or the current manifest removes its authored claim
+              when: AC-aware blast radius compares base and current
+              then: each visited locator must join only to its matching manifest role while unclaimed locators remain visible
             - given: hosted mode has a compatible complete topology generation but no readable authored manifest
               when: the tools are called
               then: dependency trace may run while AC-aware contract joining must report contract_unavailable
