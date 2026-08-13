@@ -2,10 +2,32 @@ name: Contract
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
+  derivation:
+    name: Reviewed artifact derivation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # After dependency installation this runs offline, without a database,
+      # credentials, an environment, or shared write authority.
+      - name: Recompile and compare reviewed artifacts
+        run: npm run check:generated-artifacts
+
   contract:
     runs-on: ubuntu-latest
     steps:
@@ -25,9 +47,6 @@ jobs:
       # credentials. The contract plane is a pure function of the working tree.
       - name: Validate contract YAML
         run: npx tsx src/cli.ts contract validate .
-
-      - name: Compile the manifest
-        run: npx tsx src/cli.ts contract compile . --output /tmp/manifest-check
 
       - name: Evaluate semantic impact
         run: npx tsx src/cli.ts check . --base origin/main

@@ -1826,6 +1826,56 @@ capability:
   assert.doesNotMatch(readme, /agent_onboarding_prompt/);
   assert.doesNotMatch(readme, /copyable,? self-contained prompt/i);
 
+  const packageConfig = JSON.parse(
+    readFileSync(resolve(process.cwd(), "package.json"), "utf8")
+  ) as { scripts: Record<string, string> };
+  assert.equal(
+    packageConfig.scripts["check:generated-artifacts"],
+    "tsx scripts/generated-artifact-gate.ts",
+    "the derivation command must not accept an external compiler output path"
+  );
+  assert.match(
+    packageConfig.scripts.test,
+    /test:generated-artifacts/,
+    "the complete offline suite must retain focused derivation-gate coverage"
+  );
+  const contractWorkflow = readFileSync(
+    resolve(process.cwd(), ".github/workflows/contract.yml"),
+    "utf8"
+  );
+  assert.match(contractWorkflow, /^  pull_request:\s*$/m);
+  assert.match(contractWorkflow, /^  merge_group:\s*$/m);
+  assert.match(contractWorkflow, /^  push:\s*\n    branches: \[main\]$/m);
+  assert.doesNotMatch(contractWorkflow, /pull_request_target/);
+  assert.match(
+    contractWorkflow,
+    /^permissions:\s*\n  contents: read$/m,
+    "proposed-change jobs receive only explicit read access to repository contents"
+  );
+  const derivationJob = contractWorkflow.match(
+    /\n  derivation:\n([\s\S]*?)\n  contract:/
+  )?.[1];
+  assert.ok(derivationJob, "the protected workflow must include a derivation job");
+  assert.match(derivationJob, /npm run check:generated-artifacts/);
+  assert.doesNotMatch(
+    derivationJob,
+    /\benv:|\benvironment:|\bsecrets?:|DATABASE_URL|postgres|publish/i,
+    "the derivation job must remain credential-free and independent of Postgres or publication"
+  );
+  const derivationGate = readFileSync(
+    resolve(process.cwd(), "scripts/generated-artifact-gate.ts"),
+    "utf8"
+  );
+  assert.match(derivationGate, /mkdtempSync/);
+  assert.match(derivationGate, /\.tieline\/manifest/);
+  assert.match(derivationGate, /\.tieline\/topology/);
+  assert.match(derivationGate, /generated_artifact_mismatch/);
+  assert.doesNotMatch(
+    derivationGate,
+    /["'`]--output(?:["'`]|\s)/,
+    "the derivation gate must never pass an arbitrary output path to a compiler"
+  );
+
   for (const removed of ["merge", "review", "import", "context"]) {
     await assert.rejects(
       runCli([removed], io().adapter, {
