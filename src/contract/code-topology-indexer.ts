@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import {
+  CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS,
+  codeTopologyArtifactProjectionDigest,
+} from "../domain/code-topology-artifact.js";
+import {
   codeTopologyDerivedEdgeIdentity,
   codeTopologyGenerationIdentity,
   codeTopologySelectedInputDigest,
@@ -66,7 +70,6 @@ export const CODE_TOPOLOGY_FACT_POLICY = "tieline-code-topology-facts@1";
 const MAX_TOPOLOGY_FILES = 5_000;
 const MAX_TOPOLOGY_SOURCE_BYTES = 50 * 1024 * 1024;
 const MAX_TOPOLOGY_SYMBOLS = 100_000;
-const MAX_TOPOLOGY_EDGES = 250_000;
 
 export interface TopologySourceCollection {
   kind: "committed" | "workspace";
@@ -115,6 +118,7 @@ export interface BuildCodeTopologyGenerationOptions {
   maxTotalSourceBytes?: number;
   maxSymbols?: number;
   maxEdges?: number;
+  maxDependencyRecords?: number;
   parserConcurrency?: number;
 }
 
@@ -233,20 +237,6 @@ function estimateReadModelRetainedBytes(model: CodeTopologyReadModelGeneration):
     for (const diagnostic of frontier.diagnostics) bytes += 24 + stringBytes(diagnostic);
   }
   return bytes;
-}
-
-function readModelProjectionDigest(input: {
-  files: CodeTopologyReadModelGeneration["files"];
-  symbols: CodeTopologyReadModelGeneration["symbols"];
-  edges: CodeTopologyReadModelGeneration["edges"];
-  frontiers: CodeTopologyReadModelGeneration["frontiers"];
-}): string {
-  const hash = createHash("sha256");
-  for (const [group, records] of Object.entries(input)) {
-    hash.update(`${group}:${records.length}\0`);
-    for (const record of records) hash.update(`${canonicalDigest(record)}\0`);
-  }
-  return hash.digest("hex");
 }
 
 function sourceFailure(
@@ -383,7 +373,10 @@ export async function buildCodeTopologyGeneration(
     options.maxSymbols ?? MAX_TOPOLOGY_SYMBOLS,
     MAX_TOPOLOGY_SYMBOLS
   );
-  const maxEdges = Math.min(options.maxEdges ?? MAX_TOPOLOGY_EDGES, MAX_TOPOLOGY_EDGES);
+  const maxDependencyRecords = Math.min(
+    options.maxDependencyRecords ?? options.maxEdges ?? CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS,
+    CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS
+  );
   const parserConcurrency = options.parserConcurrency ?? 4;
   const buildingReadModel = "output" in options && options.output === "read_model";
   if (!Number.isInteger(parserConcurrency) || parserConcurrency < 1 || parserConcurrency > 4) {
@@ -639,17 +632,18 @@ export async function buildCodeTopologyGeneration(
         }
       }
     }
-    if (edges.length > maxEdges) {
+    if (edges.length + frontiers.length > maxDependencyRecords) {
       return {
         status: "capacity_exceeded",
         path: null,
-        detail: `Topology contains ${edges.length} edges; limit is ${maxEdges}.`,
+        detail: `Topology contains ${edges.length + frontiers.length} dependency records across edges and frontiers; limit is ${maxDependencyRecords}.`,
       };
     }
     const files = [...resolutionAnalyses.values()].map((analysis) => ({
       path: analysis.path,
       kind: fileKind(analysis.path),
       framework_hint: null,
+      language: analysis.language,
       source_hash: analysis.sourceHash,
     })).sort((left, right) => left.path.localeCompare(right.path));
     const symbols = [...symbolsByIdentity.values()].sort((left, right) =>
@@ -683,7 +677,7 @@ export async function buildCodeTopologyGeneration(
     };
     const readModel: CodeTopologyReadModelGeneration = {
       summary,
-      projection_digest: readModelProjectionDigest({ files, symbols, edges, frontiers }),
+      projection_digest: codeTopologyArtifactProjectionDigest({ files, symbols, edges, frontiers }),
       files,
       symbols,
       edges,
@@ -872,11 +866,21 @@ export async function buildCodeTopologyGeneration(
       }
     }
   }
-  if (edges.length > maxEdges) {
+  const dependencyReferenceIdentities = new Set(references
+    .filter((reference) =>
+      reference.module_specifier !== null &&
+      ["import", "dynamic_import", "reexport"].includes(reference.kind)
+    )
+    .map((reference) => reference.identity));
+  const retainedFrontierCount = resolutions.filter((resolution) =>
+    resolution.status !== "resolved" &&
+    dependencyReferenceIdentities.has(resolution.reference_identity)
+  ).length;
+  if (edges.length + retainedFrontierCount > maxDependencyRecords) {
     return {
       status: "capacity_exceeded",
       path: null,
-      detail: `Topology contains ${edges.length} edges; limit is ${maxEdges}.`,
+      detail: `Topology contains ${edges.length + retainedFrontierCount} dependency records across edges and frontiers; limit is ${maxDependencyRecords}.`,
     };
   }
 

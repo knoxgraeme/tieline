@@ -13,7 +13,10 @@ import {
   persistCommittedTopologyGeneration,
 } from "../src/contract/topology-generation.js";
 import { createServer } from "../src/server.js";
-import { codeTopologyGenerationIdentity } from "../src/domain/code-topology-store.js";
+import {
+  codeTopologyGenerationIdentity,
+  codeTopologySelectedInputDigest,
+} from "../src/domain/code-topology-store.js";
 import { report, test } from "./lib/harness.js";
 
 const fixtureRoot = mkdtempSync(resolve(tmpdir(), "tieline-code-command-"));
@@ -302,6 +305,7 @@ try {
 
       const incompatible = structuredClone(built.generation);
       incompatible.header.parser_compatibility_digest = "0".repeat(64);
+      incompatible.header.revision = codeTopologySelectedInputDigest(incompatible.header);
       incompatible.header.identity = codeTopologyGenerationIdentity(incompatible.header);
       for (const edge of incompatible.edges) {
         edge.source.generation_identity = incompatible.header.identity;

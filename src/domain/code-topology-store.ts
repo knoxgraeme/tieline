@@ -199,6 +199,7 @@ export interface CodeTopologyReadModelFile {
   path: string;
   kind: TopologyAssetKind;
   framework_hint: string | null;
+  language: SupportedCodeLanguage;
   source_hash: string;
 }
 
