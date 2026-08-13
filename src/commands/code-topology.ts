@@ -471,6 +471,8 @@ export async function executeChangeBlastRadius(
       comparisonStore = new ImmutableCodeTopologySnapshotStore();
       comparisonStore.addReadModel(base.topology.read_model);
       comparisonStore.addReadModel(current.topology.read_model);
+      base.topology.dispose();
+      current.topology.dispose();
     }
     const currentStore = comparisonStore ?? current.topology.store;
     const result = await analyzeCodeBlastRadius({

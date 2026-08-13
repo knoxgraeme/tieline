@@ -109,8 +109,11 @@ capability:
   writeFileSync(specPath, spec);
   execFileSync("git", ["init", "-q", fixture]);
 
+  const commandOutput: string[] = [];
   const commandIo: TielineCliIO = {
-    write() {},
+    write(message) {
+      commandOutput.push(message);
+    },
     error(message) {
       throw new Error(message);
     },
@@ -132,7 +135,8 @@ capability:
       { repository: fixture, json: true },
       commandIo
     ),
-    0
+    0,
+    commandOutput.at(-1)
   );
   execFileSync("git", ["-C", fixture, "add", "."]);
 

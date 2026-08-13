@@ -23,7 +23,7 @@ import {
 } from "../src/commands/code-topology.js";
 import { runContractCommand } from "../src/commands/contract.js";
 import {
-  parseCodeTopologyArtifact,
+  readCodeTopologyArtifact,
 } from "../src/contract/code-topology-artifact.js";
 import { selectWorkspaceManifestRole } from "../src/contract/intent-aware-role-snapshot.js";
 import { readWorkspaceCodeTopologyFiles } from "../src/contract/topology-role-snapshot.js";
@@ -298,12 +298,12 @@ async function artifactFirstSmoke(repositoryRoot: string): Promise<void> {
   if (files.status !== "complete") {
     throw new Error(`Temporary topology read returned '${files.status}': ${files.detail}`);
   }
-  const parsed = parseCodeTopologyArtifact(files.files);
+  const parsed = readCodeTopologyArtifact(files.files);
   if (parsed.status !== "complete") {
     throw new Error(`Temporary topology parse returned '${parsed.status}': ${parsed.detail}`);
   }
-  const symbol = parsed.artifact.symbols[0];
-  const file = parsed.artifact.files[0];
+  const symbol = parsed.read_model.symbols[0];
+  const file = parsed.read_model.files[0];
   if (!symbol && !file) {
     throw new Error("Temporary topology has no locator for artifact-first smoke checks.");
   }

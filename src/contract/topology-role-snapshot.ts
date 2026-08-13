@@ -4,7 +4,7 @@ import {
   realpathSync,
   type Stats,
 } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import {
   CODE_TOPOLOGY_ARTIFACT_INDEX,
   CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
@@ -19,6 +19,7 @@ import {
   readWorkspaceTopologySelectedInput,
   type TopologyGenerationSourceOptions,
 } from "./topology-generation.js";
+import { withinRepository } from "./paths.js";
 import type {
   CodeTopologyReadModelGeneration,
   CodeTopologyReadStore,
@@ -76,11 +77,6 @@ export function topologyArtifactFailureStatus(
   return `topology_${status}`;
 }
 
-function inside(parent: string, child: string): boolean {
-  const path = relative(parent, child);
-  return path === "" || (!path.startsWith(`..${sep}`) && path !== ".." && !isAbsolute(path));
-}
-
 function owned(stat: Stats): boolean {
   const uid = process.getuid?.();
   return uid === undefined || stat.uid === uid;
@@ -92,7 +88,7 @@ function safeRegularFile(root: string, path: string): string | null {
     return "is not an owned regular file";
   }
   const real = realpathSync(path);
-  if (!inside(root, real)) return "resolves outside the topology directory";
+  if (!withinRepository(root, real)) return "resolves outside the topology directory";
   return null;
 }
 
@@ -154,7 +150,7 @@ export function readWorkspaceCodeTopologyFiles(repositoryRoot: string):
       return { status: "unsafe_path", detail: "The topology authority is not an owned regular directory." };
     }
     const realRoot = realpathSync(root);
-    if (!inside(repository, realRoot)) {
+    if (!withinRepository(repository, realRoot)) {
       return { status: "unsafe_path", detail: "The topology authority resolves outside the repository." };
     }
     const indexUnsafe = safeRegularFile(realRoot, indexPath);
@@ -167,7 +163,7 @@ export function readWorkspaceCodeTopologyFiles(repositoryRoot: string):
     let totalBytes = indexBytes.byteLength;
     for (const name of indexed.names.slice(1)) {
       const path = resolve(realRoot, name);
-      if (!inside(realRoot, path)) {
+      if (!withinRepository(realRoot, path)) {
         return { status: "unsafe_path", detail: `Topology shard path '${name}' escapes the authority directory.` };
       }
       const unsafe = safeRegularFile(realRoot, path);

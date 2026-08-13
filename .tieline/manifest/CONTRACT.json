@@ -1521,7 +1521,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5b65bebe3b6f084777406140479181d42e78dc2fe4381b4aa785494447dd4096",
+                "reviewed_content_hash": "b15b91532935421657ff92755162b11d3ce643e9d680056645b01bd2c771175a",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/topology-role-snapshot.ts",
@@ -1672,7 +1672,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "948c1c91059068da791574b3fef1eb743aca0d89dbee667c8c470774fd6ba670",
+                "reviewed_content_hash": "b1885b5e383c792332bd530f9b9f00cf3c2ac13794445dc8da16d39d9d5be6bd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1683,7 +1683,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "948c1c91059068da791574b3fef1eb743aca0d89dbee667c8c470774fd6ba670",
+                "reviewed_content_hash": "b1885b5e383c792332bd530f9b9f00cf3c2ac13794445dc8da16d39d9d5be6bd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",

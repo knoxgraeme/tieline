@@ -7,7 +7,6 @@ import {
   CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION,
   CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS,
   canonicalCodeTopologyJson,
-  codeTopologyArtifactProjectionDigest,
   codeTopologyArtifactProjectionDigestOrdered,
   type CodeTopologyArtifactCounts,
   type CodeTopologyArtifactEdgeRecord,
