@@ -139,8 +139,13 @@ to the worst measured result, frontier-heavy is 28,268,840 bytes and therefore
 receives the capped 33,554,432-byte budget—5,285,592 bytes, or 18.7% (about
 19%), of headroom at the supported maximum. This is sufficient measured room
 without adding another physical compaction layer solely for a synthetic 25%
-margin. The other size, locality, latency, and memory regression budgets retain
-the fixed 25% headroom rule.
+margin. The other size and locality regression budgets retain the fixed 25%
+headroom rule. Host-sensitive latency and RSS enforcement uses the predeclared
+absolute product ceilings. The original 25%-over-local-sample compile guard
+proved non-portable when first enabled on shared Ubuntu CI; it did not represent
+a user-facing limit and was materially tighter than the maximum-envelope
+product decision. Repository-scale derivation remains covered independently by
+the isolated generated-artifact gate.
 
 The winner must satisfy the absolute product ceilings and these fixture
 regression budgets, rounded up where appropriate:
@@ -148,10 +153,10 @@ regression budgets, rounded up where appropriate:
 - full artifact total: `min(measured × 1.25, 33,554,432)` bytes; the current
   supported-maximum budget is 33,554,432 bytes;
 - per artifact file: 1,411,425 bytes;
-- full compile: 3,061 ms;
-- full direct validation: 5,379 ms;
-- two-role peak RSS growth: 431,226,880 bytes;
-- two-role retained RSS growth: 382,566,400 bytes;
+- full compile: 60,000 ms;
+- full direct validation: 10,000 ms;
+- two-role peak RSS growth: 536,870,912 bytes;
+- two-role retained RSS growth: 402,653,184 bytes;
 - touched artifact paths: 5 for the representative rename fixture (3 for edit);
 - representative patch bytes: 1,411,425;
 - dependency records: exactly 250,000 maximum across edges and frontiers.

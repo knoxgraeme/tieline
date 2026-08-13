@@ -348,8 +348,14 @@ if (benchmarkMode === "size" || benchmarkMode === "all") {
       if (enforce) {
         assert.ok(selected.total_bytes <= 32 * MIB, `${distribution} artifact exceeds 32 MiB`);
         assert.ok([...selected.files.values()].every((file) => file.byteLength <= 1_411_425), `${distribution} artifact file exceeds its regression budget`);
-        assert.ok(compileMs <= 3_061, `${distribution} compile exceeds its regression budget`);
-        assert.ok(validationMs <= 5_379, `${distribution} validation exceeds its regression budget`);
+        assert.ok(
+          compileMs <= 60_000,
+          `${distribution} compile ${compileMs.toFixed(1)}ms exceeds 60 seconds`
+        );
+        assert.ok(
+          validationMs <= 10_000,
+          `${distribution} validation ${validationMs.toFixed(1)}ms exceeds 10 seconds`
+        );
       }
     }
     (output.distributions as Record<string, unknown>)[distribution] = {
