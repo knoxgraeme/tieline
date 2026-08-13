@@ -8,8 +8,20 @@ import {
   type CodeTopologyGenerationHeader,
 } from "../src/domain/code-topology-store.js";
 import { FakeCodeTopologyStore } from "../src/adapters/fakes/fake-code-topology-store.js";
+import { codeTopologyCopyChunks } from "../src/adapters/postgres/code-topology-repository.js";
 
 const digest = (character: string): string => character.repeat(64);
+
+const copyChunks = [...codeTopologyCopyChunks([
+  ["alpha\tbeta", null, "line\nbreak"],
+  ["oversized", "x".repeat(32)],
+], 16)];
+assert.ok(copyChunks.length > 1);
+assert.ok(copyChunks.every((chunk) => chunk.length <= 16));
+assert.equal(
+  Buffer.concat(copyChunks).toString("utf8"),
+  "alpha\\tbeta\t\\N\tline\\nbreak\noversized\t" + "x".repeat(32) + "\n"
+);
 
 function header(
   revision: string,

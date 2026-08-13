@@ -1477,7 +1477,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1e4f25449c1db5ebe6c05dc379f959128f9a01eace176c9027a864c7229eb815",
+                "reviewed_content_hash": "0a1cdd51725b7d98b6c8f0e78cf791a823bf158f86c5270277409519c576c83a",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/code-topology-repository.ts",

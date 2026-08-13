@@ -471,6 +471,7 @@ capability:
     enforcement: enforce && pinnedEnvironment ? "enforced" : "measure_only",
   };
 
+  process.stdout.write(`${JSON.stringify(measurements, null, 2)}\n`);
   if (enforce) {
     assert.deepEqual(measurements.fixture, {
       files: 5_000,
@@ -489,7 +490,6 @@ capability:
     assert.ok(measurements.scaling_ratios.four_to_one < 12, "1x-to-4x scaling trends quadratic");
     assert.ok(measurements.scaling_ratios.four_to_two < 3.5, "2x-to-4x scaling trends quadratic");
   }
-  process.stdout.write(`${JSON.stringify(measurements, null, 2)}\n`);
 } finally {
   if (sql) await sql.end({ timeout: 5 });
   rmSync(repositoryRoot, { recursive: true, force: true });

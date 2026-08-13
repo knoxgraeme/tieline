@@ -22,6 +22,8 @@ import {
 import { getAdminSql, getReadSql, getSyncSql } from "./connections.js";
 
 type QuerySql = Sql | TransactionSql<Record<string, never>>;
+const COPY_CHUNK_BYTES = 256 * 1024;
+
 export type CodeTopologyWriteStage =
   | "generation"
   | "files"
@@ -169,6 +171,33 @@ function copyCell(value: unknown): string {
     .replaceAll("\r", "\\r");
 }
 
+export function* codeTopologyCopyChunks(
+  rows: Iterable<readonly unknown[]>,
+  maximumChunkBytes = COPY_CHUNK_BYTES
+): Generator<Buffer> {
+  if (!Number.isSafeInteger(maximumChunkBytes) || maximumChunkBytes < 1) {
+    throw new CodeTopologyIntegrityError("COPY chunk bytes must be a positive safe integer.");
+  }
+  let parts: Buffer[] = [];
+  let bytes = 0;
+  for (const row of rows) {
+    let line = Buffer.from(`${row.map(copyCell).join("\t")}\n`);
+    while (line.length > 0) {
+      const available = maximumChunkBytes - bytes;
+      const accepted = line.subarray(0, available);
+      parts.push(accepted);
+      bytes += accepted.length;
+      line = line.subarray(accepted.length);
+      if (bytes === maximumChunkBytes) {
+        yield Buffer.concat(parts, bytes);
+        parts = [];
+        bytes = 0;
+      }
+    }
+  }
+  if (bytes > 0) yield Buffer.concat(parts, bytes);
+}
+
 async function copyRows(
   tx: TransactionSql<Record<string, never>>,
   table: string,
@@ -177,12 +206,7 @@ async function copyRows(
 ): Promise<void> {
   const query = `copy ${table} (${columns.join(", ")}) from stdin`;
   const writable = await tx.unsafe(query).writable();
-  await pipeline(
-    Readable.from((function* () {
-      for (const row of rows) yield `${row.map(copyCell).join("\t")}\n`;
-    })()),
-    writable
-  );
+  await pipeline(Readable.from(codeTopologyCopyChunks(rows), { objectMode: false }), writable);
 }
 
 function* copyValues<T>(
