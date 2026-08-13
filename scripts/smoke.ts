@@ -139,6 +139,14 @@ try {
     prompts.prompts.map((prompt) => prompt.name),
     ["tieline", "tieline_author"]
   );
+  const tielinePromptMetadata = prompts.prompts.find(
+    (prompt) => prompt.name === "tieline"
+  );
+  assert.match(tielinePromptMetadata?.title ?? "", /close out branch semantics/i);
+  assert.match(
+    tielinePromptMetadata?.description ?? "",
+    /before implementation handoff, commit, push, or pull-request publication/i
+  );
   const tielinePrompt = await client.getPrompt({ name: "tieline" });
   const promptText = String(
     tielinePrompt.messages[0]?.content.type === "text"
