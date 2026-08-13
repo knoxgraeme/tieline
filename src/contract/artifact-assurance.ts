@@ -294,12 +294,20 @@ function validatedBound(value: number | undefined, fallback: number, name: strin
 export function createArtifactAssuranceInspector(
   options: CreateArtifactAssuranceInspectorOptions
 ): ArtifactAssuranceInspector {
+  const ownsSourceSnapshots = options.sourceSnapshotReader === undefined;
+  const ownsHashes = options.hashResolver === undefined;
+  let disposed = false;
+  const assertActive = () => {
+    if (disposed) throw new Error("Artifact assurance inspector has been disposed");
+  };
   let sourceSnapshots: SourceSnapshotReader | undefined = options.sourceSnapshotReader;
-  const snapshots = () =>
-    (sourceSnapshots ??= createFilesystemSourceSnapshotReader({
+  const snapshots = () => {
+    assertActive();
+    return (sourceSnapshots ??= createFilesystemSourceSnapshotReader({
       repositoryRoot: options.repositoryRoot,
       maxSourceBytes: Number.MAX_SAFE_INTEGER,
     }));
+  };
   let hashes = options.hashResolver;
   let vocabulary = options.selectorVocabulary;
   let structuralResolver: StructuralSelectorResolver | undefined;
@@ -336,6 +344,7 @@ export function createArtifactAssuranceInspector(
   };
 
   const inspectFreshness = (input: ArtifactAssuranceInput): ArtifactFreshnessInspection => {
+    assertActive();
     const key = freshnessKey(input);
     const cached = freshnessInspections.get(key);
     if (cached) return cached;
@@ -413,6 +422,7 @@ export function createArtifactAssuranceInspector(
   return {
     inspectFreshness,
     inspect(input) {
+      assertActive();
       const key = inputKey(input);
       let pending = assurances.get(key);
       if (!pending) {
@@ -435,9 +445,22 @@ export function createArtifactAssuranceInspector(
       return pending;
     },
     async dispose() {
+      if (disposed) return;
+      disposed = true;
       assurances.clear();
       locators.clear();
-      await structuralResolver?.dispose();
+      measurements.clear();
+      freshnessInspections.clear();
+      const resolver = structuralResolver;
+      const snapshots = sourceSnapshots;
+      structuralResolver = undefined;
+      sourceSnapshots = undefined;
+      if (ownsHashes) hashes = undefined;
+      try {
+        await resolver?.dispose();
+      } finally {
+        if (ownsSourceSnapshots) snapshots?.dispose?.();
+      }
     },
   };
 }

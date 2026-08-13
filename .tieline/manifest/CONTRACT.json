@@ -1030,7 +1030,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "595b8c4331e9bf94130ea32e0ff48049303168e9565ffb3f548007ce9523f01a",
+                "reviewed_content_hash": "6ada28c70f51806112671eea5a140877cacac3cd6af4b457943faa30705194bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/artifact-assurance.ts",
@@ -1052,7 +1052,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "57521ec779ad7f70a5cfd8989046b5d915c9ea2ecd9bef6f6a35cb23d182d12c",
+                "reviewed_content_hash": "ce6b3713db5e19652b9fa259a552f0e474b5e0438489b2e4d378eddbacf1bc9b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1416,7 +1416,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7b354133b5558e9dbedc96fb9c281a8dca523284e9fc4312671122e7d2c6ac2b",
+                "reviewed_content_hash": "9598bc12361d94d4f088f379324636d74cf98883b95fe2ad2a2bb3036eb7a129",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-topology-indexer.ts",
@@ -1554,7 +1554,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "209a8b07302e0320c1703fd01ba171437c5042a63e0863e941a19f44249d03ee",
+                "reviewed_content_hash": "9f0b6d4e2a313c42efd137a59e98b3e773f8a31c6c2ab32dc19e63689b745443",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

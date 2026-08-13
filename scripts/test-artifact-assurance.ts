@@ -17,7 +17,10 @@ import {
   type ArtifactAssuranceInput,
 } from "../src/contract/artifact-assurance.js";
 import { createArtifactHashResolver } from "../src/contract/manifest.js";
-import { createFilesystemSourceSnapshotReader } from "../src/contract/source-snapshot.js";
+import {
+  createFilesystemSourceSnapshotReader,
+  type SourceSnapshotReader,
+} from "../src/contract/source-snapshot.js";
 import { createStructuralSelectorResolver } from "../src/contract/code-analysis/selector-resolution.js";
 import {
   createCachedSelectorResolver,
@@ -595,6 +598,58 @@ await test("shares one immutable source read between freshness and locator assur
       snapshots.read("./src/shared.ts"),
       "the backing reader performs only one filesystem read"
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("disposes only internally owned source snapshot readers", async () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-disposal-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    const firstSource = "export function first(): void {}\n";
+    const secondSource = "export function second(): void {}\n";
+    writeFileSync(resolve(root, "src/first.ts"), firstSource);
+    writeFileSync(resolve(root, "src/second.ts"), secondSource);
+
+    const ownedInspector = createArtifactAssuranceInspector({
+      repositoryRoot: root,
+      repositoryKey: REPOSITORY,
+    });
+    await ownedInspector.inspect(
+      artifact("src/first.ts", "function:first", sha256(firstSource))
+    );
+    await ownedInspector.dispose();
+    assert.throws(
+      () => ownedInspector.inspect(
+        artifact("src/second.ts", "function:second", sha256(secondSource))
+      ),
+      /inspector has been disposed/,
+      "disposing an inspector releases its internally created snapshot reader"
+    );
+
+    const snapshots = createFilesystemSourceSnapshotReader({ repositoryRoot: root });
+    let injectedDisposals = 0;
+    const injectedReader: SourceSnapshotReader = {
+      read: snapshots.read.bind(snapshots),
+      release: snapshots.release?.bind(snapshots),
+      dispose() {
+        injectedDisposals += 1;
+        snapshots.dispose?.();
+      },
+    };
+    const injectedInspector = createArtifactAssuranceInspector({
+      repositoryRoot: root,
+      repositoryKey: REPOSITORY,
+      sourceSnapshotReader: injectedReader,
+    });
+    await injectedInspector.inspect(
+      artifact("src/first.ts", "function:first", sha256(firstSource))
+    );
+    await injectedInspector.dispose();
+    assert.equal(injectedDisposals, 0, "caller-injected readers remain caller-owned");
+    assert.equal(injectedReader.read("src/second.ts").status, "read");
+    injectedReader.dispose?.();
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -161,3 +161,5 @@ jobs:
         run: npm run benchmark:parser-package
       - name: Full topology fixture budgets
         run: npm run benchmark:code-topology
+      - name: Topology artifact reader budgets
+        run: npm run benchmark:code-topology-artifact

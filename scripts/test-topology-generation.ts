@@ -80,6 +80,8 @@ try {
   write("src/value.ts", "export const value = 1;\n");
   write("src/copy-one.ts", "export const identical = 1;\n");
   write("src/copy-two.ts", "export const identical = 1;\n");
+  write("src/test_widget.py", "def test_widget():\n    assert True\n");
+  write("src/__tests__/widget.ts", "export const widgetWorks = true;\n");
   write("src/unique.ts", "export const uniquelyRenamed = 1;\n");
   write(
     "src/owned.rs",
@@ -104,6 +106,14 @@ try {
     assert.equal(compareTopologyGenerations(baseline, repeated).files.length, 0);
     assert.ok(baseline.edges.length > 0);
     assert.equal(baseline.references.length, baseline.resolutions.length);
+    assert.equal(
+      baseline.files.find((file) => file.path === "src/test_widget.py")?.kind,
+      "test"
+    );
+    assert.equal(
+      baseline.files.find((file) => file.path === "src/__tests__/widget.ts")?.kind,
+      "test"
+    );
   });
 
   await test("excludes generated topology bytes and enclosing trees from logical identity", async () => {

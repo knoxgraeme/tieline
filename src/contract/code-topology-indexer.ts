@@ -264,7 +264,7 @@ class TopologyBuildAbort extends Error {
 }
 
 function fileKind(path: string): "code" | "test" {
-  return /(^|\/)(?:test|tests|spec|specs)(\/|$)|(?:\.|_)(?:test|spec)\.[^.]+$/i.test(path)
+  return /(^|\/)(?:test|tests|spec|specs|__tests__)(\/|$)|(^|\/)(?:test|spec)_[^/]+$|(?:\.|_)(?:test|spec)\.[^.]+$/i.test(path)
     ? "test"
     : "code";
 }
