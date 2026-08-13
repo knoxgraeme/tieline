@@ -243,4 +243,44 @@ await test("keeps single-start and one-item batch traversal semantically identic
   assert.deepEqual(batch.truncation, single.truncation);
 });
 
+await test("shares the edge limit across accepted edges and later dependency frontiers", async () => {
+  const input = {
+    store,
+    generation_identity: generation.header.identity,
+    generation_role: "current" as const,
+    direction: "dependencies" as const,
+    limits: { edges: 2 },
+  };
+  const [single, batch] = await Promise.all([
+    traceCodeTopology({ ...input, locator: locator("src/a.ts", "function:a") }),
+    traceCodeTopologyBatch({ ...input, locators: [locator("src/a.ts", "function:a")] }),
+  ]);
+  assert.equal(single.status, "complete");
+  assert.equal(batch.status, "complete");
+  if (single.status !== "complete" || batch.status !== "complete") return;
+  const acceptedEdges = new Set(batch.paths.flatMap((path) => path.edges.map((edge) => edge.identity)));
+  assert.ok(acceptedEdges.size + batch.frontiers.length <= input.limits.edges);
+  assert.deepEqual(batch.paths, single.paths);
+  assert.deepEqual(batch.frontiers, single.frontiers);
+  assert.deepEqual(batch.truncation, single.truncation);
+});
+
+await test("reports resolved starting locators omitted by the batch node limit", async () => {
+  const result = await traceCodeTopologyBatch({
+    store,
+    generation_identity: generation.header.identity,
+    locators: [
+      locator("src/a.ts", "function:a"),
+      locator("src/b.ts", "function:b"),
+    ],
+    limits: { nodes: 1 },
+  });
+  assert.equal(result.status, "complete");
+  if (result.status !== "complete") return;
+  assert.equal(result.starts.length, 1);
+  assert.equal(result.omitted_starts.length, 1);
+  assert.equal(result.omitted_starts[0]?.selector, "function:b");
+  assert.ok(result.truncation.nodes.omitted >= result.omitted_starts.length);
+});
+
 report();

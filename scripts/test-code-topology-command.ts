@@ -23,6 +23,7 @@ const fixtureRoot = mkdtempSync(resolve(tmpdir(), "tieline-code-command-"));
 mkdirSync(resolve(fixtureRoot, ".tieline/spec"), { recursive: true });
 mkdirSync(resolve(fixtureRoot, "src"), { recursive: true });
 writeFileSync(resolve(fixtureRoot, "src/target.ts"), "export function target() { return 1; }\n");
+writeFileSync(resolve(fixtureRoot, ":literal.ts"), "export const literal = true;\n");
 writeFileSync(
   resolve(fixtureRoot, "src/consumer.ts"),
   'import { target } from "./target";\nexport function consumer() { return target(); }\n'
@@ -72,6 +73,12 @@ capability:
                 repository: topology-fixture
                 path: src/target.ts
                 selector: function:target
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: topology-fixture
+                path: ':literal.ts'
 `
 );
 
@@ -141,6 +148,39 @@ try {
     }
   });
 
+  await test("an exact Git revision traces successfully from a dirty worktree without rewriting artifacts", async () => {
+    const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
+    const artifactPath = resolve(fixtureRoot, ".tieline/topology/topology.json");
+    const source = readFileSync(sourcePath, "utf8");
+    const artifact = readFileSync(artifactPath);
+    const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: fixtureRoot,
+      encoding: "utf8",
+    }).trim();
+    writeFileSync(sourcePath, `${source}// dirty worktree must not affect an exact revision\n`);
+    try {
+      const traced = await cli([
+        "code", "trace", "--repository", fixtureRoot, "--repo", "topology-fixture",
+        "--revision", "HEAD", "--path", "src/consumer.ts",
+        "--direction", "dependencies", "--json",
+      ]);
+      assert.equal(traced.status, "complete");
+      const provenance = traced.topology_provenance as {
+        source: string;
+        queried_revision: string;
+        generation_identity: string;
+        artifact_digest: string;
+      };
+      assert.equal(provenance.source, "git");
+      assert.equal(provenance.queried_revision, commit);
+      assert.match(provenance.generation_identity, /^[a-f0-9]{64}$/);
+      assert.match(provenance.artifact_digest, /^[a-f0-9]{64}$/);
+      assert.deepEqual(readFileSync(artifactPath), artifact);
+    } finally {
+      writeFileSync(sourcePath, source);
+    }
+  });
+
   await test("trace ignores manifest health while blast fails the current contract role", async () => {
     const manifest = resolve(fixtureRoot, ".tieline/manifest");
     const hidden = resolve(fixtureRoot, ".tieline/manifest.hidden");
@@ -198,7 +238,7 @@ try {
     assert.ok(impacts.every((impact) => impact.semantic_support === "not_assessed"));
   });
 
-  await test("Git base selects topology and manifest from one resolved commit", async () => {
+  await test("Git base reads manifest evidence through literal top-level pathspecs", async () => {
     const commit = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: fixtureRoot,
       encoding: "utf8",

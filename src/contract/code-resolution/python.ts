@@ -188,6 +188,12 @@ interface ModuleCandidate {
   path: string;
 }
 
+interface ImportedTargetCandidates {
+  targets: CodeResolutionTarget[];
+  ambiguousReason: "ambiguous_export" | "ambiguous_module" | null;
+  targetNotAnalyzed: boolean;
+}
+
 class PythonModuleResolver implements CodeModuleResolver {
   readonly languages = pythonLanguages;
   readonly compatibility = pythonResolutionCompatibility;
@@ -274,6 +280,36 @@ class PythonModuleResolver implements CodeModuleResolver {
     );
   }
 
+  #importedTargets(
+    packageCandidate: ModuleCandidate,
+    packageAnalysis: ResolutionAnalysis,
+    imported: string
+  ): ImportedTargetCandidates {
+    const named = this.#namedTargets(packageAnalysis, imported);
+    if (named.length > 0) {
+      return {
+        targets: named,
+        ambiguousReason: named.length > 1 ? "ambiguous_export" : null,
+        targetNotAnalyzed: false,
+      };
+    }
+    if (!["__init__.py", "__init__.pyi"].includes(posix.basename(packageCandidate.path))) {
+      return { targets: [], ambiguousReason: null, targetNotAnalyzed: false };
+    }
+    const childModules = this.#moduleFiles(
+      posix.join(posix.dirname(packageCandidate.path), imported.replaceAll(".", "/"))
+    );
+    const childTargets = childModules.flatMap((candidate) => {
+      const analysis = this.#analyses.get(candidate.path);
+      return analysis ? [moduleTarget(analysis)] : [];
+    });
+    return {
+      targets: childTargets,
+      ambiguousReason: childModules.length > 1 ? "ambiguous_module" : null,
+      targetNotAnalyzed: childModules.length === 1 && childTargets.length === 0,
+    };
+  }
+
   #resolveReference(
     source: ResolutionAnalysis,
     reference: ResolutionReferenceFact
@@ -317,20 +353,24 @@ class PythonModuleResolver implements CodeModuleResolver {
             targets = [moduleTarget(targetAnalysis)];
             candidates = [];
           } else {
-            const matches = imported.map((name) => this.#namedTargets(targetAnalysis, name));
-            if (matches.every((entries) => entries.length === 1)) {
+            const matches = imported.map((name) =>
+              this.#importedTargets(module.candidates[0]!, targetAnalysis, name)
+            );
+            if (matches.every((match) => match.targets.length === 1)) {
               status = "resolved";
               reason = null;
-              targets = uniqueResolutionTargets(matches.flat());
+              targets = uniqueResolutionTargets(matches.flatMap((match) => match.targets));
               candidates = [];
-            } else if (matches.some((entries) => entries.length > 1)) {
+            } else if (matches.some((match) => match.ambiguousReason !== null)) {
               status = "ambiguous";
-              reason = "ambiguous_export";
-              candidates = uniqueResolutionTargets(matches.flat());
+              reason = matches.find((match) => match.ambiguousReason !== null)!.ambiguousReason;
+              candidates = uniqueResolutionTargets(matches.flatMap((match) => match.targets));
             } else {
-              reason = targetAnalysis.truncated.symbols || targetAnalysis.diagnostics.length > 0
-                ? "target_analysis_incomplete"
-                : "export_not_found";
+              reason = matches.some((match) => match.targetNotAnalyzed)
+                ? "target_not_analyzed"
+                : targetAnalysis.truncated.symbols || targetAnalysis.diagnostics.length > 0
+                  ? "target_analysis_incomplete"
+                  : "export_not_found";
               if (reason === "target_analysis_incomplete") {
                 diagnostics = [
                   ...diagnostics,

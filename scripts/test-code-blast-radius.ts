@@ -161,6 +161,31 @@ capability:
     ));
   });
 
+  await test("counts resolved starts omitted inside a nodes-one batch", async () => {
+    const result = await analyzeCodeBlastRadius({
+      current: { store, generation_identity: current.header.identity },
+      manifest,
+      changes: ["src/a.ts", "src/b.ts"].map((path) => ({
+        status: "added" as const,
+        locator: {
+          repository: "blast-fixture",
+          kind: "code" as const,
+          path,
+          selector: null,
+          framework_hint: null,
+        },
+      })),
+      limits: { nodes: 1 },
+    });
+    assert.equal(result.status, "complete");
+    if (result.status !== "complete") return;
+    assert.equal(result.start_outcomes.filter((outcome) => outcome.status === "resolved").length, 2);
+    assert.equal(result.visited.length, 1);
+    assert.equal(result.truncation.omitted_starts, 1);
+    assert.ok(result.truncation.reasons.includes("nodes"));
+    assert.equal(result.truncation.nodes.omitted, 1);
+  });
+
   await test("compares rename and edge-retarget roles without losing deleted-side intent", async () => {
     renameSync(join(root, "src/b.ts"), join(root, "src/d.ts"));
     writeFileSync(join(root, "src/a.ts"), 'import { b } from "./d";\nexport const a = b;\n');

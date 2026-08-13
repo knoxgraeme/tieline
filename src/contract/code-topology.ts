@@ -427,6 +427,7 @@ export type CodeTopologyBatchTraceResult =
   | (TraceIdentity & {
       status: "complete";
       starts: CodeTopologyPathNode[];
+      omitted_starts: CodeTopologyLocator[];
       start_outcomes: CodeTopologyBatchStartOutcome[];
       visited: CodeTopologyPathNode[];
       paths: CodeTopologyTraversalPath[];
@@ -493,6 +494,16 @@ export async function traceCodeTopologyBatch(
   );
   if (allStarts.length > limits.nodes) omitted.nodes += allStarts.length - limits.nodes;
   const starts = allStarts.slice(0, limits.nodes);
+  const omittedStartIdentities = new Set(
+    allStarts.slice(limits.nodes).map((start) => start.identity)
+  );
+  const omittedStarts = outcomes
+    .filter(
+      (outcome) =>
+        outcome.status === "resolved" &&
+        omittedStartIdentities.has(outcome.matches[0]!.symbol_identity)
+    )
+    .map((outcome) => outcome.locator);
   const visited = new Set(starts.map((start) => start.identity));
   const visitedOrder = starts.map((start) => start.identity);
   const primaryPaths = new Map<string, IdentityPath>(
@@ -521,7 +532,7 @@ export async function traceCodeTopologyBatch(
     ]);
     for (const gap of gapBatch) {
       if (frontierRecords.has(gap.reference_identity)) continue;
-      if (frontierRecords.size >= limits.edges) {
+      if (frontierRecords.size + traversedEdges.size >= limits.edges) {
         omitted.edges += 1;
         continue;
       }
@@ -593,6 +604,7 @@ export async function traceCodeTopologyBatch(
     ...identity,
     status: "complete",
     starts: starts.map((start) => node(start.identity)),
+    omitted_starts: omittedStarts,
     start_outcomes: outcomes,
     visited: visitedOrder.map(node),
     paths: paths.map((path) => ({

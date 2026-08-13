@@ -607,7 +607,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1466752fe7326878746de366c6de4e7d70a7a2209a37b8b38858c5b9138befff",
+                "reviewed_content_hash": "4f63b05ea4b76f847ce424a69e9dccfd6d10867f70c9e626e587e3c20fda5b39",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/shared.ts",

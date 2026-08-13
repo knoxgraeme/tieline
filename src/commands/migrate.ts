@@ -7,49 +7,73 @@ import { config } from "../config.js";
 import { stderrIO, type CommandIO } from "./shared.js";
 
 const MIGRATIONS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../migrations");
-const BASELINE_MIGRATION = "0001_baseline.sql";
+const MIGRATION_FILENAME_PATTERN = /^(\d{4})_[a-z0-9][a-z0-9_]*\.sql$/;
+const MIGRATION_LOCK_KEY = "tieline-schema-migrations";
 
 export interface AppliedMigration {
   filename: string;
   checksum: string;
 }
 
-export function assertBaselineHistory(
-  applied: AppliedMigration[],
-  expectedChecksum?: string
-): void {
-  const legacy = applied.filter((row) => row.filename !== BASELINE_MIGRATION);
-  if (legacy.length > 0) {
-    throw new Error(
-      `This database contains the pre-baseline migration history (${legacy
-        .map((row) => row.filename)
-        .join(", ")}). Recreate the development database before applying ${BASELINE_MIGRATION}; ` +
-        "Tieline will not drop or reinterpret existing data automatically."
-    );
-  }
-  const baseline = applied.find((row) => row.filename === BASELINE_MIGRATION);
-  if (baseline && expectedChecksum && baseline.checksum !== expectedChecksum) {
-    throw new Error(
-      `Migration drift: ${BASELINE_MIGRATION} was applied with checksum ${baseline.checksum}, ` +
-        `but the packaged baseline is ${expectedChecksum}. Recreate the database or restore the packaged migration.`
-    );
-  }
+export interface PackagedMigration extends AppliedMigration {
+  content: string;
 }
 
-function packagedBaseline(): { content: string; checksum: string } {
-  const files = readdirSync(MIGRATIONS_DIR)
+export function readPackagedMigrations(
+  migrationDirectory = MIGRATIONS_DIR
+): PackagedMigration[] {
+  const files = readdirSync(migrationDirectory)
     .filter((file) => file.endsWith(".sql"))
     .sort();
-  if (files.length !== 1 || files[0] !== BASELINE_MIGRATION) {
+  if (files.length === 0) {
+    throw new Error("Expected at least one packaged SQL migration; found none.");
+  }
+  for (const [index, file] of files.entries()) {
+    const match = file.match(MIGRATION_FILENAME_PATTERN);
+    const expectedSequence = index + 1;
+    if (!match || Number(match[1]) !== expectedSequence) {
+      throw new Error(
+        `Expected contiguous migration ${String(expectedSequence).padStart(4, "0")}_*.sql; found ${file}.`
+      );
+    }
+  }
+  return files.map((filename) => {
+    const content = readFileSync(resolve(migrationDirectory, filename), "utf8");
+    return {
+      filename,
+      content,
+      checksum: createHash("sha256").update(content).digest("hex"),
+    };
+  });
+}
+
+export function assertMigrationHistory(
+  applied: readonly AppliedMigration[],
+  packaged: readonly AppliedMigration[]
+): void {
+  if (applied.length > packaged.length) {
+    const extra = applied.slice(packaged.length).map((row) => row.filename);
     throw new Error(
-      `Expected exactly ${BASELINE_MIGRATION}; found ${files.join(", ") || "no migrations"}.`
+      `This database contains migration history not packaged by this Tieline version (${extra.join(", ")}). ` +
+        "Install a compatible version or recreate the development database."
     );
   }
-  const content = readFileSync(resolve(MIGRATIONS_DIR, BASELINE_MIGRATION), "utf8");
-  return {
-    content,
-    checksum: createHash("sha256").update(content).digest("hex"),
-  };
+  for (const [index, row] of applied.entries()) {
+    const expected = packaged[index];
+    if (!expected || row.filename !== expected.filename) {
+      throw new Error(
+        `Migration history is not an ordered packaged prefix at position ${index + 1}: ` +
+          `found ${row.filename}, expected ${expected?.filename ?? "no migration"}. ` +
+          "Recreate the development database; Tieline will not reorder or reinterpret existing data automatically."
+      );
+    }
+    if (row.checksum !== expected.checksum) {
+      throw new Error(
+        `Migration drift: ${row.filename} was applied with checksum ${row.checksum}, ` +
+          `but the packaged migration is ${expected.checksum}. Recreate the database or restore the packaged migration.`
+      );
+    }
+  }
 }
 
 export async function migrateDatabase(
@@ -57,7 +81,7 @@ export async function migrateDatabase(
   verifyOnly = false,
   io: CommandIO = stderrIO
 ): Promise<void> {
-  const baseline = packagedBaseline();
+  const migrations = readPackagedMigrations();
   const sql = postgres(dbUrl, {
     max: 1,
     prepare: false,
@@ -65,35 +89,48 @@ export async function migrateDatabase(
   });
 
   try {
-    await sql`
-      create table if not exists schema_migrations (
-        filename text primary key,
-        checksum text not null,
-        applied_at timestamptz not null default now()
-      )`;
-    const appliedRows = await sql<AppliedMigration[]>`
-      select filename, checksum from schema_migrations order by filename`;
-    assertBaselineHistory(appliedRows, baseline.checksum);
-    const pending = appliedRows.length === 0;
+    await sql`select pg_advisory_lock(hashtext(${MIGRATION_LOCK_KEY}))`;
+    try {
+      await sql`
+        create table if not exists schema_migrations (
+          filename text primary key,
+          checksum text not null,
+          applied_at timestamptz not null default now()
+        )`;
+      const applied = await sql<AppliedMigration[]>`
+        select filename, checksum from schema_migrations order by filename`;
+      assertMigrationHistory(applied, migrations);
+      const pending = migrations.slice(applied.length);
 
-    if (verifyOnly) {
-      if (pending) throw new Error(`${BASELINE_MIGRATION} has not been applied.`);
-      io.write(`Verified ${BASELINE_MIGRATION}; no checksum drift.\n`);
-      return;
-    }
-    if (!pending) {
-      io.write(`${BASELINE_MIGRATION} is already applied; no changes.\n`);
-      return;
-    }
+      if (verifyOnly) {
+        if (pending.length > 0) {
+          throw new Error(
+            `Pending migrations: ${pending.map((migration) => migration.filename).join(", ")}.`
+          );
+        }
+        io.write(`Verified ${migrations.length} migrations; no checksum drift.\n`);
+        return;
+      }
 
-    io.write(`  ${BASELINE_MIGRATION} ... `);
-    await sql.begin(async (tx) => {
-      await tx.unsafe(baseline.content);
-      await tx`
-        insert into schema_migrations (filename, checksum)
-        values (${BASELINE_MIGRATION}, ${baseline.checksum})`;
-    });
-    io.write("ok\nApplied the clean baseline; schema is current.\n");
+      if (pending.length === 0) {
+        io.write(`All ${migrations.length} migrations are already applied; no changes.\n`);
+        return;
+      }
+
+      for (const migration of pending) {
+        io.write(`  ${migration.filename} ... `);
+        await sql.begin(async (tx) => {
+          await tx.unsafe(migration.content);
+          await tx`
+            insert into schema_migrations (filename, checksum)
+            values (${migration.filename}, ${migration.checksum})`;
+        });
+        io.write("ok\n");
+      }
+      io.write(`Applied ${pending.length} migration${pending.length === 1 ? "" : "s"}; schema is current.\n`);
+    } finally {
+      await sql`select pg_advisory_unlock(hashtext(${MIGRATION_LOCK_KEY}))`.catch(() => undefined);
+    }
   } finally {
     await sql.end({ timeout: 5 });
   }

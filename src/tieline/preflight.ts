@@ -1,10 +1,13 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import postgres from "postgres";
 import type { EmbeddingProvider } from "../config.js";
+import {
+  assertMigrationHistory,
+  readPackagedMigrations,
+  type AppliedMigration,
+} from "../commands/migrate.js";
 
 export interface PreflightCheck {
   key: string;
@@ -139,28 +142,27 @@ export async function runDatabasePreflight(
       return checks;
     }
 
-    const migrationDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "../../migrations");
-    const files = readdirSync(migrationDirectory).filter((file) => file.endsWith(".sql")).sort();
-    const expected = new Map(
-      files.map((file) => [
-        file,
-        createHash("sha256").update(readFileSync(resolve(migrationDirectory, file), "utf8")).digest("hex"),
-      ])
-    );
-    const applied = await sql<{ filename: string; checksum: string }[]>`
+    const migrations = readPackagedMigrations();
+    const applied = await sql<AppliedMigration[]>`
       select filename, checksum from schema_migrations order by filename`;
-    const appliedByName = new Map(applied.map((row) => [row.filename, row.checksum]));
-    const missing = files.filter((file) => !appliedByName.has(file));
-    const drift = files.filter(
-      (file) => appliedByName.has(file) && appliedByName.get(file) !== expected.get(file)
-    );
+    let historyIssue: string | null = null;
+    try {
+      assertMigrationHistory(applied, migrations);
+    } catch (error) {
+      historyIssue = error instanceof Error ? error.message : String(error);
+    }
+    const pending = historyIssue === null ? migrations.slice(applied.length) : [];
     checks.push({
       key: "migrations",
-      status: missing.length === 0 && drift.length === 0 ? "pass" : "warning",
+      status: pending.length === 0 && historyIssue === null ? "pass" : "warning",
       message:
-        missing.length === 0 && drift.length === 0
-          ? `All ${files.length} migrations are applied with matching checksums.`
-          : `Migration verification needs attention: ${missing.length} missing, ${drift.length} checksum drift.`,
+        historyIssue !== null
+          ? `Migration verification needs attention: ${historyIssue}`
+          : pending.length === 0
+            ? `All ${migrations.length} migrations are applied with matching checksums.`
+            : `Migration verification needs attention: ${pending.length} pending (${pending
+                .map((migration) => migration.filename)
+                .join(", ")}).`,
     });
     return checks;
   } catch (error) {

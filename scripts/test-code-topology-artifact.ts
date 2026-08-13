@@ -119,6 +119,32 @@ function withLegacyShardGenerationIdentity(
   return files;
 }
 
+function mutateShard(
+  serialized: ReturnType<typeof serializeCodeTopologyArtifact>,
+  select: (shard: any) => boolean,
+  mutate: (shard: any) => void
+): ReadonlyMap<string, Buffer> {
+  const files = new Map(serialized.files);
+  const index = JSON.parse(files.get(CODE_TOPOLOGY_ARTIFACT_INDEX)!.toString("utf8"));
+  const entry = index.shards.find((candidate: any) => {
+    const shard = JSON.parse(files.get(candidate.name)!.toString("utf8"));
+    return select(shard);
+  });
+  assert.ok(entry, "expected a matching topology shard");
+  const oldName = entry.name;
+  const shard = JSON.parse(files.get(oldName)!.toString("utf8"));
+  mutate(shard);
+  const bytes = Buffer.from(`${canonicalCodeTopologyJson(shard)}\n`);
+  const shardDigest = createHash("sha256").update(bytes).digest("hex");
+  entry.name = `files/${shardDigest}.json`;
+  entry.digest = shardDigest;
+  entry.bytes = bytes.byteLength;
+  files.delete(oldName);
+  files.set(entry.name, bytes);
+  files.set(CODE_TOPOLOGY_ARTIFACT_INDEX, serializeIndex(index));
+  return files;
+}
+
 await test("canonical artifact round-trips the provider-neutral traversal projection", async () => {
   const artifact = topologyArtifactFromReadModel(logical);
   const writes = Array.from({ length: 5 }, () => serializeCodeTopologyArtifact(artifact));
@@ -171,6 +197,50 @@ await test("artifact reader rejects incompatible and corrupt envelopes", () => {
     artifact.generation.identity
   ));
   assert.equal(legacy.status, "complete", "legacy v1 shards with generation_identity remain readable");
+});
+
+await test("artifact reader validates every physical record before constructing the read model", () => {
+  const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(logical));
+  const cases: Array<{
+    label: string;
+    select: (shard: any) => boolean;
+    mutate: (shard: any) => void;
+    detail: RegExp;
+  }> = [
+    {
+      label: "file metadata",
+      select: () => true,
+      mutate: (shard) => { shard.file.source_hash = 7; },
+      detail: /invalid file record/i,
+    },
+    {
+      label: "symbol metadata",
+      select: (shard) => shard.symbols.length > 0,
+      mutate: (shard) => { shard.symbols[0][0] = false; },
+      detail: /contains an invalid symbol/i,
+    },
+    {
+      label: "edge metadata",
+      select: (shard) => shard.edges.length > 0,
+      mutate: (shard) => { shard.edges[0][4] = ["not-an-identity"]; },
+      detail: /contains an invalid edge/i,
+    },
+    {
+      label: "frontier metadata",
+      select: (shard) => shard.frontiers.length > 0,
+      mutate: (shard) => { shard.frontiers[0][6] = [7]; },
+      detail: /contains an invalid frontier/i,
+    },
+  ];
+  for (const candidate of cases) {
+    const parsed = parseCodeTopologyArtifact(mutateShard(
+      serialized,
+      candidate.select,
+      candidate.mutate
+    ));
+    assert.equal(parsed.status, "invalid", candidate.label);
+    assert.match("detail" in parsed ? parsed.detail : "", candidate.detail, candidate.label);
+  }
 });
 
 await test("artifact-backed store traverses candidate bytes directly", async () => {

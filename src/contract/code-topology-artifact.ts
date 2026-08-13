@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { supportedCodeLanguages } from "./code-analysis/languages.js";
 import {
   CODE_TOPOLOGY_ARTIFACT_ENCODING,
   CODE_TOPOLOGY_ARTIFACT_PRODUCER,
@@ -466,14 +467,18 @@ function invalid(detail: string): { status: "invalid"; detail: string } {
   return { status: "invalid", detail };
 }
 
-function asObject(value: unknown, label: string): Record<string, any> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be an object.`);
-  }
-  return value as Record<string, any>;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function parseJson(bytes: Buffer, label: string): any {
+function asObject(value: unknown, label: string): Record<string, unknown> {
+  if (!isObject(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+  return value;
+}
+
+function parseJson(bytes: Buffer, label: string): unknown {
   try { return JSON.parse(bytes.toString("utf8")); }
   catch (error) { throw new Error(`${label} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`); }
 }
@@ -508,6 +513,181 @@ function nonnegativeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
 }
 
+function nonemptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function sha256String(value: unknown): value is string {
+  return typeof value === "string" && sha256Pattern.test(value);
+}
+
+function nullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function stringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function artifactIndexFromUnknown(value: unknown): ArtifactIndex {
+  const index = asObject(value, "Artifact index");
+  if (!Array.isArray(index.shards) || !isObject(index.generation) || !isObject(index.counts)) {
+    throw new Error("Artifact index fields are incomplete.");
+  }
+  if (!index.shards.every((value) => {
+    if (!isObject(value)) return false;
+    return nonnegativeInteger(value.bytes) && nonnegativeInteger(value.symbols) &&
+      nonnegativeInteger(value.edges) && nonnegativeInteger(value.frontiers);
+  })) {
+    throw new Error("Artifact shard counts are malformed.");
+  }
+  if (![index.counts.files, index.counts.symbols, index.counts.references,
+    index.counts.resolutions, index.counts.edges, index.counts.frontiers,
+    index.counts.dependency_records].every(nonnegativeInteger)) {
+    throw new Error("Artifact counts are malformed.");
+  }
+  const producer = isObject(index.producer) ? index.producer : null;
+  const provider = isObject(index.provider) ? index.provider : null;
+  const compatibility = isObject(index.compatibility) ? index.compatibility : null;
+  const generation = index.generation;
+  if (
+    index.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION ||
+    index.encoding !== CODE_TOPOLOGY_ARTIFACT_ENCODING ||
+    producer?.identity !== CODE_TOPOLOGY_ARTIFACT_PRODUCER ||
+    producer.version !== CODE_TOPOLOGY_ARTIFACT_PRODUCER_VERSION ||
+    provider?.identity !== CODE_TOPOLOGY_ARTIFACT_PROVIDER ||
+    !compatibility ||
+    !nonnegativeInteger(compatibility.topology_schema_version) ||
+    !sha256String(compatibility.parser_compatibility_digest) ||
+    !nonemptyString(compatibility.resolver_implementation) ||
+    !sha256String(compatibility.resolver_configuration_digest) ||
+    !sha256String(compatibility.fact_policy_digest) ||
+    !nonemptyString(generation.repository) ||
+    !sha256String(generation.identity) ||
+    !sha256String(generation.revision) ||
+    !sha256String(generation.inventory_digest) ||
+    !sha256String(generation.parser_compatibility_digest) ||
+    !nonemptyString(generation.resolver_implementation) ||
+    !sha256String(generation.resolver_configuration_digest) ||
+    !nonnegativeInteger(generation.topology_schema_version) ||
+    !sha256String(generation.fact_policy_digest) ||
+    !sha256String(index.selected_input_digest) ||
+    !sha256String(index.projection_digest) ||
+    !sha256String(index.artifact_digest)
+  ) {
+    throw new Error("Artifact index metadata is malformed.");
+  }
+  if (!index.shards.every((value) => {
+    const entry = value as Record<string, unknown>;
+    return typeof entry.file_path === "string" && typeof entry.name === "string" &&
+      sha256String(entry.digest);
+  })) {
+    throw new Error("Artifact shard metadata is malformed.");
+  }
+  return index as unknown as ArtifactIndex;
+}
+
+const artifactLanguages: ReadonlySet<string> = new Set(
+  supportedCodeLanguages.map((language) => language.id)
+);
+const artifactFrontierKinds: ReadonlySet<string> = new Set<CodeTopologyFrontierRecord["kind"]>([
+  "import", "dynamic_import", "export", "reexport",
+]);
+const artifactFrontierStatuses: readonly CodeTopologyFrontierRecord["status"][] = [
+  "ambiguous", "unresolved", "external",
+];
+
+function compactShardFromUnknown(value: unknown, name: string): CompactShard {
+  const shard = asObject(value, "Artifact shard");
+  const file = isObject(shard.file) ? shard.file : null;
+  const symbolDictionary = isObject(shard.symbol_dictionary) ? shard.symbol_dictionary : null;
+  const frontierDictionary = isObject(shard.frontier_dictionary) ? shard.frontier_dictionary : null;
+  if (
+    !file || !symbolDictionary || !frontierDictionary ||
+    !Array.isArray(shard.symbols) || !Array.isArray(shard.edge_kinds) ||
+    !Array.isArray(shard.edges) || !Array.isArray(shard.frontiers) ||
+    !Array.isArray(symbolDictionary.native_kinds) ||
+    !Array.isArray(symbolDictionary.selectors) ||
+    !Array.isArray(frontierDictionary.kinds) ||
+    !Array.isArray(frontierDictionary.module_specifiers) ||
+    !Array.isArray(frontierDictionary.rules) ||
+    !nonnegativeInteger(shard.schema_version) ||
+    !(shard.generation_identity === undefined || sha256String(shard.generation_identity))
+  ) {
+    throw new Error(`Artifact shard '${name}' has an invalid shape.`);
+  }
+  if (
+    !nonemptyString(file.path) ||
+    (file.kind !== "code" && file.kind !== "test") ||
+    !nullableString(file.framework_hint) ||
+    typeof file.language !== "string" || !artifactLanguages.has(file.language) ||
+    !sha256String(file.source_hash)
+  ) {
+    throw new Error(`Artifact shard '${name}' has an invalid file record.`);
+  }
+  if (
+    !symbolDictionary.native_kinds.every(nonemptyString) ||
+    !symbolDictionary.selectors.every((entry) => typeof entry === "string")
+  ) {
+    throw new Error(`Artifact shard '${name}' contains an invalid symbol dictionary.`);
+  }
+  for (const symbol of shard.symbols) {
+    if (
+      !Array.isArray(symbol) || symbol.length !== 3 ||
+      !nonemptyString(symbol[0]) || !nonnegativeInteger(symbol[1]) ||
+      !(symbol[2] === null || nonnegativeInteger(symbol[2]))
+    ) {
+      throw new Error(`Artifact shard '${name}' contains an invalid symbol.`);
+    }
+  }
+  if (!shard.edge_kinds.every(nonemptyString)) {
+    throw new Error(`Artifact shard '${name}' contains an invalid edge dictionary.`);
+  }
+  for (const edge of shard.edges) {
+    if (
+      !Array.isArray(edge) || edge.length !== 5 ||
+      !nonnegativeInteger(edge[0]) || !nonnegativeInteger(edge[1]) ||
+      !nonnegativeInteger(edge[2]) || !nonnegativeInteger(edge[3]) ||
+      !(edge[4] === null || nonemptyString(edge[4]))
+    ) {
+      throw new Error(`Artifact shard '${name}' contains an invalid edge.`);
+    }
+  }
+  if (
+    !frontierDictionary.kinds.every((entry) =>
+      typeof entry === "string" && artifactFrontierKinds.has(entry)
+    ) ||
+    !frontierDictionary.module_specifiers.every((entry) => typeof entry === "string") ||
+    !frontierDictionary.rules.every(nonemptyString)
+  ) {
+    throw new Error(`Artifact shard '${name}' contains an invalid frontier dictionary.`);
+  }
+  for (const frontier of shard.frontiers) {
+    if (
+      !Array.isArray(frontier) || frontier.length !== 8 ||
+      !nonemptyString(frontier[0]) || !nonnegativeInteger(frontier[1]) ||
+      !nonnegativeInteger(frontier[2]) ||
+      !(frontier[3] === null || nonnegativeInteger(frontier[3])) ||
+      !nonnegativeInteger(frontier[4]) || frontier[4] > 2 ||
+      !nonnegativeInteger(frontier[5]) ||
+      !stringArray(frontier[6]) || !stringArray(frontier[7])
+    ) {
+      throw new Error(`Artifact shard '${name}' contains an invalid frontier.`);
+    }
+  }
+  return shard as unknown as CompactShard;
+}
+
+function parseCompactShard(bytes: Buffer, name: string): CompactShard {
+  const parsed = parseJson(bytes, name);
+  assertBoundedJson(parsed, `Artifact shard '${name}'`);
+  const shard = compactShardFromUnknown(parsed, name);
+  if (!bytes.equals(Buffer.from(`${canonicalCodeTopologyJson(shard)}\n`))) {
+    throw new Error(`Artifact shard '${name}' bytes are not canonical.`);
+  }
+  return shard;
+}
+
 /**
  * Parser-free production reader for the selected physical candidate.
  *
@@ -533,30 +713,23 @@ export function readCodeTopologyArtifact(
     }
     const parsedIndex = parseJson(indexBytes, CODE_TOPOLOGY_ARTIFACT_INDEX);
     assertBoundedJson(parsedIndex, "Artifact index");
-    const index = asObject(parsedIndex, "Artifact index") as unknown as ArtifactIndex;
-    if (index.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION) {
-      return { status: "incompatible", detail: `Unsupported artifact schema '${index.schema_version}'.` };
+    const rawIndex = asObject(parsedIndex, "Artifact index");
+    if (rawIndex.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION) {
+      return { status: "incompatible", detail: `Unsupported artifact schema '${rawIndex.schema_version}'.` };
     }
-    if (index.encoding !== CODE_TOPOLOGY_ARTIFACT_ENCODING) {
-      return { status: "incompatible", detail: `Unsupported artifact encoding '${index.encoding}'.` };
+    if (rawIndex.encoding !== CODE_TOPOLOGY_ARTIFACT_ENCODING) {
+      return { status: "incompatible", detail: `Unsupported artifact encoding '${rawIndex.encoding}'.` };
     }
-    if (index.producer?.identity !== CODE_TOPOLOGY_ARTIFACT_PRODUCER ||
-        index.producer?.version !== CODE_TOPOLOGY_ARTIFACT_PRODUCER_VERSION ||
-        index.provider?.identity !== CODE_TOPOLOGY_ARTIFACT_PROVIDER) {
+    const rawProducer = isObject(rawIndex.producer) ? rawIndex.producer : null;
+    const rawProvider = isObject(rawIndex.provider) ? rawIndex.provider : null;
+    if (rawProducer?.identity !== CODE_TOPOLOGY_ARTIFACT_PRODUCER ||
+        rawProducer?.version !== CODE_TOPOLOGY_ARTIFACT_PRODUCER_VERSION ||
+        rawProvider?.identity !== CODE_TOPOLOGY_ARTIFACT_PROVIDER) {
       return { status: "incompatible", detail: "Unsupported topology artifact producer/provider." };
     }
-    if (!Array.isArray(index.shards) || !index.generation || !index.counts) return invalid("Artifact index fields are incomplete.");
+    const index = artifactIndexFromUnknown(rawIndex);
     if (index.shards.length > CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS) {
       return { status: "capacity_exceeded", detail: `Artifact exceeds the ${CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS}-shard limit.` };
-    }
-    if (!index.shards.every((entry) =>
-      nonnegativeInteger(entry?.bytes) && nonnegativeInteger(entry?.symbols) &&
-      nonnegativeInteger(entry?.edges) && nonnegativeInteger(entry?.frontiers)
-    )) return invalid("Artifact shard counts are malformed.");
-    if (![index.counts.files, index.counts.symbols, index.counts.references,
-      index.counts.resolutions, index.counts.edges, index.counts.frontiers,
-      index.counts.dependency_records].every(nonnegativeInteger)) {
-      return invalid("Artifact counts are malformed.");
     }
     if (index.shards.reduce((sum, entry) => sum + entry.edges + entry.frontiers, 0) > CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS) {
       return { status: "capacity_exceeded", detail: "Artifact shard declarations exceed the dependency-record limit." };
@@ -567,7 +740,6 @@ export function readCodeTopologyArtifact(
       return { status: "capacity_exceeded", detail: "Artifact shard declarations exceed the total record limit." };
     }
     if (index.selected_input_digest !== index.generation.revision) return invalid("Selected-input digest does not match the generation.");
-    if (!sha256Pattern.test(index.artifact_digest) || !sha256Pattern.test(index.projection_digest)) return invalid("Artifact digests are malformed.");
     if (index.counts.dependency_records > CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS) {
       return { status: "capacity_exceeded", detail: "Artifact exceeds the dependency-record limit." };
     }
@@ -582,8 +754,7 @@ export function readCodeTopologyArtifact(
     const frontiers: CodeTopologyFrontierRecord[] = [];
     const seenNames = new Set<string>();
     const seenPaths = new Set<string>();
-    for (const rawEntry of index.shards) {
-      const entry = asObject(rawEntry, "Shard index") as unknown as ArtifactShardIndex;
+    for (const entry of index.shards) {
       if (seenNames.has(entry.name) || seenPaths.has(entry.file_path)) return invalid("Artifact contains a duplicate shard identity.");
       seenNames.add(entry.name);
       seenPaths.add(entry.file_path);
@@ -592,17 +763,11 @@ export function readCodeTopologyArtifact(
           entry.name.startsWith("/") || entry.name.includes("..")) return invalid(`Unsafe or mismatched shard name '${entry.name}'.`);
       const bytes = inputFiles.get(entry.name);
       if (!bytes || bytes.byteLength !== entry.bytes || sha256(bytes) !== entry.digest) return invalid(`Artifact shard '${entry.name}' is missing or corrupt.`);
-      const parsedShard = parseJson(bytes, entry.name);
-      assertBoundedJson(parsedShard, `Artifact shard '${entry.name}'`);
-      const shard = asObject(parsedShard, "Artifact shard") as unknown as CompactShard;
-      if (!bytes.equals(Buffer.from(`${canonicalCodeTopologyJson(shard)}\n`))) {
-        return invalid(`Artifact shard '${entry.name}' bytes are not canonical.`);
-      }
+      const shard = parseCompactShard(bytes, entry.name);
       if (shard.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION) return invalid(`Artifact shard '${entry.name}' has an incompatible schema.`);
-      if (!shard.file || shard.file.path !== entry.file_path || shard.file.path.length > CODE_TOPOLOGY_ARTIFACT_MAX_PATH_LENGTH || !Array.isArray(shard.symbols) || !Array.isArray(shard.edges) || !Array.isArray(shard.frontiers) || !shard.symbol_dictionary || !Array.isArray(shard.edge_kinds) || !shard.frontier_dictionary) return invalid(`Artifact shard '${entry.name}' has an invalid shape.`);
+      if (shard.file.path !== entry.file_path || shard.file.path.length > CODE_TOPOLOGY_ARTIFACT_MAX_PATH_LENGTH) return invalid(`Artifact shard '${entry.name}' has an invalid shape.`);
       if (shard.symbols.length !== entry.symbols || shard.edges.length !== entry.edges || shard.frontiers.length !== entry.frontiers) return invalid(`Artifact shard '${entry.name}' count mismatch.`);
       const localSymbols = shard.symbols.map((symbol): CodeTopologyTraversalSymbolRecord => {
-        if (!Array.isArray(symbol) || symbol.length !== 3) throw new Error(`Artifact shard '${entry.name}' contains an invalid symbol.`);
         const nativeKind = shard.symbol_dictionary.native_kinds[symbol[1]];
         const selector = symbol[2] === null ? null : shard.symbol_dictionary.selectors[symbol[2]];
         if (!nativeKind || selector === undefined) throw new Error(`Artifact shard '${entry.name}' contains an invalid symbol dictionary reference.`);
@@ -626,15 +791,11 @@ export function readCodeTopologyArtifact(
     // edge tuples beside their expanded read-model objects pushed two-role
     // peak RSS over the product gate. Re-decoding one <=8 MiB shard at a time
     // trades a small amount of CPU for a much smaller transient graph.
-    for (const rawEntry of index.shards) {
-      const entry = rawEntry as ArtifactShardIndex;
+    for (const entry of index.shards) {
       const bytes = inputFiles.get(entry.name)!;
-      const shard = parseJson(bytes, entry.name) as CompactShard;
+      const shard = JSON.parse(bytes.toString("utf8")) as CompactShard;
       const localSymbols = shardSymbols.get(entry.file_path)!;
       for (const edge of shard.edges) {
-        if (!Array.isArray(edge) || edge.length !== 5) {
-          throw new Error(`Artifact shard '${entry.name}' contains an invalid edge.`);
-        }
         const source = localSymbols[edge[0]];
         const targetPath = index.shards[edge[1]]?.file_path;
         const target = targetPath ? shardSymbols.get(targetPath)?.[edge[2]] : undefined;
@@ -650,19 +811,14 @@ export function readCodeTopologyArtifact(
         });
       }
       for (const frontier of shard.frontiers) {
-        if (!Array.isArray(frontier) || frontier.length !== 8) {
-          throw new Error(`Artifact shard '${entry.name}' contains an invalid frontier.`);
-        }
         const source = localSymbols[frontier[1]];
         const kind = shard.frontier_dictionary.kinds[frontier[2]];
         const moduleSpecifier = frontier[3] === null
           ? null
           : shard.frontier_dictionary.module_specifiers[frontier[3]];
-        const statuses = ["ambiguous", "unresolved", "external"] as const;
-        const status = statuses[frontier[4]];
+        const status = artifactFrontierStatuses[frontier[4]];
         const rule = shard.frontier_dictionary.rules[frontier[5]];
-        if (!source || !kind || moduleSpecifier === undefined || !status || !rule ||
-            !Array.isArray(frontier[6]) || !Array.isArray(frontier[7])) {
+        if (!source || !kind || moduleSpecifier === undefined || !status || !rule) {
           throw new Error(`Artifact shard '${entry.name}' contains an invalid frontier endpoint or dictionary reference.`);
         }
         frontiers.push({

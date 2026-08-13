@@ -871,9 +871,9 @@ Copy `.env.example` and set only the credentials needed by the process:
 
 The MCP server uses read and planning-write connections. Sync/admin credentials
 belong to explicit CLI/CI operations and should not be exposed to ordinary agents.
-The baseline migration must run with an administrative database role that can
-install the `vector`, `pgcrypto`, and `pg_trgm` extensions and create the three
-Tieline runtime roles. Managed Postgres environments may require an
+The packaged migrations must run with an administrative database role. The
+baseline installs the `vector`, `pgcrypto`, and `pg_trgm` extensions and creates
+the three Tieline runtime roles. Managed Postgres environments may require an
 administrator to preinstall pgvector/Postgres contrib extensions or grant the
 equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities before
 `tieline migrate` runs.

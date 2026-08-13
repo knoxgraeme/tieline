@@ -87,6 +87,31 @@ await test("resolves Python roots, relative modules, aliases, and unique top-lev
   assert.equal(alias.targets[0]?.path, "src/pkg/util.py");
   assert.equal(alias.targets[0]?.selector, "function:helper");
 
+  const absoluteChild = outcomeFor(outcomes, "pkg");
+  assertOutcome(absoluteChild, "resolved", "python_declared_root_module");
+  assert.deepEqual(absoluteChild.targets.map((target) => [target.path, target.selector]), [
+    ["src/pkg/submodule.py", null],
+  ]);
+
+  const relativeChild = outcomeFor(outcomes, ".");
+  assertOutcome(relativeChild, "resolved", "python_relative_module");
+  assert.deepEqual(relativeChild.targets.map((target) => [target.path, target.selector]), [
+    ["src/pkg/sibling.py", null],
+  ]);
+
+  const ambiguousChild = outcomeFor(outcomes, "pkg", 1);
+  assertOutcome(ambiguousChild, "ambiguous", "python_declared_root_module");
+  assert.equal(ambiguousChild.reason, "ambiguous_module");
+  assert.deepEqual(ambiguousChild.candidates.map((target) => target.path), [
+    "src/pkg/ambiguous_child.py",
+    "src/pkg/ambiguous_child/__init__.py",
+  ]);
+
+  const missingChild = outcomeFor(outcomes, "pkg", 2);
+  assertOutcome(missingChild, "unresolved", "python_declared_root_module");
+  assert.equal(missingChild.reason, "export_not_found");
+  assert.deepEqual(missingChild.candidates, []);
+
   const namespace = outcomeFor(outcomes, "nsmod");
   assertOutcome(namespace, "resolved", "python_declared_root_module");
   assert.equal(namespace.targets[0]?.path, "vendor/nsmod.py");

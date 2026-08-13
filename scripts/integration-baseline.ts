@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import postgres from "postgres";
-import { migrateDatabase } from "../src/commands/migrate.js";
+import {
+  migrateDatabase,
+  readPackagedMigrations,
+} from "../src/commands/migrate.js";
 import { PostgresProfileRepository } from "../src/adapters/postgres/profile-repository.js";
 import { PostgresSemanticRepository } from "../src/adapters/postgres/semantic-repository.js";
 import {
@@ -11,6 +14,7 @@ import {
   codeTopologyGenerationIdentity,
   type CompleteCodeTopologyGeneration,
 } from "../src/domain/code-topology-store.js";
+import { runDatabasePreflight } from "../src/tieline/preflight.js";
 
 const topologyDigest = (character: string): string => character.repeat(64);
 
@@ -161,6 +165,30 @@ try {
     if (installed.schema !== "public") {
       await bootstrap.unsafe("alter extension vector set schema public");
     }
+    const baseline = readPackagedMigrations()[0]!;
+    await bootstrap.begin(async (tx) => {
+      await tx`
+        create table schema_migrations (
+          filename text primary key,
+          checksum text not null,
+          applied_at timestamptz not null default now()
+        )`;
+      await tx.unsafe(baseline.content);
+      await tx`
+        insert into schema_migrations (filename, checksum)
+        values (${baseline.filename}, ${baseline.checksum})`;
+    });
+    const [upgradeFixture] = await bootstrap<{ baseline_recorded: boolean; topology_absent: boolean }[]>`
+      select
+        exists (
+          select 1 from schema_migrations
+          where filename = '0001_baseline.sql'
+        ) as baseline_recorded,
+        to_regclass('public.code_topology_generations') is null as topology_absent`;
+    assert.deepEqual(upgradeFixture, {
+      baseline_recorded: true,
+      topology_absent: true,
+    });
   }
 } finally {
   await bootstrap.end({ timeout: 5 });
@@ -168,9 +196,23 @@ try {
 
 await migrateDatabase(adminUrl);
 await migrateDatabase(adminUrl);
+await migrateDatabase(adminUrl, true);
+const migrationPreflight = (await runDatabasePreflight({ DATABASE_URL_ADMIN: adminUrl }))
+  .find((check) => check.key === "migrations");
+assert.deepEqual(migrationPreflight, {
+  key: "migrations",
+  status: "pass",
+  message: "All 2 migrations are applied with matching checksums.",
+});
 
 const sql = postgres(adminUrl, { max: 1, prepare: false });
 try {
+  const appliedMigrations = await sql<{ filename: string; checksum: string }[]>`
+    select filename, checksum from schema_migrations order by filename`;
+  assert.deepEqual(
+    [...appliedMigrations],
+    readPackagedMigrations().map(({ filename, checksum }) => ({ filename, checksum }))
+  );
   const roles = await sql<{ rolname: string }[]>`
     select rolname
     from pg_roles

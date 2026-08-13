@@ -414,6 +414,7 @@ export async function analyzeCodeBlastRadius(
     });
     if (trace.status !== "complete") continue;
     startOutcomes.push(...trace.start_outcomes);
+    omittedStarts += trace.omitted_starts.length;
     for (const reason of trace.truncation.reasons) reasons.add(reason);
     for (const dimension of ["depth", "nodes", "edges", "paths"] as const) {
       omitted[dimension] += trace.truncation[dimension].omitted;

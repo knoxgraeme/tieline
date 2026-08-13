@@ -135,8 +135,9 @@ function listGitBlobs(
   paths: readonly string[]
 ): Map<string, GitBlob> {
   if (paths.length === 0) return new Map();
+  const literalTopLevelPaths = paths.map((path) => `:(top,literal)${path}`);
   const output = git(repositoryRoot, [
-    "ls-tree", "-rz", "-r", "--full-tree", "-l", commit, "--", ...paths,
+    "ls-tree", "-rz", "-r", "--full-tree", "-l", commit, "--", ...literalTopLevelPaths,
   ]).toString("utf8");
   const result = new Map<string, GitBlob>();
   for (const raw of output.split("\0")) {

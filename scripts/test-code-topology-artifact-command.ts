@@ -8,14 +8,20 @@ import {
   renameSync,
   rmSync,
   symlinkSync,
+  truncateSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { runCli, type TielineCliIO } from "../src/cli.js";
 import { runCodeTopologyArtifactCommand } from "../src/commands/code-topology-artifact.js";
+import {
+  CODE_TOPOLOGY_ARTIFACT_INDEX,
+  CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
+} from "../src/contract/code-topology-artifact.js";
 import { selectGitTopologyRole } from "../src/contract/git-artifact-snapshot.js";
+import { readWorkspaceCodeTopologyFiles } from "../src/contract/topology-role-snapshot.js";
 import { report, test } from "./lib/harness.js";
 
 const root = mkdtempSync(join(tmpdir(), "tieline-topology-artifact-command-"));
@@ -48,6 +54,15 @@ function artifactBytes(): Map<string, Buffer> {
   };
   visit(topologyRoot);
   return files;
+}
+
+function replaceArtifactBytes(files: ReadonlyMap<string, Buffer>): void {
+  rmSync(topologyRoot, { recursive: true, force: true });
+  for (const [name, bytes] of files) {
+    const path = join(topologyRoot, name);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, bytes);
+  }
 }
 
 try {
@@ -161,6 +176,49 @@ try {
     assert.equal(right.exit, 0);
     assert.equal(left.result.artifact_digest, right.result.artifact_digest);
     assert.deepEqual(artifactBytes(), compiledBytes);
+  });
+
+  await test("a reader retries once when publication replaces its captured generation", async () => {
+    writeFileSync(join(root, "src/main.ts"), "export const value = 101;\n");
+    assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
+    const nextBytes = artifactBytes();
+    const nextIndex = JSON.parse(nextBytes.get(CODE_TOPOLOGY_ARTIFACT_INDEX)!.toString("utf8"));
+    writeFileSync(join(root, "src/main.ts"), "export const value = 1;\n");
+    replaceArtifactBytes(compiledBytes);
+    let indexReads = 0;
+    try {
+      const read = readWorkspaceCodeTopologyFiles(root, {
+        afterIndexRead(attempt) {
+          indexReads += 1;
+          if (attempt === 0) replaceArtifactBytes(nextBytes);
+        },
+      });
+      assert.equal(read.status, "complete", "detail" in read ? read.detail : undefined);
+      if (read.status !== "complete") return;
+      assert.equal(indexReads, 2, "the bounded retry rereads the replacement generation once");
+      assert.equal(
+        JSON.parse(read.files.get(CODE_TOPOLOGY_ARTIFACT_INDEX)!.toString("utf8")).artifact_digest,
+        nextIndex.artifact_digest
+      );
+    } finally {
+      replaceArtifactBytes(compiledBytes);
+    }
+  });
+
+  await test("an oversized workspace index is rejected before its payload is read", () => {
+    const indexPath = join(topologyRoot, CODE_TOPOLOGY_ARTIFACT_INDEX);
+    const saved = readFileSync(indexPath);
+    try {
+      truncateSync(indexPath, 2 ** 31);
+      const oversized = readWorkspaceCodeTopologyFiles(root);
+      assert.deepEqual(oversized, {
+        status: "capacity_exceeded",
+        detail: "Topology index exceeds the per-file byte limit.",
+      });
+      assert.ok(2 ** 31 > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES);
+    } finally {
+      writeFileSync(indexPath, saved);
+    }
   });
 
   await test("a missing referenced shard is invalid rather than an absent artifact", async () => {
