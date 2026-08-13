@@ -57,7 +57,8 @@ type CompactFrontier = readonly [
 
 interface CompactShard {
   schema_version: number;
-  generation_identity: string;
+  /** Legacy v1 shards may carry this field; new shards are generation-neutral. */
+  generation_identity?: string;
   file: CodeTopologyArtifactFileRecord;
   symbol_dictionary: { native_kinds: readonly string[]; selectors: readonly string[] };
   symbols: readonly CompactSymbol[];
@@ -402,7 +403,6 @@ export function serializeCodeTopologyArtifact(
     const statusCode = { ambiguous: 0, unresolved: 1, external: 2 } as const;
     const shard: CompactShard = {
       schema_version: CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION,
-      generation_identity: artifact.generation.identity,
       file,
       symbol_dictionary: symbolDictionary,
       symbols: symbols.map((symbol) => [
@@ -599,7 +599,7 @@ export function readCodeTopologyArtifact(
       if (!bytes.equals(Buffer.from(`${canonicalCodeTopologyJson(shard)}\n`))) {
         return invalid(`Artifact shard '${entry.name}' bytes are not canonical.`);
       }
-      if (shard.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION || shard.generation_identity !== index.generation.identity) return invalid(`Artifact shard '${entry.name}' belongs to another generation.`);
+      if (shard.schema_version !== CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION) return invalid(`Artifact shard '${entry.name}' has an incompatible schema.`);
       if (!shard.file || shard.file.path !== entry.file_path || shard.file.path.length > CODE_TOPOLOGY_ARTIFACT_MAX_PATH_LENGTH || !Array.isArray(shard.symbols) || !Array.isArray(shard.edges) || !Array.isArray(shard.frontiers) || !shard.symbol_dictionary || !Array.isArray(shard.edge_kinds) || !shard.frontier_dictionary) return invalid(`Artifact shard '${entry.name}' has an invalid shape.`);
       if (shard.symbols.length !== entry.symbols || shard.edges.length !== entry.edges || shard.frontiers.length !== entry.frontiers) return invalid(`Artifact shard '${entry.name}' count mismatch.`);
       const localSymbols = shard.symbols.map((symbol): CodeTopologyTraversalSymbolRecord => {

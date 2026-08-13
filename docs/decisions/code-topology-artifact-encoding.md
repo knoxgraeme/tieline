@@ -12,14 +12,17 @@ improvement over parse-first remains reported evidence rather than a release
 threshold because it varies with parser/runtime allocation while the absolute
 artifact-reader budget is the product constraint. The root authority is
 `topology.json`; one shard is assigned to each stable source path
-at `files/<sha256(path)[0:32]>.json`. Files and global symbol identities retain
-their logical string identity. Within a shard, symbols have zero-based local
-IDs in identity order; edges address a source local ID plus a target file/local
-ID. Repeated kinds, selectors, module specifiers, rules, and statuses use sorted
-shard-local dictionaries. Shards are canonical JSON with one trailing newline.
-The root index keeps canonical values but places metadata and each shard entry
-on stable separate lines so a local change does not replace a megabyte-long
-JSON line in Git.
+and stored content-addressed at `files/<sha256(canonical-shard-bytes)>.json`.
+Files and global symbol identities retain their logical string identity. Within
+a shard, symbols have zero-based local IDs in identity order; edges address a
+source local ID plus a target file/local ID. Repeated kinds, selectors, module
+specifiers, rules, and statuses use sorted shard-local dictionaries. Shards are
+canonical JSON with one trailing newline. Logical generation identity belongs
+to the root index so unchanged physical shards can be reused across generations;
+readers still accept legacy schema-v1 shards that carry the former extra
+`generation_identity` field. The root index keeps canonical values but places
+metadata and each shard entry on stable separate lines so a local change does
+not replace a megabyte-long JSON line in Git.
 
 Canonical JSON and JSONL are discarded encodings. Their definitions remain
 recorded below, but no production encoder or reader remains for either.
@@ -80,7 +83,8 @@ fixture counts and projection digest are asserted during direct-reader parity.
 The focused correctness fixture covers all four languages, Unicode selectors,
 resolved edges, ambiguous and external frontiers, byte-identical five-write
 determinism, producer/schema incompatibility, corruption, duplicate identity,
-cross-generation data, count mismatch, and direct-store traversal.
+root-generation digest mismatch, legacy shard compatibility, count mismatch,
+and direct-store traversal.
 
 The permanent benchmark runs the winner at full scale. The one-time size
 comparison was collected on macOS arm64, Node v24.18.0. The isolated two-role
@@ -101,10 +105,10 @@ Ubuntu x64 Node 20 CI remains authoritative for release budgets.
 
 Both winning distributions are below 32 MiB total, 8 MiB per file, 60 seconds
 compile, and 10 seconds full first-read. Stable file partition means a logical
-one-file edit changes its shard plus the root index (2 touched artifact files);
-a rename also changes shards whose logical edge locators point at the renamed
-path (4 touched files in the representative fixture), under the 8-file ceiling.
-The fixture's largest possible local patch is bounded by
+one-file edit changes one old/new immutable shard pair plus the root index (3
+touched artifact paths); a rename also changes the old/new shards whose logical
+edge locators point at the renamed path (5 paths in the representative fixture),
+under the 8-file ceiling. The fixture's largest possible local patch is bounded by
 two 1.13 MiB shards plus index metadata; a representative edit changes one
 shard and the index and stays below 2 MiB.
 
@@ -148,7 +152,7 @@ regression budgets, rounded up where appropriate:
 - full direct validation: 5,379 ms;
 - two-role peak RSS growth: 431,226,880 bytes;
 - two-role retained RSS growth: 382,566,400 bytes;
-- touched artifact files: 4 for the representative rename fixture (2 for edit);
+- touched artifact paths: 5 for the representative rename fixture (3 for edit);
 - representative patch bytes: 1,411,425;
 - dependency records: exactly 250,000 maximum across edges and frontiers.
 
