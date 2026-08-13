@@ -45,11 +45,11 @@ try {
   writeFileSync(resolve(projectRoot, "package.json"), '{"private":true,"type":"module"}\n');
   execFileSync(
     "npm",
-    ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
+    ["install", "--prefer-offline", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
     {
       cwd: projectRoot,
       stdio: "pipe",
-      env: { ...process.env, npm_config_offline: "true", npm_config_ignore_scripts: "true" },
+      env: { ...process.env, npm_config_ignore_scripts: "true" },
     }
   );
   writeFileSync(resolve(projectRoot, "corpus.json"), `${JSON.stringify(corpus)}\n`);

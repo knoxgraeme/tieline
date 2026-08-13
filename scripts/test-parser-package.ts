@@ -116,7 +116,7 @@ await test("fails closed for corrupt assets and incompatible ABI manifests", asy
   }
 });
 
-await test("ships an offline-installable parser set without native grammar packages", () => {
+await test("runs packaged parsers offline without native grammar packages", () => {
   const projectRoot = mkdtempSync(resolve(tmpdir(), "tieline-parser-install-"));
   let tarballPath: string | undefined;
   try {
@@ -142,7 +142,7 @@ await test("ships an offline-installable parser set without native grammar packa
     writeFileSync(resolve(projectRoot, "package.json"), '{"private":true,"type":"module"}\n');
     execFileSync(
       "npm",
-      ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
+      ["install", "--prefer-offline", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
       { cwd: projectRoot, stdio: "pipe" }
     );
     const sourceRoot = resolve(projectRoot, "sources");

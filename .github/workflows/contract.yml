@@ -43,15 +43,15 @@ jobs:
 
       - run: npm ci
 
-      # Every step below runs fully offline: no database, no network, no
-      # credentials. The contract plane is a pure function of the working tree.
+      # Every step below is credential-free and makes no product, provider, or
+      # database calls. Package-consumer tests may resolve public npm metadata.
       - name: Validate contract YAML
         run: npx tsx src/cli.ts contract validate .
 
       - name: Evaluate semantic impact
         run: npx tsx src/cli.ts check . --base origin/main
 
-      - name: Offline test suites
+      - name: Credential-free test suites
         run: npm test
 
       - name: Workspace onboarding tests
@@ -73,6 +73,7 @@ jobs:
       - run: npm ci
       - name: Offline installed-package smoke and deterministic facts
         run: |
+          set -o pipefail
           npm run test:parser-package | tee parser-package.log
           grep '"fact_digest"' parser-package.log | tail -1 > parser-facts-${{ matrix.node }}.json
       - uses: actions/upload-artifact@v4
