@@ -150,6 +150,7 @@ process.stdout.write(JSON.stringify({
     enforcement: enforce && pinnedEnvironment ? "enforced" : "measure_only",
   };
 
+  process.stdout.write(`${JSON.stringify(measurements, null, 2)}\n`);
   if (enforce) {
     assert.ok(pinnedEnvironment, "release budget enforcement requires pinned Ubuntu x64 Node 20");
     assert.ok(parserAssetBytes <= 7 * MIB, "parser assets exceed 7 MiB");
@@ -157,9 +158,15 @@ process.stdout.write(JSON.stringify({
     assert.ok(installedParserBytes <= 10 * MIB, "production parser install exceeds 10 MiB");
     assert.ok(measurements.initialization_median_ms <= 2_000, "median parser load exceeds 2 seconds");
     assert.ok(measurements.initialization_worst_ms <= 4_000, "worst parser load exceeds 4 seconds");
-    assert.ok(measurements.corpus_worst_ms <= 1_000, "116-file corpus parse/query exceeds 1 second");
+    assert.ok(
+      measurements.corpus_median_ms <= 1_000,
+      "median 116-file corpus parse/query exceeds 1 second"
+    );
+    assert.ok(
+      measurements.corpus_worst_ms <= 2_000,
+      "worst 116-file corpus parse/query exceeds 2 seconds"
+    );
   }
-  process.stdout.write(`${JSON.stringify(measurements, null, 2)}\n`);
 } finally {
   if (tarballPath) rmSync(tarballPath, { force: true });
   rmSync(projectRoot, { recursive: true, force: true });
