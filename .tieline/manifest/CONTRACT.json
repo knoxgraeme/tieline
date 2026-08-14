@@ -1416,7 +1416,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2658221769e177305e6ba443056affdb6111ea869783a0d05c777a933c57a74d",
+                "reviewed_content_hash": "ea496939b5c541e747dab78060c28ebc32e3971f3e88e1c47f1b18cdc6d2eea4",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-topology-indexer.ts",
@@ -1554,7 +1554,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1824d523bfc327fed03010c72017354ad4e37a2fd89d9be20df897f050e0bf18",
+                "reviewed_content_hash": "a0475f6e4bc1aed9b0f5b615b418208129d1a9b23b5e458a0cc58cdb49665177",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
