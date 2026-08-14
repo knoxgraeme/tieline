@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import type {
   CodeResolutionTarget,
   ResolutionAnalysis,
@@ -14,7 +15,7 @@ export function resolutionIdentity(value: unknown): string {
 }
 
 export function uniqueSorted(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+  return [...new Set(values)].sort(compareCodeTopologyText);
 }
 
 export function uniqueResolutionTargets(
@@ -26,8 +27,8 @@ export function uniqueResolutionTargets(
   }
   return [...unique.values()].sort(
     (left, right) =>
-      left.path.localeCompare(right.path) ||
-      (left.symbolIdentity ?? "").localeCompare(right.symbolIdentity ?? "")
+      compareCodeTopologyText(left.path, right.path) ||
+      compareCodeTopologyText(left.symbolIdentity ?? "", right.symbolIdentity ?? "")
   );
 }
 

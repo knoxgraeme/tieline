@@ -1,4 +1,5 @@
 import { posix } from "node:path";
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import type { SupportedCodeLanguage } from "../code-analysis/languages.js";
 import type { SourceInventory } from "../source-inventory.js";
 import { canonicalRepositoryRelativePath } from "../paths.js";
@@ -192,7 +193,9 @@ export function readJavaScriptResolutionConfiguration(
   const paths = record(compilerOptions?.paths);
   const aliases: JavaScriptPathAlias[] = [];
   if (paths) {
-    for (const [pattern, rawTargets] of Object.entries(paths).sort(([left], [right]) => left.localeCompare(right))) {
+    for (const [pattern, rawTargets] of Object.entries(paths).sort(([left], [right]) =>
+      compareCodeTopologyText(left, right)
+    )) {
       const targets = Array.isArray(rawTargets)
         ? rawTargets.filter((target): target is string => typeof target === "string")
         : [];
@@ -210,7 +213,10 @@ export function readJavaScriptResolutionConfiguration(
       aliases.push(Object.freeze({ pattern: pattern.normalize("NFC"), targets: Object.freeze([...targets]) }));
     }
   }
-  aliases.sort((left, right) => right.pattern.replace("*", "").length - left.pattern.replace("*", "").length || left.pattern.localeCompare(right.pattern));
+  aliases.sort((left, right) =>
+    right.pattern.replace("*", "").length - left.pattern.replace("*", "").length ||
+    compareCodeTopologyText(left.pattern, right.pattern)
+  );
   const normalized = {
     compatibility: javascriptResolutionCompatibility as typeof javascriptResolutionCompatibility,
     files,
@@ -251,7 +257,9 @@ function extension(path: string): string {
 function uniqueCandidates(candidates: readonly ModuleCandidate[]): ModuleCandidate[] {
   const byPath = new Map<string, ModuleCandidate>();
   for (const candidate of candidates) byPath.set(candidate.path, candidate);
-  return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
+  return [...byPath.values()].sort((left, right) =>
+    compareCodeTopologyText(left.path, right.path)
+  );
 }
 
 function aliasCapture(pattern: string, specifier: string): string | null {
@@ -299,7 +307,7 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
         .map((reference) => this.#resolveReference(analysis, reference))
         .sort((left, right) =>
           left.reference.statementRange.utf16.start - right.reference.statementRange.utf16.start ||
-          left.identity.localeCompare(right.identity)
+          compareCodeTopologyText(left.identity, right.identity)
         )
     );
   }
@@ -500,8 +508,11 @@ class JavaScriptModuleResolver implements CodeModuleResolver {
     incomplete ||= results.length === 0 && analysis.diagnostics.length > 0;
     return {
       matches: [...unique.values()].sort((left, right) =>
-        left.target.path.localeCompare(right.target.path) ||
-        (left.target.symbolIdentity ?? "").localeCompare(right.target.symbolIdentity ?? "")
+        compareCodeTopologyText(left.target.path, right.target.path) ||
+        compareCodeTopologyText(
+          left.target.symbolIdentity ?? "",
+          right.target.symbolIdentity ?? ""
+        )
       ),
       ambiguous: uniqueResolutionTargets(ambiguous),
       diagnostics,

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Query, type Language, type Node as SyntaxNode, type QueryMatch } from "web-tree-sitter";
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import type { SourceRange, SourceSnapshot } from "../source-snapshot.js";
 import type { SupportedCodeLanguage } from "./languages.js";
 import { createCodeParserRuntime, defaultParserAssetRoot, type CodeParserRuntime } from "./runtime.js";
@@ -94,8 +95,8 @@ export function candidateOrder(left: StructuralCandidate, right: StructuralCandi
   return (
     left.node.startIndex - right.node.startIndex ||
     right.node.endIndex - left.node.endIndex ||
-    left.nativeKind.localeCompare(right.nativeKind) ||
-    (left.name ?? "").localeCompare(right.name ?? "")
+    compareCodeTopologyText(left.nativeKind, right.nativeKind) ||
+    compareCodeTopologyText(left.name ?? "", right.name ?? "")
   );
 }
 
@@ -253,7 +254,7 @@ function buildDiagnostics(snapshot: SourceSnapshot, root: SyntaxNode): ParserDia
     (left, right) =>
       left.range.utf16.start - right.range.utf16.start ||
       left.range.utf16.end - right.range.utf16.end ||
-      left.kind.localeCompare(right.kind)
+      compareCodeTopologyText(left.kind, right.kind)
   );
 }
 
