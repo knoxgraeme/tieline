@@ -23,6 +23,7 @@ try {
   const tools = await client.listTools();
   const names = tools.tools.map((tool) => tool.name).sort();
   assert.deepEqual(names, [
+    "analyze_code_blast_radius",
     "create_backlog_item",
     "create_planning_story",
     "decide_attribution",
@@ -40,10 +41,12 @@ try {
     "record_observation",
     "search_knowledge",
     "set_backlog_item_links",
+    "trace_code_dependencies",
     "update_backlog_item",
     "update_planning_story",
   ]);
   const readOnly = new Set([
+    "analyze_code_blast_radius",
     "find_help",
     "find_related",
     "get_acceptance_criterion_context",
@@ -55,6 +58,7 @@ try {
     "list_handoff_conflicts",
     "query_stories",
     "search_knowledge",
+    "trace_code_dependencies",
   ]);
   assert.ok(
     tools.tools
@@ -88,6 +92,9 @@ try {
   assert.match(instructions, /before semantic search/i);
   assert.match(instructions, /intent neighborhood/i);
   assert.match(instructions, /contract coupling/i);
+  assert.match(instructions, /trace_code_dependencies/);
+  assert.match(instructions, /analyze_code_blast_radius/);
+  assert.match(instructions, /derived_code_dependency/);
 
   const unknownDestructiveField = (await client.callTool({
     name: "set_backlog_item_links",
@@ -123,6 +130,9 @@ try {
   assert.match(String(guide.contents[0]?.text), /before semantic search/i);
   assert.match(String(guide.contents[0]?.text), /intent neighborhood/i);
   assert.match(String(guide.contents[0]?.text), /contract coupling/i);
+  assert.match(String(guide.contents[0]?.text), /trace_code_dependencies/);
+  assert.match(String(guide.contents[0]?.text), /analyze_code_blast_radius/);
+  assert.match(String(guide.contents[0]?.text), /semantic_support: not_assessed/);
 
   const prompts = await client.listPrompts();
   assert.deepEqual(

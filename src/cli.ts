@@ -183,6 +183,12 @@ export function workspaceStartForCommand(
       firstPositional(args, new Set(["base", "repo"])) ?? process.cwd()
     );
   }
+  if (command === "code") {
+    if (args[0] === "compile" || args[0] === "validate") {
+      return firstPositional(args, new Set(), 1) ?? process.cwd();
+    }
+    return optionValue(args, "repository") ?? process.cwd();
+  }
   if (command === "status") {
     return firstPositional(args, new Set()) ?? process.cwd();
   }
@@ -510,6 +516,114 @@ function buildProgram(
         )
       );
     });
+
+  const code = program
+    .command("code")
+    .description("Read bounded derived code topology and advisory AC impact");
+  for (const [action, description] of [
+    ["compile", "Compile the repository topology artifact"],
+    ["validate", "Validate topology integrity and freshness without parsing"],
+  ] as const) {
+    code
+      .command(action)
+      .description(description)
+      .argument("[repository]", "repository path")
+      .option("--json", "emit machine-readable JSON")
+      .action(async (repository: string | undefined, opts) => {
+        const { runCodeTopologyArtifactCommand } = await import("./commands/code-topology-artifact.js");
+        setExit(await runCodeTopologyArtifactCommand(action, {
+          repository,
+          json: Boolean(opts.json),
+        }, io));
+      });
+  }
+  const addTopologyLimits = (command: Command): Command => command
+    .option("--depth <n>", "maximum traversal depth (1-8)")
+    .option("--nodes <n>", "maximum visited nodes (1-1000)")
+    .option("--edges <n>", "maximum edges and unresolved frontiers (1-4000)")
+    .option("--paths <n>", "maximum returned paths (1-200)");
+  addTopologyLimits(
+    code
+      .command("trace")
+      .description("Trace exact code dependencies or dependents")
+      .requiredOption("--path <repository-relative-path>", "exact code/test path")
+      .option("--selector <canonical-selector>", "exact canonical selector")
+      .addOption(new Option("--kind <kind>", "asset kind").choices(["code", "test"]).default("code"))
+      .option("--framework-hint <hint>", "framework identity dimension")
+      .addOption(new Option("--direction <direction>", "traversal direction").choices(["dependencies", "dependents"]).default("dependencies"))
+      .addOption(new Option("--generation-role <role>", "reported generation role").choices(["base", "current"]).default("current"))
+      .option("--revision <git-ref>", "analyze an exact local Git revision")
+      .option("--generation <identity>", "read a complete persisted generation")
+      .option("--repository <path>", "repository workspace path")
+      .option("--repo <key>", "stable repository key")
+      .option("--json", "emit machine-readable JSON")
+  ).action(async (opts) => {
+    const { findTielineWorkspace } = await import("./tieline/workspace.js");
+    const { runDependencyTraceCommand } = await import("./commands/code-topology.js");
+    const workspace = findTielineWorkspace(opts.repository ?? process.cwd());
+    const repository = opts.repo ?? workspace?.config.product.repo_name;
+    if (!repository) {
+      throw new Error("`code trace` requires --repo <key> when no Tieline workspace is available.");
+    }
+    setExit(await runDependencyTraceCommand({
+      repositoryRoot: opts.repository,
+      repository,
+      locator: {
+        path: opts.path,
+        kind: opts.kind,
+        selector: opts.selector,
+        frameworkHint: opts.frameworkHint,
+      },
+      direction: opts.direction,
+      role: opts.generationRole,
+      revision: opts.revision,
+      generation: opts.generation,
+      limits: {
+        ...(opts.depth === undefined ? {} : { depth: Number(opts.depth) }),
+        ...(opts.nodes === undefined ? {} : { nodes: Number(opts.nodes) }),
+        ...(opts.edges === undefined ? {} : { edges: Number(opts.edges) }),
+        ...(opts.paths === undefined ? {} : { paths: Number(opts.paths) }),
+      },
+      json: Boolean(opts.json),
+    }, io));
+  });
+  addTopologyLimits(
+    code
+      .command("blast-radius")
+      .description("Analyze advisory AC-aware impact from a Git base or changed paths")
+      .addOption(new Option("--base <git-ref>", "compare the workspace to this Git ref").conflicts("changed"))
+      .option("--changed <path>", "explicit changed repository path (repeatable)", collect, [])
+      .addOption(new Option("--kind <kind>", "asset kind for explicit paths").choices(["code", "test"]).default("code"))
+      .option("--selector <canonical-selector>", "selector for the explicit changed path")
+      .addOption(new Option("--direction <direction>", "traversal direction").choices(["dependencies", "dependents"]).default("dependents"))
+      .option("--repository <path>", "repository workspace path")
+      .option("--repo <key>", "stable repository key")
+      .option("--json", "emit machine-readable JSON")
+  ).action(async (opts) => {
+    const { findTielineWorkspace } = await import("./tieline/workspace.js");
+    const { runBlastRadiusCommand } = await import("./commands/code-topology.js");
+    const workspace = findTielineWorkspace(opts.repository ?? process.cwd());
+    const repository = opts.repo ?? workspace?.config.product.repo_name;
+    if (!repository) {
+      throw new Error("`code blast-radius` requires --repo <key> when no Tieline workspace is available.");
+    }
+    setExit(await runBlastRadiusCommand({
+      repositoryRoot: opts.repository,
+      repository,
+      base: opts.base,
+      changes: opts.changed.length > 0
+        ? opts.changed.map((path: string) => ({ path, kind: opts.kind, selector: opts.selector, status: "modified" as const }))
+        : undefined,
+      direction: opts.direction,
+      limits: {
+        ...(opts.depth === undefined ? {} : { depth: Number(opts.depth) }),
+        ...(opts.nodes === undefined ? {} : { nodes: Number(opts.nodes) }),
+        ...(opts.edges === undefined ? {} : { edges: Number(opts.edges) }),
+        ...(opts.paths === undefined ? {} : { paths: Number(opts.paths) }),
+      },
+      json: Boolean(opts.json),
+    }, io));
+  });
 
   const profile = program
     .command("profile")

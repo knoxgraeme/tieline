@@ -476,6 +476,98 @@ remain explicit. Semantic support is always `not_assessed` in these reads. No
 state proves the criterion is implemented correctly, and a linked test is an
 evidence locator—not a receipt that the test ran or passed.
 
+### Derived code topology and blast radius
+
+Tieline can separately derive a conservative code topology from repository
+source. This does not replace the authored contract and does not use a graph
+database. Developers explicitly compile one thin, reviewable
+`.tieline/topology/graph.json`; local and historical reads select that file
+without parsing source or writing files. PostgreSQL can hold the richer,
+queryable projection of an accepted `main` generation. Local compilation never
+writes it. The compiled manifest remains the authority for business intent.
+
+The repository artifact retains a thin traversal projection: file
+hashes, locator-bearing symbols, adjacency, and unresolved dependency
+frontiers. Parser diagnostics, source ranges, reference facts, and resolved
+explanations remain available in committed PostgreSQL generations but are not
+duplicated in the artifact.
+
+The two storage forms have separate operational roles:
+
+| Store | Role | Update boundary |
+| --- | --- | --- |
+| `.tieline/topology/graph.json` | Deterministic, repository-local traversal snapshot for review and Git history | Explicit `tieline code compile`; commit it with the source change |
+| PostgreSQL topology tables | Rich shared projection for hosted reads of accepted code | A protected repository publisher after merge to `main` |
+
+They identify the same derived generation but are not competing authorities.
+`graph.json` contains no Story or AC bodies; trace and blast radius join its
+code locators to the matching compiled manifest at read time. PostgreSQL keeps
+relational source ranges, references, resolutions, and diagnostics that would
+only bloat the reviewed file.
+
+This release defines the relational schema and repository but does not attach
+topology publication to the existing repository-sync command. Until that
+merge-only publisher is added, `code compile` writes only `graph.json` and
+hosted topology is available only when a trusted integration explicitly
+persists a complete generation.
+
+```bash
+# Explicitly derive the artifact after selected source or resolver changes.
+tieline code compile . --json
+
+# Verify integrity and freshness without parsing or writing.
+tieline code validate . --json
+
+# Follow statically derived imports from one exact symbol.
+tieline code trace --path src/commands/code-topology.ts \
+  --selector function:executeDependencyTrace --direction dependencies --json
+
+# Find code that may depend on changes since a Git base, then join visited
+# locators to authored AC claims. The default direction is dependents.
+tieline code blast-radius --base origin/main --json
+```
+
+The equivalent read-only MCP tools are `trace_code_dependencies` and
+`analyze_code_blast_radius`. CLI and MCP delegate to the same domain results.
+Local reads need no database and never compile or silently repair topology.
+Missing, stale, incompatible, invalid, over-capacity, and unsafe artifacts are
+named nonzero outcomes with an explicit compile remediation only for mutable
+workspace state. Historical reads load the topology and, for blast radius, the
+manifest from the same resolved commit. A hosted dependency trace can continue
+to select a compatible complete Postgres generation when no checkout is
+available.
+
+Supported structural facts are intentionally narrower than each language:
+
+| Language | Parsed symbols and module forms | Conservative resolution |
+| --- | --- | --- |
+| JavaScript, JSX, TypeScript, TSX | Classes, functions, methods, interfaces, types, enums, namespaces, top-level bindings, static imports, exports, re-exports, and literal dynamic imports | Relative files with supported extensions and index files, static `baseUrl`/`paths` aliases, and named exports/re-exports |
+| Python | Classes, functions, methods, `import`, `from ... import`, relative imports, and public top-level exports | Repository and statically declared source roots, modules, packages, and named public symbols |
+| Rust | Structs, enums, traits, types, modules, functions, constants, statics, impl owners/methods, `mod`, `use`, `pub use`, and grouped paths | Static Cargo crate roots, conventional module files, and `crate`, `self`, and `super` paths |
+
+Dynamic module names, glob imports, generated modules, unsupported or
+non-static configuration, external packages/crates, conditional package
+exports, and multiple possible targets remain named `unresolved`, `external`,
+or `ambiguous` frontiers. Tieline never guesses an exact edge for them. Parser
+recovery and capture truncation are also explicit.
+
+Every fact is tied to immutable source bytes and records zero-based UTF-16 code
+unit offsets plus zero-based UTF-8 byte offsets; line and column values use the
+same named coordinate systems. Persisted compatibility includes the pinned
+parser/grammar set, normalized query contract, resolver implementation and
+configuration digest, topology schema, and fact policy. Incompatible
+generations are refused rather than silently mixed.
+
+Traversal locates an exact repository path and optional canonical selector
+before walking. Defaults are depth 4, 500 visited nodes, 2,000 edges/frontiers,
+and 100 returned paths. Hard maxima are depth 8, 1,000 nodes, 4,000
+edges/frontiers, and 200 paths. Results are cycle-safe and report each
+independent truncation reason. Code paths are labeled
+`derived_code_dependency`; authored joins are `contract_coupling` and say only
+`may_be_impacted` with `semantic_support: not_assessed`. Two files sharing an
+AC do not thereby depend on one another, and no topology result proves that an
+implementation satisfies an AC or that a linked test passed.
+
 Use semantic discovery only when the exact path, selector, or AC ID is unknown.
 For the compatibility path-to-AC list without selector-aware neighborhood
 context, ask which criteria the reviewed manifest records:
@@ -798,9 +890,9 @@ Copy `.env.example` and set only the credentials needed by the process:
 
 The MCP server uses read and planning-write connections. Sync/admin credentials
 belong to explicit CLI/CI operations and should not be exposed to ordinary agents.
-The baseline migration must run with an administrative database role that can
-install the `vector`, `pgcrypto`, and `pg_trgm` extensions and create the three
-Tieline runtime roles. Managed Postgres environments may require an
+The packaged migrations must run with an administrative database role. The
+baseline installs the `vector`, `pgcrypto`, and `pg_trgm` extensions and creates
+the three Tieline runtime roles. Managed Postgres environments may require an
 administrator to preinstall pgvector/Postgres contrib extensions or grant the
 equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities before
 `tieline migrate` runs.

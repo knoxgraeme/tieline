@@ -1,0 +1,2 @@
+class NamespaceThing:
+    pass

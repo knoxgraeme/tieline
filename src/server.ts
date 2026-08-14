@@ -23,6 +23,7 @@ import { registerPlanningStoryTools } from "./tools/planning-stories.js";
 import { registerSearchKnowledge } from "./tools/search-knowledge.js";
 import { registerPrompts } from "./prompts.js";
 import { registerHandoffConflictTools } from "./tools/handoff-conflicts.js";
+import { registerCodeTopologyTools } from "./tools/code-topology.js";
 
 export const SERVER_NAME = "tieline";
 export const SERVER_VERSION = (
@@ -44,6 +45,7 @@ export function createServer(): McpServer {
         "When an exact repository path, selector, or Acceptance Criterion stable ID is known, use get_asset_intent_context or get_acceptance_criterion_context before semantic search to read its manifest-backed intent neighborhood and contract coupling without a database. " +
         "Use search_knowledge with an explicit profile for cross-type search, find_related for engineering-oriented discovery, and query_stories for exact Story/AC reads. " +
         "get_path_criteria remains available for compatibility when only the criteria recorded for whole paths are needed. " +
+        "Use trace_code_dependencies for bounded, artifact-backed derived code dependencies or dependents, and analyze_code_blast_radius for advisory may_be_impacted joins from changed code to matching base/current authored AC roles. These read-only tools never compile, parse source, repair, or write; they preserve unresolved frontiers, distinguish derived_code_dependency from contract_coupling, and never claim implementation satisfies an AC. " +
         "Use the tieline prompt to onboard, author, grade, or reconcile repository behavior. " +
         "Planning writes can shape backlog Stories/ACs, append Observations, and manage " +
         "Backlog Items. Repository-owned behavior changes only through YAML and normal PR review.",
@@ -62,6 +64,7 @@ export function createServer(): McpServer {
   registerPlanningStoryTools(server);
   registerAttributionTools(server);
   registerHandoffConflictTools(server);
+  registerCodeTopologyTools(server);
   registerResources(server);
   registerPrompts(server);
 

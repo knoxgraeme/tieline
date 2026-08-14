@@ -1,0 +1,2 @@
+class FileChild:
+    pass

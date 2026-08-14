@@ -11,6 +11,8 @@ import {
   type ArtifactFreshnessReason,
   type ArtifactLocatorNotCheckedReason,
   type ArtifactLocatorResolution,
+  type ArtifactLocatorMatch,
+  type StructuralSourceEvidence,
   type BrokenLinkCause,
 } from "./artifact-assurance.js";
 import type { LinkProvenance } from "./schema.js";
@@ -59,6 +61,8 @@ export interface AcceptanceCriterionImpact {
   broken_cause?: BrokenLinkCause;
   locator_resolution: ArtifactLocatorResolution;
   locator_reason: ArtifactLocatorNotCheckedReason | null;
+  locator_matches: readonly ArtifactLocatorMatch[];
+  source_evidence: StructuralSourceEvidence | null;
 }
 
 export function isBrokenImpact(
@@ -95,7 +99,7 @@ function reason(
   return change.status;
 }
 
-function linkedImpact(input: {
+async function linkedImpact(input: {
   inspector: ArtifactAssuranceInspector;
   manifest: ContractManifest;
   changes: RepositoryPathChange[];
@@ -103,14 +107,14 @@ function linkedImpact(input: {
   criterion: ManifestAcceptanceCriterion;
   link: ManifestLink;
   scope: "direct" | "story_fallback";
-}): AcceptanceCriterionImpact | null {
+}): Promise<AcceptanceCriterionImpact | null> {
   if (input.link.target.kind === "help") return null;
   const change = changeForPath(
     input.changes,
     input.link.target.path
   );
   if (!change) return null;
-  const assurance = input.inspector.inspect({
+  const assurance = await input.inspector.inspect({
     target: input.link.target,
     reviewed_content_hash: input.link.reviewed_content_hash,
   });
@@ -138,6 +142,8 @@ function linkedImpact(input: {
       : {}),
     locator_resolution: assurance.locator_resolution,
     locator_reason: assurance.locator_reason,
+    locator_matches: assurance.locator_matches,
+    source_evidence: assurance.source_evidence,
   };
 }
 
@@ -145,14 +151,14 @@ function linkedImpact(input: {
  * A link can rot without the change under review touching it, so broken links
  * are swept independently of the diff.
  */
-function brokenLinkImpact(input: {
+async function brokenLinkImpact(input: {
   inspector: ArtifactAssuranceInspector;
   manifest: ContractManifest;
   story: ManifestStory;
   criterion: ManifestAcceptanceCriterion;
   link: ManifestLink;
   scope: "direct" | "story_fallback";
-}): AcceptanceCriterionImpact | null {
+}): Promise<AcceptanceCriterionImpact | null> {
   if (input.link.target.kind === "help") return null;
   const freshness = input.inspector.inspectFreshness({
     target: input.link.target,
@@ -161,7 +167,7 @@ function brokenLinkImpact(input: {
   if (freshness.freshness !== "broken" || !freshness.broken_cause) {
     return null;
   }
-  const assurance = input.inspector.inspect({
+  const assurance = await input.inspector.inspect({
     target: input.link.target,
     reviewed_content_hash: input.link.reviewed_content_hash,
   });
@@ -187,6 +193,8 @@ function brokenLinkImpact(input: {
     broken_cause: freshness.broken_cause,
     locator_resolution: assurance.locator_resolution,
     locator_reason: assurance.locator_reason,
+    locator_matches: assurance.locator_matches,
+    source_evidence: assurance.source_evidence,
   };
 }
 
@@ -222,112 +230,119 @@ function compareImpacts(
   return left.reason.localeCompare(right.reason);
 }
 
-export function analyzeContractImpact(input: {
+export async function analyzeContractImpact(input: {
   repositoryRoot: string;
   manifest: ContractManifest;
   changes: RepositoryPathChange[];
   specDirectory?: string;
   assuranceInspector?: ArtifactAssuranceInspector;
-}): AcceptanceCriterionImpact[] {
+}): Promise<AcceptanceCriterionImpact[]> {
   const impacts: AcceptanceCriterionImpact[] = [];
   const broken: AcceptanceCriterionImpact[] = [];
+  const ownsInspector = input.assuranceInspector === undefined;
   const inspector =
     input.assuranceInspector ??
     createArtifactAssuranceInspector({
       repositoryRoot: input.repositoryRoot,
       repositoryKey: input.manifest.repository.key,
     });
-  const specPrefix = `${(input.specDirectory ?? ".tieline/spec").replace(/\/+$/, "")}/`;
-  const contractChanged = input.changes.some((change) => {
-    const paths =
-      change.status === "renamed"
-        ? [change.old_path, change.path]
-        : [change.path];
-    return paths.some((path) => path.startsWith(specPrefix));
-  });
+  try {
+    const specPrefix = `${(input.specDirectory ?? ".tieline/spec").replace(/\/+$/, "")}/`;
+    const contractChanged = input.changes.some((change) => {
+      const paths =
+        change.status === "renamed"
+          ? [change.old_path, change.path]
+          : [change.path];
+      return paths.some((path) => path.startsWith(specPrefix));
+    });
 
-  for (const capability of input.manifest.capabilities) {
-    for (const story of capability.stories) {
-      for (const criterion of story.acceptance_criteria) {
-        if (contractChanged) {
-          impacts.push({
-            target_kind: null,
-            repository: input.manifest.repository.key,
-            story_stable_id: story.stable_id,
-            story_title: story.title,
-            acceptance_criterion_stable_id: criterion.stable_id,
-            acceptance_criterion: criterion.criterion,
-            relation: "defines",
-            provenance: null,
-            link_scope: "contract",
-            path: input.specDirectory ?? ".tieline/spec",
-            selector: null,
-            framework_hint: null,
-            reason: "contract_definition_changed",
-            freshness: "not_applicable",
-            freshness_reason: null,
-            locator_resolution: "not_applicable",
-            locator_reason: null,
-          });
-        }
-        const scoped: Array<{
-          link: ManifestLink;
-          scope: "direct" | "story_fallback";
-        }> = [
-          ...criterion.links.map((link) => ({
-            link,
-            scope: "direct" as const,
-          })),
-          ...story.links.map((link) => ({
-            link,
-            scope: "story_fallback" as const,
-          })),
-        ];
-        for (const { link, scope } of scoped) {
-          const impact = linkedImpact({
-            inspector,
-            manifest: input.manifest,
-            changes: input.changes,
-            story,
-            criterion,
-            link,
-            scope,
-          });
-          if (impact) impacts.push(impact);
-          const brokenImpact = brokenLinkImpact({
-            inspector,
-            manifest: input.manifest,
-            story,
-            criterion,
-            link,
-            scope,
-          });
-          if (brokenImpact) broken.push(brokenImpact);
+    for (const capability of input.manifest.capabilities) {
+      for (const story of capability.stories) {
+        for (const criterion of story.acceptance_criteria) {
+          if (contractChanged) {
+            impacts.push({
+              target_kind: null,
+              repository: input.manifest.repository.key,
+              story_stable_id: story.stable_id,
+              story_title: story.title,
+              acceptance_criterion_stable_id: criterion.stable_id,
+              acceptance_criterion: criterion.criterion,
+              relation: "defines",
+              provenance: null,
+              link_scope: "contract",
+              path: input.specDirectory ?? ".tieline/spec",
+              selector: null,
+              framework_hint: null,
+              reason: "contract_definition_changed",
+              freshness: "not_applicable",
+              freshness_reason: null,
+              locator_resolution: "not_applicable",
+              locator_reason: null,
+              locator_matches: [],
+              source_evidence: null,
+            });
+          }
+          const scoped: Array<{
+            link: ManifestLink;
+            scope: "direct" | "story_fallback";
+          }> = [
+            ...criterion.links.map((link) => ({
+              link,
+              scope: "direct" as const,
+            })),
+            ...story.links.map((link) => ({
+              link,
+              scope: "story_fallback" as const,
+            })),
+          ];
+          for (const { link, scope } of scoped) {
+            const impact = await linkedImpact({
+              inspector,
+              manifest: input.manifest,
+              changes: input.changes,
+              story,
+              criterion,
+              link,
+              scope,
+            });
+            if (impact) impacts.push(impact);
+            const brokenImpact = await brokenLinkImpact({
+              inspector,
+              manifest: input.manifest,
+              story,
+              criterion,
+              link,
+              scope,
+            });
+            if (brokenImpact) broken.push(brokenImpact);
+          }
         }
       }
     }
+    const unique = new Map<string, AcceptanceCriterionImpact>();
+    for (const impact of impacts) {
+      unique.set(`${linkKey(impact)}\0${impact.reason}`, impact);
+    }
+    // A diff-driven finding for the same link already carries `freshness:
+    // "broken"`, so the sweep only adds links the diff never touched.
+    const diffDrivenLinks = new Set(
+      [...unique.values()]
+        .filter((impact) => impact.link_scope !== "contract")
+        .map(linkKey)
+    );
+    const brokenUnique = new Map<string, AcceptanceCriterionImpact>();
+    for (const impact of broken) {
+      const key = linkKey(impact);
+      if (diffDrivenLinks.has(key)) continue;
+      brokenUnique.set(key, impact);
+    }
+    for (const [key, impact] of brokenUnique) {
+      unique.set(`${key}\0link_target_broken`, impact);
+    }
+    return [...unique.values()].sort(compareImpacts);
+  } finally {
+    if (ownsInspector) await inspector.dispose();
   }
-  const unique = new Map<string, AcceptanceCriterionImpact>();
-  for (const impact of impacts) {
-    unique.set(`${linkKey(impact)}\0${impact.reason}`, impact);
-  }
-  // A diff-driven finding for the same link already carries `freshness:
-  // "broken"`, so the sweep only adds links the diff never touched.
-  const diffDrivenLinks = new Set(
-    [...unique.values()]
-      .filter((impact) => impact.link_scope !== "contract")
-      .map(linkKey)
-  );
-  const brokenUnique = new Map<string, AcceptanceCriterionImpact>();
-  for (const impact of broken) {
-    const key = linkKey(impact);
-    if (diffDrivenLinks.has(key)) continue;
-    brokenUnique.set(key, impact);
-  }
-  for (const [key, impact] of brokenUnique) {
-    unique.set(`${key}\0link_target_broken`, impact);
-  }
-  return [...unique.values()].sort(compareImpacts);
 }
 
 export function parseNameStatus(

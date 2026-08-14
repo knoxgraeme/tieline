@@ -161,7 +161,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "0d497306d807319b0a8236eea423961cfdf2d68546a9ceee91f1b7450275f4ca",
+                "reviewed_content_hash": "c25034b54f41c86f05b83b8f524e18511367faa4c4d191791f90e835e59f02e6",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/migrate.ts",
@@ -171,7 +171,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "6884626bd717f3d1b60d323d32f77365d887a0a0026e7274281a876072a373dd",
+                "reviewed_content_hash": "e6270e31326283a26918a085b6befabb42db88e59fa7df7f1ffc0654001ab6fc",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/preflight.ts",
@@ -201,7 +201,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7a8667501e1cce7be148e33939b7e34e462a326ebe727b183286dcfc685d8238",
+                "reviewed_content_hash": "b8e335bbbfda9295d1773ab768e2f988508a6ff712d9a21d6bcc81fe5ffccce6",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -212,7 +212,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "185b17f4ae9053750201363f4a6189361108ca5cdf876d6bc67ea5d6816a3fc7",
+                "reviewed_content_hash": "f29d4c6f2ddaea0b3045d98b73f15bbd855ca07ca23a3cf05a8ef7d2db2d2acc",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

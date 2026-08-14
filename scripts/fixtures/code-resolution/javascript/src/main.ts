@@ -1,0 +1,30 @@
+import { value } from "./lib/value";
+import { item } from "./directory";
+import type { Model } from "@app/types";
+import { through } from "./barrel";
+import { uncertain } from "./ambiguous-barrel";
+import { duplicate } from "./duplicates";
+import { first, second } from "./same-symbol";
+import external from "external-package";
+import "./lib/explicit.js";
+import { emittedValue } from "./emitted/value.js";
+import { emittedModule } from "./emitted/module.mjs";
+import "./emitted/ambiguous.js";
+import "./emitted/missing.js";
+import "./multiple";
+import "@app/generated";
+import "#conditional";
+
+const common = require("./common");
+const emittedCommon = require("./emitted/common.cjs");
+const lazy = import(runtimePath);
+const staticLazy = import("./lazy");
+
+export const result: Model = { value: value + item + through + uncertain + duplicate + first + second };
+void common;
+void emittedCommon;
+void emittedValue;
+void emittedModule;
+void lazy;
+void staticLazy;
+void external;

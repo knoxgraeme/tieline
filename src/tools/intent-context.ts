@@ -100,7 +100,7 @@ function registerAssetIntentContext(server: McpServer): void {
           return errorResult(resolved.message);
         }
         return jsonResult({
-          ...lookupAssetIntentContext({
+          ...(await lookupAssetIntentContext({
             manifest: resolved.manifest,
             repositoryRoot: resolved.repositoryRoot,
             locator: {
@@ -110,7 +110,7 @@ function registerAssetIntentContext(server: McpServer): void {
                 ? {}
                 : { selector: input.selector }),
             },
-          }),
+          })),
         });
       } catch (error) {
         return errorResult(formatError(error));
@@ -138,11 +138,11 @@ function registerAcceptanceCriterionContext(server: McpServer): void {
           return errorResult(resolved.message);
         }
         return jsonResult({
-          ...lookupAcceptanceCriterionIntentContext({
+          ...(await lookupAcceptanceCriterionIntentContext({
             manifest: resolved.manifest,
             repositoryRoot: resolved.repositoryRoot,
             stableId: input.stable_id,
-          }),
+          })),
         });
       } catch (error) {
         return errorResult(formatError(error));

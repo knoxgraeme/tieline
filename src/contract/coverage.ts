@@ -1,8 +1,11 @@
-import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
 import { createArtifactHashResolver } from "./manifest.js";
 import type { ArtifactHashResolver, ContractManifest } from "./manifest.js";
-import { wildcardPattern, withinRepository } from "./paths.js";
+import {
+  createSourceInventory,
+  isSourceInventoryPathEligible,
+  normalizeInventoryPath,
+  type SourceFileEligibility,
+} from "./source-inventory.js";
 
 /**
  * How much is known about a mapped file, beyond the fact that someone linked it.
@@ -75,34 +78,7 @@ export interface RepositoryMappingCoverageOptions {
   reviewedManifest?: ContractManifest;
 }
 
-function normalizePath(path: string): string {
-  return path.split(sep).join("/");
-}
-
-function ignored(path: string, patterns: string[]): boolean {
-  const normalized = normalizePath(path).replace(/^\.\//, "");
-  return patterns.some((entry) => {
-    const pattern = normalizePath(entry.trim())
-      .replace(/^\.\//, "")
-      .replace(/\/$/, "");
-    return pattern.length > 0 && wildcardPattern(pattern).test(normalized);
-  });
-}
-
-export interface SourceFileEligibility {
-  /** Configured `repository.source_roots`, relative to the repository root. */
-  sourceRoots: string[];
-  /** Configured `repository.ignore` patterns. */
-  ignore?: string[];
-}
-
-function withinSourceRoot(path: string, sourceRoot: string): boolean {
-  const root = normalizePath(sourceRoot.trim())
-    .replace(/^\.\//, "")
-    .replace(/\/+$/, "");
-  if (root === "" || root === ".") return true;
-  return path === root || path.startsWith(`${root}/`);
-}
+export type { SourceFileEligibility } from "./source-inventory.js";
 
 /**
  * Whether a repository-relative path is one this module would count as
@@ -117,48 +93,7 @@ export function isEligibleSourcePath(
   path: string,
   options: SourceFileEligibility
 ): boolean {
-  const normalized = normalizePath(path)
-    .replace(/^\.\//, "")
-    .replace(/\/+$/, "");
-  if (!normalized) return false;
-  if (!options.sourceRoots.some((root) => withinSourceRoot(normalized, root))) {
-    return false;
-  }
-  return !ignored(normalized, options.ignore ?? []);
-}
-
-function walkFiles(
-  path: string,
-  repositoryRoot: string,
-  patterns: string[],
-  excluded: Set<string>,
-  visitedDirectories = new Set<string>()
-): string[] {
-  const repositoryPath = normalizePath(relative(repositoryRoot, path));
-  if (repositoryPath && ignored(repositoryPath, patterns)) {
-    excluded.add(repositoryPath);
-    return [];
-  }
-  const realPath = realpathSync(path);
-  if (!withinRepository(repositoryRoot, realPath)) {
-    throw new Error(`Path '${path}' resolves outside the repository.`);
-  }
-  const stat = statSync(realPath);
-  if (stat.isFile()) return [realPath];
-  if (!stat.isDirectory()) return [];
-  if (visitedDirectories.has(realPath)) return [];
-  visitedDirectories.add(realPath);
-  return readdirSync(realPath, { withFileTypes: true })
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .flatMap((entry) =>
-      walkFiles(
-        resolve(realPath, entry.name),
-        repositoryRoot,
-        patterns,
-        excluded,
-        visitedDirectories
-      )
-    );
+  return isSourceInventoryPathEligible(path, options);
 }
 
 /**
@@ -172,7 +107,7 @@ function walkFiles(
 function mappedPaths(manifest: ContractManifest): Map<string, Set<string>> {
   const paths = new Map<string, Set<string>>();
   const record = (path: string, reviewedHash: string | null): void => {
-    const normalized = normalizePath(path);
+    const normalized = normalizeInventoryPath(path);
     const hashes = paths.get(normalized) ?? new Set<string>();
     if (reviewedHash) hashes.add(reviewedHash);
     paths.set(normalized, hashes);
@@ -241,33 +176,17 @@ export function computeRepositoryMappingCoverage(
   manifest: ContractManifest,
   options: RepositoryMappingCoverageOptions
 ): RepositoryMappingCoverage {
-  const root = realpathSync(resolve(options.repositoryRoot));
-  const patterns = options.ignore ?? [];
-  const allFiles = new Set<string>();
-  const excluded = new Set<string>();
-
-  for (const configuredRoot of options.sourceRoots) {
-    const sourceRoot = resolve(root, configuredRoot);
-    if (!existsSync(sourceRoot)) {
-      throw new Error(`Configured source root '${configuredRoot}' does not exist.`);
-    }
-    const realSourceRoot = realpathSync(sourceRoot);
-    if (!withinRepository(root, realSourceRoot)) {
-      throw new Error(
-        `Configured source root '${configuredRoot}' resolves outside the repository.`
-      );
-    }
-    for (const file of walkFiles(realSourceRoot, root, patterns, excluded)) {
-      allFiles.add(normalizePath(relative(root, file)));
-    }
-  }
-
-  const sorted = [...allFiles].sort();
+  const inventory = createSourceInventory({
+    repositoryRoot: options.repositoryRoot,
+    sourceRoots: options.sourceRoots,
+    ...(options.ignore === undefined ? {} : { ignore: options.ignore }),
+  });
+  const sorted = inventory.files.map((file) => file.path);
   const mapped = mappedPaths(manifest);
   const mappedFiles = sorted.filter((path) => mapped.has(path));
   const unmappedFiles = sorted.filter((path) => !mapped.has(path));
 
-  const hashes = resolveHashes(options.hashes, root);
+  const hashes = resolveHashes(options.hashes, options.repositoryRoot);
   const share = (count: number): number | null =>
     sorted.length === 0
       ? null
@@ -290,11 +209,11 @@ export function computeRepositoryMappingCoverage(
 
   return {
     status: sorted.length === 0 ? "no_eligible_files" : "measured",
-    source_roots: options.sourceRoots.map(normalizePath),
+    source_roots: [...inventory.sourceRoots],
     eligible_files: sorted.length,
     mapped_files: mappedFiles.length,
     unmapped_files: unmappedFiles,
-    excluded_files: excluded.size,
+    excluded_files: inventory.excludedPaths.length,
     percentage:
       sorted.length === 0
         ? null

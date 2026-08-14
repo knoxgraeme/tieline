@@ -3,7 +3,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  realpathSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -28,11 +27,12 @@ import type {
 } from "./schema.js";
 import { loadAcceptedContractWithSources } from "./load.js";
 import {
-  createCachedRepositoryEntryInspection,
-  repositoryEntryKindExactly,
-  withinRepository,
   type RepositoryEntryInspection,
 } from "./paths.js";
+import {
+  createFilesystemSourceSnapshotReader,
+  type SourceSnapshotReader,
+} from "./source-snapshot.js";
 
 export const CONTRACT_MANIFEST_VERSION = 2 as const;
 
@@ -214,6 +214,8 @@ export interface ArtifactHashResolver {
 
 export interface CreateArtifactHashResolverOptions {
   entryInspection?: RepositoryEntryInspection;
+  /** Share this request-local reader with parsing or selector assurance. */
+  snapshotReader?: SourceSnapshotReader;
 }
 
 export class ContractManifestError extends Error {
@@ -253,32 +255,44 @@ export function createArtifactHashResolver(
   options: CreateArtifactHashResolverOptions = {}
 ): ArtifactHashResolver {
   const root = resolve(repositoryRoot);
-  const realRoot = realpathSync(root);
-  const entryInspection = createCachedRepositoryEntryInspection(
-    options.entryInspection
-  );
+  const snapshots =
+    options.snapshotReader ??
+    createFilesystemSourceSnapshotReader({
+      repositoryRoot: root,
+      maxSourceBytes: Number.MAX_SAFE_INTEGER,
+      ...(options.entryInspection === undefined
+        ? {}
+        : { entryInspection: options.entryInspection }),
+    });
   const measured = new Map<string, ArtifactHashResult>();
   return {
     measure(path) {
       const cached = measured.get(path);
       if (cached) return cached;
-      const targetPath = resolve(root, path);
       let result: ArtifactHashResult;
       try {
-        const kind = repositoryEntryKindExactly(
-          root,
-          path,
-          entryInspection
-        );
-        if (kind === "missing") {
+        const source = snapshots.read(path);
+        if (source.status === "read") {
+          result = { status: "hashed", hash: source.snapshot.sha256 };
+        } else if (source.status === "binary" && source.sha256) {
+          result = { status: "hashed", hash: source.sha256 };
+        } else if (source.status === "missing") {
           result = { status: "missing" };
-        } else if (kind !== "file") {
+        } else if (source.status === "not_file") {
           result = { status: "not_file" };
+        } else if (source.status === "repository_escape") {
+          result = { status: "outside_repository" };
         } else {
-          const realTarget = realpathSync(targetPath);
-          result = !withinRepository(realRoot, realTarget)
-            ? { status: "outside_repository" }
-            : { status: "hashed", hash: sha256(readFileSync(realTarget)) };
+          const code =
+            source.status === "changed_during_read"
+              ? "EAGAIN"
+              : source.status === "oversized"
+                ? "EFBIG"
+                : "EACCES";
+          throw Object.assign(
+            new Error(`Cannot hash '${path}': ${source.detail}`),
+            { code }
+          );
         }
       } catch (error) {
         if (!missingPath(error)) throw error;

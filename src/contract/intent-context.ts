@@ -245,38 +245,42 @@ function compareClaimFields(
     .localeCompare(claimSortFields(right).join("\0"));
 }
 
-function inspectedClaim(
+async function inspectedClaim(
   claim: ClaimingCriterion,
   inspector: ArtifactAssuranceInspector
-): InspectedIntentClaim {
+): Promise<InspectedIntentClaim> {
   return {
     relation: claim.relation,
     provenance: claim.provenance,
     link_scope: claim.link_scope,
     target: targetFor(claim),
     reviewed_content_hash: claim.reviewed_content_hash,
-    assurance: inspector.inspect({
+    assurance: await inspector.inspect({
       target: assuranceTarget(claim),
       reviewed_content_hash: claim.reviewed_content_hash,
     }),
   };
 }
 
-function neighborhood(
+async function neighborhood(
   record: IntentAcceptanceCriterionRecord,
   inspector: ArtifactAssuranceInspector
-): AcceptanceCriterionIntentNeighborhood {
+): Promise<AcceptanceCriterionIntentNeighborhood> {
   const ordered = [...record.claims].sort(compareClaimFields);
   return {
     capability: record.capability,
     story: record.story,
     acceptance_criterion: record.acceptance_criterion,
-    direct_claims: ordered
-      .filter((claim) => claim.link_scope === "direct")
-      .map((claim) => inspectedClaim(claim, inspector)),
-    story_fallback_claims: ordered
-      .filter((claim) => claim.link_scope === "story_fallback")
-      .map((claim) => inspectedClaim(claim, inspector)),
+    direct_claims: await Promise.all(
+      ordered
+        .filter((claim) => claim.link_scope === "direct")
+        .map((claim) => inspectedClaim(claim, inspector))
+    ),
+    story_fallback_claims: await Promise.all(
+      ordered
+        .filter((claim) => claim.link_scope === "story_fallback")
+        .map((claim) => inspectedClaim(claim, inspector))
+    ),
   };
 }
 
@@ -287,6 +291,7 @@ function contextParts(
   identity: IntentContextIdentity;
   index: ContractIntentIndex;
   inspector: ArtifactAssuranceInspector;
+  ownsInspector: boolean;
 } {
   const root = resolve(input.repositoryRoot);
   return {
@@ -303,6 +308,7 @@ function contextParts(
         repositoryKey: input.manifest.repository.key,
         ...(selectorVocabulary === undefined ? {} : { selectorVocabulary }),
       }),
+    ownsInspector: input.inspector === undefined,
   };
 }
 
@@ -340,9 +346,9 @@ function assetAnswer(
 }
 
 /** Exact asset -> linked Acceptance Criteria -> their direct/fallback claims. */
-export function lookupAssetIntentContext(
+export async function lookupAssetIntentContext(
   input: AssetIntentContextInput
-): AssetIntentContextResult {
+): Promise<AssetIntentContextResult> {
   const root = resolve(input.repositoryRoot);
   const selectorVocabulary =
     input.selectorVocabulary ?? selectorVocabularyForRepository(root);
@@ -351,68 +357,75 @@ export function lookupAssetIntentContext(
     input.locator,
     selectorVocabulary
   );
-  const { identity, index, inspector } = contextParts(
+  const { identity, index, inspector, ownsInspector } = contextParts(
     input,
     selectorVocabulary
   );
-  const matches = (index.claims_by_path.get(locator.path) ?? [])
-    .map((claim) => ({ claim, precision: matchPrecision(claim, locator) }))
-    .filter(
-      (
-        entry
-      ): entry is {
-        claim: ClaimingCriterion;
-        precision: IntentAssetMatchPrecision;
-      } => entry.precision !== null
-    )
-    .sort(
-      (left, right) =>
-        left.claim.acceptance_criterion_stable_id.localeCompare(
-          right.claim.acceptance_criterion_stable_id
-        ) || compareClaimFields(left.claim, right.claim)
-    );
-  const exists = repositoryEntryKindExactly(root, locator.path) === "file";
-  const status: AssetIntentContextStatus = !exists
-    ? "not_found"
-    : matches.length > 0
-      ? "has_context"
-      : "no_criteria";
-  const criterionIds = [
-    ...new Set(
-      matches.map((entry) => entry.claim.acceptance_criterion_stable_id)
-    ),
-  ].sort();
-  const intentNeighborhood = criterionIds.map((stableId) => {
-    const record = index.acceptance_criteria_by_stable_id.get(stableId);
-    if (!record) {
-      throw new Error(
-        `Shared intent index is inconsistent: Acceptance Criterion '${stableId}' has a path claim but no record.`
+  try {
+    const matches = (index.claims_by_path.get(locator.path) ?? [])
+      .map((claim) => ({ claim, precision: matchPrecision(claim, locator) }))
+      .filter(
+        (
+          entry
+        ): entry is {
+          claim: ClaimingCriterion;
+          precision: IntentAssetMatchPrecision;
+        } => entry.precision !== null
+      )
+      .sort(
+        (left, right) =>
+          left.claim.acceptance_criterion_stable_id.localeCompare(
+            right.claim.acceptance_criterion_stable_id
+          ) || compareClaimFields(left.claim, right.claim)
       );
-    }
-    return neighborhood(record, inspector);
-  });
-  return {
-    ...identity,
-    locator,
-    status,
-    exists,
-    answer: assetAnswer(locator, status, criterionIds.length),
-    matching_claims: matches.map(({ claim, precision }) => ({
-      capability_stable_id: claim.capability_stable_id,
-      story_stable_id: claim.story_stable_id,
-      acceptance_criterion_stable_id:
-        claim.acceptance_criterion_stable_id,
-      match_precision: precision,
-      ...inspectedClaim(claim, inspector),
-    })),
-    intent_neighborhood: intentNeighborhood,
-  };
+    const exists = repositoryEntryKindExactly(root, locator.path) === "file";
+    const status: AssetIntentContextStatus = !exists
+      ? "not_found"
+      : matches.length > 0
+        ? "has_context"
+        : "no_criteria";
+    const criterionIds = [
+      ...new Set(
+        matches.map((entry) => entry.claim.acceptance_criterion_stable_id)
+      ),
+    ].sort();
+    const intentNeighborhood = await Promise.all(
+      criterionIds.map(async (stableId) => {
+        const record = index.acceptance_criteria_by_stable_id.get(stableId);
+        if (!record) {
+          throw new Error(
+            `Shared intent index is inconsistent: Acceptance Criterion '${stableId}' has a path claim but no record.`
+          );
+        }
+        return await neighborhood(record, inspector);
+      })
+    );
+    return {
+      ...identity,
+      locator,
+      status,
+      exists,
+      answer: assetAnswer(locator, status, criterionIds.length),
+      matching_claims: await Promise.all(
+        matches.map(async ({ claim, precision }) => ({
+          capability_stable_id: claim.capability_stable_id,
+          story_stable_id: claim.story_stable_id,
+          acceptance_criterion_stable_id: claim.acceptance_criterion_stable_id,
+          match_precision: precision,
+          ...(await inspectedClaim(claim, inspector)),
+        }))
+      ),
+      intent_neighborhood: intentNeighborhood,
+    };
+  } finally {
+    if (ownsInspector) await inspector.dispose();
+  }
 }
 
 /** Exact Acceptance Criterion -> its direct and Story-fallback asset claims. */
-export function lookupAcceptanceCriterionIntentContext(
+export async function lookupAcceptanceCriterionIntentContext(
   input: AcceptanceCriterionIntentContextInput
-): AcceptanceCriterionIntentContextResult {
+): Promise<AcceptanceCriterionIntentContextResult> {
   const parsedStableId = stableKeySchema.safeParse(input.stableId);
   if (!parsedStableId.success) {
     throw new IntentContextError(
@@ -421,25 +434,29 @@ export function lookupAcceptanceCriterionIntentContext(
     );
   }
   const requestedStableId = parsedStableId.data;
-  const { identity, index, inspector } = contextParts(
+  const { identity, index, inspector, ownsInspector } = contextParts(
     input,
     input.selectorVocabulary
   );
-  const record = index.acceptance_criteria_by_stable_id.get(requestedStableId);
-  if (!record) {
+  try {
+    const record = index.acceptance_criteria_by_stable_id.get(requestedStableId);
+    if (!record) {
+      return {
+        ...identity,
+        requested_stable_id: requestedStableId,
+        status: "not_found",
+        answer: `Acceptance Criterion '${requestedStableId}' was not found in the reviewed manifest. Check the stable ID and manifest workspace.`,
+        intent_neighborhood: null,
+      };
+    }
     return {
       ...identity,
       requested_stable_id: requestedStableId,
-      status: "not_found",
-      answer: `Acceptance Criterion '${requestedStableId}' was not found in the reviewed manifest. Check the stable ID and manifest workspace.`,
-      intent_neighborhood: null,
+      status: "found",
+      answer: `Acceptance Criterion '${requestedStableId}' and its bounded intent neighborhood were found in the reviewed manifest.`,
+      intent_neighborhood: await neighborhood(record, inspector),
     };
+  } finally {
+    if (ownsInspector) await inspector.dispose();
   }
-  return {
-    ...identity,
-    requested_stable_id: requestedStableId,
-    status: "found",
-    answer: `Acceptance Criterion '${requestedStableId}' and its bounded intent neighborhood were found in the reviewed manifest.`,
-    intent_neighborhood: neighborhood(record, inspector),
-  };
 }

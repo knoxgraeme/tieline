@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "compatibility_set": "web-tree-sitter-0.26.12",
+  "abi": {
+    "minimum": 13,
+    "maximum": 15
+  },
+  "artifacts": {
+    "runtime": {
+      "file": "web-tree-sitter.wasm",
+      "sha256": "ba5c7a539603f251f380e4d6ce26ee954ffca7bda8b2e13744dc4c87d6ce6041",
+      "abi": null,
+      "npm_package": "web-tree-sitter",
+      "npm_version": "0.26.12",
+      "source_revision": "npm:web-tree-sitter@0.26.12",
+      "npm_tarball_integrity": "sha512-fvqTNZQBGUgUgfP0mHw+iHf9Yf6bRQrp0A3pSf2v/hSKxkT1beCoIWoLVmlPL7O6dmySfSb/t1aJoJvrgTRStw==",
+      "origin": "https://registry.npmjs.org/web-tree-sitter/-/web-tree-sitter-0.26.12.tgz"
+    },
+    "javascript": {
+      "file": "tree-sitter-javascript.wasm",
+      "sha256": "5fb488d0cabb4775a594bab85682de5ad6ce83c0d6ac997a9f82dd084d571240",
+      "abi": 15,
+      "npm_package": "tree-sitter-javascript",
+      "npm_version": "0.25.0",
+      "source_revision": "npm:tree-sitter-javascript@0.25.0",
+      "npm_tarball_integrity": "sha512-1fCbmzAskZkxcZzN41sFZ2br2iqTYP3tKls1b/HKGNPQUVOpsUxpmGxdN/wMqAk3jYZnYBR1dd/y/0avMeU7dw==",
+      "origin": "https://registry.npmjs.org/tree-sitter-javascript/-/tree-sitter-javascript-0.25.0.tgz"
+    },
+    "typescript": {
+      "file": "tree-sitter-typescript.wasm",
+      "sha256": "778025db5a8be0e70f8ccc3671e486dfeddd048c25d9e8a70c26de2e1bf6f97d",
+      "abi": 14,
+      "npm_package": "tree-sitter-typescript",
+      "npm_version": "0.23.2",
+      "source_revision": "npm:tree-sitter-typescript@0.23.2",
+      "npm_tarball_integrity": "sha512-e04JUUKxTT53/x3Uq1zIL45DoYKVfHH4CZqwgZhPg5qYROl5nQjV+85ruFzFGZxu+QeFVbRTPDRnqL9UbU4VeA==",
+      "origin": "https://registry.npmjs.org/tree-sitter-typescript/-/tree-sitter-typescript-0.23.2.tgz"
+    },
+    "tsx": {
+      "file": "tree-sitter-tsx.wasm",
+      "sha256": "79e5da75ea62855a0cd67177685f0164eac87d5f630b3cbe1e0a099751ad30f8",
+      "abi": 14,
+      "npm_package": "tree-sitter-typescript",
+      "npm_version": "0.23.2",
+      "source_revision": "npm:tree-sitter-typescript@0.23.2",
+      "npm_tarball_integrity": "sha512-e04JUUKxTT53/x3Uq1zIL45DoYKVfHH4CZqwgZhPg5qYROl5nQjV+85ruFzFGZxu+QeFVbRTPDRnqL9UbU4VeA==",
+      "origin": "https://registry.npmjs.org/tree-sitter-typescript/-/tree-sitter-typescript-0.23.2.tgz"
+    },
+    "python": {
+      "file": "tree-sitter-python.wasm",
+      "sha256": "16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47",
+      "abi": 15,
+      "npm_package": "tree-sitter-python",
+      "npm_version": "0.25.0",
+      "source_revision": "npm:tree-sitter-python@0.25.0",
+      "npm_tarball_integrity": "sha512-eCmJx6zQa35GxaCtQD+wXHOhYqBxEL+bp71W/s3fcDMu06MrtzkVXR437dRrCrbrDbyLuUDJpAgycs7ncngLXw==",
+      "origin": "https://registry.npmjs.org/tree-sitter-python/-/tree-sitter-python-0.25.0.tgz"
+    },
+    "rust": {
+      "file": "tree-sitter-rust.wasm",
+      "sha256": "f65f354215611fd94ad34134b3427eb3d58cbb745df7b6509ba722184db73d57",
+      "abi": 14,
+      "npm_package": "tree-sitter-rust",
+      "npm_version": "0.24.0",
+      "source_revision": "npm:tree-sitter-rust@0.24.0",
+      "npm_tarball_integrity": "sha512-NWemUDf629Tfc90Y0Z55zuwPCAHkLxWnMf2RznYu4iBkkrQl2o/CHGB7Cr52TyN5F1DAx8FmUnDtCy9iUkXZEQ==",
+      "origin": "https://registry.npmjs.org/tree-sitter-rust/-/tree-sitter-rust-0.24.0.tgz"
+    }
+  }
+}

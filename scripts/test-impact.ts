@@ -21,8 +21,18 @@ import {
   parseNameStatus,
 } from "../src/contract/impact.js";
 import type { ArtifactAssuranceInspector } from "../src/contract/artifact-assurance.js";
-import { runCheckCommand } from "../src/commands/check.js";
+import {
+  renderCheckImpactGroupText,
+  runCheckCommand,
+} from "../src/commands/check.js";
 import { tielineConfigJson } from "./lib/fixtures.js";
+
+const terminalInjection =
+  "CSI:\u001b[31m OSC:\u001b]0;owned\u0007 CR:\r BS:\b C1:\u009b BIDI:\u202e";
+const escapedTerminalInjection =
+  "CSI:\\x1b[31m OSC:\\x1b]0;owned\\x07 CR:\\x0d BS:\\x08 C1:\\x9b BIDI:\\u{202e}";
+const unsafeTerminalCodePoint =
+  /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
 
 const root = mkdtempSync(resolve(tmpdir(), "tieline-impact-"));
 const outsideRoot = mkdtempSync(resolve(tmpdir(), "tieline-outside-"));
@@ -156,9 +166,10 @@ capability:
       fullInspections += 1;
       throw new Error("healthy all-links sweep must not resolve selectors");
     },
+    async dispose() {},
   };
   assert.deepEqual(
-    analyzeContractImpact({
+    await analyzeContractImpact({
       repositoryRoot: root,
       manifest,
       changes: [],
@@ -173,7 +184,7 @@ capability:
     resolve(root, "src/feature.ts"),
     "export const feature = 2;\nexport const alternate = 2;\n"
   );
-  const changed = analyzeContractImpact({
+  const changed = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "modified", path: "src/feature.ts" }],
@@ -228,7 +239,7 @@ capability:
     "same-file selectors and direct versus Story fallback remain distinct and ordered"
   );
 
-  const renamed = analyzeContractImpact({
+  const renamed = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [
@@ -248,7 +259,7 @@ capability:
   assert.equal(renamed[0].locator_resolution, "resolved");
   assert.equal(renamed[0].locator_reason, null);
 
-  const contractChanged = analyzeContractImpact({
+  const contractChanged = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [
@@ -290,7 +301,7 @@ capability:
 
   // A link can rot without the change under review touching it.
   rmSync(resolve(root, "scripts/feature.test.ts"));
-  const brokenOutsideDiff = analyzeContractImpact({
+  const brokenOutsideDiff = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [],
@@ -314,7 +325,7 @@ capability:
 
   // The same broken link inside the diff keeps its diff-driven reason and is
   // reported once, not twice.
-  const brokenInsideDiff = analyzeContractImpact({
+  const brokenInsideDiff = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "deleted", path: "scripts/feature.test.ts" }],
@@ -372,7 +383,7 @@ capability:
     "export function featureBehavior() { assert(feature); }\n"
   );
 
-  const unsupported = analyzeContractImpact({
+  const unsupported = await analyzeContractImpact({
     repositoryRoot: root,
     manifest,
     changes: [{ status: "modified", path: "src/unsupported.rb" }],
@@ -383,7 +394,7 @@ capability:
   assert.equal(unsupported[0].locator_reason, "unsupported_language");
 
   // A link pointing at a directory is broken for a different, reportable reason.
-  const notFile = analyzeContractImpact({
+  const notFile = await analyzeContractImpact({
     repositoryRoot: root,
     manifest: retarget(cloneManifest(manifest), "tests", "src"),
     changes: [],
@@ -401,7 +412,7 @@ capability:
     resolve(outsideRoot, "external.ts"),
     resolve(root, "src/external.ts")
   );
-  const outside = analyzeContractImpact({
+  const outside = await analyzeContractImpact({
     repositoryRoot: root,
     manifest: retarget(cloneManifest(manifest), "tests", "src/external.ts"),
     changes: [],
@@ -529,6 +540,26 @@ capability:
     human,
     /selector function:unsupported unresolved/i,
     "an unsupported language is a limitation, not evidence of selector drift"
+  );
+  assert.doesNotMatch(human, unsafeTerminalCodePoint);
+
+  const injectedImpact = structuredClone(changed[0]) as any;
+  injectedImpact.story_title = terminalInjection;
+  injectedImpact.acceptance_criterion = terminalInjection;
+  injectedImpact.path = terminalInjection;
+  injectedImpact.selector = terminalInjection;
+  injectedImpact.source_evidence = {
+    language: terminalInjection,
+    range: { start: { line: 0 } },
+    snippet: { text: terminalInjection, truncated: false },
+  };
+  const injectedImpactText = renderCheckImpactGroupText([injectedImpact]);
+  assert.ok(injectedImpactText.includes(escapedTerminalInjection));
+  assert.doesNotMatch(injectedImpactText, unsafeTerminalCodePoint);
+  assert.equal(
+    injectedImpact.source_evidence.snippet.text,
+    terminalInjection,
+    "human rendering must not mutate structured impact evidence"
   );
 
   // Completeness: changed source files that no acceptance criterion names.
@@ -680,6 +711,7 @@ capability:
     /refactors, renames, or internal plumbing/
   );
   assert.match(completenessHuman, /warn {2}added src\/plumbing\.ts/);
+  assert.doesNotMatch(completenessHuman, unsafeTerminalCodePoint);
   // The invitation must stay an invitation, never an accusation.
   assert.doesNotMatch(
     completenessHuman,

@@ -71,7 +71,7 @@ export function formatError(error: unknown): string {
   if (error instanceof Error) {
     // Surface common DB misconfig hints.
     if (/match_user_stories|relation .* does not exist/.test(error.message)) {
-      return `${error.message}. Did you apply the packaged 0001_baseline.sql migration?`;
+      return `${error.message}. Did you apply all packaged database migrations with \`tieline migrate\`?`;
     }
     return error.message;
   }
