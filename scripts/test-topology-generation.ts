@@ -118,8 +118,8 @@ try {
 
   await test("excludes generated topology bytes and enclosing trees from logical identity", async () => {
     const beforeTree = git(["rev-parse", "HEAD^{tree}"]);
-    write(".tieline/topology/topology.json", '{"generated":true}\n');
-    git(["add", ".tieline/topology/topology.json"]);
+    write(".tieline/topology/graph.json", '{"generated":true}\n');
+    git(["add", ".tieline/topology/graph.json"]);
     git(["commit", "-qm", "generated topology only"]);
     assert.notEqual(git(["rev-parse", "HEAD^{tree}"]), beforeTree);
     const after = await committed();

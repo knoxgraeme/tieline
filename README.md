@@ -480,17 +480,36 @@ evidence locator—not a receipt that the test ran or passed.
 
 Tieline can separately derive a conservative code topology from repository
 source. This does not replace the authored contract and does not use a graph
-database. Developers explicitly compile a thin, reviewable artifact under
-`.tieline/topology/`; local and historical reads select that artifact without
-parsing source or writing files. Complete hosted generations remain available
-as immutable relational rows in PostgreSQL. The compiled manifest remains the
-authority for business intent.
+database. Developers explicitly compile one thin, reviewable
+`.tieline/topology/graph.json`; local and historical reads select that file
+without parsing source or writing files. PostgreSQL can hold the richer,
+queryable projection of an accepted `main` generation. Local compilation never
+writes it. The compiled manifest remains the authority for business intent.
 
 The repository artifact retains a thin traversal projection: file
 hashes, locator-bearing symbols, adjacency, and unresolved dependency
 frontiers. Parser diagnostics, source ranges, reference facts, and resolved
 explanations remain available in committed PostgreSQL generations but are not
 duplicated in the artifact.
+
+The two storage forms have separate operational roles:
+
+| Store | Role | Update boundary |
+| --- | --- | --- |
+| `.tieline/topology/graph.json` | Deterministic, repository-local traversal snapshot for review and Git history | Explicit `tieline code compile`; commit it with the source change |
+| PostgreSQL topology tables | Rich shared projection for hosted reads of accepted code | A protected repository publisher after merge to `main` |
+
+They identify the same derived generation but are not competing authorities.
+`graph.json` contains no Story or AC bodies; trace and blast radius join its
+code locators to the matching compiled manifest at read time. PostgreSQL keeps
+relational source ranges, references, resolutions, and diagnostics that would
+only bloat the reviewed file.
+
+This release defines the relational schema and repository but does not attach
+topology publication to the existing repository-sync command. Until that
+merge-only publisher is added, `code compile` writes only `graph.json` and
+hosted topology is available only when a trusted integration explicitly
+persists a complete generation.
 
 ```bash
 # Explicitly derive the artifact after selected source or resolver changes.

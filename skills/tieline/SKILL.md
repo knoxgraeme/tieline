@@ -155,7 +155,8 @@ After reading exact authored intent, use derived topology only when the task
 needs dependency direction or potential change propagation:
 
 - After selected source or resolver changes, explicitly run
-  `tieline code compile . --json`, review and commit `.tieline/topology/`, then
+  `tieline code compile . --json`, review and commit
+  `.tieline/topology/graph.json`, then
   use `tieline code validate . --json` for a parser-free freshness check.
 - Call `trace_code_dependencies`, or run
   `tieline code trace --path <path> [--selector <selector>] --direction dependencies|dependents --json`,
@@ -184,7 +185,9 @@ never creates a code edge. Neither parser evidence, a current hash, a resolved
 selector, nor topology proves that implementation satisfies the AC or that a
 test ran. Repository YAML and its compiled manifest remain business-intent
 authority; committed topology is a derived traversal projection, while hosted
-Postgres generations preserve the richer relational projection.
+Postgres generations preserve the richer relational projection of accepted
+`main`. Local compilation and reads never publish to Postgres; a protected
+merge-only publisher must own that boundary when hosted publication is enabled.
 
 ## Search before creating
 

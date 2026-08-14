@@ -807,12 +807,12 @@ capability:
                 path: scripts/test-code-resolution-python-rust.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC3
-          criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish a deterministic bounded repository artifact only through explicit compilation, and must publish hosted relational generations only when complete.
+          criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.
           rationale: Readers must never observe a mixed or partial graph, generated artifact bytes must not make identity self-referential, and reviewed repository topology must remain distinct from richer hosted persistence.
           scenarios:
             - given: topology compilation is interrupted or loses a concurrent publication race
               when: the artifact authority is selected
-              then: readers must observe either the previous complete artifact or the complete winning artifact and never a mixed shard set
+              then: readers must observe either the previous complete graph.json or the complete winning graph.json and never a partial document
             - given: files change while a working-tree generation is built
               when: the consistency check retries and observes another change
               then: Tieline must return workspace_changed without publishing mixed facts

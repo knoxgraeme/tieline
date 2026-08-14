@@ -9,6 +9,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmdirSync,
   type Stats,
   unlinkSync,
   writeFileSync,
@@ -16,7 +17,7 @@ import {
 import { hostname } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import {
-  CODE_TOPOLOGY_ARTIFACT_INDEX,
+  CODE_TOPOLOGY_ARTIFACT_FILE,
   serializeCodeTopologyArtifact,
   topologyArtifactFromReadModel,
   type SerializedCodeTopologyArtifact,
@@ -78,12 +79,13 @@ function assertOwnedDirectory(path: string, label: string): void {
   }
 }
 
-function assertOwnedFileIfPresent(path: string, label: string): void {
-  if (!existsSync(path)) return;
+function assertOwnedFileIfPresent(path: string, label: string): Stats | null {
+  if (!existsSync(path)) return null;
   const stat = lstatSync(path);
   if (!stat.isFile() || stat.isSymbolicLink() || !owned(stat)) {
     throw new TopologyPublicationError("unsafe_path", `${label} is not an owned regular file.`);
   }
+  return stat;
 }
 
 function processAbsent(owner: LockOwner): boolean {
@@ -194,40 +196,28 @@ function uniqueTemporary(finalPath: string): string {
   return resolve(dirname(finalPath), `.${basename(finalPath)}.${process.pid}.${randomUUID()}.tmp`);
 }
 
-function publishImmutableFile(path: string, bytes: Buffer): void {
-  assertOwnedFileIfPresent(path, `Topology shard '${basename(path)}'`);
-  if (existsSync(path)) {
-    if (!readFileSync(path).equals(bytes)) {
-      throw new TopologyPublicationError("invalid", `Immutable topology shard '${basename(path)}' has conflicting bytes.`);
-    }
-    return;
+function legacyArtifactPaths(root: string): { files: string[]; directory: string | null } {
+  const legacyIndex = resolve(root, "topology.json");
+  const files = [] as string[];
+  if (existsSync(legacyIndex)) {
+    assertOwnedFileIfPresent(legacyIndex, "The legacy topology index");
+    files.push(legacyIndex);
   }
-  const temporary = uniqueTemporary(path);
-  try {
-    writeFlushedTemporary(temporary, bytes);
-    try {
-      renameSync(temporary, path);
-    } catch (error) {
-      if (errno(error) !== "EEXIST") throw error;
-      assertOwnedFileIfPresent(path, `Topology shard '${basename(path)}'`);
-      if (!readFileSync(path).equals(bytes)) throw error;
-    }
-  } finally {
-    if (existsSync(temporary)) unlinkSync(temporary);
-  }
-}
-
-function unreferencedShards(root: string, keep: ReadonlySet<string>): string[] {
   const filesRoot = resolve(root, "files");
-  const paths: string[] = [];
+  if (!existsSync(filesRoot)) return { files, directory: null };
+  assertOwnedDirectory(filesRoot, "The legacy topology shard directory");
   for (const entry of readdirSync(filesRoot, { withFileTypes: true })) {
-    const name = `files/${entry.name}`;
-    if (!entry.isFile() || !/^[a-f0-9]{64}\.json$/.test(entry.name) || keep.has(name)) continue;
+    if (!entry.isFile() || !/^[a-f0-9]{64}\.json$/.test(entry.name)) {
+      throw new TopologyPublicationError(
+        "unsafe_path",
+        `Legacy topology shard path '${entry.name}' is unsafe.`
+      );
+    }
     const path = resolve(filesRoot, entry.name);
-    assertOwnedFileIfPresent(path, `Unreferenced topology shard '${entry.name}'`);
-    paths.push(path);
+    assertOwnedFileIfPresent(path, `Legacy topology shard '${entry.name}'`);
+    files.push(path);
   }
-  return paths;
+  return { files, directory: filesRoot };
 }
 
 export async function publishCodeTopologyArtifact(input: {
@@ -240,36 +230,28 @@ export async function publishCodeTopologyArtifact(input: {
     const root = resolve(input.repositoryRoot, CODE_TOPOLOGY_DIRECTORY);
     if (!existsSync(root)) mkdirSync(root, { recursive: true, mode: 0o755 });
     assertOwnedDirectory(root, "The topology authority");
-    const filesRoot = resolve(root, "files");
-    if (!existsSync(filesRoot)) mkdirSync(filesRoot, { mode: 0o755 });
-    assertOwnedDirectory(filesRoot, "The topology shard directory");
-
-    const indexBytes = input.serialized.files.get(CODE_TOPOLOGY_ARTIFACT_INDEX);
-    if (!indexBytes) throw new TopologyPublicationError("invalid", "Serialized topology has no authority index.");
-    const shardNames = [...input.serialized.files.keys()]
-      .filter((name) => name !== CODE_TOPOLOGY_ARTIFACT_INDEX)
-      .sort();
-    for (const name of shardNames) {
-      if (!/^files\/[a-f0-9]{64}\.json$/.test(name)) {
-        throw new TopologyPublicationError("unsafe_path", `Serialized topology path '${name}' is unsafe.`);
-      }
-      publishImmutableFile(resolve(root, name), input.serialized.files.get(name)!);
+    const graphBytes = input.serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE);
+    if (!graphBytes || input.serialized.files.size !== 1) {
+      throw new TopologyPublicationError("invalid", "Serialized topology must contain only graph.json.");
     }
 
-    const authority = resolve(root, CODE_TOPOLOGY_ARTIFACT_INDEX);
-    assertOwnedFileIfPresent(authority, "The topology authority index");
-    const staleShards = unreferencedShards(root, new Set(shardNames));
-    if (!existsSync(authority) || !readFileSync(authority).equals(indexBytes)) {
+    const authority = resolve(root, CODE_TOPOLOGY_ARTIFACT_FILE);
+    const authorityStat = assertOwnedFileIfPresent(authority, "The topology graph");
+    const legacy = legacyArtifactPaths(root);
+    const unchanged = authorityStat?.size === graphBytes.byteLength &&
+      readFileSync(authority).equals(graphBytes);
+    if (!unchanged) {
       const temporary = uniqueTemporary(authority);
       try {
-        writeFlushedTemporary(temporary, indexBytes);
+        writeFlushedTemporary(temporary, graphBytes);
         await input.hooks?.beforeAuthorityReplace?.();
         renameSync(temporary, authority);
       } finally {
         if (existsSync(temporary)) unlinkSync(temporary);
       }
     }
-    for (const path of staleShards) unlinkSync(path);
+    for (const path of legacy.files) unlinkSync(path);
+    if (legacy.directory) rmdirSync(legacy.directory);
   } finally {
     releaseLock(lock);
   }

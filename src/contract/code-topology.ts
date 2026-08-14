@@ -226,7 +226,8 @@ function edgeForPath(
 
 /**
  * Bounded, deterministic adjacency traversal. Store access is one exact-locator
- * read, one adjacency/frontier pair per depth, and one final symbol hydration.
+ * read, one adjacency read per depth (plus dependency gaps for forward traversal),
+ * and one final symbol hydration.
  */
 export async function traceCodeTopology(
   input: TraceCodeTopologyInput
@@ -278,10 +279,7 @@ export async function traceCodeTopology(
   const start = orderedCandidates[0]!;
   const visited = new Set([start.identity]);
   const visitedOrder = [start.identity];
-  const primaryPaths = new Map<string, IdentityPath>([
-    [start.identity, { nodes: [start.identity], edges: [] }],
-  ]);
-  let frontier = [start.identity];
+  let frontierPaths: IdentityPath[] = [{ nodes: [start.identity], edges: [] }];
   const paths: IdentityPath[] = [];
   const frontiers = new Map<string, CodeTopologyFrontierRecord>();
   const traversedEdges = new Set<string>();
@@ -292,7 +290,15 @@ export async function traceCodeTopology(
     paths: 0,
   };
 
-  for (let depth = 0; frontier.length > 0; depth += 1) {
+  for (let depth = 0; frontierPaths.length > 0; depth += 1) {
+    const pathsBySource = new Map<string, IdentityPath[]>();
+    for (const path of frontierPaths) {
+      const source = path.nodes.at(-1)!;
+      const sourcePaths = pathsBySource.get(source) ?? [];
+      sourcePaths.push(path);
+      pathsBySource.set(source, sourcePaths);
+    }
+    const frontier = [...pathsBySource.keys()];
     const [edgeBatch, frontierBatch] = await Promise.all([
       direction === "dependencies"
         ? input.store.listForwardEdges({
@@ -303,10 +309,12 @@ export async function traceCodeTopology(
             generation_identity: identity.generation_identity,
             target_symbol_identities: frontier,
           }),
-      input.store.listDependencyFrontiers({
-        generation_identity: identity.generation_identity,
-        source_symbol_identities: frontier,
-      }),
+      direction === "dependencies"
+        ? input.store.listDependencyFrontiers({
+            generation_identity: identity.generation_identity,
+            source_symbol_identities: frontier,
+          })
+        : Promise.resolve([]),
     ]);
     for (const gap of frontierBatch) {
       if (frontiers.has(gap.reference_identity)) continue;
@@ -318,27 +326,30 @@ export async function traceCodeTopology(
     }
     const orderedEdges = [...edgeBatch].sort(compareEdges);
     if (depth >= limits.depth) {
-      omitted.depth += orderedEdges.filter((edge) => {
+      for (const edge of orderedEdges) {
         const source =
           direction === "dependencies"
             ? edge.source.symbol_identity
             : edge.target.symbol_identity;
-        const path = primaryPaths.get(source);
-        return path !== undefined && !path.nodes.includes(nextIdentity(edge, direction));
-      }).length;
+        const target = nextIdentity(edge, direction);
+        omitted.depth += (pathsBySource.get(source) ?? []).filter(
+          (path) => !path.nodes.includes(target)
+        ).length;
+      }
       break;
     }
 
-    const nextFrontier: string[] = [];
+    const nextFrontierPaths: IdentityPath[] = [];
     for (const edge of orderedEdges) {
       const source =
         direction === "dependencies"
           ? edge.source.symbol_identity
           : edge.target.symbol_identity;
-      const sourcePath = primaryPaths.get(source);
-      if (!sourcePath) continue;
+      const sourcePaths = pathsBySource.get(source);
+      if (!sourcePaths) continue;
       const target = nextIdentity(edge, direction);
-      if (sourcePath.nodes.includes(target)) continue;
+      const expandablePaths = sourcePaths.filter((path) => !path.nodes.includes(target));
+      if (expandablePaths.length === 0) continue;
       if (!traversedEdges.has(edge.identity)) {
         if (traversedEdges.size + frontiers.size >= limits.edges) {
           omitted.edges += 1;
@@ -346,28 +357,29 @@ export async function traceCodeTopology(
         }
         traversedEdges.add(edge.identity);
       }
-      if (paths.length >= limits.paths) {
-        omitted.paths += 1;
-        continue;
-      }
-      const isNewNode = !visited.has(target);
-      if (isNewNode && visited.size >= limits.nodes) {
-        omitted.nodes += 1;
-        continue;
-      }
-      const candidatePath: IdentityPath = {
-        nodes: [...sourcePath.nodes, target],
-        edges: [...sourcePath.edges, edge],
-      };
-      paths.push(candidatePath);
-      if (isNewNode) {
-        visited.add(target);
-        visitedOrder.push(target);
-        primaryPaths.set(target, candidatePath);
-        nextFrontier.push(target);
+      for (const sourcePath of expandablePaths) {
+        if (paths.length >= limits.paths) {
+          omitted.paths += 1;
+          continue;
+        }
+        const isNewNode = !visited.has(target);
+        if (isNewNode && visited.size >= limits.nodes) {
+          omitted.nodes += 1;
+          continue;
+        }
+        const candidatePath: IdentityPath = {
+          nodes: [...sourcePath.nodes, target],
+          edges: [...sourcePath.edges, edge],
+        };
+        paths.push(candidatePath);
+        if (isNewNode) {
+          visited.add(target);
+          visitedOrder.push(target);
+        }
+        nextFrontierPaths.push(candidatePath);
       }
     }
-    frontier = nextFrontier;
+    frontierPaths = nextFrontierPaths;
   }
 
   const hydrated = await input.store.listSymbolsByIdentities({
@@ -506,15 +518,23 @@ export async function traceCodeTopologyBatch(
     .map((outcome) => outcome.locator);
   const visited = new Set(starts.map((start) => start.identity));
   const visitedOrder = starts.map((start) => start.identity);
-  const primaryPaths = new Map<string, IdentityPath>(
-    starts.map((start) => [start.identity, { nodes: [start.identity], edges: [] }])
-  );
-  let frontier = [...visitedOrder];
+  let frontierPaths: IdentityPath[] = starts.map((start) => ({
+    nodes: [start.identity],
+    edges: [],
+  }));
   const paths: IdentityPath[] = [];
   const frontierRecords = new Map<string, CodeTopologyFrontierRecord>();
   const traversedEdges = new Set<string>();
 
-  for (let depth = 0; frontier.length > 0; depth += 1) {
+  for (let depth = 0; frontierPaths.length > 0; depth += 1) {
+    const pathsBySource = new Map<string, IdentityPath[]>();
+    for (const path of frontierPaths) {
+      const source = path.nodes.at(-1)!;
+      const sourcePaths = pathsBySource.get(source) ?? [];
+      sourcePaths.push(path);
+      pathsBySource.set(source, sourcePaths);
+    }
+    const frontier = [...pathsBySource.keys()];
     const [edgeBatch, gapBatch] = await Promise.all([
       direction === "dependencies"
         ? input.store.listForwardEdges({
@@ -525,10 +545,12 @@ export async function traceCodeTopologyBatch(
             generation_identity: identity.generation_identity,
             target_symbol_identities: frontier,
           }),
-      input.store.listDependencyFrontiers({
-        generation_identity: identity.generation_identity,
-        source_symbol_identities: frontier,
-      }),
+      direction === "dependencies"
+        ? input.store.listDependencyFrontiers({
+            generation_identity: identity.generation_identity,
+            source_symbol_identities: frontier,
+          })
+        : Promise.resolve([]),
     ]);
     for (const gap of gapBatch) {
       if (frontierRecords.has(gap.reference_identity)) continue;
@@ -540,24 +562,27 @@ export async function traceCodeTopologyBatch(
     }
     const orderedEdges = [...edgeBatch].sort(compareEdges);
     if (depth >= limits.depth) {
-      omitted.depth += orderedEdges.filter((edge) => {
+      for (const edge of orderedEdges) {
         const source = direction === "dependencies"
           ? edge.source.symbol_identity
           : edge.target.symbol_identity;
-        const sourcePath = primaryPaths.get(source);
-        return sourcePath !== undefined && !sourcePath.nodes.includes(nextIdentity(edge, direction));
-      }).length;
+        const target = nextIdentity(edge, direction);
+        omitted.depth += (pathsBySource.get(source) ?? []).filter(
+          (path) => !path.nodes.includes(target)
+        ).length;
+      }
       break;
     }
-    const nextFrontier: string[] = [];
+    const nextFrontierPaths: IdentityPath[] = [];
     for (const edge of orderedEdges) {
       const source = direction === "dependencies"
         ? edge.source.symbol_identity
         : edge.target.symbol_identity;
-      const sourcePath = primaryPaths.get(source);
-      if (!sourcePath) continue;
+      const sourcePaths = pathsBySource.get(source);
+      if (!sourcePaths) continue;
       const target = nextIdentity(edge, direction);
-      if (sourcePath.nodes.includes(target)) continue;
+      const expandablePaths = sourcePaths.filter((path) => !path.nodes.includes(target));
+      if (expandablePaths.length === 0) continue;
       if (!traversedEdges.has(edge.identity)) {
         if (traversedEdges.size + frontierRecords.size >= limits.edges) {
           omitted.edges += 1;
@@ -565,28 +590,29 @@ export async function traceCodeTopologyBatch(
         }
         traversedEdges.add(edge.identity);
       }
-      if (paths.length >= limits.paths) {
-        omitted.paths += 1;
-        continue;
-      }
-      const isNewNode = !visited.has(target);
-      if (isNewNode && visited.size >= limits.nodes) {
-        omitted.nodes += 1;
-        continue;
-      }
-      const candidatePath = {
-        nodes: [...sourcePath.nodes, target],
-        edges: [...sourcePath.edges, edge],
-      };
-      paths.push(candidatePath);
-      if (isNewNode) {
-        visited.add(target);
-        visitedOrder.push(target);
-        primaryPaths.set(target, candidatePath);
-        nextFrontier.push(target);
+      for (const sourcePath of expandablePaths) {
+        if (paths.length >= limits.paths) {
+          omitted.paths += 1;
+          continue;
+        }
+        const isNewNode = !visited.has(target);
+        if (isNewNode && visited.size >= limits.nodes) {
+          omitted.nodes += 1;
+          continue;
+        }
+        const candidatePath = {
+          nodes: [...sourcePath.nodes, target],
+          edges: [...sourcePath.edges, edge],
+        };
+        paths.push(candidatePath);
+        if (isNewNode) {
+          visited.add(target);
+          visitedOrder.push(target);
+        }
+        nextFrontierPaths.push(candidatePath);
       }
     }
-    frontier = nextFrontier;
+    frontierPaths = nextFrontierPaths;
   }
 
   const hydrated = await input.store.listSymbolsByIdentities({

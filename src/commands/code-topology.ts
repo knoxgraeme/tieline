@@ -32,7 +32,7 @@ import type {
 import { config } from "../config.js";
 import { getCodeTopologyStore } from "../code-topology-store.js";
 import { findTielineWorkspace, type TielineWorkspace } from "../tieline/workspace.js";
-import type { CommandIO } from "./shared.js";
+import { escapeTerminalText, type CommandIO } from "./shared.js";
 
 export interface CodeTopologyLocatorInput {
   path: string;
@@ -524,16 +524,16 @@ export function renderDependencyTraceText(
   result: DependencyTracePrimitiveResult
 ): string {
   if (result.status !== "complete") {
-    return `Code dependency trace: ${result.status}\n${"detail" in result ? result.detail : "The requested topology could not be traced."}\n`;
+    return `Code dependency trace: ${escapeTerminalText(result.status)}\n${escapeTerminalText("detail" in result ? result.detail : "The requested topology could not be traced.")}\n`;
   }
   let text = `Code dependency trace: complete\n`;
-  text += `Generation: ${result.generation_role} ${result.generation_identity} (${result.generation_revision})\n`;
-  text += `Direction: ${result.direction}\n`;
+  text += `Generation: ${escapeTerminalText(result.generation_role)} ${escapeTerminalText(result.generation_identity)} (${escapeTerminalText(result.generation_revision)})\n`;
+  text += `Direction: ${escapeTerminalText(result.direction)}\n`;
   text += `Relationship: derived_code_dependency\n`;
   text += `Visited: ${result.visited.length}; paths: ${result.paths.length}; frontiers: ${result.frontiers.length}\n`;
-  text += `Truncated: ${result.truncation.truncated}${result.truncation.reasons.length ? ` (${result.truncation.reasons.join(", ")})` : ""}\n`;
+  text += `Truncated: ${result.truncation.truncated}${result.truncation.reasons.length ? ` (${escapeTerminalText(result.truncation.reasons.join(", "))})` : ""}\n`;
   for (const path of result.paths) {
-    text += `  ${path.nodes.map((node) => `${node.locator.path}${node.locator.selector ? `#${node.locator.selector}` : ""}`).join(" -> ")}\n`;
+    text += `  ${path.nodes.map((node) => `${escapeTerminalText(node.locator.path)}${node.locator.selector ? `#${escapeTerminalText(node.locator.selector)}` : ""}`).join(" -> ")}\n`;
   }
   return text;
 }
@@ -542,21 +542,23 @@ export function renderBlastRadiusText(
   result: BlastRadiusPrimitiveResult
 ): string {
   if (result.status !== "complete") {
-    return `AC-aware code blast radius: ${result.status}\n${"detail" in result ? result.detail : "The requested blast radius could not be analyzed."}\n`;
+    return `AC-aware code blast radius: ${escapeTerminalText(result.status)}\n${escapeTerminalText("detail" in result ? result.detail : "The requested blast radius could not be analyzed.")}\n`;
   }
   let text = "AC-aware code blast radius: complete (advisory)\n";
   text += `Impact: may_be_impacted; semantic support: not_assessed\n`;
-  text += `Direction: ${result.direction}; relationship: derived_code_dependency\n`;
-  text += `Current generation: ${result.generations.current.identity}\n`;
-  if (result.generations.base) text += `Base generation: ${result.generations.base.identity}\n`;
-  text += `Current manifest: ${result.authored_contracts.current.manifest_digest}\n`;
+  text += `Direction: ${escapeTerminalText(result.direction)}; relationship: derived_code_dependency\n`;
+  text += `Current generation: ${escapeTerminalText(result.generations.current.identity)}\n`;
+  if (result.generations.base) {
+    text += `Base generation: ${escapeTerminalText(result.generations.base.identity)}\n`;
+  }
+  text += `Current manifest: ${escapeTerminalText(result.authored_contracts.current.manifest_digest)}\n`;
   if (result.authored_contracts.base) {
-    text += `Base manifest: ${result.authored_contracts.base.manifest_digest}\n`;
+    text += `Base manifest: ${escapeTerminalText(result.authored_contracts.base.manifest_digest)}\n`;
   }
   text += `Visited: ${result.visited.length}; paths: ${result.paths.length}; frontiers: ${result.frontiers.length}; AC joins: ${result.intent_impacts.length}\n`;
-  text += `Truncated: ${result.truncation.truncated}${result.truncation.reasons.length ? ` (${result.truncation.reasons.join(", ")})` : ""}\n`;
+  text += `Truncated: ${result.truncation.truncated}${result.truncation.reasons.length ? ` (${escapeTerminalText(result.truncation.reasons.join(", "))})` : ""}\n`;
   for (const impact of result.intent_impacts) {
-    text += `  ${impact.acceptance_criterion_stable_id}: may_be_impacted via ${impact.via_relationship}; contract_coupling (${impact.link_scope})\n`;
+    text += `  ${escapeTerminalText(impact.acceptance_criterion_stable_id)}: may_be_impacted via ${escapeTerminalText(impact.via_relationship)}; contract_coupling (${escapeTerminalText(impact.link_scope)})\n`;
   }
   return text;
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { join } from "node:path";
 
@@ -41,13 +41,7 @@ async function collectGarbage(): Promise<void> {
 }
 
 function readArtifactDirectory(root: string): Map<string, Buffer> {
-  const files = new Map<string, Buffer>();
-  for (const name of ["topology.json", ...readdirSync(join(root, "files"))
-    .sort()
-    .map((entry) => `files/${entry}`)]) {
-    files.set(name, readFileSync(join(root, name)));
-  }
-  return files;
+  return new Map([["graph.json", readFileSync(join(root, "graph.json"))]]);
 }
 
 await collectGarbage();

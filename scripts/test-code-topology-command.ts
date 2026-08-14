@@ -17,7 +17,18 @@ import {
   codeTopologyGenerationIdentity,
   codeTopologySelectedInputDigest,
 } from "../src/domain/code-topology-store.js";
+import {
+  renderBlastRadiusText,
+  renderDependencyTraceText,
+} from "../src/commands/code-topology.js";
 import { report, test } from "./lib/harness.js";
+
+const terminalInjection =
+  "CSI:\u001b[31m OSC:\u001b]0;owned\u0007 CR:\r BS:\b C1:\u009b BIDI:\u202e";
+const escapedTerminalInjection =
+  "CSI:\\x1b[31m OSC:\\x1b]0;owned\\x07 CR:\\x0d BS:\\x08 C1:\\x9b BIDI:\\u{202e}";
+const unsafeTerminalCodePoint =
+  /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
 
 const fixtureRoot = mkdtempSync(resolve(tmpdir(), "tieline-code-command-"));
 mkdirSync(resolve(fixtureRoot, ".tieline/spec"), { recursive: true });
@@ -135,7 +146,7 @@ try {
 
   await test("stale artifact reads fail without repairing or rewriting", async () => {
     const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
-    const artifactPath = resolve(fixtureRoot, ".tieline/topology/topology.json");
+    const artifactPath = resolve(fixtureRoot, ".tieline/topology/graph.json");
     const source = readFileSync(sourcePath, "utf8");
     const artifact = readFileSync(artifactPath);
     writeFileSync(sourcePath, `${source}// selected input changed\n`);
@@ -150,7 +161,7 @@ try {
 
   await test("an exact Git revision traces successfully from a dirty worktree without rewriting artifacts", async () => {
     const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
-    const artifactPath = resolve(fixtureRoot, ".tieline/topology/topology.json");
+    const artifactPath = resolve(fixtureRoot, ".tieline/topology/graph.json");
     const source = readFileSync(sourcePath, "utf8");
     const artifact = readFileSync(artifactPath);
     const commit = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -206,6 +217,30 @@ try {
     assert.match(output, /Truncated: false/);
   });
 
+  await test("CLI trace text visibly escapes repository-controlled terminal codes", () => {
+    const injectedTrace = structuredClone(cliTrace!) as any;
+    injectedTrace.paths = [
+      {
+        nodes: [
+          {
+            locator: {
+              path: terminalInjection,
+              selector: terminalInjection,
+            },
+          },
+        ],
+      },
+    ];
+    const rendered = renderDependencyTraceText(injectedTrace);
+    assert.ok(rendered.includes(escapedTerminalInjection));
+    assert.doesNotMatch(rendered, unsafeTerminalCodePoint);
+    assert.equal(
+      injectedTrace.paths[0].nodes[0].locator.path,
+      terminalInjection,
+      "text rendering must not mutate the structured result"
+    );
+  });
+
   await test("transport limit overrides cannot bypass domain truncation", async () => {
     const limited = await cli([
       "code", "trace", "--repository", fixtureRoot, "--repo", "topology-fixture",
@@ -236,6 +271,20 @@ try {
     assert.ok(impacts.some((impact) => impact.acceptance_criterion_stable_id === "TOPOLOGY-001-AC1"));
     assert.ok(impacts.every((impact) => impact.relationship === "contract_coupling"));
     assert.ok(impacts.every((impact) => impact.semantic_support === "not_assessed"));
+  });
+
+  await test("CLI blast-radius text visibly escapes repository-controlled terminal codes", () => {
+    const injectedBlast = structuredClone(cliBlast!) as any;
+    injectedBlast.intent_impacts[0].acceptance_criterion_stable_id = terminalInjection;
+    injectedBlast.intent_impacts[0].via_relationship = terminalInjection;
+    const rendered = renderBlastRadiusText(injectedBlast);
+    assert.ok(rendered.includes(escapedTerminalInjection));
+    assert.doesNotMatch(rendered, unsafeTerminalCodePoint);
+    assert.equal(
+      injectedBlast.intent_impacts[0].acceptance_criterion_stable_id,
+      terminalInjection,
+      "text rendering must not mutate the structured result"
+    );
   });
 
   await test("Git base reads manifest evidence through literal top-level pathspecs", async () => {

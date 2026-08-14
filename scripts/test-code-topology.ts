@@ -93,6 +93,61 @@ function fixture(): CompleteCodeTopologyGeneration {
   };
 }
 
+function diamondFixture(): CompleteCodeTopologyGeneration {
+  const generation = fixture();
+  const paths = [
+    "src/root.ts",
+    "src/left.ts",
+    "src/right.ts",
+    "src/join.ts",
+    "src/tail.ts",
+  ];
+  const graph = [
+    [0, 1],
+    [0, 2],
+    [1, 3],
+    [2, 3],
+    [3, 4],
+  ] as const;
+  generation.files = paths.map((path) => ({ ...generation.files[0]!, path }));
+  generation.symbols = paths.map((path, index) => ({
+    ...generation.symbols[0]!,
+    identity: `diamond-symbol:${index}`,
+    file_path: path,
+    name: path.slice(4, -3),
+    canonical_selector: `function:${path.slice(4, -3)}`,
+  }));
+  generation.references = graph.map(([source, target], index) => ({
+    ...generation.references[0]!,
+    identity: `diamond-reference:${index}`,
+    file_path: paths[source]!,
+    owner_symbol_identity: `diamond-symbol:${source}`,
+    module_specifier: `./${paths[target]!.slice(4, -3)}`,
+  }));
+  generation.resolutions = graph.map(([, target], index) => ({
+    ...generation.resolutions[0]!,
+    reference_identity: `diamond-reference:${index}`,
+    status: "resolved",
+    target_file_path: paths[target]!,
+    target_symbol_identity: `diamond-symbol:${target}`,
+    diagnostics: [],
+  }));
+  generation.edges = graph.map(([source, target], index) => ({
+    identity: `diamond-edge:${index}`,
+    kind: "imports",
+    source: {
+      generation_identity: generation.header.identity,
+      symbol_identity: `diamond-symbol:${source}`,
+    },
+    target: {
+      generation_identity: generation.header.identity,
+      symbol_identity: `diamond-symbol:${target}`,
+    },
+    reference_identity: `diamond-reference:${index}`,
+  }));
+  return generation;
+}
+
 const locator = (path: string, selector: string | null): CodeTopologyLocator => ({
   repository: "acme/widget",
   kind: "code",
@@ -134,6 +189,74 @@ await test("defaults blast traversal callers can reverse dependencies", async ()
   assert.equal(result.status, "complete");
   if (result.status !== "complete") return;
   assert.deepEqual(result.visited.map((node) => node.locator.path), ["src/c.ts", "src/b.ts", "src/a.ts"]);
+});
+
+await test("reverse traversal ignores outgoing dependency gaps under a tight edge limit", async () => {
+  const reverseGeneration = fixture();
+  const reverseStore = new FakeCodeTopologyStore();
+  await reverseStore.commitGeneration({
+    generation: reverseGeneration,
+    expected_previous_generation_identity: null,
+  });
+  let frontierCalls = 0;
+  const listDependencyFrontiers = reverseStore.listDependencyFrontiers.bind(reverseStore);
+  reverseStore.listDependencyFrontiers = async (...args) => {
+    frontierCalls += 1;
+    return listDependencyFrontiers(...args);
+  };
+  const input = {
+    store: reverseStore,
+    generation_identity: reverseGeneration.header.identity,
+    generation_role: "current" as const,
+    direction: "dependents" as const,
+    limits: { edges: 1 },
+  };
+  const [single, batch] = await Promise.all([
+    traceCodeTopology({ ...input, locator: locator("src/c.ts", "function:c") }),
+    traceCodeTopologyBatch({ ...input, locators: [locator("src/c.ts", "function:c")] }),
+  ]);
+  assert.equal(single.status, "complete");
+  assert.equal(batch.status, "complete");
+  if (single.status !== "complete" || batch.status !== "complete") return;
+  assert.equal(frontierCalls, 0);
+  assert.deepEqual(single.frontiers, []);
+  assert.deepEqual(single.visited.map((node) => node.locator.path), ["src/c.ts", "src/b.ts"]);
+  assert.equal(single.paths.length, 1);
+  assert.deepEqual(batch.visited, single.visited);
+  assert.deepEqual(batch.paths, single.paths);
+  assert.deepEqual(batch.frontiers, single.frontiers);
+});
+
+await test("continues every reconvergent route through a diamond tail", async () => {
+  const diamondGeneration = diamondFixture();
+  const diamondStore = new FakeCodeTopologyStore();
+  await diamondStore.commitGeneration({
+    generation: diamondGeneration,
+    expected_previous_generation_identity: null,
+  });
+  const input = {
+    store: diamondStore,
+    generation_identity: diamondGeneration.header.identity,
+    generation_role: "current" as const,
+    direction: "dependencies" as const,
+  };
+  const [single, batch] = await Promise.all([
+    traceCodeTopology({ ...input, locator: locator("src/root.ts", "function:root") }),
+    traceCodeTopologyBatch({ ...input, locators: [locator("src/root.ts", "function:root")] }),
+  ]);
+  assert.equal(single.status, "complete");
+  assert.equal(batch.status, "complete");
+  if (single.status !== "complete" || batch.status !== "complete") return;
+  const tailRoutes = single.paths
+    .filter((path) => path.nodes.at(-1)?.locator.path === "src/tail.ts")
+    .map((path) => path.nodes.map((node) => node.locator.path));
+  assert.deepEqual(tailRoutes, [
+    ["src/root.ts", "src/left.ts", "src/join.ts", "src/tail.ts"],
+    ["src/root.ts", "src/right.ts", "src/join.ts", "src/tail.ts"],
+  ]);
+  assert.deepEqual(batch.visited, single.visited);
+  assert.deepEqual(batch.paths, single.paths);
+  assert.deepEqual(batch.truncation, single.truncation);
 });
 
 await test("reports ambiguous exact locators without choosing a symbol", async () => {

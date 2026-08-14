@@ -4,12 +4,10 @@ import {
   realpathSync,
   type Stats,
 } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { resolve } from "node:path";
 import {
-  CODE_TOPOLOGY_ARTIFACT_INDEX,
+  CODE_TOPOLOGY_ARTIFACT_FILE,
   CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
-  CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS,
-  CODE_TOPOLOGY_ARTIFACT_MAX_TOTAL_BYTES,
   readCodeTopologyArtifact,
   type CodeTopologyArtifactMetadata,
 } from "./code-topology-artifact.js";
@@ -63,22 +61,14 @@ export type TopologyRoleSnapshotResult =
       generation_identity?: string;
     };
 
-interface ArtifactIndexShape {
-  shards?: Array<{ name?: unknown }>;
-}
-
 /** @internal Deterministic seam for artifact-publication interleaving tests. */
 interface WorkspaceArtifactReadHooks {
-  afterIndexRead?(attempt: number): void;
+  afterGraphRead?(): void;
 }
 
 type WorkspaceArtifactFilesResult =
   | { status: "complete"; files: Map<string, Buffer> }
   | { status: "missing" | "invalid" | "capacity_exceeded" | "unsafe_path"; detail: string };
-
-function errno(error: unknown): string | undefined {
-  return (error as NodeJS.ErrnoException | null)?.code;
-}
 
 export function topologyArtifactFailureStatus(
   status: "missing" | "stale" | "incompatible" | "invalid" | "capacity_exceeded" | "unsafe_path"
@@ -101,55 +91,15 @@ function safeRegularFile(root: string, path: string): string | null {
   return null;
 }
 
-function readSafeTopologyIndex(root: string, path: string):
+function readSafeTopologyGraph(root: string, path: string):
   | { status: "complete"; bytes: Buffer }
   | { status: "capacity_exceeded" | "unsafe_path"; detail: string } {
   const unsafe = safeRegularFile(root, path);
-  if (unsafe) return { status: "unsafe_path", detail: `Topology index ${unsafe}.` };
+  if (unsafe) return { status: "unsafe_path", detail: `Topology graph ${unsafe}.` };
   if (lstatSync(path).size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
-    return { status: "capacity_exceeded", detail: "Topology index exceeds the per-file byte limit." };
+    return { status: "capacity_exceeded", detail: "Topology graph exceeds the file byte limit." };
   }
   return { status: "complete", bytes: readFileSync(path) };
-}
-
-export function indexedCodeTopologyArtifactNames(indexBytes: Buffer):
-  | { status: "complete"; names: string[] }
-  | { status: "invalid" | "capacity_exceeded" | "unsafe_path"; detail: string } {
-  if (indexBytes.byteLength > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
-    return { status: "capacity_exceeded", detail: "Topology index exceeds the per-file byte limit." };
-  }
-  let index: ArtifactIndexShape;
-  try {
-    index = JSON.parse(indexBytes.toString("utf8")) as ArtifactIndexShape;
-  } catch (error) {
-    return { status: "invalid", detail: `Topology index is not valid JSON: ${error instanceof Error ? error.message : String(error)}` };
-  }
-  if (!Array.isArray(index.shards)) {
-    return { status: "invalid", detail: "Topology index has no shard list." };
-  }
-  if (index.shards.length > CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS) {
-    return { status: "capacity_exceeded", detail: `Topology index exceeds the ${CODE_TOPOLOGY_ARTIFACT_MAX_SHARDS}-shard limit.` };
-  }
-  const names = [CODE_TOPOLOGY_ARTIFACT_INDEX];
-  const seen = new Set(names);
-  for (const shard of index.shards) {
-    if (typeof shard?.name !== "string") {
-      return { status: "invalid", detail: "Topology index contains a shard without a string name." };
-    }
-    if (
-      isAbsolute(shard.name) || shard.name.includes("\\") ||
-      shard.name.split("/").includes("..") ||
-      !/^files\/[a-f0-9]{64}\.json$/.test(shard.name)
-    ) {
-      return { status: "unsafe_path", detail: `Topology shard path '${shard.name}' is unsafe.` };
-    }
-    if (seen.has(shard.name)) {
-      return { status: "invalid", detail: `Topology shard path '${shard.name}' is duplicated.` };
-    }
-    seen.add(shard.name);
-    names.push(shard.name);
-  }
-  return { status: "complete", names };
 }
 
 export function readWorkspaceCodeTopologyFiles(
@@ -158,80 +108,38 @@ export function readWorkspaceCodeTopologyFiles(
 ): WorkspaceArtifactFilesResult {
   const repository = realpathSync(resolve(repositoryRoot));
   const root = resolve(repository, CODE_TOPOLOGY_DIRECTORY);
-  const indexPath = resolve(root, CODE_TOPOLOGY_ARTIFACT_INDEX);
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    let indexRead = false;
-    try {
-      const tielineRoot = resolve(repository, ".tieline");
-      const tielineStat = lstatSync(tielineRoot);
-      if (!tielineStat.isDirectory() || tielineStat.isSymbolicLink() || !owned(tielineStat)) {
-        return { status: "unsafe_path", detail: "The repository .tieline directory is not an owned regular directory." };
-      }
-      const rootStat = lstatSync(root);
-      if (!rootStat.isDirectory() || rootStat.isSymbolicLink() || !owned(rootStat)) {
-        return { status: "unsafe_path", detail: "The topology authority is not an owned regular directory." };
-      }
-      const realRoot = realpathSync(root);
-      if (!withinRepository(repository, realRoot)) {
-        return { status: "unsafe_path", detail: "The topology authority resolves outside the repository." };
-      }
-      const indexReadResult = readSafeTopologyIndex(realRoot, indexPath);
-      if (indexReadResult.status !== "complete") return indexReadResult;
-      const indexBytes = indexReadResult.bytes;
-      indexRead = true;
-      hooks.afterIndexRead?.(attempt);
-      const indexed = indexedCodeTopologyArtifactNames(indexBytes);
-      if (indexed.status !== "complete") return indexed;
-      const files = new Map<string, Buffer>([[CODE_TOPOLOGY_ARTIFACT_INDEX, indexBytes]]);
-      let totalBytes = indexBytes.byteLength;
-      let retry = false;
-      for (const name of indexed.names.slice(1)) {
-        const path = resolve(realRoot, name);
-        if (!withinRepository(realRoot, path)) {
-          return { status: "unsafe_path", detail: `Topology shard path '${name}' escapes the authority directory.` };
-        }
-        try {
-          const unsafe = safeRegularFile(realRoot, path);
-          if (unsafe) return { status: "unsafe_path", detail: `Topology shard '${name}' ${unsafe}.` };
-          const size = lstatSync(path).size;
-          if (size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
-            return { status: "capacity_exceeded", detail: `Topology shard '${name}' exceeds the per-file byte limit.` };
-          }
-          totalBytes += size;
-          if (totalBytes > CODE_TOPOLOGY_ARTIFACT_MAX_TOTAL_BYTES) {
-            return { status: "capacity_exceeded", detail: "Topology artifact exceeds the total byte limit." };
-          }
-          files.set(name, readFileSync(path));
-        } catch (error) {
-          if (errno(error) !== "ENOENT" && errno(error) !== "ENOTDIR") throw error;
-          const refreshed = readSafeTopologyIndex(realRoot, indexPath);
-          if (refreshed.status !== "complete") return refreshed;
-          const refreshedIndex = refreshed.bytes;
-          if (refreshedIndex.equals(indexBytes)) {
-            return { status: "invalid", detail: "The topology artifact changed or lost a referenced shard while it was read." };
-          }
-          if (attempt > 0) {
-            return { status: "invalid", detail: "The topology artifact changed repeatedly while it was read." };
-          }
-          retry = true;
-          break;
-        }
-      }
-      if (retry) continue;
-      return { status: "complete", files };
-    } catch (error) {
-      if (errno(error) === "ENOENT" || errno(error) === "ENOTDIR") {
-        return indexRead
-          ? { status: "invalid", detail: "The topology artifact changed or lost a referenced shard while it was read." }
-          : { status: "missing", detail: `No topology artifact exists at '${indexPath}'.` };
-      }
-      return {
-        status: "invalid",
-        detail: error instanceof Error ? error.message : String(error),
-      };
+  const graphPath = resolve(root, CODE_TOPOLOGY_ARTIFACT_FILE);
+  try {
+    const tielineRoot = resolve(repository, ".tieline");
+    const tielineStat = lstatSync(tielineRoot);
+    if (!tielineStat.isDirectory() || tielineStat.isSymbolicLink() || !owned(tielineStat)) {
+      return { status: "unsafe_path", detail: "The repository .tieline directory is not an owned regular directory." };
     }
+    const rootStat = lstatSync(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink() || !owned(rootStat)) {
+      return { status: "unsafe_path", detail: "The topology authority is not an owned regular directory." };
+    }
+    const realRoot = realpathSync(root);
+    if (!withinRepository(repository, realRoot)) {
+      return { status: "unsafe_path", detail: "The topology authority resolves outside the repository." };
+    }
+    const graph = readSafeTopologyGraph(realRoot, graphPath);
+    if (graph.status !== "complete") return graph;
+    hooks.afterGraphRead?.();
+    return {
+      status: "complete",
+      files: new Map([[CODE_TOPOLOGY_ARTIFACT_FILE, graph.bytes]]),
+    };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return { status: "missing", detail: `No topology artifact exists at '${graphPath}'.` };
+    }
+    return {
+      status: "invalid",
+      detail: error instanceof Error ? error.message : String(error),
+    };
   }
-  return { status: "invalid", detail: "The topology artifact changed repeatedly while it was read." };
 }
 
 function compatibilityFailure(metadata: CodeTopologyArtifactMetadata): string | null {

@@ -359,8 +359,8 @@ export async function runGeneratedArtifactGate(
   const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tieline-derivation-gate-"));
   try {
     copyGitVisibleCheckout(reviewedRoot, temporaryRoot);
-    // A clean authority root prevents reviewed immutable shards from influencing
-    // or blocking compilation. The reviewed bytes remain only in reviewedRoot
+    // A clean authority root prevents reviewed artifacts from influencing or
+    // blocking compilation. The reviewed bytes remain only in reviewedRoot
     // for the subsequent complete-set comparison.
     rmSync(resolve(temporaryRoot, ".tieline/manifest"), {
       recursive: true,

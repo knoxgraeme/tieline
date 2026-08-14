@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { SupportedCodeLanguage } from "../contract/code-analysis/languages.js";
 import type {
   CodeTopologyFrontierRecord,
@@ -9,7 +10,7 @@ import type {
 } from "./code-topology-store.js";
 
 export const CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION = 1;
-export const CODE_TOPOLOGY_ARTIFACT_ENCODING = "sharded-compact-json-v1";
+export const CODE_TOPOLOGY_ARTIFACT_ENCODING = "json-v1";
 export const CODE_TOPOLOGY_ARTIFACT_PRODUCER = "tieline_tree_sitter";
 export const CODE_TOPOLOGY_ARTIFACT_PRODUCER_VERSION = 1;
 export const CODE_TOPOLOGY_ARTIFACT_PROVIDER = "tieline";
@@ -45,12 +46,7 @@ export interface CodeTopologyArtifactCounts extends CodeTopologyGenerationCounts
   dependency_records: number;
 }
 
-export interface CodeTopologyArtifactEdgeRecord {
-  kind: string;
-  source: { generation_identity: string; symbol_identity: string };
-  target: { generation_identity: string; symbol_identity: string };
-  reference_identity: string | null;
-}
+export type CodeTopologyArtifactEdgeRecord = CodeTopologyReadModelEdge;
 
 /**
  * Provider-neutral traversal projection. Producers normalize into this model;
@@ -134,4 +130,3 @@ export function codeTopologyArtifactProjectionDigestOrdered(input: Pick<
   }
   return hash.digest("hex");
 }
-import { createHash } from "node:crypto";

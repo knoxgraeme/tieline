@@ -13,6 +13,18 @@ import {
   lookupAcceptanceCriterionIntentContext,
   lookupAssetIntentContext,
 } from "../src/contract/intent-context.js";
+import { renderIntentContextText } from "../src/commands/contract-context.js";
+import { escapeTerminalText } from "../src/commands/shared.js";
+
+const terminalInjection =
+  "CSI:\u001b[31m OSC:\u001b]0;owned\u0007 CR:\r BS:\b C1:\u009b BIDI:\u202e";
+const escapedTerminalInjection =
+  "CSI:\\x1b[31m OSC:\\x1b]0;owned\\x07 CR:\\x0d BS:\\x08 C1:\\x9b BIDI:\\u{202e}";
+const unsafeTerminalCodePoint =
+  /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
+
+assert.equal(escapeTerminalText(terminalInjection), escapedTerminalInjection);
+assert.equal(escapeTerminalText("field\nvalue\tend"), "field\\x0avalue\\x09end");
 
 const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-context-command-"));
 let output = "";
@@ -216,6 +228,19 @@ capability:
       [null, "file_level"],
       ["function:first", "exact_selector"],
     ]
+  );
+
+  const injectedContext = structuredClone(selectorContext);
+  injectedContext.answer = terminalInjection;
+  injectedContext.locator.path = terminalInjection;
+  injectedContext.matching_claims[0].target.path = terminalInjection;
+  const injectedContextText = renderIntentContextText(injectedContext);
+  assert.ok(injectedContextText.includes(escapedTerminalInjection));
+  assert.doesNotMatch(injectedContextText, unsafeTerminalCodePoint);
+  assert.equal(
+    injectedContext.answer,
+    terminalInjection,
+    "human rendering must not mutate the structured result"
   );
 
   output = "";

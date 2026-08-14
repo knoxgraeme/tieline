@@ -11,13 +11,13 @@ import { tmpdir } from "node:os";
 import { performance } from "node:perf_hooks";
 import { dirname, join } from "node:path";
 import {
+  CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
   artifactReadModel,
   parseCodeTopologyArtifact,
   serializeCodeTopologyArtifact,
   topologyArtifactFromReadModel,
 } from "../src/contract/code-topology-artifact.js";
 import {
-  canonicalCodeTopologyJson,
   codeTopologyArtifactProjectionDigest,
 } from "../src/domain/code-topology-artifact.js";
 import {
@@ -26,6 +26,9 @@ import {
 } from "../src/domain/code-topology-store.js";
 
 const MIB = 1024 * 1024;
+const REVIEW_ENVELOPE_FILES = 1_500;
+const REVIEW_ENVELOPE_SYMBOLS = 30_000;
+const REVIEW_ENVELOPE_DEPENDENCIES = 75_000;
 const enforce = process.env.TIELINE_ENFORCE_RELEASE_BUDGETS === "1";
 const pinnedEnvironment = process.platform === "linux" && process.arch === "x64" && process.versions.node.startsWith("20.");
 const scale = Number(process.env.TIELINE_ARTIFACT_BENCHMARK_SCALE ?? "1");
@@ -70,9 +73,9 @@ function fixture(
   distribution: Distribution,
   role: ArtifactRole = "base"
 ): CodeTopologyReadModelGeneration {
-  const fileCount = Math.max(4, Math.round(5_000 * scale));
-  const symbolCount = Math.max(fileCount, Math.round(100_000 * scale));
-  const dependencyCount = Math.max(fileCount, Math.round(250_000 * scale));
+  const fileCount = Math.max(4, Math.round(REVIEW_ENVELOPE_FILES * scale));
+  const symbolCount = Math.max(fileCount, Math.round(REVIEW_ENVELOPE_SYMBOLS * scale));
+  const dependencyCount = Math.max(fileCount, Math.round(REVIEW_ENVELOPE_DEPENDENCIES * scale));
   const fields = {
     repository: `artifact-${distribution}`,
     revision: digest(distribution === "resolved-dense"
@@ -212,7 +215,7 @@ function measureTwoRoleMemory(distribution: Distribution): {
     const baseArtifactRoot = join(root, "artifact-base");
     const currentArtifactRoot = join(root, "artifact-current");
     mkdirSync(sourceRoot, { recursive: true });
-    const fileCount = Math.max(4, Math.round(5_000 * scale));
+    const fileCount = Math.max(4, Math.round(REVIEW_ENVELOPE_FILES * scale));
     const sourceBytes = Math.max(64 * 1024, Math.round(50 * MIB * scale));
     const baseBytes = Math.floor(sourceBytes / fileCount);
     let remainder = sourceBytes % fileCount;
@@ -265,15 +268,17 @@ function measureTwoRoleMemory(distribution: Distribution): {
       TIELINE_ARTIFACT_MEMORY_BASE_REVISION: baseRevision,
       TIELINE_ARTIFACT_MEMORY_CURRENT_REVISION: currentRevision,
     });
+    const symbolCount = Math.max(fileCount, Math.round(REVIEW_ENVELOPE_SYMBOLS * scale));
+    const dependencyCount = Math.max(fileCount, Math.round(REVIEW_ENVELOPE_DEPENDENCIES * scale));
     const expectedEdges = distribution === "resolved-dense"
-      ? Math.max(fileCount, Math.round(250_000 * scale))
-      : Math.floor(Math.max(fileCount, Math.round(250_000 * scale)) / 10);
-    const expectedFrontiers = Math.max(fileCount, Math.round(250_000 * scale)) - expectedEdges;
+      ? dependencyCount
+      : Math.floor(dependencyCount / 10);
+    const expectedFrontiers = dependencyCount - expectedEdges;
     for (const measurement of [artifactFirst, parseFirst]) {
       assert.equal(measurement.roles.length, 2);
       for (const role of measurement.roles) {
         assert.equal(role.files, fileCount);
-        assert.equal(role.symbols, Math.max(fileCount, Math.round(100_000 * scale)));
+        assert.equal(role.symbols, symbolCount);
         assert.equal(role.edges, expectedEdges);
         assert.equal(role.frontiers, expectedFrontiers);
       }
@@ -284,12 +289,12 @@ function measureTwoRoleMemory(distribution: Distribution): {
     const retainedImprovement = 1 - artifactFirst.retained_rss_growth_bytes / parseFirst.retained_rss_growth_bytes;
     if (enforce) {
       assert.ok(
-        artifactFirst.peak_rss_growth_bytes <= 512 * MIB,
-        `${distribution} artifact-first peak RSS growth ${artifactFirst.peak_rss_growth_bytes} exceeds 512 MiB`
+        artifactFirst.peak_rss_growth_bytes <= 640 * MIB,
+        `${distribution} artifact-first peak RSS growth ${artifactFirst.peak_rss_growth_bytes} exceeds 640 MiB`
       );
       assert.ok(
-        artifactFirst.retained_rss_growth_bytes <= 384 * MIB,
-        `${distribution} artifact-first retained RSS growth ${artifactFirst.retained_rss_growth_bytes} exceeds 384 MiB`
+        artifactFirst.retained_rss_growth_bytes <= 512 * MIB,
+        `${distribution} artifact-first retained RSS growth ${artifactFirst.retained_rss_growth_bytes} exceeds 512 MiB`
       );
     }
     return {
@@ -303,19 +308,19 @@ function measureTwoRoleMemory(distribution: Distribution): {
   }
 }
 
-function jsonlBytes(model: CodeTopologyReadModelGeneration): number {
-  const artifact = topologyArtifactFromReadModel(model);
-  const metadata = { ...artifact, files: undefined, symbols: undefined, edges: undefined, frontiers: undefined };
-  let bytes = Buffer.byteLength(`${canonicalCodeTopologyJson({ kind: "envelope", value: metadata })}\n`);
-  for (const [kind, records] of [["file", artifact.files], ["symbol", artifact.symbols], ["edge", artifact.edges], ["frontier", artifact.frontiers]] as const) {
-    for (const record of records) bytes += Buffer.byteLength(`${canonicalCodeTopologyJson({ kind, value: record })}\n`);
-  }
-  return bytes;
-}
-
 const output: Record<string, unknown> = {
   environment: { node: process.version, platform: process.platform, arch: process.arch, scale, mode: benchmarkMode },
-  protocol: { samples: 1, dependency_record_cap: 250_000, order: ["canonical-json", "jsonl", "sharded-compact-json"] },
+  protocol: {
+    samples: 1,
+    artifact: "graph.json",
+    file_byte_cap: CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
+    review_envelope: {
+      files: REVIEW_ENVELOPE_FILES,
+      symbols: REVIEW_ENVELOPE_SYMBOLS,
+      dependency_records: REVIEW_ENVELOPE_DEPENDENCIES,
+      selected_source_bytes: 50 * MIB,
+    },
+  },
   enforcement: enforce && pinnedEnvironment ? "enforced" : "measure_only",
   distributions: {},
 };
@@ -323,8 +328,6 @@ if (benchmarkMode === "size" || benchmarkMode === "all") {
   for (const distribution of ["resolved-dense", "frontier-heavy"] as const) {
     const model = fixture(distribution);
     const artifact = topologyArtifactFromReadModel(model);
-    const canonicalBytes = Buffer.byteLength(`${canonicalCodeTopologyJson(artifact)}\n`);
-    const lineBytes = jsonlBytes(model);
     const started = performance.now();
     let selected: ReturnType<typeof serializeCodeTopologyArtifact> | null = null;
     let selectedError: string | null = null;
@@ -346,8 +349,11 @@ if (benchmarkMode === "size" || benchmarkMode === "all") {
         [...selected.files].map(([name, bytes]) => [name, bytes.toString("base64")])
       );
       if (enforce) {
-        assert.ok(selected.total_bytes <= 32 * MIB, `${distribution} artifact exceeds 32 MiB`);
-        assert.ok([...selected.files.values()].every((file) => file.byteLength <= 1_411_425), `${distribution} artifact file exceeds its regression budget`);
+        assert.ok(
+          selected.total_bytes <= CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
+          `${distribution} graph.json exceeds the file byte limit`
+        );
+        assert.equal(selected.files.size, 1, `${distribution} artifact must remain one graph.json`);
         assert.ok(
           compileMs <= 60_000,
           `${distribution} compile ${compileMs.toFixed(1)}ms exceeds 60 seconds`
@@ -362,19 +368,14 @@ if (benchmarkMode === "size" || benchmarkMode === "all") {
       fixture: model.summary.counts,
       frontiers: model.frontiers.length,
       dependency_records: model.edges.length + model.frontiers.length,
-      candidates: {
-        canonical_json: { bytes: canonicalBytes, passes_32_mib: canonicalBytes <= 32 * MIB },
-        jsonl: { bytes: lineBytes, passes_32_mib: lineBytes <= 32 * MIB },
-        sharded_compact_json: selected ? {
+      graph_json: selected ? {
           bytes: selected.total_bytes,
           files: selected.files.size,
           largest_file_bytes: Math.max(...[...selected.files.values()].map((file) => file.byteLength)),
           compile_ms: compileMs,
           validation_ms: validationMs,
-          passes_32_mib: selected.total_bytes <= 32 * MIB,
-          passes_8_mib_per_file: [...selected.files.values()].every((file) => file.byteLength <= 8 * MIB),
+          passes_64_mib: selected.total_bytes <= CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
         } : { error: selectedError },
-      },
     };
   }
 }

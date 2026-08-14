@@ -1,14 +1,11 @@
 import { execFileSync } from "node:child_process";
 import {
-  CODE_TOPOLOGY_ARTIFACT_INDEX,
+  CODE_TOPOLOGY_ARTIFACT_FILE,
   CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
-  CODE_TOPOLOGY_ARTIFACT_MAX_TOTAL_BYTES,
 } from "./code-topology-artifact.js";
 import { createGitSourceSnapshotCollection } from "./git-source-snapshot.js";
 import {
   CODE_TOPOLOGY_DIRECTORY,
-  indexedCodeTopologyArtifactNames,
-  topologyArtifactFailureStatus,
   topologyRoleSnapshotFromFiles,
   type TopologyRoleSnapshotResult,
 } from "./topology-role-snapshot.js";
@@ -29,7 +26,7 @@ function git(repositoryRoot: string, args: string[], input?: string): Buffer {
     cwd: repositoryRoot,
     input,
     stdio: [input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
-    maxBuffer: 64 * 1024 * 1024,
+    maxBuffer: CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES + 1024 * 1024,
   });
 }
 
@@ -42,20 +39,20 @@ function resolveCommit(repositoryRoot: string, revision: string): string {
   return commit;
 }
 
-function listArtifactTree(repositoryRoot: string, commit: string): Map<string, GitArtifactEntry> {
+function readGraphEntry(repositoryRoot: string, commit: string): GitArtifactEntry | null {
+  const graphPath = `${CODE_TOPOLOGY_DIRECTORY}/${CODE_TOPOLOGY_ARTIFACT_FILE}`;
   const output = git(repositoryRoot, [
-    "ls-tree", "-rz", "-r", "--full-tree", "-l", commit, "--", CODE_TOPOLOGY_DIRECTORY,
+    "ls-tree", "-z", "--full-tree", "-l", commit, "--", graphPath,
   ]).toString("utf8");
-  const entries = new Map<string, GitArtifactEntry>();
-  for (const raw of output.split("\0")) {
-    if (!raw) continue;
-    const match = raw.match(/^([0-7]{6}) blob ([a-f0-9]+)\s+(\d+)\t(.+)$/s);
-    if (!match) continue;
-    entries.set(match[4]!, {
-      mode: match[1]!, object: match[2]!, size: Number(match[3]), path: match[4]!,
-    });
+  if (!output) return null;
+  const raw = output.endsWith("\0") ? output.slice(0, -1) : output;
+  const match = raw.match(/^([0-7]{6}) blob ([a-f0-9]+)\s+(\d+)\t(.+)$/s);
+  if (!match || match[4] !== graphPath) {
+    throw new Error(`Unexpected Git tree response for topology graph '${graphPath}'.`);
   }
-  return entries;
+  return {
+    mode: match[1]!, object: match[2]!, size: Number(match[3]), path: match[4]!,
+  };
 }
 
 /** Read selected Git blobs through one bounded `cat-file --batch` process. */
@@ -98,48 +95,21 @@ export function selectGitTopologyRole(
     return { status: "topology_invalid", detail: error instanceof Error ? error.message : String(error) };
   }
   try {
-    const tree = listArtifactTree(options.repositoryRoot, commit);
-    const indexPath = `${CODE_TOPOLOGY_DIRECTORY}/${CODE_TOPOLOGY_ARTIFACT_INDEX}`;
-    const indexEntry = tree.get(indexPath);
-    if (!indexEntry) {
+    const graphEntry = readGraphEntry(options.repositoryRoot, commit);
+    if (!graphEntry) {
       return {
         status: "topology_missing_at_revision",
         detail: `Git commit '${commit}' has no committed topology artifact.`,
       };
     }
-    if (indexEntry.mode !== "100644" && indexEntry.mode !== "100755") {
-      return { status: "topology_unsafe_path", detail: "Committed topology index is not a regular Git file." };
+    if (graphEntry.mode !== "100644" && graphEntry.mode !== "100755") {
+      return { status: "topology_unsafe_path", detail: "Committed topology graph is not a regular Git file." };
     }
-    if (indexEntry.size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
-      return { status: "topology_capacity_exceeded", detail: "Committed topology index exceeds the per-file byte limit." };
+    if (graphEntry.size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
+      return { status: "topology_capacity_exceeded", detail: "Committed topology graph exceeds the file byte limit." };
     }
-    const indexObject = readObjects(options.repositoryRoot, [indexEntry]).get(indexEntry.object)!;
-    const indexed = indexedCodeTopologyArtifactNames(indexObject);
-    if (indexed.status !== "complete") {
-      return { status: topologyArtifactFailureStatus(indexed.status), detail: indexed.detail };
-    }
-    const selected: GitArtifactEntry[] = [];
-    let totalBytes = indexEntry.size;
-    for (const name of indexed.names.slice(1)) {
-      const entry = tree.get(`${CODE_TOPOLOGY_DIRECTORY}/${name}`);
-      if (!entry) return { status: "topology_invalid", detail: `Committed topology shard '${name}' is missing.` };
-      if (entry.mode !== "100644" && entry.mode !== "100755") {
-        return { status: "topology_unsafe_path", detail: `Committed topology shard '${name}' is not a regular Git file.` };
-      }
-      if (entry.size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
-        return { status: "topology_capacity_exceeded", detail: `Committed topology shard '${name}' exceeds the per-file byte limit.` };
-      }
-      totalBytes += entry.size;
-      if (totalBytes > CODE_TOPOLOGY_ARTIFACT_MAX_TOTAL_BYTES) {
-        return { status: "topology_capacity_exceeded", detail: "Committed topology artifact exceeds the total byte limit." };
-      }
-      selected.push(entry);
-    }
-    const blobs = readObjects(options.repositoryRoot, selected);
-    const files = new Map<string, Buffer>([[CODE_TOPOLOGY_ARTIFACT_INDEX, indexObject]]);
-    for (let index = 0; index < selected.length; index += 1) {
-      files.set(indexed.names[index + 1]!, blobs.get(selected[index]!.object)!);
-    }
+    const graphObject = readObjects(options.repositoryRoot, [graphEntry]).get(graphEntry.object)!;
+    const files = new Map<string, Buffer>([[CODE_TOPOLOGY_ARTIFACT_FILE, graphObject]]);
 
     const source = createGitSourceSnapshotCollection({
       repositoryRoot: options.repositoryRoot,

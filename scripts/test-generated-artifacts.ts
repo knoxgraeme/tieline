@@ -12,6 +12,7 @@ import { dirname, resolve } from "node:path";
 import { runCodeTopologyArtifactCommand } from "../src/commands/code-topology-artifact.js";
 import { runContractCommand } from "../src/commands/contract.js";
 import {
+  CODE_TOPOLOGY_ARTIFACT_FILE,
   parseCodeTopologyArtifact,
   serializeCodeTopologyArtifact,
 } from "../src/contract/code-topology-artifact.js";
@@ -193,34 +194,30 @@ capability:
   });
 
   await test("producer and committed-byte tampering name topology", async () => {
-    const indexPath = resolve(fixture, ".tieline/topology/topology.json");
-    const indexBytes = readFileSync(indexPath);
-    const index = JSON.parse(indexBytes.toString("utf8"));
-    index.producer.version += 1;
-    writeFileSync(indexPath, `${JSON.stringify(index)}\n`);
+    const graphPath = resolve(fixture, ".tieline/topology", CODE_TOPOLOGY_ARTIFACT_FILE);
+    const graphBytes = readFileSync(graphPath);
+    const graph = JSON.parse(graphBytes.toString("utf8"));
+    graph.producer.version += 1;
+    writeFileSync(graphPath, `${JSON.stringify(graph)}\n`);
     let result = await runGeneratedArtifactGate(fixture);
     assert.equal(result.status, "generated_artifact_mismatch");
     assert.ok(
       result.status === "generated_artifact_mismatch" &&
         result.artifacts.some((entry) => entry.artifact === "topology")
     );
-    writeFileSync(indexPath, indexBytes);
+    writeFileSync(graphPath, graphBytes);
 
     const topology = readWorkspaceCodeTopologyFiles(fixture);
     assert.equal(topology.status, "complete");
     if (topology.status !== "complete") return;
-    const shard = [...topology.files.keys()].find((name) => name.startsWith("files/"));
-    assert.ok(shard);
-    const shardPath = resolve(fixture, ".tieline/topology", shard!);
-    const shardBytes = readFileSync(shardPath);
-    writeFileSync(shardPath, Buffer.concat([shardBytes, Buffer.from(" ")]));
+    writeFileSync(graphPath, Buffer.concat([graphBytes, Buffer.from(" ")]));
     result = await runGeneratedArtifactGate(fixture);
     assert.equal(result.status, "generated_artifact_mismatch");
     assert.ok(
       result.status === "generated_artifact_mismatch" &&
         result.artifacts.some((entry) => entry.artifact === "topology")
     );
-    writeFileSync(shardPath, shardBytes);
+    writeFileSync(graphPath, graphBytes);
   });
 
   await test("self-consistent compiler-divergent topology fails derivation", async () => {
@@ -235,12 +232,7 @@ capability:
     divergent.projection_digest = codeTopologyArtifactProjectionDigest({
       files: divergent.files,
       symbols: divergent.symbols,
-      edges: divergent.edges.map((edge) => ({
-        kind: edge.kind,
-        source_symbol_identity: edge.source.symbol_identity,
-        target_symbol_identity: edge.target.symbol_identity,
-        reference_identity: edge.reference_identity,
-      })),
+      edges: divergent.edges,
       frontiers: divergent.frontiers,
     });
     const serialized = serializeCodeTopologyArtifact(divergent);

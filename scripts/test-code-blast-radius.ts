@@ -114,7 +114,8 @@ capability:
     assert.equal(result.revision_divergence.current, "aligned");
     assert.equal(calls.comparison, 1, "base/current compare in one store snapshot");
     assert.ok(calls.paths <= 4, "comparison and traversal each batch locators per role");
-    assert.equal(calls.reverse, calls.frontiers);
+    assert.ok(calls.reverse > 0);
+    assert.equal(calls.frontiers, 0, "reverse traversal never queries forward dependency gaps");
   });
 
   await test("labels unknown and divergent authored checkpoints without implying review", async () => {

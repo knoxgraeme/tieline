@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 import { runCli, type TielineCliIO } from "../src/cli.js";
 import { runCodeTopologyArtifactCommand } from "../src/commands/code-topology-artifact.js";
 import {
-  CODE_TOPOLOGY_ARTIFACT_INDEX,
+  CODE_TOPOLOGY_ARTIFACT_FILE,
   CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES,
 } from "../src/contract/code-topology-artifact.js";
 import { selectGitTopologyRole } from "../src/contract/git-artifact-snapshot.js";
@@ -107,7 +107,7 @@ try {
       "dependency_records", "edges", "files", "frontiers", "references", "resolutions", "symbols",
     ]);
     compiledBytes = artifactBytes();
-    assert.ok(compiledBytes.has("topology.json"));
+    assert.deepEqual([...compiledBytes.keys()], [CODE_TOPOLOGY_ARTIFACT_FILE]);
 
     const before = git(["status", "--short"]);
     const validated = await cli(["code", "validate", root, "--json"]);
@@ -178,61 +178,58 @@ try {
     assert.deepEqual(artifactBytes(), compiledBytes);
   });
 
-  await test("a reader retries once when publication replaces its captured generation", async () => {
+  await test("a reader keeps one complete graph when publication replaces it", async () => {
     writeFileSync(join(root, "src/main.ts"), "export const value = 101;\n");
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
     const nextBytes = artifactBytes();
-    const nextIndex = JSON.parse(nextBytes.get(CODE_TOPOLOGY_ARTIFACT_INDEX)!.toString("utf8"));
+    const nextGraph = JSON.parse(nextBytes.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8"));
     writeFileSync(join(root, "src/main.ts"), "export const value = 1;\n");
     replaceArtifactBytes(compiledBytes);
-    let indexReads = 0;
+    let graphReads = 0;
     try {
       const read = readWorkspaceCodeTopologyFiles(root, {
-        afterIndexRead(attempt) {
-          indexReads += 1;
-          if (attempt === 0) replaceArtifactBytes(nextBytes);
+        afterGraphRead() {
+          graphReads += 1;
+          replaceArtifactBytes(nextBytes);
         },
       });
       assert.equal(read.status, "complete", "detail" in read ? read.detail : undefined);
       if (read.status !== "complete") return;
-      assert.equal(indexReads, 2, "the bounded retry rereads the replacement generation once");
+      assert.equal(graphReads, 1, "a single-file snapshot needs no index/shard retry");
       assert.equal(
-        JSON.parse(read.files.get(CODE_TOPOLOGY_ARTIFACT_INDEX)!.toString("utf8")).artifact_digest,
-        nextIndex.artifact_digest
+        JSON.parse(read.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8")).artifact_digest,
+        JSON.parse(compiledBytes.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8")).artifact_digest
       );
+      assert.notEqual(nextGraph.artifact_digest, JSON.parse(read.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8")).artifact_digest);
     } finally {
       replaceArtifactBytes(compiledBytes);
     }
   });
 
-  await test("an oversized workspace index is rejected before its payload is read", () => {
-    const indexPath = join(topologyRoot, CODE_TOPOLOGY_ARTIFACT_INDEX);
-    const saved = readFileSync(indexPath);
+  await test("an oversized workspace graph is rejected before it is read", () => {
+    const graphPath = join(topologyRoot, CODE_TOPOLOGY_ARTIFACT_FILE);
+    const saved = readFileSync(graphPath);
     try {
-      truncateSync(indexPath, 2 ** 31);
+      truncateSync(graphPath, 2 ** 31);
       const oversized = readWorkspaceCodeTopologyFiles(root);
       assert.deepEqual(oversized, {
         status: "capacity_exceeded",
-        detail: "Topology index exceeds the per-file byte limit.",
+        detail: "Topology graph exceeds the file byte limit.",
       });
       assert.ok(2 ** 31 > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES);
     } finally {
-      writeFileSync(indexPath, saved);
+      writeFileSync(graphPath, saved);
     }
   });
 
-  await test("a missing referenced shard is invalid rather than an absent artifact", async () => {
-    const index = JSON.parse(readFileSync(join(topologyRoot, "topology.json"), "utf8")) as {
-      shards: Array<{ name: string }>;
-    };
-    const shard = index.shards[0]!.name;
-    const path = join(topologyRoot, shard);
+  await test("a missing graph is reported as an absent artifact", async () => {
+    const path = join(topologyRoot, CODE_TOPOLOGY_ARTIFACT_FILE);
     const saved = `${path}.saved`;
     renameSync(path, saved);
     try {
-      const invalid = await cli(["code", "validate", root, "--json"]);
-      assert.notEqual(invalid.exit, 0);
-      assert.equal(invalid.result.status, "topology_invalid");
+      const missing = await cli(["code", "validate", root, "--json"]);
+      assert.notEqual(missing.exit, 0);
+      assert.equal(missing.result.status, "topology_missing");
     } finally {
       renameSync(saved, path);
     }
@@ -251,7 +248,7 @@ try {
 
   await test("interrupted authority replacement preserves the prior complete artifact", async () => {
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
-    const priorIndex = readFileSync(join(topologyRoot, "topology.json"));
+    const priorGraph = readFileSync(join(topologyRoot, CODE_TOPOLOGY_ARTIFACT_FILE));
     writeFileSync(join(root, "src/main.ts"), "export const value = 3;\n");
     output = "";
     const exit = await runCodeTopologyArtifactCommand(
@@ -262,18 +259,17 @@ try {
     );
     assert.notEqual(exit, 0);
     assert.equal(JSON.parse(output).status, "topology_invalid");
-    assert.deepEqual(readFileSync(join(topologyRoot, "topology.json")), priorIndex);
+    assert.deepEqual(readFileSync(join(topologyRoot, CODE_TOPOLOGY_ARTIFACT_FILE)), priorGraph);
     const stale = await cli(["code", "validate", root, "--json"]);
     assert.equal(stale.result.status, "topology_stale");
 
     const recovered = await cli(["code", "compile", root, "--json"]);
     assert.equal(recovered.exit, 0);
     assert.equal(recovered.result.status, "current");
-    const referenced = new Set((JSON.parse(readFileSync(join(topologyRoot, "topology.json"), "utf8")).shards as Array<{ name: string }>).map((entry) => entry.name));
     assert.deepEqual(
-      readdirSync(join(topologyRoot, "files")).map((name) => `files/${name}`).sort(),
-      [...referenced].sort(),
-      "retry removes only schema-named unreferenced shards"
+      readdirSync(topologyRoot).sort(),
+      [CODE_TOPOLOGY_ARTIFACT_FILE],
+      "retry leaves one reviewed topology graph"
     );
   });
 

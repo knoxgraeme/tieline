@@ -166,7 +166,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "79fc5550e1442f0072a1833a88cf2428495231e7045d4f03d637ab5cd4c14860",
+                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -186,7 +186,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8d3120bf585b885526f3ae84365cbc75d7e71ccdc95e70280a4187c6c528255d",
+                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -342,7 +342,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "79fc5550e1442f0072a1833a88cf2428495231e7045d4f03d637ab5cd4c14860",
+                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -362,7 +362,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8d3120bf585b885526f3ae84365cbc75d7e71ccdc95e70280a4187c6c528255d",
+                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -546,7 +546,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "79fc5550e1442f0072a1833a88cf2428495231e7045d4f03d637ab5cd4c14860",
+                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -1120,7 +1120,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4f1bcc07a2ef9b37362eb5df2f824cc5ca84e3a0a1d9c8474a5e1846a71dd6f0",
+                "reviewed_content_hash": "024072c37883377c56552d1f79544bc931318007a8fa502b13d22f5eaa042192",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract-context.ts",
@@ -1164,7 +1164,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "46fa6ba760604973f97ac3a68f991a29629d88fff2f468901ec95fb1ca8aae8d",
+                "reviewed_content_hash": "f956d2d18ccc9e8dddd8415ec852396e509cc9170e6d714cbc3ab75eb22f9cd8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1225,7 +1225,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8d3120bf585b885526f3ae84365cbc75d7e71ccdc95e70280a4187c6c528255d",
+                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1471,8 +1471,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "09f67a228a32c26f9f3eeaaf438b6c5782e68e988a3529718c0b09a16623097e",
-            "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish a deterministic bounded repository artifact only through explicit compilation, and must publish hosted relational generations only when complete.",
+            "contract_hash": "ee759438fc0d1cff5ea8cbf16e5c4060ccef595c7dece0e770c3afced698619b",
+            "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
                 "provenance": "authored",
@@ -1488,7 +1488,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "09b306f9cebc9db03e8d7e7f8987d29c33a972b7608ec2214c6e5d4812a4413b",
+                "reviewed_content_hash": "2b483b3087387c2a1e68ed58d3639fb0f89eac0ff965c62e2d64354693db9c3a",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology-artifact.ts",
@@ -1521,7 +1521,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b6238ef267a477e721839f97d0285dbb7e10216ff249f09574dfc25c551f160",
+                "reviewed_content_hash": "21a6796a4127ba2a95d3bfdf3cc4ea68228158c637e281b6eb5f0b78c4d93953",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/topology-role-snapshot.ts",
@@ -1543,7 +1543,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c8f906760a041290deace1b4968e39ad27dda9c177304c62557a5b345ef7e3a6",
+                "reviewed_content_hash": "b65adc0c5ffa38916a7c8feed7da0bfb5eb8d28be559625614b6ac6a92122039",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1554,7 +1554,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9f0b6d4e2a313c42efd137a59e98b3e773f8a31c6c2ab32dc19e63689b745443",
+                "reviewed_content_hash": "1824d523bfc327fed03010c72017354ad4e37a2fd89d9be20df897f050e0bf18",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1570,7 +1570,7 @@
                 "given": "topology compilation is interrupted or loses a concurrent publication race",
                 "position": 0,
                 "stable_id": "CONTRACT-004-AC3-S1",
-                "then": "readers must observe either the previous complete artifact or the complete winning artifact and never a mixed shard set",
+                "then": "readers must observe either the previous complete graph.json or the complete winning graph.json and never a partial document",
                 "when": "the artifact authority is selected"
               },
               {
@@ -1611,7 +1611,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ad7796c58dfaf8eacb631ed397549b50c555e07679d711bcd51e7ececa3f1671",
+                "reviewed_content_hash": "d2706d56567c63ab581faf69eec84dd3955b031620affb0f6ee200002fb1208d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-topology.ts",
@@ -1622,7 +1622,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "cf15f218f37c37607ae3efc4b4b7a219046169024472b821778f8a9630a05a20",
+                "reviewed_content_hash": "d1741ad972f6457189dba4cf36a4e584a86bfb6d4fd2f32e71fe15f854c731c8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1633,7 +1633,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c6169a8bdeaf6c9628810a17aad36b32b68a57bd58cfde99040dd354bd10bd9c",
+                "reviewed_content_hash": "7d7daf4cf1dc498fe588384a140a4ae11a4da6beb7fdff032d9c1044c53c4b64",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1672,7 +1672,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b1885b5e383c792332bd530f9b9f00cf3c2ac13794445dc8da16d39d9d5be6bd",
+                "reviewed_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1683,7 +1683,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b1885b5e383c792332bd530f9b9f00cf3c2ac13794445dc8da16d39d9d5be6bd",
+                "reviewed_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1705,7 +1705,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9572444b35f62e2d6a9aff833154667b6bb23f475837a8b42e1b407a6074ec82",
+                "reviewed_content_hash": "de5c84fc29c9b1aebeeb33bfcbcae83ad1ce73179748e1f06ae3e27e4909d07b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1766,6 +1766,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "48b8333d6541e4d9b9ed011fea6317e424774e3478daa9b3de0265beae4e4134"
+    "sha256": "c1024cde6e918ebd2e09aa8eb3bb7938b575663d4a09744f5c21d5b8ee795871"
   }
 }
