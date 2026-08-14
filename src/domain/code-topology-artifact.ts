@@ -8,6 +8,9 @@ import type {
   CodeTopologyTraversalSymbolRecord,
   TopologyAssetKind,
 } from "./code-topology-store.js";
+import { compareCodeTopologyText } from "./code-topology-ordering.js";
+
+export { compareCodeTopologyText } from "./code-topology-ordering.js";
 
 export const CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION = 1;
 export const CODE_TOPOLOGY_ARTIFACT_ENCODING = "json-v1";
@@ -75,11 +78,6 @@ export type CodeTopologyArtifactReadResult =
   | { status: "incompatible"; detail: string }
   | { status: "invalid"; detail: string }
   | { status: "capacity_exceeded"; detail: string };
-
-/** Locale-independent UTF-16 order used by every canonical topology record. */
-export function compareCodeTopologyText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
 
 export function canonicalCodeTopologyJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalCodeTopologyJson).join(",")}]`;

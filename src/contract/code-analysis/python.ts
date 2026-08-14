@@ -1,4 +1,5 @@
 import type { Node as SyntaxNode, QueryMatch } from "web-tree-sitter";
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import type { SourceSnapshot } from "../source-snapshot.js";
 import { parserCompatibilitySet, type SupportedCodeLanguage } from "./languages.js";
 import {
@@ -145,8 +146,8 @@ function referenceOrder(
     left.statementRange.utf16.start - right.statementRange.utf16.start ||
     (left.moduleSpecifierRange?.utf16.start ?? left.statementRange.utf16.start) -
       (right.moduleSpecifierRange?.utf16.start ?? right.statementRange.utf16.start) ||
-    left.kind.localeCompare(right.kind) ||
-    (left.moduleSpecifier ?? "").localeCompare(right.moduleSpecifier ?? "")
+    compareCodeTopologyText(left.kind, right.kind) ||
+    compareCodeTopologyText(left.moduleSpecifier ?? "", right.moduleSpecifier ?? "")
   );
 }
 

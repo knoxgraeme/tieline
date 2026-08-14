@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
+import type { Node as SyntaxNode } from "web-tree-sitter";
 import { createJavaScriptAnalyzer } from "../src/contract/code-analysis/javascript.js";
 import { parserCompatibilitySet } from "../src/contract/code-analysis/languages.js";
 import { createCodeParserRuntime } from "../src/contract/code-analysis/runtime.js";
+import {
+  buildSymbolFacts,
+  type StructuralCandidate,
+} from "../src/contract/code-analysis/structural-support.js";
 import { createSourceInventory } from "../src/contract/source-inventory.js";
 import { createFilesystemSourceSnapshotReader } from "../src/contract/source-snapshot.js";
 import { report, test } from "./lib/harness.js";
@@ -11,6 +16,19 @@ import { report, test } from "./lib/harness.js";
 const repositoryRoot = resolve(".");
 const reader = createFilesystemSourceSnapshotReader({ repositoryRoot });
 const analyzer = createJavaScriptAnalyzer();
+
+function withLocaleCompare<T>(locale: string, run: () => T): T {
+  const localeCompare = String.prototype.localeCompare;
+  const compare = new Intl.Collator(locale).compare;
+  String.prototype.localeCompare = function (other: string): number {
+    return compare(String(this), other);
+  };
+  try {
+    return run();
+  } finally {
+    String.prototype.localeCompare = localeCompare;
+  }
+}
 
 function fixtureSnapshot(name: string) {
   const result = reader.read(`scripts/fixtures/code-analysis/${name}`);
@@ -153,6 +171,34 @@ await test("bounds facts and reports truncation without changing deterministic p
     references: true,
     diagnostics: false,
   });
+});
+
+await test("keeps bounded mixed-case Unicode fact selection independent of locale", () => {
+  const snapshot = fixtureSnapshot("javascript.js");
+  const candidates = ["Zeta", "alpha", "Ångs", "äthe"].map(
+    (name, index): StructuralCandidate => ({
+      node: {
+        id: index + 1,
+        startIndex: 0,
+        endIndex: 0,
+        parent: null,
+        isError: false,
+        isMissing: false,
+        hasError: false,
+      } as unknown as SyntaxNode,
+      nameNode: null,
+      requiredNodes: [],
+      nativeKind: name,
+      kind: "function",
+      name,
+      selectorSegment: `function:${name}`,
+      emit: true,
+    })
+  );
+  const selectedFor = (locale: string) =>
+    withLocaleCompare(locale, () => buildSymbolFacts(snapshot, candidates).slice(0, 2));
+
+  assert.deepEqual(selectedFor("en-US"), selectedFor("sv-SE"));
 });
 
 await test("explicitly releases compiled compatibility queries", async () => {

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
+import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath, type SupportedCodeLanguage } from "./code-analysis/languages.js";
 import { withinRepository, wildcardPattern } from "./paths.js";
 import {
@@ -168,7 +169,7 @@ function walk(path: string, state: WalkState): void {
   let entries;
   try {
     entries = readdirSync(realPath, { withFileTypes: true }).sort((left, right) =>
-      left.name.localeCompare(right.name)
+      compareCodeTopologyText(left.name, right.name)
     );
   } catch (error) {
     throw inventoryError("unreadable", repositoryPath || path, String(error), error);
@@ -225,13 +226,11 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
   }
 
   const files = [...state.files.values()].sort((left, right) =>
-    left.path.localeCompare(right.path)
+    compareCodeTopologyText(left.path, right.path)
   );
   const sourceRoots = options.sourceRoots.map(normalizeInventoryPath);
   const ignore = patterns.map(normalizePattern);
-  const excludedPaths = [...state.excluded].sort((left, right) =>
-    left.localeCompare(right)
-  );
+  const excludedPaths = [...state.excluded].sort(compareCodeTopologyText);
   const digest = stableDigest({
     schemaVersion: 1,
     sourceRoots,

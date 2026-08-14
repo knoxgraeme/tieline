@@ -1,4 +1,5 @@
 import { posix } from "node:path";
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import type { SourceInventory } from "../source-inventory.js";
 import { canonicalRepositoryRelativePath } from "../paths.js";
 import type { SourceSnapshotReader } from "../source-snapshot.js";
@@ -229,7 +230,7 @@ class PythonModuleResolver implements CodeModuleResolver {
         .map((reference) => this.#resolveReference(analysis, reference))
         .sort((left, right) =>
           left.reference.statementRange.utf16.start - right.reference.statementRange.utf16.start ||
-          left.identity.localeCompare(right.identity)
+          compareCodeTopologyText(left.identity, right.identity)
         )
     );
   }
@@ -264,7 +265,9 @@ class PythonModuleResolver implements CodeModuleResolver {
       const base = root === "." ? modulePath : posix.join(root, modulePath);
       for (const candidate of this.#moduleFiles(base)) candidates.set(candidate.path, candidate);
     }
-    const ordered = [...candidates.values()].sort((left, right) => left.path.localeCompare(right.path));
+    const ordered = [...candidates.values()].sort((left, right) =>
+      compareCodeTopologyText(left.path, right.path)
+    );
     return {
       candidates: ordered,
       rule: ordered.length > 0 ? "python_declared_root_module" : "python_external_package",

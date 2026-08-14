@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   mkdtempSync,
@@ -10,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { createGitSourceSnapshotCollection } from "../src/contract/git-source-snapshot.js";
 import {
   SourceInventoryError,
   createSourceInventory,
@@ -19,6 +21,19 @@ import {
   type SourceFileMetadata,
 } from "../src/contract/source-snapshot.js";
 import { report, test } from "./lib/harness.js";
+
+function withLocaleCompare<T>(locale: string, run: () => T): T {
+  const localeCompare = String.prototype.localeCompare;
+  const compare = new Intl.Collator(locale).compare;
+  String.prototype.localeCompare = function (other: string): number {
+    return compare(String(this), other);
+  };
+  try {
+    return run();
+  } finally {
+    String.prototype.localeCompare = localeCompare;
+  }
+}
 
 await test("shares deterministic source-root, ignore, symlink, and repository-boundary inventory rules", () => {
   const root = mkdtempSync(resolve(tmpdir(), "tieline-inventory-"));
@@ -73,6 +88,64 @@ await test("shares deterministic source-root, ignore, symlink, and repository-bo
   } finally {
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+await test("keeps mixed-case Unicode inventory order and digests independent of locale", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-inventory-locale-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    for (const name of ["Zeta", "alpha", "Ångs", "äthe"]) {
+      writeFileSync(resolve(root, `src/${name}.ts`), `export const ${name} = true;\n`);
+    }
+
+    const inventoryFor = (locale: string) =>
+      withLocaleCompare(locale, () =>
+        createSourceInventory({ repositoryRoot: root, sourceRoots: ["src"] })
+      );
+    const english = inventoryFor("en-US");
+    const swedish = inventoryFor("sv-SE");
+
+    assert.deepEqual(english.files, swedish.files);
+    assert.equal(english.digest, swedish.digest);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("keeps mixed-case Unicode Git inventory order and digests independent of locale", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-git-inventory-locale-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    for (const name of ["Zeta", "alpha", "Ångs", "äthe"]) {
+      writeFileSync(resolve(root, `src/${name}.ts`), `export const ${name} = true;\n`);
+    }
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "locale-test@example.com"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Locale Test"], { cwd: root });
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "--quiet", "-m", "fixture"], { cwd: root });
+
+    const inventoryFor = (locale: string) =>
+      withLocaleCompare(locale, () => {
+        const collection = createGitSourceSnapshotCollection({
+          repositoryRoot: root,
+          revision: "HEAD",
+          sourceRoots: ["src"],
+        });
+        try {
+          return structuredClone(collection.inventory);
+        } finally {
+          collection.dispose();
+        }
+      });
+    const english = inventoryFor("en-US");
+    const swedish = inventoryFor("sv-SE");
+
+    assert.deepEqual(english.files, swedish.files);
+    assert.equal(english.digest, swedish.digest);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

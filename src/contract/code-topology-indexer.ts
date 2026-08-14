@@ -67,7 +67,7 @@ import type {
 export const CODE_TOPOLOGY_SCHEMA_VERSION = 1;
 export const CODE_TOPOLOGY_RESOLVER_IMPLEMENTATION =
   "tieline-static-modules@2";
-export const CODE_TOPOLOGY_FACT_POLICY = "tieline-code-topology-facts@1";
+export const CODE_TOPOLOGY_FACT_POLICY = "tieline-code-topology-facts@2";
 const MAX_TOPOLOGY_FILES = 5_000;
 const MAX_TOPOLOGY_SOURCE_BYTES = 50 * 1024 * 1024;
 const MAX_TOPOLOGY_SYMBOLS = 100_000;

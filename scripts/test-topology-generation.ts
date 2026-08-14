@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
   mkdtempSync,
@@ -12,6 +13,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeCodeTopologyStore } from "../src/adapters/fakes/fake-code-topology-store.js";
 import { ImmutableCodeTopologySnapshotStore } from "../src/contract/compact-code-topology-store.js";
+import {
+  CODE_TOPOLOGY_FACT_POLICY,
+  codeTopologyRuntimeCompatibility,
+} from "../src/contract/code-topology-indexer.js";
 import {
   EphemeralTopologyGenerationCache,
   EphemeralTopologyReadModelCache,
@@ -114,6 +119,36 @@ try {
       baseline.files.find((file) => file.path === "src/__tests__/widget.ts")?.kind,
       "test"
     );
+  });
+
+  await test("versions deterministic fact ordering in generation identity", () => {
+    const runtime = codeTopologyRuntimeCompatibility();
+    const policyDigest = (policy: string): string =>
+      createHash("sha256").update(JSON.stringify(policy)).digest("hex");
+    const legacyPolicyDigest = policyDigest("tieline-code-topology-facts@1");
+    const currentPolicyDigest = policyDigest(CODE_TOPOLOGY_FACT_POLICY);
+
+    assert.equal(runtime.fact_policy_digest, currentPolicyDigest);
+    assert.notEqual(runtime.fact_policy_digest, legacyPolicyDigest);
+
+    const legacySelectedInputs = {
+      inventory_digest: baseline.header.inventory_digest,
+      parser_compatibility_digest: baseline.header.parser_compatibility_digest,
+      resolver_implementation: baseline.header.resolver_implementation,
+      resolver_configuration_digest:
+        baseline.header.resolver_configuration_digest,
+      topology_schema_version: baseline.header.topology_schema_version,
+      fact_policy_digest: legacyPolicyDigest,
+    };
+    const legacyRevision = codeTopologySelectedInputDigest(legacySelectedInputs);
+    const legacyIdentity = codeTopologyGenerationIdentity({
+      repository: baseline.header.repository,
+      revision: legacyRevision,
+      ...legacySelectedInputs,
+    });
+
+    assert.notEqual(legacyRevision, baseline.header.revision);
+    assert.notEqual(legacyIdentity, baseline.header.identity);
   });
 
   await test("excludes generated topology bytes and enclosing trees from logical identity", async () => {

@@ -8,6 +8,7 @@ import type {
   SymbolSyntaxStatus,
 } from "../contract/code-analysis/types.js";
 import type { SupportedCodeLanguage } from "../contract/code-analysis/languages.js";
+import { compareCodeTopologyText } from "./code-topology-ordering.js";
 
 const sha256Pattern = /^[a-f0-9]{64}$/;
 const committedRevisionPattern = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
@@ -319,7 +320,7 @@ function canonicalJson(value: unknown): string {
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, child]) => child !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right));
+      .sort(([left], [right]) => compareCodeTopologyText(left, right));
     return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`).join(",")}}`;
   }
   return JSON.stringify(value);
@@ -341,7 +342,7 @@ function updateCanonicalHash(
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, child]) => child !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right));
+      .sort(([left], [right]) => compareCodeTopologyText(left, right));
     hash.update("{");
     for (let index = 0; index < entries.length; index += 1) {
       if (index > 0) hash.update(",");
@@ -414,7 +415,7 @@ export function codeTopologySelectedInputDigest(
 }
 
 function byIdentity<T extends { identity: string }>(left: T, right: T): number {
-  return left.identity.localeCompare(right.identity);
+  return compareCodeTopologyText(left.identity, right.identity);
 }
 
 export function normalizeCompleteCodeTopologyGeneration(
@@ -423,12 +424,12 @@ export function normalizeCompleteCodeTopologyGeneration(
   return structuredClone({
     header: generation.header,
     files: [...generation.files].sort((left, right) =>
-      left.path.localeCompare(right.path)
+      compareCodeTopologyText(left.path, right.path)
     ),
     symbols: [...generation.symbols].sort(byIdentity),
     references: [...generation.references].sort(byIdentity),
     resolutions: [...generation.resolutions].sort((left, right) =>
-      left.reference_identity.localeCompare(right.reference_identity)
+      compareCodeTopologyText(left.reference_identity, right.reference_identity)
     ),
     edges: [...generation.edges].sort(byIdentity),
   });
@@ -442,11 +443,13 @@ export function normalizeCompleteCodeTopologyGeneration(
 export function normalizeOwnedCompleteCodeTopologyGeneration(
   generation: CompleteCodeTopologyGeneration
 ): CompleteCodeTopologyGeneration {
-  generation.files.sort((left, right) => left.path.localeCompare(right.path));
+  generation.files.sort((left, right) =>
+    compareCodeTopologyText(left.path, right.path)
+  );
   generation.symbols.sort(byIdentity);
   generation.references.sort(byIdentity);
   generation.resolutions.sort((left, right) =>
-    left.reference_identity.localeCompare(right.reference_identity)
+    compareCodeTopologyText(left.reference_identity, right.reference_identity)
   );
   generation.edges.sort(byIdentity);
   return generation;

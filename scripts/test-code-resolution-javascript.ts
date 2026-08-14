@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { createJavaScriptAnalyzer } from "../src/contract/code-analysis/javascript.js";
 import {
@@ -14,6 +16,22 @@ import { createFilesystemSourceSnapshotReader } from "../src/contract/source-sna
 import { report, test } from "./lib/harness.js";
 
 const repositoryRoot = resolve("scripts/fixtures/code-resolution/javascript");
+
+async function withLocaleCompare<T>(
+  locale: string,
+  run: () => T | Promise<T>
+): Promise<T> {
+  const localeCompare = String.prototype.localeCompare;
+  const compare = new Intl.Collator(locale).compare;
+  String.prototype.localeCompare = function (other: string): number {
+    return compare(String(this), other);
+  };
+  try {
+    return await run();
+  } finally {
+    String.prototype.localeCompare = localeCompare;
+  }
+}
 
 async function fixture() {
   const inventory = createSourceInventory({ repositoryRoot, sourceRoots: ["src", "."] });
@@ -226,6 +244,72 @@ await test("normalized resolver outcomes retain stable explanatory fields", asyn
     outcomes,
     "identical facts and config produce byte-for-byte stable ordered outcomes"
   );
+});
+
+await test("keeps mixed-case Unicode resolver configuration and outcomes independent of locale", async () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-resolution-locale-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    writeFileSync(resolve(root, "src/main.ts"), 'import "@locale/value";\n');
+    for (const directory of ["Zeta", "alpha", "Ångs", "äthe"]) {
+      mkdirSync(resolve(root, directory), { recursive: true });
+      writeFileSync(resolve(root, directory, "value.ts"), "export const value = true;\n");
+    }
+    writeFileSync(
+      resolve(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: {
+          paths: {
+            "@locale/*": ["Zeta/*", "alpha/*", "Ångs/*", "äthe/*"],
+            "Zeta/*": ["Zeta/*"],
+            "alpha/*": ["alpha/*"],
+            "Ångs/*": ["Ångs/*"],
+            "äthe/*": ["äthe/*"],
+          },
+        },
+      })
+    );
+
+    const resolveFor = (locale: string) =>
+      withLocaleCompare(locale, async () => {
+        const inventory = createSourceInventory({
+          repositoryRoot: root,
+          sourceRoots: ["src", "."],
+        });
+        const reader = createFilesystemSourceSnapshotReader({
+          repositoryRoot: root,
+          inventory,
+        });
+        const analyzer = createJavaScriptAnalyzer();
+        const analyses = new Map();
+        try {
+          for (const file of inventory.files) {
+            if (!file.language || !analyzer.languages.has(file.language)) continue;
+            const read = reader.read(file.path);
+            assert.equal(read.status, "read", file.path);
+            if (read.status === "read") {
+              analyses.set(file.path, await analyzer.analyze(read.snapshot));
+            }
+          }
+        } finally {
+          await analyzer.dispose();
+        }
+        const configuration = readJavaScriptResolutionConfiguration({ inventory, reader });
+        const outcomes = createJavaScriptModuleResolver({
+          inventory,
+          analyses,
+          configuration,
+        }).resolveFile("src/main.ts");
+        return { configuration, outcomes };
+      });
+
+    const english = await resolveFor("en-US");
+    const swedish = await resolveFor("sv-SE");
+    assert.deepEqual(english.outcomes, swedish.outcomes);
+    assert.deepEqual(english.configuration, swedish.configuration);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 report();

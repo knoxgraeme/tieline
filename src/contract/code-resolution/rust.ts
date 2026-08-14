@@ -1,4 +1,5 @@
 import { posix } from "node:path";
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import type { SourceInventory } from "../source-inventory.js";
 import { canonicalRepositoryRelativePath } from "../paths.js";
 import type { SourceSnapshotReader } from "../source-snapshot.js";
@@ -218,7 +219,7 @@ class RustModuleResolver implements CodeModuleResolver {
         .map((reference) => this.#resolveReference(analysis, reference))
         .sort((left, right) =>
           left.reference.statementRange.utf16.start - right.reference.statementRange.utf16.start ||
-          left.identity.localeCompare(right.identity)
+          compareCodeTopologyText(left.identity, right.identity)
         )
     );
   }
@@ -292,7 +293,9 @@ class RustModuleResolver implements CodeModuleResolver {
     }
     const unique = new Map<string, ModuleCandidate>();
     for (const candidate of candidates) unique.set(candidate.path, candidate);
-    const ordered = [...unique.values()].sort((left, right) => left.path.localeCompare(right.path));
+    const ordered = [...unique.values()].sort((left, right) =>
+      compareCodeTopologyText(left.path, right.path)
+    );
     if (!["crate", "self", "super", this.#configuration.crateName].includes(prefix ?? null) && ordered.length === 0) {
       external = true;
       rule = "rust_external_crate";
@@ -366,7 +369,9 @@ class RustModuleResolver implements CodeModuleResolver {
             "rust_mod_conventional"
           )) moduleCandidates.set(candidate.path, candidate);
         }
-        const modules = [...moduleCandidates.values()].sort((left, right) => left.path.localeCompare(right.path));
+        const modules = [...moduleCandidates.values()].sort((left, right) =>
+          compareCodeTopologyText(left.path, right.path)
+        );
         rule = "rust_mod_conventional";
         if (modules.length === 0) {
           reason = "module_not_found_or_generated";

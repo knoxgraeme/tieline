@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath } from "./code-analysis/languages.js";
 import {
   isSourceInventoryPathEligible,
@@ -111,7 +112,7 @@ function listTree(
       path,
     });
   }
-  return entries.sort((left, right) => left.path.localeCompare(right.path));
+  return entries.sort((left, right) => compareCodeTopologyText(left.path, right.path));
 }
 
 /**

@@ -1,3 +1,4 @@
+import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js";
 import { createJavaScriptAnalyzer } from "./javascript.js";
 import { createPythonAnalyzer } from "./python.js";
 import { createRustAnalyzer } from "./rust.js";
@@ -62,7 +63,7 @@ function structuralResolution(
       (left, right) =>
         left.bodyRange.utf16.start - right.bodyRange.utf16.start ||
         left.bodyRange.utf16.end - right.bodyRange.utf16.end ||
-        left.identity.localeCompare(right.identity)
+        compareCodeTopologyText(left.identity, right.identity)
     );
   if (matches.length === 1) {
     return resolved(snapshot, selector, analysis, matches, "resolved");

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  codeTopologyFactsDigest,
   codeTopologyGenerationIdentity,
   estimateCodeTopologyGenerationRetainedBytes,
   normalizeCompleteCodeTopologyGeneration,
@@ -114,6 +115,31 @@ function generation(
   return { ...value, ...overrides };
 }
 
+function normalizeWithLocale(
+  value: CompleteCodeTopologyGeneration,
+  locale: string
+): {
+  normalized: CompleteCodeTopologyGeneration;
+  ownedNormalized: CompleteCodeTopologyGeneration;
+  factsDigest: string;
+} {
+  const localeCompare = String.prototype.localeCompare;
+  const compare = new Intl.Collator(locale).compare;
+  String.prototype.localeCompare = function (other: string): number {
+    return compare(String(this), other);
+  };
+  try {
+    const owned = structuredClone(value);
+    return {
+      normalized: normalizeCompleteCodeTopologyGeneration(value),
+      ownedNormalized: normalizeOwnedCompleteCodeTopologyGeneration(owned),
+      factsDigest: codeTopologyFactsDigest(value),
+    };
+  } finally {
+    String.prototype.localeCompare = localeCompare;
+  }
+}
+
 const store = new FakeCodeTopologyStore();
 const first = generation("a");
 const unordered = generation("0", {
@@ -129,6 +155,60 @@ assert.deepEqual(defensivelyNormalized.files.map((file) => file.path), ["src/a.t
 const owned = structuredClone(unordered);
 assert.equal(normalizeOwnedCompleteCodeTopologyGeneration(owned), owned);
 assert.deepEqual(owned.files.map((file) => file.path), ["src/a.ts", "src/z.ts"]);
+
+const localeLabels = ["Zeta", "alpha", "Ångström", "äther"];
+const localeBase = generation("1");
+const localeSensitive = generation("1", {
+  files: localeLabels.map((label) => ({
+    ...localeBase.files[0]!,
+    path: `src/${label}.ts`,
+  })),
+  symbols: localeLabels.map((label) => ({
+    ...localeBase.symbols[0]!,
+    identity: `symbol:${label}`,
+    file_path: `src/${label}.ts`,
+  })),
+  references: localeLabels.map((label) => ({
+    ...localeBase.references[0]!,
+    identity: `reference:${label}`,
+    file_path: `src/${label}.ts`,
+    owner_symbol_identity: `symbol:${label}`,
+  })),
+  resolutions: localeLabels.map((label) => ({
+    ...localeBase.resolutions[0]!,
+    reference_identity: `reference:${label}`,
+  })),
+  edges: localeLabels.map((label) => ({
+    identity: `edge:${label}`,
+    kind: "imports",
+    source: {
+      generation_identity: localeBase.header.identity,
+      symbol_identity: `symbol:${label}`,
+    },
+    target: {
+      generation_identity: localeBase.header.identity,
+      symbol_identity: `symbol:${label}`,
+    },
+    reference_identity: `reference:${label}`,
+  })),
+});
+const englishNormalization = normalizeWithLocale(localeSensitive, "en-US");
+const swedishNormalization = normalizeWithLocale(localeSensitive, "sv-SE");
+assert.deepEqual(
+  englishNormalization.normalized,
+  swedishNormalization.normalized,
+  "persisted topology normalization must not depend on the process locale"
+);
+assert.deepEqual(
+  englishNormalization.ownedNormalized,
+  swedishNormalization.ownedNormalized,
+  "owned topology normalization must not depend on the process locale"
+);
+assert.equal(
+  englishNormalization.factsDigest,
+  swedishNormalization.factsDigest,
+  "persisted topology facts digests must not depend on the process locale"
+);
 assert.ok(
   estimateCodeTopologyGenerationRetainedBytes(first) >
     Buffer.byteLength(JSON.stringify(first)),
