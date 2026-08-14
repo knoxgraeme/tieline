@@ -8,6 +8,7 @@ import {
   CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION,
   CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS,
   canonicalCodeTopologyJson,
+  compareCodeTopologyText,
   codeTopologyArtifactProjectionDigestOrdered,
   type CodeTopologyArtifactEnvelope,
   type CodeTopologyArtifactReadResult,
@@ -60,7 +61,7 @@ const artifactFrontierStatuses: ReadonlySet<string> = new Set<CodeTopologyFronti
 ]);
 
 function sorted<T>(values: readonly T[], key: (value: T) => string): T[] {
-  return [...values].sort((left, right) => key(left).localeCompare(key(right)));
+  return [...values].sort((left, right) => compareCodeTopologyText(key(left), key(right)));
 }
 
 function edgeKey(edge: CodeTopologyArtifactEnvelope["edges"][number]): string {
@@ -93,7 +94,7 @@ function updateCanonicalHash(
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, child]) => child !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right));
+      .sort(([left], [right]) => compareCodeTopologyText(left, right));
     hash.update("{");
     entries.forEach(([key, child], index) => {
       if (index > 0) hash.update(",");
@@ -130,7 +131,7 @@ function normalizedEnvelope(
 
 function serializeGraph(artifact: CodeTopologyArtifactEnvelope): Buffer {
   const entries = Object.entries(artifact)
-    .sort(([left], [right]) => left.localeCompare(right));
+    .sort(([left], [right]) => compareCodeTopologyText(left, right));
   const lines = ["{"];
   entries.forEach(([key, value], fieldIndex) => {
     const suffix = fieldIndex + 1 < entries.length ? "," : "";
@@ -289,7 +290,9 @@ function stringArray(value: unknown): value is string[] {
 }
 
 function isSorted<T>(values: readonly T[], key: (value: T) => string): boolean {
-  return values.every((value, index) => index === 0 || key(values[index - 1]!) <= key(value));
+  return values.every((value, index) =>
+    index === 0 || compareCodeTopologyText(key(values[index - 1]!), key(value)) <= 0
+  );
 }
 
 function artifactFromUnknown(value: unknown): CodeTopologyArtifactEnvelope {
