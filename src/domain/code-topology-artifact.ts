@@ -76,12 +76,17 @@ export type CodeTopologyArtifactReadResult =
   | { status: "invalid"; detail: string }
   | { status: "capacity_exceeded"; detail: string };
 
+/** Locale-independent UTF-16 order used by every canonical topology record. */
+export function compareCodeTopologyText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export function canonicalCodeTopologyJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalCodeTopologyJson).join(",")}]`;
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, child]) => child !== undefined)
-      .sort(([left], [right]) => left.localeCompare(right));
+      .sort(([left], [right]) => compareCodeTopologyText(left, right));
     return `{${entries.map(([key, child]) =>
       `${JSON.stringify(key)}:${canonicalCodeTopologyJson(child)}`
     ).join(",")}}`;
@@ -96,21 +101,30 @@ export function codeTopologyArtifactProjectionDigest(input: Pick<
   "files" | "symbols" | "frontiers"
 > & { edges: readonly CodeTopologyReadModelEdge[] }): string {
   return codeTopologyArtifactProjectionDigestOrdered({
-    files: [...input.files].sort((left, right) => left.path.localeCompare(right.path)),
-    symbols: [...input.symbols].sort((left, right) => left.identity.localeCompare(right.identity)),
-    edges: [...input.edges].sort((left, right) => [
-      left.source_symbol_identity,
-      left.target_symbol_identity,
-      left.reference_identity ?? "",
-      left.kind,
-    ].join("\0").localeCompare([
-      right.source_symbol_identity,
-      right.target_symbol_identity,
-      right.reference_identity ?? "",
-      right.kind,
-    ].join("\0"))),
+    files: [...input.files].sort((left, right) =>
+      compareCodeTopologyText(left.path, right.path)
+    ),
+    symbols: [...input.symbols].sort((left, right) =>
+      compareCodeTopologyText(left.identity, right.identity)
+    ),
+    edges: [...input.edges].sort((left, right) =>
+      compareCodeTopologyText(
+        [
+          left.source_symbol_identity,
+          left.target_symbol_identity,
+          left.reference_identity ?? "",
+          left.kind,
+        ].join("\0"),
+        [
+          right.source_symbol_identity,
+          right.target_symbol_identity,
+          right.reference_identity ?? "",
+          right.kind,
+        ].join("\0")
+      )
+    ),
     frontiers: [...input.frontiers].sort((left, right) =>
-      left.reference_identity.localeCompare(right.reference_identity)
+      compareCodeTopologyText(left.reference_identity, right.reference_identity)
     ),
   });
 }

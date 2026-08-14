@@ -1416,7 +1416,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9598bc12361d94d4f088f379324636d74cf98883b95fe2ad2a2bb3036eb7a129",
+                "reviewed_content_hash": "2658221769e177305e6ba443056affdb6111ea869783a0d05c777a933c57a74d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-topology-indexer.ts",
@@ -1510,7 +1510,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "344b5f0c0fea4372806d78ae5d499206b5fc30fb0b3cad2136d9ad61f9602ec7",
+                "reviewed_content_hash": "414eeb7ba40b1e21d14382cb85a7653e29059906986ac3c3cb62fb9a09e859ba",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/topology-generation.ts",
@@ -1543,7 +1543,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b65adc0c5ffa38916a7c8feed7da0bfb5eb8d28be559625614b6ac6a92122039",
+                "reviewed_content_hash": "21bc95bb043a72321ca4adaa956d84874b1dff69715d28ce47fac77286c86abd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
