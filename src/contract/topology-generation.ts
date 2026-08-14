@@ -15,6 +15,7 @@ import {
   type TopologyReadModelBuildResult,
   type TopologySourceCollection,
 } from "./code-topology-indexer.js";
+import { compareCodeTopologyText } from "../domain/code-topology-artifact.js";
 import { readJavaScriptResolutionConfiguration } from "./code-resolution/javascript.js";
 import { readPythonResolutionConfiguration } from "./code-resolution/python.js";
 import { readRustResolutionConfiguration } from "./code-resolution/rust.js";
@@ -72,7 +73,7 @@ function canonicalDigest(value: unknown): string {
     if (entry !== null && typeof entry === "object") {
       return `{${Object.entries(entry as Record<string, unknown>)
         .filter(([, child]) => child !== undefined)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareCodeTopologyText(left, right))
         .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`)
         .join(",")}}`;
     }
@@ -97,7 +98,7 @@ function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInv
     byPath.set(path, { path, language: null, metadata });
   }
   const files = [...byPath.values()].sort((left, right) =>
-    left.path.localeCompare(right.path)
+    compareCodeTopologyText(left.path, right.path)
   );
   const sourceRoots = options.sourceRoots.map(normalizeInventoryPath);
   const ignore = (options.ignore ?? []).map(normalizeInventoryPath);
@@ -201,7 +202,7 @@ export function readTopologySourceSelectedInput(
     schemaVersion: 1,
     sourceRoots: inventory.sourceRoots,
     ignore: inventory.ignore,
-    files: files.sort((left, right) => left.path.localeCompare(right.path)),
+    files: files.sort((left, right) => compareCodeTopologyText(left.path, right.path)),
   });
   const compatibility = codeTopologyRuntimeCompatibility();
   return {
@@ -523,7 +524,8 @@ export function compareTopologyGenerations(
   }
   changes.sort(
     (left, right) =>
-      left.path.localeCompare(right.path) || left.status.localeCompare(right.status)
+      compareCodeTopologyText(left.path, right.path) ||
+      compareCodeTopologyText(left.status, right.status)
   );
   return {
     base_generation_identity: base.header.identity,

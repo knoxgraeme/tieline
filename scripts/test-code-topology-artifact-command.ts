@@ -68,6 +68,7 @@ function replaceArtifactBytes(files: ReadonlyMap<string, Buffer>): void {
 try {
   mkdirSync(join(root, ".tieline/spec"), { recursive: true });
   mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src/Zeta.ts"), "export const upper = 1;\n");
   writeFileSync(join(root, "src/main.ts"), "export const value = 1;\n");
   writeFileSync(join(root, ".tieline/config.json"), `${JSON.stringify({
     version: 1,

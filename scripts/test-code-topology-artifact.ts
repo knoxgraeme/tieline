@@ -94,6 +94,33 @@ await test("one canonical graph.json round-trips the provider-neutral traversal 
   assert.equal(JSON.stringify(parsed.artifact).includes("body_range"), false);
 });
 
+await test("mixed-case record keys use one locale-independent canonical order", () => {
+  const mixedCase = structuredClone(logical);
+  const replacements = new Map([
+    ["src/main.ts", "src/Zeta.ts"],
+    ["src/unicode.js", "src/alpha.js"],
+  ]);
+  for (const file of mixedCase.files) {
+    file.path = replacements.get(file.path) ?? file.path;
+  }
+  for (const symbol of mixedCase.symbols) {
+    symbol.file_path = replacements.get(symbol.file_path) ?? symbol.file_path;
+  }
+  for (const frontier of mixedCase.frontiers) {
+    frontier.file_path = replacements.get(frontier.file_path) ?? frontier.file_path;
+  }
+  mixedCase.projection_digest = codeTopologyArtifactProjectionDigest(mixedCase);
+
+  const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(mixedCase));
+  const graph = JSON.parse(serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8"));
+  assert.deepEqual(
+    graph.files.map((file: { path: string }) => file.path),
+    ["src/Zeta.ts", "src/alpha.js", "src/lib.rs", "src/worker.py"]
+  );
+  const parsed = parseCodeTopologyArtifact(serialized.files);
+  assert.equal(parsed.status, "complete", "detail" in parsed ? parsed.detail : undefined);
+});
+
 await test("graph reader rejects incompatible, corrupt, and unexpected physical inputs", () => {
   const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(logical));
   assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { graph.schema_version = 999; })).status, "incompatible");

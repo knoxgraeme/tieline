@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS,
   codeTopologyArtifactProjectionDigest,
+  compareCodeTopologyText,
 } from "../domain/code-topology-artifact.js";
 import {
   codeTopologyDerivedEdgeIdentity,
@@ -133,7 +134,7 @@ function canonicalDigest(value: unknown): string {
     if (entry !== null && typeof entry === "object") {
       const fields = Object.entries(entry as Record<string, unknown>)
         .filter(([, child]) => child !== undefined)
-        .sort(([left], [right]) => left.localeCompare(right));
+        .sort(([left], [right]) => compareCodeTopologyText(left, right));
       return `{${fields
         .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`)
         .join(",")}}`;
@@ -532,7 +533,7 @@ export async function buildCodeTopologyGeneration(
     sourceRoots: options.source.inventory.sourceRoots,
     ignore: options.source.inventory.ignore,
     files: contentInventory
-      .sort((left, right) => left.path.localeCompare(right.path)),
+      .sort((left, right) => compareCodeTopologyText(left.path, right.path)),
   });
   const compatibility = codeTopologyRuntimeCompatibility();
   const selectedInputFields = {
@@ -645,19 +646,20 @@ export async function buildCodeTopologyGeneration(
       framework_hint: null,
       language: analysis.language,
       source_hash: analysis.sourceHash,
-    })).sort((left, right) => left.path.localeCompare(right.path));
+    })).sort((left, right) => compareCodeTopologyText(left.path, right.path));
     const symbols = [...symbolsByIdentity.values()].sort((left, right) =>
-      left.identity.localeCompare(right.identity)
+      compareCodeTopologyText(left.identity, right.identity)
     );
     edges.sort((left, right) =>
-      [left.source_symbol_identity, left.target_symbol_identity,
-        left.reference_identity ?? ""].join("\0").localeCompare(
+      compareCodeTopologyText(
+        [left.source_symbol_identity, left.target_symbol_identity,
+          left.reference_identity ?? ""].join("\0"),
         [right.source_symbol_identity, right.target_symbol_identity,
           right.reference_identity ?? ""].join("\0")
       )
     );
     frontiers.sort((left, right) =>
-      left.reference_identity.localeCompare(right.reference_identity)
+      compareCodeTopologyText(left.reference_identity, right.reference_identity)
     );
     analyses.clear();
     resolutionAnalyses.clear();
