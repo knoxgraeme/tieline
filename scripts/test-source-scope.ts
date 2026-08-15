@@ -124,6 +124,37 @@ try {
     "an existing configuration's explicit empty ignore list must stay empty"
   );
 
+  const decomposedRoot = "cafe\u0301";
+  const unicodeRepository = resolve(root, "unicode-repository");
+  mkdirSync(resolve(unicodeRepository, decomposedRoot), { recursive: true });
+  writeFileSync(
+    resolve(unicodeRepository, decomposedRoot, "main.ts"),
+    "export {};\n"
+  );
+  assert.equal(spawnSync("git", ["init", "-q", unicodeRepository]).status, 0);
+  assert.equal(
+    spawnSync("git", [
+      "-C",
+      unicodeRepository,
+      "config",
+      "core.precomposeunicode",
+      "false",
+    ]).status,
+    0
+  );
+  const unicodeDiscovery = discoverRepositorySourceScope(unicodeRepository);
+  assert.deepEqual(
+    unicodeDiscovery.sourceRoots,
+    [decomposedRoot],
+    "inferred roots must preserve the repository's filesystem spelling"
+  );
+  assert.deepEqual(unicodeDiscovery.candidates, [
+    {
+      root: decomposedRoot,
+      files: [`${decomposedRoot}/main.ts`],
+    },
+  ]);
+
   assert.deepEqual(
     sourceScopeFromPaths(["build/generated.ts"], []).sourceRoots,
     ["build"],

@@ -31,7 +31,7 @@ export interface SourceScopeDiscovery {
 }
 
 function normalizeRepositoryPath(path: string): string | undefined {
-  const portable = path.normalize("NFC").replaceAll("\\", "/");
+  const portable = path.replaceAll("\\", "/");
   if (portable.startsWith("/") || /^[A-Za-z]:\//.test(portable)) {
     return undefined;
   }
@@ -45,6 +45,14 @@ function normalizeRepositoryPath(path: string): string | undefined {
     return undefined;
   }
   return normalized;
+}
+
+function compareRepositoryPaths(left: string, right: string): number {
+  const normalizedOrder = compareCodeTopologyText(
+    left.normalize("NFC"),
+    right.normalize("NFC")
+  );
+  return normalizedOrder || compareCodeTopologyText(left, right);
 }
 
 function candidateFromFiles(root: string, files: string[]): SourceScopeCandidate {
@@ -75,7 +83,7 @@ export function sourceScopeFromPaths(
         return [normalized];
       })
     ),
-  ].sort(compareCodeTopologyText);
+  ].sort(compareRepositoryPaths);
 
   const directoryFiles = new Map<string, string[]>();
   const rootFiles: string[] = [];
@@ -92,7 +100,7 @@ export function sourceScopeFromPaths(
   }
 
   const directoryRoots = [...directoryFiles.keys()].sort(
-    compareCodeTopologyText
+    compareRepositoryPaths
   );
   if (directoryRoots.length > 0) {
     const rootCandidate =
@@ -138,7 +146,10 @@ export function sourceScopeAdvisoryRoots(
   );
 }
 
-function gitVisiblePaths(repositoryRoot: string): string[] | undefined {
+function gitVisiblePaths(
+  repositoryRoot: string,
+  ignore: readonly string[]
+): string[] | undefined {
   const listed = spawnSync(
     "git",
     [
@@ -158,12 +169,21 @@ function gitVisiblePaths(repositoryRoot: string): string[] | undefined {
     }
   );
   if (listed.status !== 0 || listed.error) return undefined;
-  return listed.stdout.split("\0").filter((path) => {
-    if (!path) return false;
+  return listed.stdout.split("\0").flatMap((path) => {
+    const repositoryPath = normalizeRepositoryPath(path);
+    if (
+      !repositoryPath ||
+      sourcePathIgnored(repositoryPath, ignore) ||
+      languageForPath(repositoryPath) === undefined
+    ) {
+      return [];
+    }
     try {
-      return lstatSync(resolve(repositoryRoot, path)).isFile();
+      return lstatSync(resolve(repositoryRoot, repositoryPath)).isFile()
+        ? [repositoryPath]
+        : [];
     } catch {
-      return false;
+      return [];
     }
   });
 }
@@ -181,7 +201,7 @@ function filesystemPaths(
       if (sourcePathIgnored(path, ignore) || entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
         walk(absolute);
-      } else if (entry.isFile()) {
+      } else if (entry.isFile() && languageForPath(path) !== undefined) {
         paths.push(path);
       }
     }
@@ -203,7 +223,7 @@ export function discoverRepositorySourceScope(
 ): SourceScopeDiscovery {
   const root = resolve(repositoryRoot);
   const effectiveIgnore = effectiveSourceScopeIgnore(ignore);
-  const gitPaths = gitVisiblePaths(root);
+  const gitPaths = gitVisiblePaths(root, effectiveIgnore);
   return sourceScopeFromPaths(
     gitPaths ?? filesystemPaths(root, effectiveIgnore),
     gitPaths === undefined ? [] : effectiveIgnore
