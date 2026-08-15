@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import "./load-env.js";
-import { readFileSync, realpathSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import type { Interface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
@@ -32,6 +32,7 @@ import type {
   ContractAction,
   ContractCommandOptions,
 } from "./commands/contract.js";
+import { TIELINE_VERSION } from "./package-metadata.js";
 
 export interface TielineCliIO {
   write(message: string): void;
@@ -64,15 +65,6 @@ export interface TielineCliPrompts {
   note(title: string, message: string): void;
 }
 
-const packageVersion = (
-  JSON.parse(
-    readFileSync(
-      resolve(dirname(fileURLToPath(import.meta.url)), "../package.json"),
-      "utf8"
-    )
-  ) as { version: string }
-).version;
-
 async function reloadRuntimeConfig(
   env: NodeJS.ProcessEnv
 ): Promise<void> {
@@ -89,9 +81,25 @@ export interface TielineCliDependencies {
 export function renderStatus(status: TielineStatus, ui: Palette): string {
   const state = (ok: boolean, good: string, bad: string): string =>
     ok ? ui.green(good) : ui.yellow(bad);
+  const mcpConfigs = status.integration.mcp_configs ?? [];
+  const mcpConfigLabel = (
+    config: (typeof mcpConfigs)[number]
+  ): string =>
+    `${config.package_spec ?? "unrecognized package"} (${config.version_status})`;
+  const mcpVersion =
+    mcpConfigs.length === 1
+      ? mcpConfigLabel(mcpConfigs[0]!)
+      : mcpConfigs.length > 1
+        ? mcpConfigs
+            .map((config) => `${config.path}=${mcpConfigLabel(config)}`)
+            .join(", ")
+        : status.integration.mcp_clients.length > 0
+          ? "unrecognized package"
+          : "not registered";
   const lines = [
     ui.bold(`Tieline: ${status.product} (${status.repo})`),
     `  root: ${status.root}`,
+    `  version: cli=${status.runtime.cli_version ?? "unknown"}, mcp=${mcpVersion}`,
     `  runtime: profile=${state(status.runtime.profile_present, "present", "missing")}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${state(status.runtime.setup_complete, "complete", "incomplete")}`,
     `  optional capabilities: organization_matching=${state(status.capabilities.semantic_matching_configured, "configured", "not configured")}, planning_writes=${state(status.capabilities.planning_writes_configured, "configured", "not configured")}`,
     `  integration: mcp=${state(status.integration.mcp_clients.length > 0, status.integration.mcp_clients.join(", "), `not registered (rerun \`${ONBOARDING_SKILL_INSTALL_COMMAND}\`)`)}`,
@@ -215,7 +223,7 @@ function buildProgram(
   const program = new Command("tieline");
   program
     .description("Tieline living-contract CLI")
-    .version(packageVersion)
+    .version(TIELINE_VERSION)
     .exitOverride()
     .configureOutput({
       writeOut: (message) => io.write(message),

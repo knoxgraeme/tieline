@@ -122,7 +122,12 @@ await test("runs packaged parsers offline without native grammar packages", () =
   try {
     const packed = JSON.parse(
       execFileSync("npm", ["pack", "--json", "--ignore-scripts"], { encoding: "utf8" })
-    ) as Array<{ filename: string; size: number; files: Array<{ path: string; size: number }> }>;
+    ) as Array<{
+      filename: string;
+      size: number;
+      version: string;
+      files: Array<{ path: string; size: number }>;
+    }>;
     const result = packed[0]!;
     tarballPath = resolve(result.filename);
     assert.ok(result.size <= 7 * 1024 * 1024, `tarball is ${result.size} bytes`);
@@ -144,6 +149,15 @@ await test("runs packaged parsers offline without native grammar packages", () =
       "npm",
       ["install", "--prefer-offline", "--ignore-scripts", "--no-audit", "--no-fund", tarballPath],
       { cwd: projectRoot, stdio: "pipe" }
+    );
+    assert.equal(
+      execFileSync(
+        process.execPath,
+        [resolve(projectRoot, "node_modules/tieline/dist/cli.js"), "--version"],
+        { cwd: projectRoot, encoding: "utf8" }
+      ).trim(),
+      result.version,
+      "the installed CLI loads the packed package metadata"
     );
     const sourceRoot = resolve(projectRoot, "sources");
     mkdirSync(sourceRoot);
