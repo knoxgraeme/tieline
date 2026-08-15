@@ -21,7 +21,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -43,7 +43,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5a4386ad7cdddb12b18eea4b4e4cb71a08c985c5f573a3389f91fa0bef329290",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -100,7 +100,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -111,7 +111,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -122,7 +122,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5a4386ad7cdddb12b18eea4b4e4cb71a08c985c5f573a3389f91fa0bef329290",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -204,7 +204,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5a4386ad7cdddb12b18eea4b4e4cb71a08c985c5f573a3389f91fa0bef329290",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -245,7 +245,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -256,7 +256,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -267,7 +267,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5a4386ad7cdddb12b18eea4b4e4cb71a08c985c5f573a3389f91fa0bef329290",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -299,7 +299,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -310,7 +310,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5a4386ad7cdddb12b18eea4b4e4cb71a08c985c5f573a3389f91fa0bef329290",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -360,7 +360,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ee41546c1591c4f3066ba8fb869a89365b25578f527b96598259687a1efff1f7",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -371,7 +371,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5a4386ad7cdddb12b18eea4b4e4cb71a08c985c5f573a3389f91fa0bef329290",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

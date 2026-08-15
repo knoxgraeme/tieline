@@ -689,7 +689,7 @@ capability:
     repositoryRoot: root,
   });
   const isolatedFailureCalls = {
-    paths: [] as string[],
+    events: [] as string[],
     disposals: 0,
   };
   const isolatedFailures = await buildGradeScope({
@@ -704,14 +704,19 @@ capability:
     sourceRoots: ["src"],
     codeAnalysisSession: {
       read(path) {
+        isolatedFailureCalls.events.push(`read:${path}`);
         return isolatedReader.read(path);
       },
       async analyze(snapshot) {
-        isolatedFailureCalls.paths.push(snapshot.path);
+        isolatedFailureCalls.events.push(`analyze:${snapshot.path}`);
         if (snapshot.path === "src/feature.ts") {
           throw new Error("injected analyzer failure");
         }
         return null;
+      },
+      release(path) {
+        isolatedFailureCalls.events.push(`release:${path}`);
+        isolatedReader.release?.(path);
       },
       async dispose() {
         isolatedFailureCalls.disposals += 1;
@@ -720,7 +725,14 @@ capability:
     },
   });
   assert.deepEqual(isolatedFailureCalls, {
-    paths: ["src/feature.ts", "src/renamed.ts"],
+    events: [
+      "read:src/feature.ts",
+      "analyze:src/feature.ts",
+      "release:src/feature.ts",
+      "read:src/renamed.ts",
+      "analyze:src/renamed.ts",
+      "release:src/renamed.ts",
+    ],
     disposals: 1,
   });
   assert.deepEqual(

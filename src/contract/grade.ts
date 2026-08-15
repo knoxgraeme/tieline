@@ -172,6 +172,8 @@ export interface BuildGradeScopeInput {
 export interface GradeCodeAnalysisSession {
   read(path: string): SourceSnapshotReadResult;
   analyze(snapshot: SourceSnapshot): Promise<LanguageAnalysisResult | null>;
+  /** Releases one path's source bytes after its evidence has been projected. */
+  release?(path: string): void;
   dispose(): Promise<void>;
 }
 
@@ -191,6 +193,9 @@ function createGradeCodeAnalysisSession(
     analyze(snapshot) {
       return resolver.analyze(snapshot);
     },
+    release(path) {
+      reader.release?.(path);
+    },
     async dispose() {
       try {
         await resolver.dispose();
@@ -207,6 +212,13 @@ type GradePathAnalysis =
   | { status: "analyzer_unavailable"; snapshot: SourceSnapshot }
   | { status: "analysis_failed"; snapshot: SourceSnapshot; detail: string }
   | { status: "analyzed"; snapshot: SourceSnapshot; analysis: LanguageAnalysisResult };
+
+interface GradeScopeDraft {
+  claim: ClaimingCriterion;
+  path: string;
+  previousPath: string | null;
+  reason: GradeScopeReason;
+}
 
 function unavailableEvidence(input: {
   reason: GradeCodeEvidenceReason;
@@ -576,15 +588,7 @@ async function deriveGradeScope(
     ignore: input.ignore,
     specDirectory: input.specDirectory,
   });
-  const drafts = new Map<
-    string,
-    {
-      claim: ClaimingCriterion;
-      path: string;
-      previousPath: string | null;
-      reason: GradeScopeReason;
-    }
-  >();
+  const drafts = new Map<string, GradeScopeDraft>();
   const diffScopedClaims = new Set<string>();
 
   for (const change of reconciliation.claimed_changes) {
@@ -628,67 +632,69 @@ async function deriveGradeScope(
     };
   }
 
-  const session = getCodeAnalysisSession();
-  const analyses = new Map<string, GradePathAnalysis>();
-  const paths = [...new Set([...drafts.values()].map((draft) => draft.path))]
-    .sort(compareCodeTopologyText);
-  for (const path of paths) {
-    analyses.set(path, await analyzePath(session, path));
-  }
-
-  const entries: GradeScopeEntry[] = [];
-  const evidenceByLocator = new Map<
-    string,
-    { evidence: GradeCodeEvidence; identityDigest: string }
-  >();
+  const draftsByPath = new Map<string, GradeScopeDraft[]>();
   for (const draft of drafts.values()) {
-    const pathAnalysis = analyses.get(draft.path);
-    if (!pathAnalysis) {
-      throw new Error(`Missing request-local code analysis for '${draft.path}'.`);
+    const pathDrafts = draftsByPath.get(draft.path);
+    if (pathDrafts) pathDrafts.push(draft);
+    else draftsByPath.set(draft.path, [draft]);
+  }
+  const session = getCodeAnalysisSession();
+  const entries: GradeScopeEntry[] = [];
+  for (const path of [...draftsByPath.keys()].sort(compareCodeTopologyText)) {
+    try {
+      const pathAnalysis = await analyzePath(session, path);
+      const evidenceBySelector = new Map<
+        string,
+        { evidence: GradeCodeEvidence; identityDigest: string }
+      >();
+      for (const draft of draftsByPath.get(path) ?? []) {
+        const evidenceKey = draft.claim.selector ?? "";
+        let cachedEvidence = evidenceBySelector.get(evidenceKey);
+        if (!cachedEvidence) {
+          const evidence = evidenceForClaim(pathAnalysis, draft.claim.selector);
+          cachedEvidence = {
+            evidence,
+            identityDigest: evidenceIdentity(evidence),
+          };
+          evidenceBySelector.set(evidenceKey, cachedEvidence);
+        }
+        const { evidence, identityDigest } = cachedEvidence;
+        const id = scopeId({
+          claim: draft.claim,
+          path: draft.path,
+          previousPath: draft.previousPath,
+          reason: draft.reason,
+          evidenceDigest: identityDigest,
+        });
+        entries.push({
+          id,
+          capability_stable_id: draft.claim.capability_stable_id,
+          story_stable_id: draft.claim.story_stable_id,
+          story_title: draft.claim.story_title,
+          acceptance_criterion_stable_id:
+            draft.claim.acceptance_criterion_stable_id,
+          acceptance_criterion: draft.claim.acceptance_criterion,
+          relation: draft.claim.relation,
+          provenance: draft.claim.provenance,
+          link_scope: draft.claim.link_scope,
+          target_kind: draft.claim.target_kind,
+          repository: draft.claim.repository,
+          linked_path: draft.claim.linked_path,
+          selector: draft.claim.selector,
+          framework_hint: draft.claim.framework_hint,
+          path: draft.path,
+          previous_path: draft.previousPath,
+          reason: draft.reason,
+          symbols:
+            evidence.status === "available"
+              ? evidence.symbols.map((symbol) => symbol.canonical_selector)
+              : [],
+          code_evidence: evidence,
+        });
+      }
+    } finally {
+      session.release?.(path);
     }
-    const evidenceKey = `${draft.path}\0${draft.claim.selector ?? ""}`;
-    let cachedEvidence = evidenceByLocator.get(evidenceKey);
-    if (!cachedEvidence) {
-      const evidence = evidenceForClaim(pathAnalysis, draft.claim.selector);
-      cachedEvidence = {
-        evidence,
-        identityDigest: evidenceIdentity(evidence),
-      };
-      evidenceByLocator.set(evidenceKey, cachedEvidence);
-    }
-    const { evidence, identityDigest } = cachedEvidence;
-    const id = scopeId({
-      claim: draft.claim,
-      path: draft.path,
-      previousPath: draft.previousPath,
-      reason: draft.reason,
-      evidenceDigest: identityDigest,
-    });
-    entries.push({
-      id,
-      capability_stable_id: draft.claim.capability_stable_id,
-      story_stable_id: draft.claim.story_stable_id,
-      story_title: draft.claim.story_title,
-      acceptance_criterion_stable_id:
-        draft.claim.acceptance_criterion_stable_id,
-      acceptance_criterion: draft.claim.acceptance_criterion,
-      relation: draft.claim.relation,
-      provenance: draft.claim.provenance,
-      link_scope: draft.claim.link_scope,
-      target_kind: draft.claim.target_kind,
-      repository: draft.claim.repository,
-      linked_path: draft.claim.linked_path,
-      selector: draft.claim.selector,
-      framework_hint: draft.claim.framework_hint,
-      path: draft.path,
-      previous_path: draft.previousPath,
-      reason: draft.reason,
-      symbols:
-        evidence.status === "available"
-          ? evidence.symbols.map((symbol) => symbol.canonical_selector)
-          : [],
-      code_evidence: evidence,
-    });
   }
 
   const ordered = entries.sort(compareEntries);
