@@ -36,7 +36,7 @@ or re-worded — then stop.
 
 ## Read parser evidence as identity, not judgment
 
-For JavaScript, JSX, TypeScript, TSX, Python, and Rust source, `code_evidence`
+For JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL source, `code_evidence`
 is derived through Tieline's existing Tree-sitter analyzers. Emitting it does
 not call a model, network, or database, and neither scope emission nor verdict
 verification persists a grade.
@@ -72,6 +72,11 @@ semantic satisfaction of the Acceptance Criterion. The host agent must still
 make that judgment. If evidence is unavailable, or no listed declaration serves
 the whole criterion, return `partial` or `unsupported` rather than stretching
 the closest symbol.
+
+SQL evidence is limited to conservative top-level table, view, and function
+declarations with safely representable names. It does not include SQL object
+references or SQL dependency edges; never infer blast-radius coverage from the
+presence of a SQL declaration alone.
 
 ## Judge every entry
 

@@ -2,6 +2,7 @@ import { compareCodeTopologyText } from "../../domain/code-topology-ordering.js"
 import { createJavaScriptAnalyzer } from "./javascript.js";
 import { createPythonAnalyzer } from "./python.js";
 import { createRustAnalyzer } from "./rust.js";
+import { createSqlAnalyzer } from "./sql.js";
 import { createCodeParserRuntime } from "./runtime.js";
 import { CodeAnalyzerRegistry } from "./analyzer.js";
 import type {
@@ -185,6 +186,7 @@ export function createStructuralSelectorResolver(): StructuralSelectorResolver {
     createJavaScriptAnalyzer({ runtime }),
     createPythonAnalyzer({ runtime }),
     createRustAnalyzer({ runtime }),
+    createSqlAnalyzer({ runtime }),
   ]);
   const analyses = new Map<string, Promise<LanguageAnalysisResult | null>>();
   let disposed = false;

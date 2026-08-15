@@ -9,9 +9,17 @@ export type SupportedCodeLanguage =
   | "typescript"
   | "tsx"
   | "python"
-  | "rust";
+  | "rust"
+  | "sql";
 
-export type ParserArtifactKey = "runtime" | "javascript" | "typescript" | "tsx" | "python" | "rust";
+export type ParserArtifactKey =
+  | "runtime"
+  | "javascript"
+  | "typescript"
+  | "tsx"
+  | "python"
+  | "rust"
+  | "sql";
 
 export interface SupportedCodeLanguageDefinition {
   id: SupportedCodeLanguage;
@@ -57,6 +65,12 @@ export const supportedCodeLanguages: readonly SupportedCodeLanguageDefinition[] 
     extensions: [".rs"],
     smokeSource: "pub fn ready() -> bool { true }\n",
   },
+  {
+    id: "sql",
+    artifact: "sql",
+    extensions: [".sql"],
+    smokeSource: "create table ready (id integer primary key);\n",
+  },
 ] as const;
 
 const languagesById = new Map(supportedCodeLanguages.map((language) => [language.id, language]));
@@ -82,15 +96,30 @@ export interface ParserArtifactManifest {
   file: string;
   sha256: string;
   abi: number | null;
-  npm_package: string;
-  npm_version: string;
-  source_revision: string;
-  npm_tarball_integrity: string;
-  origin: string;
+  provenance: ParserArtifactProvenance;
 }
 
+export type ParserArtifactProvenance =
+  | {
+      kind: "npm";
+      package: string;
+      version: string;
+      tarball_url: string;
+      tarball_integrity: string;
+    }
+  | {
+      kind: "source_build";
+      project: string;
+      version: string;
+      revision: string;
+      archive_url: string;
+      archive_sha256: string;
+      build_tool: string;
+      build_sdk: string;
+    };
+
 export interface ParserCompatibilityManifest {
-  schema_version: 1;
+  schema_version: 2;
   compatibility_set: string;
   abi: { minimum: number; maximum: number };
   artifacts: Record<ParserArtifactKey, ParserArtifactManifest>;
@@ -98,6 +127,34 @@ export interface ParserCompatibilityManifest {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isParserArtifactProvenance(value: unknown): value is ParserArtifactProvenance {
+  if (!isRecord(value)) return false;
+  if (value.kind === "npm") {
+    return (
+      isNonEmptyString(value.package) &&
+      isNonEmptyString(value.version) &&
+      isNonEmptyString(value.tarball_url) &&
+      /^sha512-[A-Za-z0-9+/]+=*$/.test(String(value.tarball_integrity))
+    );
+  }
+  if (value.kind === "source_build") {
+    return (
+      isNonEmptyString(value.project) &&
+      isNonEmptyString(value.version) &&
+      isNonEmptyString(value.revision) &&
+      isNonEmptyString(value.archive_url) &&
+      /^[a-f0-9]{64}$/.test(String(value.archive_sha256)) &&
+      isNonEmptyString(value.build_tool) &&
+      isNonEmptyString(value.build_sdk)
+    );
+  }
+  return false;
 }
 
 export async function readParserCompatibilityManifest(
@@ -114,7 +171,7 @@ export async function readParserCompatibilityManifest(
   }
   if (
     !isRecord(value) ||
-    value.schema_version !== 1 ||
+    value.schema_version !== 2 ||
     value.compatibility_set !== parserCompatibilitySet ||
     !isRecord(value.abi) ||
     !Number.isInteger(value.abi.minimum) ||
@@ -123,7 +180,15 @@ export async function readParserCompatibilityManifest(
   ) {
     throw new Error(`Invalid parser compatibility manifest at ${manifestPath}`);
   }
-  for (const key of ["runtime", "javascript", "typescript", "tsx", "python", "rust"] as const) {
+  for (const key of [
+    "runtime",
+    "javascript",
+    "typescript",
+    "tsx",
+    "python",
+    "rust",
+    "sql",
+  ] as const) {
     const artifact = value.artifacts[key];
     if (
       !isRecord(artifact) ||
@@ -131,11 +196,7 @@ export async function readParserCompatibilityManifest(
       typeof artifact.sha256 !== "string" ||
       !/^[a-f0-9]{64}$/.test(artifact.sha256) ||
       !(artifact.abi === null || Number.isInteger(artifact.abi)) ||
-      typeof artifact.npm_package !== "string" ||
-      typeof artifact.npm_version !== "string" ||
-      typeof artifact.source_revision !== "string" ||
-      typeof artifact.npm_tarball_integrity !== "string" ||
-      typeof artifact.origin !== "string"
+      !isParserArtifactProvenance(artifact.provenance)
     ) {
       throw new Error(`Invalid parser artifact '${key}' in ${manifestPath}`);
     }

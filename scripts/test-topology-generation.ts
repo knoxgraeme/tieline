@@ -92,6 +92,10 @@ try {
     "src/owned.rs",
     "pub trait Service { fn run(&self); }\npub struct Worker;\nimpl Service for Worker { fn run(&self) {} }\n"
   );
+  write(
+    "src/schema.sql",
+    "CREATE TABLE accounts (id BIGINT PRIMARY KEY);\nCREATE VIEW active_accounts AS SELECT id FROM accounts;\n"
+  );
   git(["add", "."]);
   git(["commit", "-qm", "fixture"]);
 
@@ -111,6 +115,29 @@ try {
     assert.equal(compareTopologyGenerations(baseline, repeated).files.length, 0);
     assert.ok(baseline.edges.length > 0);
     assert.equal(baseline.references.length, baseline.resolutions.length);
+    assert.ok(
+      baseline.symbols.some(
+        (symbol) =>
+          symbol.file_path === "src/schema.sql" &&
+          symbol.canonical_selector === "type:accounts"
+      ),
+      "SQL declarations participate in topology symbols"
+    );
+    assert.equal(
+      baseline.references.filter((reference) => reference.file_path === "src/schema.sql").length,
+      0,
+      "SQL phase one intentionally emits no module references"
+    );
+    const sqlSymbolIdentities = new Set(
+      baseline.symbols
+        .filter((symbol) => symbol.file_path === "src/schema.sql")
+        .map((symbol) => symbol.identity)
+    );
+    assert.equal(
+      baseline.edges.filter((edge) => sqlSymbolIdentities.has(edge.source_symbol_identity)).length,
+      0,
+      "SQL phase one intentionally emits no dependency edges"
+    );
     assert.equal(
       baseline.files.find((file) => file.path === "src/test_widget.py")?.kind,
       "test"

@@ -50,7 +50,7 @@ capability:
                 path: scripts/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-001-AC2
-          criterion: Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, and Rust artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.
+          criterion: Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.
           rationale: Parser facts can establish which current declaration a host agent may cite, but only the host can judge whether that declaration semantically satisfies the Acceptance Criterion.
           scenarios:
             - given: a source artifact declares a top-level or owner-aware function and names other identifiers only in comments or local variables
