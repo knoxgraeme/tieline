@@ -17,11 +17,13 @@ import type { Palette } from "../cli-ui.js";
 import {
   detectProductName,
   detectRepositoryName,
-  detectSourceRoots,
   initWorkspace,
   normalizeContextLocations,
   slugifyRepoName,
 } from "../tieline/init.js";
+import {
+  inspectRepositorySourceScope,
+} from "../tieline/source-scope.js";
 import {
   resolveEmbeddingProvider,
   runDatabasePreflight,
@@ -158,6 +160,18 @@ function renderMcpSummary(
   return lines;
 }
 
+function renderSourceScopeAdvisory(
+  roots: readonly string[],
+  ui: Palette
+): string[] {
+  if (roots.length === 0) return [];
+  return [
+    ui.yellow(
+      `Source scope: recognized code outside configured roots: ${roots.join(", ")}. Review repository.source_roots in ${TIELINE_DIRECTORY}/config.json.`
+    ),
+  ];
+}
+
 async function registerMcpClients(
   root: string,
   selection: SkillInstallSelection | null,
@@ -176,19 +190,28 @@ async function registerMcpClients(
   return { mcp, codex };
 }
 
+interface InitSummary {
+  preflight: PreflightCheck[];
+  skill: SkillInstallOutcome;
+  mcp: McpConfigOutcome;
+  codex: CodexMcpOutcome | null;
+  sourceScopeAdvisoryRoots: readonly string[];
+}
+
 function renderInitSummary(
-  preflight: PreflightCheck[],
-  skill: SkillInstallOutcome,
-  mcp: McpConfigOutcome,
-  codex: CodexMcpOutcome | null,
+  summary: InitSummary,
   io: TielineCliIO
 ): void {
   const ui = paletteFor(io);
   const lines = [
     `${ui.green("Workspace:")} ready at ${TIELINE_DIRECTORY}/`,
-    ...renderMcpSummary(mcp, codex, ui),
+    ...renderMcpSummary(summary.mcp, summary.codex, ui),
+    ...renderSourceScopeAdvisory(
+      summary.sourceScopeAdvisoryRoots,
+      ui
+    ),
   ];
-  for (const check of preflight) {
+  for (const check of summary.preflight) {
     if (
       check.status === "warning" &&
       DATABASE_PREFLIGHT_KEYS.has(check.key)
@@ -197,9 +220,9 @@ function renderInitSummary(
     }
   }
 
-  if (skill.status === "installed") {
-    const installed = skill.installedAgents.map(agentLabel);
-    const alreadyPresent = skill.alreadyPresentAgents.map(agentLabel);
+  if (summary.skill.status === "installed") {
+    const installed = summary.skill.installedAgents.map(agentLabel);
+    const alreadyPresent = summary.skill.alreadyPresentAgents.map(agentLabel);
     const skillState = [
       ...(installed.length > 0
         ? [`installed for ${joinLabels(installed)}`]
@@ -215,17 +238,17 @@ function renderInitSummary(
       "  1. Restart or reload your agent.",
       `  2. ${ONBOARDING_AGENT_INSTRUCTION}`
     );
-  } else if (skill.status === "failed") {
+  } else if (summary.skill.status === "failed") {
     lines.push(
       ui.yellow("Skill: tieline installation incomplete"),
-      `Reason: ${skill.reason}`,
+      `Reason: ${summary.skill.reason}`,
       "",
       ui.bold("Next step"),
       "  Retry the install by running:",
       "",
       ...renderCopyCallout(
         ui,
-        skill.retryCommand ?? ONBOARDING_SKILL_INSTALL_COMMAND
+        summary.skill.retryCommand ?? ONBOARDING_SKILL_INSTALL_COMMAND
       )
     );
   } else {
@@ -271,6 +294,11 @@ export async function runInit(
   let skillSelection: SkillInstallSelection | null = null;
 
   if (existing) {
+    const sourceScopeAdvisoryRoots = inspectRepositorySourceScope(
+      existing.root,
+      existing.config.repository.source_roots,
+      existing.config.repository.ignore
+    );
     const existingStatus = getTielineStatus(existing, env);
     const stored = readWorkspaceProfile(existing, env);
     const databaseMode = parsed.databaseExplicit
@@ -319,9 +347,12 @@ export async function runInit(
         existing.config.product.repo_name
       );
       const mcpLines = renderMcpSummary(mcp, null, ui);
-      io.write(
-        `Tieline is already initialized at ${existing.directory}.\n${mcpLines.length > 0 ? `${mcpLines.join("\n")}\n` : ""}${renderStatus(getTielineStatus(existing, env), ui)}\n`
-      );
+      io.write(`${[
+        `Tieline is already initialized at ${existing.directory}.`,
+        ...mcpLines,
+        ...renderSourceScopeAdvisory(sourceScopeAdvisoryRoots, ui),
+        renderStatus(getTielineStatus(existing, env), ui),
+      ].join("\n")}\n`);
       return 0;
     }
     const skill = await runSkillInstall(
@@ -342,13 +373,13 @@ export async function runInit(
     );
     const preflightEnv =
       databaseMode === "offline" ? withoutDatabaseEnvironment(env) : env;
-    renderInitSummary(
-      await runDatabasePreflight(preflightEnv),
+    renderInitSummary({
+      preflight: await runDatabasePreflight(preflightEnv),
       skill,
       mcp,
       codex,
-      io
-    );
+      sourceScopeAdvisoryRoots,
+    }, io);
     return skill.status === "failed" ? 1 : 0;
   }
 
@@ -363,10 +394,6 @@ export async function runInit(
   );
   const description = parsed.description;
   const context = normalizeContextLocations(parsed.target, parsed.context);
-  const sourceRoots =
-    parsed.sourceRoots.length > 0
-      ? parsed.sourceRoots
-      : detectSourceRoots(parsed.target);
   const database = parsed.database;
 
   skillSelection = await resolveSkillSelection(
@@ -387,7 +414,8 @@ export async function runInit(
     repoName,
     description,
     contextLocations: context,
-    sourceRoots,
+    sourceRoots:
+      parsed.sourceRoots.length > 0 ? parsed.sourceRoots : undefined,
     ignore: parsed.ignore.length > 0 ? parsed.ignore : undefined,
     databaseMode: database,
     env: initEnv,
@@ -422,13 +450,13 @@ export async function runInit(
   // Close the Clack flow before the summary so the direct skill invocation is
   // the last thing on screen rather than trailing into the flow's end cap.
   if (richInteractive) await outro(io, "Tieline workspace ready");
-  renderInitSummary(
-    await runDatabasePreflight(initEnv),
+  renderInitSummary({
+    preflight: await runDatabasePreflight(initEnv),
     skill,
     mcp,
     codex,
-    io
-  );
+    sourceScopeAdvisoryRoots: result.sourceScopeAdvisoryRoots,
+  }, io);
   return skill.status === "failed" ? 1 : 0;
 }
 

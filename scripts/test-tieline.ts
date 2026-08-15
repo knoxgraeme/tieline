@@ -350,6 +350,7 @@ try {
   const interactiveTarget = resolve(root, "Interactive Checkout");
   const interactiveConfigHome = resolve(root, "interactive-config");
   mkdirSync(resolve(interactiveTarget, "src"), { recursive: true });
+  writeFileSync(resolve(interactiveTarget, "src", "index.ts"), "export {};\n");
   writeFileSync(resolve(interactiveTarget, "README.md"), "# Interactive\n");
   const interactive = interactiveIo({
     text: [],
