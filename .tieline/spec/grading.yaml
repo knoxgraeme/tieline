@@ -50,30 +50,46 @@ capability:
                 path: scripts/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-001-AC2
-          criterion: Tieline must give each grading entry a deterministic identity and a sorted citation allow-list derived from the canonical source-symbol index, while artifacts that cannot be examined must receive an empty allow-list instead of a guessed citation.
-          rationale: A host agent may refuse support, but it must not manufacture a symbol or widen the scope that Tieline emitted.
+          criterion: Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, and Rust artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.
+          rationale: Parser facts can establish which current declaration a host agent may cite, but only the host can judge whether that declaration semantically satisfies the Acceptance Criterion.
           scenarios:
-            - given: a source artifact declares a function and names another identifier only in a comment
+            - given: a source artifact declares a top-level or owner-aware function and names other identifiers only in comments or local variables
               when: its grading entry is built
-              then: Tieline must offer the function selector and must not offer the comment-only identifier
-            - given: a linked artifact is deleted or uses an unsupported language
+              then: Tieline must offer only unique canonical declaration selectors and must not offer comment-only or local identifiers
+            - given: a contract link carries an exact canonical selector that resolves uniquely
               when: its grading entry is built
-              then: Tieline must emit an empty citation allow-list without failing the scope
+              then: Tieline must isolate its allow-list and bounded evidence to that declaration
+            - given: a linked artifact is missing, unreadable, oversized, unsupported, unsafe to interpret after parser recovery, or named by an invalid, unresolved, or ambiguous explicit selector
+              when: its grading entry is built
+              then: Tieline must emit unavailable evidence and an empty citation allow-list without failing the scope
+            - given: a clean exact selected declaration has an unrelated parser diagnostic or only import and reference facts were truncated
+              when: its grading entry is built with complete symbol and diagnostic facts
+              then: Tieline must retain the selected declaration as citable
+            - given: either the exact Acceptance Criterion text or same-symbol source content changes
+              when: the grading scope is emitted again
+              then: Tieline must issue a different entry identity so the earlier verdict cannot be reused
           links:
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
-                path: src/contract/selector.ts
-                selector: function:indexSourceSymbols
+                path: src/contract/code-analysis/selector-resolution.ts
+                selector: function:resolveExactStructuralSelectorFromAnalysis
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
                 path: src/contract/grade.ts
-                selector: function:citableSymbolsForPath
+                selector: function:evidenceForClaim
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:scopeId
             - relation: tests
               provenance: authored
               target:
@@ -82,7 +98,7 @@ capability:
                 path: scripts/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-001-AC3
-          criterion: Contract grading must derive and verify its scope from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.
+          criterion: Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.
           rationale: The semantic judgment belongs to the host agent, while both Tieline phases remain deterministic and usable in the same offline pull-request loop as contract validation.
           links:
             - relation: implements

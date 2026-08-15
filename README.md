@@ -654,11 +654,28 @@ scope when either of its sides changed against the base: the artifact side —
 the linked file was modified, added, renamed, or deleted — or the claim side —
 the link is new, belongs to a new criterion, or its criterion was re-worded,
 even when the linked file is untouched. A base with no manifest is the initial
-contract, so onboarding's links are all in scope as `link_added`. The agent
-inspects the artifacts and assigns `supported`, `partial`, or `unsupported`;
-the second command verifies that every verdict belongs to the scope and that
-every claimed citation came from its allow-list. Tieline does
-not call a model, database, or network for this workflow. Verification is
+contract, so onboarding's links are all in scope as `link_added`.
+
+For JavaScript, JSX, TypeScript, TSX, Python, and Rust source, each scope entry
+also carries ephemeral `code_evidence` from Tieline's Tree-sitter analyzers:
+the analyzed content hash and parser compatibility, diagnostics, and bounded
+source evidence for each legal declaration. `symbols` remains the complete,
+closed citation allow-list. An explicit link selector must exactly match one
+canonical parser selector and limits the entry to that declaration. A link
+without a selector offers only unique canonical top-level or owner-aware
+declarations; comments and local variables do not become citations. Missing,
+unreadable, oversized, unsupported, or structurally incomplete source—or an
+invalid, unresolved, or ambiguous explicit selector—instead produces
+unavailable evidence and an empty allow-list.
+
+The agent inspects the evidence and artifact and assigns `supported`, `partial`,
+or `unsupported`; parser evidence establishes which current declaration may be
+cited, not whether its implementation semantically satisfies the criterion.
+Grade IDs bind the exact criterion text and current source/parser evidence, so
+verdicts become stale after either the criterion or source changes. The second
+command verifies that every verdict belongs to the current scope and that every
+claimed citation came from its allow-list. Tieline does not call a model,
+database, or network or persist grades for this workflow. Verification is
 advisory by default, including negative results; add `--strict` to the verify
 command only when unsupported evidence should fail the gate. The installed
 `tieline` skill carries this grading workflow as an internal reference and
