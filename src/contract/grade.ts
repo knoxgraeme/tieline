@@ -181,6 +181,7 @@ function createGradeCodeAnalysisSession(
   const reader = createFilesystemSourceSnapshotReader({
     repositoryRoot,
     maxSourceBytes: DEFAULT_MAX_SELECTOR_SOURCE_BYTES,
+    hashOversizedFiles: true,
   });
   const resolver = createStructuralSelectorResolver();
   return {
@@ -563,23 +564,18 @@ function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
  * index plus a claim diff against the base manifest. Every changed local claim
  * survives, whichever side of it changed; relevance scores never participate.
  */
-export async function buildGradeScope(
-  input: BuildGradeScopeInput
+async function deriveGradeScope(
+  input: BuildGradeScopeInput,
+  getCodeAnalysisSession: () => GradeCodeAnalysisSession
 ): Promise<GradeScope> {
-  let reconciliation: ReturnType<typeof analyzeContractReconciliation>;
-  try {
-    reconciliation = analyzeContractReconciliation({
-      repositoryRoot: input.repositoryRoot,
-      manifest: input.manifest,
-      changes: input.changes,
-      sourceRoots: input.sourceRoots,
-      ignore: input.ignore,
-      specDirectory: input.specDirectory,
-    });
-  } catch (error) {
-    await input.codeAnalysisSession?.dispose();
-    throw error;
-  }
+  const reconciliation = analyzeContractReconciliation({
+    repositoryRoot: input.repositoryRoot,
+    manifest: input.manifest,
+    changes: input.changes,
+    sourceRoots: input.sourceRoots,
+    ignore: input.ignore,
+    specDirectory: input.specDirectory,
+  });
   const drafts = new Map<
     string,
     {
@@ -624,7 +620,6 @@ export async function buildGradeScope(
   }
 
   if (drafts.size === 0) {
-    await input.codeAnalysisSession?.dispose();
     return {
       base: input.base,
       repository: input.manifest.repository.key,
@@ -633,18 +628,12 @@ export async function buildGradeScope(
     };
   }
 
-  const session =
-    input.codeAnalysisSession ??
-    createGradeCodeAnalysisSession(input.repositoryRoot);
+  const session = getCodeAnalysisSession();
   const analyses = new Map<string, GradePathAnalysis>();
-  try {
-    const paths = [...new Set([...drafts.values()].map((draft) => draft.path))]
-      .sort(compareCodeTopologyText);
-    for (const path of paths) {
-      analyses.set(path, await analyzePath(session, path));
-    }
-  } finally {
-    await session.dispose();
+  const paths = [...new Set([...drafts.values()].map((draft) => draft.path))]
+    .sort(compareCodeTopologyText);
+  for (const path of paths) {
+    analyses.set(path, await analyzePath(session, path));
   }
 
   const entries: GradeScopeEntry[] = [];
@@ -709,6 +698,44 @@ export async function buildGradeScope(
     scoped_links: ordered.length,
     entries: ordered,
   };
+}
+
+export async function buildGradeScope(
+  input: BuildGradeScopeInput
+): Promise<GradeScope> {
+  let session = input.codeAnalysisSession;
+  let disposed = false;
+  const dispose = async (): Promise<void> => {
+    if (!session || disposed) return;
+    disposed = true;
+    await session.dispose();
+  };
+
+  try {
+    const scope = await deriveGradeScope(
+      input,
+      () => (session ??= createGradeCodeAnalysisSession(input.repositoryRoot))
+    );
+    await dispose();
+    return scope;
+  } catch (error) {
+    try {
+      await dispose();
+    } catch (disposeError) {
+      const primaryMessage =
+        error instanceof Error ? error.message : String(error);
+      const disposeMessage =
+        disposeError instanceof Error
+          ? disposeError.message
+          : String(disposeError);
+      throw new AggregateError(
+        [error, disposeError],
+        `${primaryMessage}; code-analysis session disposal also failed: ${disposeMessage}`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
 }
 
 export function renderGradeScopeText(scope: GradeScope): string {

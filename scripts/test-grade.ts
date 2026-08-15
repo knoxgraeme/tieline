@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
@@ -37,8 +38,14 @@ const root = mkdtempSync(resolve(tmpdir(), "tieline-grade-"));
 const OVERSIZED_SOURCE_BYTES = 512_001;
 
 function oversizedSource(marker: "a" | "b"): string {
-  const declaration = `export const oversizedValue = "${marker}";\n`;
-  return declaration + " ".repeat(OVERSIZED_SOURCE_BYTES - declaration.length);
+  const declaration = "export const oversizedValue = true;\n";
+  const mutationOffset = 128 * 1024;
+  return (
+    declaration +
+    " ".repeat(mutationOffset - declaration.length) +
+    marker +
+    " ".repeat(OVERSIZED_SOURCE_BYTES - mutationOffset - 1)
+  );
 }
 
 try {
@@ -290,12 +297,50 @@ capability:
         },
         async dispose() {
           reconciliationFailureCalls.disposals += 1;
+          throw new Error("injected disposal failure");
+        },
+      },
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof AggregateError);
+      assert.match(error.message, /not repository-relative/);
+      assert.equal(error.errors.length, 2);
+      assert.match(String(error.errors[1]), /injected disposal failure/);
+      return true;
+    }
+  );
+  assert.deepEqual(reconciliationFailureCalls, {
+    reads: 0,
+    analyses: 0,
+    disposals: 1,
+  });
+
+  const baseTraversalFailureCalls = { reads: 0, analyses: 0, disposals: 0 };
+  await assert.rejects(
+    buildGradeScope({
+      repositoryRoot: root,
+      base: "HEAD",
+      manifest,
+      baseManifest: invalidManifest,
+      changes: [],
+      sourceRoots: ["src"],
+      codeAnalysisSession: {
+        read(path) {
+          baseTraversalFailureCalls.reads += 1;
+          return { status: "missing", path, detail: "must not be read" };
+        },
+        async analyze() {
+          baseTraversalFailureCalls.analyses += 1;
+          return null;
+        },
+        async dispose() {
+          baseTraversalFailureCalls.disposals += 1;
         },
       },
     }),
     /not repository-relative/
   );
-  assert.deepEqual(reconciliationFailureCalls, {
+  assert.deepEqual(baseTraversalFailureCalls, {
     reads: 0,
     analyses: 0,
     disposals: 1,
@@ -412,6 +457,13 @@ capability:
     false
   );
 
+  const firstOversizedContent = oversizedSource("a");
+  const rewrittenOversizedContent = oversizedSource("b");
+  assert.equal(
+    firstOversizedContent.slice(0, 64 * 1024),
+    rewrittenOversizedContent.slice(0, 64 * 1024),
+    "the rewrite differs only beyond the streaming hash chunk"
+  );
   const firstOversized = await scopeForTarget("src/oversized.ts");
   assert.deepEqual(firstOversized.entries[0]?.symbols, []);
   assert.equal(firstOversized.entries[0]?.code_evidence.status, "unavailable");
@@ -420,7 +472,11 @@ capability:
     firstOversized.entries[0]?.code_evidence.content_hash ?? "",
     /^[a-f0-9]{64}$/
   );
-  writeFileSync(resolve(root, "src/oversized.ts"), oversizedSource("b"));
+  assert.equal(
+    firstOversized.entries[0]?.code_evidence.content_hash,
+    createHash("sha256").update(firstOversizedContent).digest("hex")
+  );
+  writeFileSync(resolve(root, "src/oversized.ts"), rewrittenOversizedContent);
   const rewrittenOversized = await scopeForTarget("src/oversized.ts");
   assert.deepEqual(rewrittenOversized.entries[0]?.symbols, []);
   assert.equal(
@@ -430,6 +486,10 @@ capability:
   assert.equal(
     rewrittenOversized.entries[0]?.code_evidence.reason,
     "oversized"
+  );
+  assert.equal(
+    rewrittenOversized.entries[0]?.code_evidence.content_hash,
+    createHash("sha256").update(rewrittenOversizedContent).digest("hex")
   );
   assert.notEqual(
     rewrittenOversized.entries[0]?.code_evidence.content_hash,

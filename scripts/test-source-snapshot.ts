@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -18,6 +19,7 @@ import {
 } from "../src/contract/source-inventory.js";
 import {
   createFilesystemSourceSnapshotReader,
+  sourceFileMetadataFromStat,
   type SourceFileMetadata,
 } from "../src/contract/source-snapshot.js";
 import { report, test } from "./lib/harness.js";
@@ -247,7 +249,15 @@ await test("returns named outcomes for unsafe or unusable source inputs", () => 
     });
     assert.equal(reader.read("src/missing.ts").status, "missing");
     assert.equal(reader.read("src/binary.ts").status, "binary");
-    assert.equal(reader.read("src/large.ts").status, "oversized");
+    const oversized = reader.read("src/large.ts");
+    assert.equal(oversized.status, "oversized");
+    if (oversized.status === "oversized") {
+      assert.equal(
+        oversized.sha256,
+        undefined,
+        "the default size limit does not trigger a full-file hash"
+      );
+    }
     assert.equal(reader.read("src/directory.ts").status, "not_file");
     assert.equal(reader.read("src/unreadable.ts").status, "unreadable");
     assert.equal(reader.read("src/external.ts").status, "repository_escape");
@@ -256,6 +266,54 @@ await test("returns named outcomes for unsafe or unusable source inputs", () => 
     chmodSync(resolve(root, "src/unreadable.ts"), 0o600);
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+await test("opts into race-checked streaming hashes for oversized source", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-oversized-hash-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    const path = resolve(root, "src/large.ts");
+    writeFileSync(path, "123456789");
+    const metadata = sourceFileMetadataFromStat(statSync(path));
+
+    let defaultInspections = 0;
+    const defaultReader = createFilesystemSourceSnapshotReader({
+      repositoryRoot: root,
+      maxSourceBytes: 8,
+      inspectFile() {
+        defaultInspections += 1;
+        return metadata;
+      },
+    });
+    const defaultResult = defaultReader.read("src/large.ts");
+    assert.equal(defaultResult.status, "oversized");
+    assert.equal(defaultInspections, 1);
+    if (defaultResult.status === "oversized") {
+      assert.equal(defaultResult.sha256, undefined);
+    }
+
+    let optedInInspections = 0;
+    const optedInReader = createFilesystemSourceSnapshotReader({
+      repositoryRoot: root,
+      maxSourceBytes: 8,
+      hashOversizedFiles: true,
+      inspectFile() {
+        optedInInspections += 1;
+        return {
+          ...metadata,
+          modifiedTimeMs:
+            metadata.modifiedTimeMs + (optedInInspections === 1 ? 0 : 1),
+        };
+      },
+    });
+    assert.equal(
+      optedInReader.read("src/large.ts").status,
+      "changed_during_read"
+    );
+    assert.equal(optedInInspections, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
