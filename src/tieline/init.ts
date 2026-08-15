@@ -3,6 +3,11 @@ import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
 import { resolveEmbeddingProvider } from "./preflight.js";
 import {
+  discoverRepositorySourceScope,
+  effectiveSourceScopeIgnore,
+  sourceScopeAdvisoryRoots,
+} from "./source-scope.js";
+import {
   TIELINE_CONFIG_FILE,
   TIELINE_DIRECTORY,
   TIELINE_MANIFEST_DIRECTORY,
@@ -15,33 +20,6 @@ import {
   writeTielineConfig,
 } from "./workspace.js";
 
-const DEFAULT_IGNORE = [
-  ".git",
-  ".tieline",
-  "node_modules",
-  "dist",
-  "build",
-  "coverage",
-  "vendor",
-  ".next",
-  "tmp",
-];
-const SOURCE_ROOT_CANDIDATES = [
-  "src",
-  "app",
-  "apps",
-  "packages",
-  "lib",
-  "web",
-  "frontend",
-  "backend",
-  "cmd",
-  "internal",
-  "pkg",
-  "crates",
-  "services",
-  "functions",
-];
 export interface InitWorkspaceOptions {
   targetPath: string;
   productName: string;
@@ -58,6 +36,7 @@ export interface InitWorkspaceOptions {
 export interface InitWorkspaceResult {
   created: boolean;
   workspace: TielineWorkspace;
+  sourceScopeAdvisoryRoots: string[];
 }
 
 export function slugifyRepoName(value: string): string {
@@ -140,12 +119,11 @@ export function detectRepositoryName(targetPath: string): string {
   return slugifyRepoName(basename(target));
 }
 
-export function detectSourceRoots(targetPath: string): string[] {
-  const roots = SOURCE_ROOT_CANDIDATES.filter((candidate) => {
-    const path = resolve(targetPath, candidate);
-    return existsSync(path) && statSync(path).isDirectory();
-  });
-  return roots.length > 0 ? roots : ["."];
+export function detectSourceRoots(
+  targetPath: string,
+  ignore?: readonly string[]
+): string[] {
+  return discoverRepositorySourceScope(targetPath, ignore).sourceRoots;
 }
 
 function normalizedWebsiteLocation(location: string): string | undefined {
@@ -240,16 +218,22 @@ export function initWorkspace(
   const existing = findTielineWorkspace(targetPath);
   const provider = resolveEmbeddingProvider(options.env ?? process.env);
   if (existing && existing.root === targetPath) {
-    return { created: false, workspace: existing };
+    return {
+      created: false,
+      workspace: existing,
+      sourceScopeAdvisoryRoots: [],
+    };
   }
 
   const productName = options.productName.trim();
   if (!productName) throw new Error("Product name is required.");
   const repoName = slugifyRepoName(options.repoName);
+  const ignore = effectiveSourceScopeIgnore(
+    options.ignore?.length ? options.ignore : undefined
+  );
+  const discovery = discoverRepositorySourceScope(targetPath, ignore);
   const sourceRoots = (
-    options.sourceRoots?.length
-      ? options.sourceRoots
-      : detectSourceRoots(targetPath)
+    options.sourceRoots?.length ? options.sourceRoots : discovery.sourceRoots
   ).map((root) => normalizedPath(targetPath, root));
   const contextLocations = normalizeContextLocations(
     targetPath,
@@ -266,9 +250,7 @@ export function initWorkspace(
     repository: {
       root: "..",
       source_roots: sourceRoots,
-      ignore: [
-        ...new Set(options.ignore?.length ? options.ignore : DEFAULT_IGNORE),
-      ],
+      ignore,
     },
     context: {
       sources: contextSources(options.description, contextLocations),
@@ -286,5 +268,12 @@ export function initWorkspace(
   };
   const configPath = resolve(directory, TIELINE_CONFIG_FILE);
   writeTielineConfig(configPath, config);
-  return { created: true, workspace: workspaceFromConfig(configPath) };
+  return {
+    created: true,
+    workspace: workspaceFromConfig(configPath),
+    sourceScopeAdvisoryRoots: sourceScopeAdvisoryRoots(
+      discovery.candidates,
+      sourceRoots
+    ),
+  };
 }
