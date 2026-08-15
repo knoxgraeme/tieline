@@ -34,6 +34,12 @@ import { createFilesystemSourceSnapshotReader } from "../src/contract/source-sna
 
 const REPOSITORY = "grade-fixture";
 const root = mkdtempSync(resolve(tmpdir(), "tieline-grade-"));
+const OVERSIZED_SOURCE_BYTES = 512_001;
+
+function oversizedSource(marker: "a" | "b"): string {
+  const declaration = `export const oversizedValue = "${marker}";\n`;
+  return declaration + " ".repeat(OVERSIZED_SOURCE_BYTES - declaration.length);
+}
 
 try {
   mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
@@ -103,6 +109,7 @@ impl Worker {
     resolve(root, "src/importing.ts"),
     "import { dependency } from './dependency.js';\nexport function importing(): boolean { return dependency; }\n"
   );
+  writeFileSync(resolve(root, "src/oversized.ts"), oversizedSource("a"));
   writeFileSync(
     resolve(root, ".tieline/spec/feature.yaml"),
     `version: 1
@@ -252,6 +259,48 @@ capability:
     });
   };
 
+  const invalidManifest = structuredClone(manifest);
+  const invalidTarget = invalidManifest.capabilities[0]!.stories[0]!
+    .acceptance_criteria[0]!.links.find(
+      (link) =>
+        link.target.kind === "code" && link.target.path === "src/feature.ts"
+    )?.target;
+  assert.equal(invalidTarget?.kind, "code");
+  if (!invalidTarget || invalidTarget.kind !== "code") {
+    throw new Error("expected invalid-manifest fixture target");
+  }
+  invalidTarget.path = "../outside.ts";
+  const reconciliationFailureCalls = { reads: 0, analyses: 0, disposals: 0 };
+  await assert.rejects(
+    buildGradeScope({
+      repositoryRoot: root,
+      base: "HEAD",
+      manifest: invalidManifest,
+      baseManifest: invalidManifest,
+      changes: [],
+      sourceRoots: ["src"],
+      codeAnalysisSession: {
+        read(path) {
+          reconciliationFailureCalls.reads += 1;
+          return { status: "missing", path, detail: "must not be read" };
+        },
+        async analyze() {
+          reconciliationFailureCalls.analyses += 1;
+          return null;
+        },
+        async dispose() {
+          reconciliationFailureCalls.disposals += 1;
+        },
+      },
+    }),
+    /not repository-relative/
+  );
+  assert.deepEqual(reconciliationFailureCalls, {
+    reads: 0,
+    analyses: 0,
+    disposals: 1,
+  });
+
   const feature = await scopeFor([
     { status: "modified", path: "src/feature.ts" },
   ]);
@@ -361,6 +410,36 @@ capability:
       symbol.canonical_selector.includes("local_only")
     ),
     false
+  );
+
+  const firstOversized = await scopeForTarget("src/oversized.ts");
+  assert.deepEqual(firstOversized.entries[0]?.symbols, []);
+  assert.equal(firstOversized.entries[0]?.code_evidence.status, "unavailable");
+  assert.equal(firstOversized.entries[0]?.code_evidence.reason, "oversized");
+  assert.match(
+    firstOversized.entries[0]?.code_evidence.content_hash ?? "",
+    /^[a-f0-9]{64}$/
+  );
+  writeFileSync(resolve(root, "src/oversized.ts"), oversizedSource("b"));
+  const rewrittenOversized = await scopeForTarget("src/oversized.ts");
+  assert.deepEqual(rewrittenOversized.entries[0]?.symbols, []);
+  assert.equal(
+    rewrittenOversized.entries[0]?.code_evidence.status,
+    "unavailable"
+  );
+  assert.equal(
+    rewrittenOversized.entries[0]?.code_evidence.reason,
+    "oversized"
+  );
+  assert.notEqual(
+    rewrittenOversized.entries[0]?.code_evidence.content_hash,
+    firstOversized.entries[0]?.code_evidence.content_hash,
+    "an equal-size oversized rewrite receives a new streamed content hash"
+  );
+  assert.notEqual(
+    rewrittenOversized.entries[0]?.id,
+    firstOversized.entries[0]?.id,
+    "an equal-size oversized rewrite invalidates the previous verdict ID"
   );
 
   const boundedSession = instrumentedAnalysisSession({ maxSymbols: 0 });
@@ -545,6 +624,57 @@ capability:
   assert.deepEqual(unreadable.entries[0]?.symbols, []);
   assert.equal(unreadable.entries[0]?.code_evidence.reason, "unreadable");
   assert.deepEqual(unreadableSessionCalls, { analyses: 0, disposals: 1 });
+
+  const isolatedReader = createFilesystemSourceSnapshotReader({
+    repositoryRoot: root,
+  });
+  const isolatedFailureCalls = {
+    paths: [] as string[],
+    disposals: 0,
+  };
+  const isolatedFailures = await buildGradeScope({
+    repositoryRoot: root,
+    base: "HEAD",
+    manifest,
+    baseManifest: manifest,
+    changes: [
+      { status: "modified", path: "src/feature.ts" },
+      { status: "modified", path: "src/renamed.ts" },
+    ],
+    sourceRoots: ["src"],
+    codeAnalysisSession: {
+      read(path) {
+        return isolatedReader.read(path);
+      },
+      async analyze(snapshot) {
+        isolatedFailureCalls.paths.push(snapshot.path);
+        if (snapshot.path === "src/feature.ts") {
+          throw new Error("injected analyzer failure");
+        }
+        return null;
+      },
+      async dispose() {
+        isolatedFailureCalls.disposals += 1;
+        isolatedReader.dispose?.();
+      },
+    },
+  });
+  assert.deepEqual(isolatedFailureCalls, {
+    paths: ["src/feature.ts", "src/renamed.ts"],
+    disposals: 1,
+  });
+  assert.deepEqual(
+    isolatedFailures.entries.map((entry) => [
+      entry.path,
+      entry.code_evidence.status,
+      entry.code_evidence.reason,
+      entry.symbols,
+    ]),
+    [
+      ["src/feature.ts", "unavailable", "analysis_failed", []],
+      ["src/renamed.ts", "unavailable", "analyzer_unavailable", []],
+    ]
+  );
 
   // Direct and Story-fallback claims are different assertions and both remain
   // in scope. The deliberately unrelated identifier proves grading does not

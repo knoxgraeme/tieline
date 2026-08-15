@@ -21,7 +21,14 @@ import {
   createFilesystemSourceSnapshotReader,
   type SourceSnapshotReader,
 } from "../src/contract/source-snapshot.js";
-import { createStructuralSelectorResolver } from "../src/contract/code-analysis/selector-resolution.js";
+import {
+  createStructuralSelectorResolver,
+  localizedDiagnostics,
+} from "../src/contract/code-analysis/selector-resolution.js";
+import type {
+  CodeSymbolFact,
+  ParserDiagnostic,
+} from "../src/contract/code-analysis/types.js";
 import {
   createCachedSelectorResolver,
   indexSourceSymbols,
@@ -364,6 +371,57 @@ await test("emits owner-aware multi-language evidence and conservative ambiguity
     assert.equal(mutated.source_evidence, null, "post-analysis mutation suppresses old ranges");
     await mutatingInspector.dispose();
     await structural.dispose();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+await test("keeps const function aliases and localizes diagnostics half-open", async () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-selector-"));
+  try {
+    mkdirSync(resolve(root, "src"), { recursive: true });
+    writeFileSync(
+      resolve(root, "src/alias.ts"),
+      "export const callable = (): boolean => true;\n"
+    );
+    const reader = createFilesystemSourceSnapshotReader({ repositoryRoot: root });
+    const read = reader.read("src/alias.ts");
+    assert.equal(read.status, "read");
+    if (read.status !== "read") throw new Error("expected alias source snapshot");
+    const resolver = createStructuralSelectorResolver();
+    try {
+      const alias = await resolver.resolve({
+        snapshot: read.snapshot,
+        selector: "function:callable",
+      });
+      assert.equal(alias.status, "resolved");
+      assert.equal(alias.matching_symbols?.[0]?.selector, "const:callable");
+    } finally {
+      await resolver.dispose();
+      reader.dispose?.();
+    }
+
+    const range = (start: number, end: number) =>
+      ({ utf16: { start, end } }) as ParserDiagnostic["range"];
+    const symbol = { bodyRange: range(10, 20) } as CodeSymbolFact;
+    const overlapping = { identity: "overlapping", range: range(19, 20) } as ParserDiagnostic;
+    const adjacent = { identity: "adjacent", range: range(20, 21) } as ParserDiagnostic;
+    const zeroWidthInside = {
+      identity: "zero-width-inside",
+      range: range(19, 19),
+    } as ParserDiagnostic;
+    const zeroWidthAtEnd = {
+      identity: "zero-width-at-end",
+      range: range(20, 20),
+    } as ParserDiagnostic;
+    assert.deepEqual(
+      localizedDiagnostics(
+        [overlapping, adjacent, zeroWidthInside, zeroWidthAtEnd],
+        symbol
+      ),
+      [overlapping, zeroWidthInside],
+      "a diagnostic beginning at the symbol end must not localize"
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

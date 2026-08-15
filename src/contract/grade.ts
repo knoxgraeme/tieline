@@ -566,14 +566,20 @@ function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
 export async function buildGradeScope(
   input: BuildGradeScopeInput
 ): Promise<GradeScope> {
-  const reconciliation = analyzeContractReconciliation({
-    repositoryRoot: input.repositoryRoot,
-    manifest: input.manifest,
-    changes: input.changes,
-    sourceRoots: input.sourceRoots,
-    ignore: input.ignore,
-    specDirectory: input.specDirectory,
-  });
+  let reconciliation: ReturnType<typeof analyzeContractReconciliation>;
+  try {
+    reconciliation = analyzeContractReconciliation({
+      repositoryRoot: input.repositoryRoot,
+      manifest: input.manifest,
+      changes: input.changes,
+      sourceRoots: input.sourceRoots,
+      ignore: input.ignore,
+      specDirectory: input.specDirectory,
+    });
+  } catch (error) {
+    await input.codeAnalysisSession?.dispose();
+    throw error;
+  }
   const drafts = new Map<
     string,
     {

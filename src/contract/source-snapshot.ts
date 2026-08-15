@@ -1,5 +1,13 @@
 import { createHash } from "node:crypto";
-import { readFileSync, realpathSync, statSync, type Stats } from "node:fs";
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+  statSync,
+  type Stats,
+} from "node:fs";
 import { resolve } from "node:path";
 import { languageForPath, type SupportedCodeLanguage } from "./code-analysis/languages.js";
 import {
@@ -14,6 +22,34 @@ import type { SourceInventory } from "./source-inventory.js";
 /** Standalone analysis refuses unexpectedly large source files by default. */
 export const DEFAULT_MAX_SOURCE_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const BINARY_SNIFF_BYTES = 8_000;
+const HASH_CHUNK_BYTES = 64 * 1024;
+
+function hashFileStreaming(
+  path: string,
+  expectedBytes: number
+): { sha256: string; observedBytes: number } {
+  const digest = createHash("sha256");
+  const chunk = Buffer.allocUnsafe(Math.min(HASH_CHUNK_BYTES, expectedBytes));
+  const descriptor = openSync(path, "r");
+  let observedBytes = 0;
+  try {
+    while (observedBytes < expectedBytes) {
+      const bytesRead = readSync(
+        descriptor,
+        chunk,
+        0,
+        Math.min(chunk.length, expectedBytes - observedBytes),
+        observedBytes
+      );
+      if (bytesRead === 0) break;
+      digest.update(chunk.subarray(0, bytesRead));
+      observedBytes += bytesRead;
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return { sha256: digest.digest("hex"), observedBytes };
+}
 
 export interface SourceFileMetadata {
   size: number;
@@ -422,10 +458,29 @@ export function createFilesystemSourceSnapshotReader(
                 "file metadata changed after the source inventory was captured"
               );
             } else if (before.size > maxSourceBytes) {
-              result = failure("oversized", canonicalPath, "source exceeds the configured byte limit", {
-                maxSourceBytes,
-                observedBytes: before.size,
-              });
+              const streamed = hashFileStreaming(realPath, before.size);
+              const after = inspectFile(realPath);
+              if (
+                !metadataEqual(before, after) ||
+                streamed.observedBytes !== before.size
+              ) {
+                result = failure(
+                  "changed_during_read",
+                  canonicalPath,
+                  "file metadata or byte length changed while the source was hashed"
+                );
+              } else {
+                result = failure(
+                  "oversized",
+                  canonicalPath,
+                  "source exceeds the configured byte limit",
+                  {
+                    maxSourceBytes,
+                    observedBytes: streamed.observedBytes,
+                    sha256: streamed.sha256,
+                  }
+                );
+              }
             } else {
               const retainedBytes = Buffer.from(readBytes(realPath));
               const after = inspectFile(realPath);

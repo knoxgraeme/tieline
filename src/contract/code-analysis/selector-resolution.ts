@@ -265,9 +265,12 @@ export function localizedDiagnostics(
   diagnostics: readonly ParserDiagnostic[],
   symbol: CodeSymbolFact
 ): readonly ParserDiagnostic[] {
-  return diagnostics.filter(
-    (diagnostic) =>
-      diagnostic.range.utf16.end >= symbol.bodyRange.utf16.start &&
-      diagnostic.range.utf16.start <= symbol.bodyRange.utf16.end
-  );
+  const body = symbol.bodyRange.utf16;
+  return diagnostics.filter((diagnostic) => {
+    const range = diagnostic.range.utf16;
+    if (range.start === range.end) {
+      return range.start >= body.start && range.start < body.end;
+    }
+    return range.end > body.start && range.start < body.end;
+  });
 }
