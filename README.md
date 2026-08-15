@@ -376,20 +376,21 @@ IDs, for example:
 npx -y tieline@latest init . --yes --agent codex --skill-scope project
 ```
 
-The MCP server is registered as `npx -y tieline serve`, so hosts resolve the
-published package (or a local install when one exists) without requiring a
-global install. The checked-in configs keep `TIELINE_WORKSPACE` at `"."`,
-which resolves against the host's working directory. Hosts that keep MCP
-configuration outside the repository and have no registration CLI
-(Claude Desktop, Windsurf) need a manual entry with the absolute repository
-path:
+The MCP server is registered with the exact Tieline version that ran `init`, so
+hosts use the same published package without requiring a global install or
+silently changing versions. Rerun `npx -y tieline@latest init .` to upgrade
+repository-local pins; repeat any `--agent` options for hosts configured outside
+the repository. The checked-in configs keep `TIELINE_WORKSPACE` at `"."`, which
+resolves against the host's working directory. Hosts that keep MCP configuration
+outside the repository and have no registration CLI (Claude Desktop, Windsurf)
+need a manual entry with the same exact version and the absolute repository path:
 
 ```json
 {
   "mcpServers": {
     "tieline": {
       "command": "npx",
-      "args": ["-y", "tieline", "serve"],
+      "args": ["-y", "tieline@<installed-version>", "serve"],
       "env": { "TIELINE_WORKSPACE": "/absolute/path/to/repository" }
     }
   }

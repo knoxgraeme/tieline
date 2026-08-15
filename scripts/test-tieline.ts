@@ -9,7 +9,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import {
@@ -39,6 +39,13 @@ import {
   findTielineWorkspace,
   type TielineWorkspace,
 } from "../src/tieline/workspace.js";
+
+const runningPackageVersion = (
+  JSON.parse(
+    readFileSync(resolve(process.cwd(), "package.json"), "utf8")
+  ) as { version: string }
+).version;
+const runningPackageSpec = `tieline@${runningPackageVersion}`;
 
 function io(): { adapter: TielineCliIO; output: string[] } {
   const output: string[] = [];
@@ -665,7 +672,13 @@ try {
         "--agent",
         "codex",
         "--agent",
+        "github-copilot",
+        "--agent",
+        "gemini-cli",
+        "--agent",
         "opencode",
+        "--agent",
+        "windsurf",
       ],
       mcpMerge.adapter,
       { TIELINE_CONFIG_HOME: mcpMergeConfigHome },
@@ -690,12 +703,12 @@ try {
     "--",
     "npx",
     "-y",
-    "tieline",
+    runningPackageSpec,
     "serve",
   ]);
   const tielineServerEntry = {
     command: "npx",
-    args: ["-y", "tieline", "serve"],
+    args: ["-y", runningPackageSpec, "serve"],
     env: { TIELINE_WORKSPACE: "." },
   };
   assert.deepEqual(
@@ -716,13 +729,29 @@ try {
   );
   assert.deepEqual(
     JSON.parse(
+      readFileSync(resolve(mcpMergeTarget, ".vscode/mcp.json"), "utf8")
+    ),
+    {
+      servers: {
+        tieline: { ...tielineServerEntry, type: "stdio" },
+      },
+    }
+  );
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(resolve(mcpMergeTarget, ".gemini/settings.json"), "utf8")
+    ),
+    { mcpServers: { tieline: tielineServerEntry } }
+  );
+  assert.deepEqual(
+    JSON.parse(
       readFileSync(resolve(mcpMergeTarget, "opencode.json"), "utf8")
     ),
     {
       mcp: {
         tieline: {
           type: "local",
-          command: ["npx", "-y", "tieline", "serve"],
+          command: ["npx", "-y", runningPackageSpec, "serve"],
           enabled: true,
           environment: { TIELINE_WORKSPACE: "." },
         },
@@ -732,10 +761,16 @@ try {
   const mcpMergeOutput = mcpMerge.output.join("");
   assert.match(
     mcpMergeOutput,
-    /Skill: tieline installed for Cursor, Codex, and OpenCode/,
+    /Skill: tieline installed for Cursor, Codex, GitHub Copilot, Gemini CLI, OpenCode, and Windsurf/,
     "--agent without --skill-scope must default to the project scope"
   );
   assert.match(mcpMergeOutput, /MCP: configured/);
+  assert.match(
+    mcpMergeOutput,
+    new RegExp(
+      `Windsurf keeps MCP configuration outside the repository; register 'npx -y ${runningPackageSpec.replaceAll(".", "\\.")} serve' there manually\\.`
+    )
+  );
   const mergedRootBody = readFileSync(
     resolve(mcpMergeTarget, ".mcp.json"),
     "utf8"
@@ -758,9 +793,71 @@ try {
   );
   assert.match(mcpRepeat.output.join(""), /MCP: configured/);
 
+  writeFileSync(
+    resolve(mcpMergeTarget, ".cursor/mcp.json"),
+    JSON.stringify({
+      mcpServers: {
+        tieline: {
+          ...tielineServerEntry,
+          args: ["-y", "tieline@0.0.0", "serve"],
+        },
+      },
+    })
+  );
+  writeFileSync(
+    resolve(mcpMergeTarget, "opencode.json"),
+    JSON.stringify({
+      mcp: {
+        tieline: {
+          type: "local",
+          command: ["npx", "-y", "tieline@0.0.0", "serve"],
+          enabled: true,
+          environment: { TIELINE_WORKSPACE: "." },
+        },
+      },
+    })
+  );
+  assert.equal(
+    await runCli(
+      ["init", mcpMergeTarget, "--yes", "--skip-skill-install"],
+      io().adapter,
+      { TIELINE_CONFIG_HOME: mcpMergeConfigHome }
+    ),
+    0
+  );
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(resolve(mcpMergeTarget, ".cursor/mcp.json"), "utf8")
+    ),
+    { mcpServers: { tieline: tielineServerEntry } },
+    "re-running init refreshes an existing repository-local client pin"
+  );
+  assert.deepEqual(
+    JSON.parse(readFileSync(resolve(mcpMergeTarget, "opencode.json"), "utf8")),
+    {
+      mcp: {
+        tieline: {
+          type: "local",
+          command: ["npx", "-y", runningPackageSpec, "serve"],
+          enabled: true,
+          environment: { TIELINE_WORKSPACE: "." },
+        },
+      },
+    },
+    "re-running init refreshes an existing OpenCode pin"
+  );
+
   const mcpInvalidTarget = resolve(root, "Mcp Invalid Checkout");
   mkdirSync(resolve(mcpInvalidTarget, "src"), { recursive: true });
+  mkdirSync(resolve(mcpInvalidTarget, ".vscode"), { recursive: true });
   writeFileSync(resolve(mcpInvalidTarget, ".mcp.json"), "{ not json\n");
+  const unrelatedVsCodeConfig = `${JSON.stringify({
+    servers: { other: { command: "other-server" } },
+  })}\n`;
+  writeFileSync(
+    resolve(mcpInvalidTarget, ".vscode/mcp.json"),
+    unrelatedVsCodeConfig
+  );
   const mcpInvalid = io();
   assert.equal(
     await runCli(
@@ -786,6 +883,11 @@ try {
     readFileSync(resolve(mcpInvalidTarget, ".mcp.json"), "utf8"),
     "{ not json\n",
     "an unparseable MCP config must never be overwritten"
+  );
+  assert.equal(
+    readFileSync(resolve(mcpInvalidTarget, ".vscode/mcp.json"), "utf8"),
+    unrelatedVsCodeConfig,
+    "init must not register Tieline with an unselected client"
   );
   assert.match(
     mcpInvalid.output.join(""),
@@ -859,7 +961,7 @@ try {
       mcpServers: {
         tieline: {
           command: "npx",
-          args: ["-y", "tieline", "serve"],
+          args: ["-y", runningPackageSpec, "serve"],
           env: { TIELINE_WORKSPACE: "." },
         },
       },
@@ -1049,6 +1151,15 @@ try {
   ) as TielineStatus;
   assert.equal(parsedStatus.runtime.profile_present, true);
   assert.equal(parsedStatus.runtime.setup_complete, true);
+  assert.equal(parsedStatus.runtime.cli_version, runningPackageVersion);
+  assert.deepEqual(parsedStatus.integration.mcp_configs, [
+    {
+      path: ".mcp.json",
+      package_spec: runningPackageSpec,
+      package_version: runningPackageVersion,
+      version_status: "current",
+    },
+  ]);
   assert.equal(
     parsedStatus.capabilities.semantic_matching_configured,
     false
@@ -1069,6 +1180,158 @@ try {
   });
   assert.equal("agent_onboarding_prompt" in parsedStatus, false);
 
+  const generatedMcpConfig = readFileSync(
+    resolve(target, ".mcp.json"),
+    "utf8"
+  );
+  const readJsonStatus = async (): Promise<TielineStatus> => {
+    const statusIo = io();
+    assert.equal(
+      await runCli(["status", target, "--json"], statusIo.adapter, {
+        TIELINE_CONFIG_HOME: configHome,
+      }),
+      0
+    );
+    return JSON.parse(statusIo.output.join("")) as TielineStatus;
+  };
+  const diagnosticCases = [
+    {
+      name: "mismatched exact version",
+      args: ["-y", "tieline@0.0.0", "serve"],
+      expected: {
+        path: ".mcp.json",
+        package_spec: "tieline@0.0.0",
+        package_version: "0.0.0",
+        version_status: "mismatch",
+      },
+      rendered: /mcp=tieline@0\.0\.0 \(mismatch\)/,
+    },
+    {
+      name: "legacy bare package",
+      args: ["-y", "tieline", "serve"],
+      expected: {
+        path: ".mcp.json",
+        package_spec: "tieline",
+        package_version: null,
+        version_status: "unpinned",
+      },
+      rendered: /mcp=tieline \(unpinned\)/,
+    },
+    {
+      name: "npm tag",
+      args: ["-y", "tieline@latest", "serve"],
+      expected: {
+        path: ".mcp.json",
+        package_spec: "tieline@latest",
+        package_version: null,
+        version_status: "unpinned",
+      },
+      rendered: /mcp=tieline@latest \(unpinned\)/,
+    },
+    {
+      name: "Tieline argument to another npx package",
+      args: ["-y", "some-wrapper", runningPackageSpec],
+      expected: {
+        path: ".mcp.json",
+        package_spec: null,
+        package_version: null,
+        version_status: "unrecognized",
+      },
+      rendered: /mcp=unrecognized package \(unrecognized\)/,
+    },
+    {
+      name: "explicit long package option",
+      args: ["--package=tieline@0.0.0", "tieline", "serve"],
+      expected: {
+        path: ".mcp.json",
+        package_spec: "tieline@0.0.0",
+        package_version: "0.0.0",
+        version_status: "mismatch",
+      },
+      rendered: /mcp=tieline@0\.0\.0 \(mismatch\)/,
+    },
+    {
+      name: "explicit short package option",
+      args: ["-p", runningPackageSpec, "tieline", "serve"],
+      expected: {
+        path: ".mcp.json",
+        package_spec: runningPackageSpec,
+        package_version: runningPackageVersion,
+        version_status: "current",
+      },
+      rendered: new RegExp(
+        `mcp=${runningPackageSpec.replaceAll(".", "\\.")} \\(current\\)`
+      ),
+    },
+  ] as const;
+  for (const diagnosticCase of diagnosticCases) {
+    writeFileSync(
+      resolve(target, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          tieline: { command: "npx", args: diagnosticCase.args },
+        },
+      })
+    );
+    const diagnosticStatus = await readJsonStatus();
+    assert.deepEqual(
+      diagnosticStatus.integration.mcp_configs,
+      [diagnosticCase.expected],
+      diagnosticCase.name
+    );
+    assert.match(
+      renderStatus(diagnosticStatus, createPalette(false)),
+      diagnosticCase.rendered,
+      diagnosticCase.name
+    );
+  }
+  writeFileSync(resolve(target, ".mcp.json"), generatedMcpConfig);
+
+  const openCodeConfigPath = resolve(target, "opencode.json");
+  writeFileSync(
+    openCodeConfigPath,
+    JSON.stringify({
+      mcp: {
+        tieline: {
+          type: "local",
+          command: ["npx", "-y", runningPackageSpec, "serve"],
+        },
+      },
+    })
+  );
+  const multiClientStatus = await readJsonStatus();
+  assert.deepEqual(multiClientStatus.integration.mcp_configs, [
+    {
+      path: ".mcp.json",
+      package_spec: runningPackageSpec,
+      package_version: runningPackageVersion,
+      version_status: "current",
+    },
+    {
+      path: "opencode.json",
+      package_spec: runningPackageSpec,
+      package_version: runningPackageVersion,
+      version_status: "current",
+    },
+  ]);
+  writeFileSync(
+    openCodeConfigPath,
+    JSON.stringify({
+      mcp: {
+        tieline: {
+          type: "local",
+          command: ["npx", "-y", "some-wrapper", runningPackageSpec],
+        },
+      },
+    })
+  );
+  assert.equal(
+    (await readJsonStatus()).integration.mcp_configs?.[1]?.version_status,
+    "unrecognized",
+    "OpenCode array commands must inspect the executed npx package only"
+  );
+  rmSync(openCodeConfigPath, { force: true });
+
   const humanStatus = io();
   assert.equal(
     await runCli(["status", target], humanStatus.adapter, {
@@ -1084,6 +1347,12 @@ try {
   assert.match(
     humanStatus.output.join(""),
     /Install skill: npx -y tieline@latest init \./
+  );
+  assert.match(
+    humanStatus.output.join(""),
+    new RegExp(
+      `cli=${runningPackageVersion.replaceAll(".", "\\.")}, mcp=${runningPackageSpec.replaceAll(".", "\\.")} \\(current\\)`
+    )
   );
   assert.doesNotMatch(humanStatus.output.join(""), /Agent handoff prompt:/);
 
@@ -1905,6 +2174,36 @@ capability:
     }
   );
   assert.equal(packagedCompile.status, 0, packagedCompile.stderr);
+  const topologyLockPath = resolve(target, ".tieline/topology.lock");
+  writeFileSync(
+    topologyLockPath,
+    `${JSON.stringify({
+      pid: process.pid,
+      host: hostname(),
+      created_at: new Date().toISOString(),
+      nonce: "packaged-cli-live-owner",
+    })}\n`
+  );
+  const packagedTopologyCompile = (() => {
+    try {
+      return spawnSync(
+        process.execPath,
+        [cliBin, "code", "compile", target, "--json"],
+        {
+          encoding: "utf8",
+          env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+        }
+      );
+    } finally {
+      rmSync(topologyLockPath, { force: true });
+    }
+  })();
+  assert.equal(packagedTopologyCompile.status, 1, packagedTopologyCompile.stderr);
+  const packagedTopologyCompileResult = JSON.parse(
+    packagedTopologyCompile.stdout
+  );
+  assert.equal(packagedTopologyCompileResult.status, "topology_invalid");
+  assert.match(packagedTopologyCompileResult.detail, /owned or contended/i);
   const packagedContext = spawnSync(
     "node",
     [

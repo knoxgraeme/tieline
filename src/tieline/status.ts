@@ -1,8 +1,12 @@
 import { existsSync, readdirSync } from "node:fs";
 import type { EmbeddingProvider } from "../config.js";
+import { TIELINE_VERSION } from "../package-metadata.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import { readContractManifest } from "../contract/manifest.js";
-import { detectMcpClientConfigs } from "./mcp-config.js";
+import {
+  inspectMcpClientConfigs,
+  type McpClientConfigDiagnostic,
+} from "./mcp-config.js";
 import {
   findTielineWorkspace,
   type TielineWorkspace,
@@ -16,6 +20,8 @@ export interface TielineStatus {
   product: string;
   repo: string;
   runtime: {
+    /** Present in current CLI output; optional for older serialized callers. */
+    cli_version?: string;
     profile_present: boolean;
     database_mode: DatabaseMode;
     embedding_provider: EmbeddingProvider;
@@ -28,6 +34,8 @@ export interface TielineStatus {
   integration: {
     /** Repository-relative client config files that register the MCP server. */
     mcp_clients: string[];
+    /** Local package/version diagnostics for each registered client file. */
+    mcp_configs?: McpClientConfigDiagnostic[];
   };
   contract: {
     documents: number;
@@ -114,12 +122,14 @@ export function getTielineStatus(
       : !manifestExists
         ? "Run `tieline contract compile .` and review the semantic diff."
         : "Use $tieline to reconcile branch work; the pull request is the approval boundary.";
+  const mcpConfigs = inspectMcpClientConfigs(workspace.root);
   return {
     initialized: true,
     root: workspace.root,
     product: workspace.config.product.name,
     repo: workspace.config.product.repo_name,
     runtime: {
+      cli_version: TIELINE_VERSION,
       profile_present: Boolean(stored),
       database_mode: runtime.database_mode,
       embedding_provider: runtime.embedding_provider,
@@ -134,7 +144,8 @@ export function getTielineStatus(
       ),
     },
     integration: {
-      mcp_clients: detectMcpClientConfigs(workspace.root),
+      mcp_clients: mcpConfigs.map((config) => config.path),
+      mcp_configs: mcpConfigs,
     },
     contract: {
       documents: loaded.documents.length,

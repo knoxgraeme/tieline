@@ -41,6 +41,7 @@ import {
   type CodexMcpOutcome,
   type McpConfigOutcome,
 } from "../tieline/mcp-config.js";
+import { TIELINE_PACKAGE_SPEC } from "../package-metadata.js";
 import { writeWorkspaceReviewPage } from "../tieline/review.js";
 import {
   detectRepositoryAgents,
@@ -151,7 +152,7 @@ function renderMcpSummary(
   }
   if (mcp.manualAgents.length > 0) {
     lines.push(
-      `MCP server: ${joinLabels(mcp.manualAgents.map(agentLabel))} ${mcp.manualAgents.length === 1 ? "keeps" : "keep"} MCP configuration outside the repository; register 'npx -y tieline serve' there manually.`
+      `MCP server: ${joinLabels(mcp.manualAgents.map(agentLabel))} ${mcp.manualAgents.length === 1 ? "keeps" : "keep"} MCP configuration outside the repository; register 'npx -y ${TIELINE_PACKAGE_SPEC} serve' there manually.`
     );
   }
   return lines;

@@ -7,11 +7,21 @@ import {
   type SkillAgentId,
   type SkillfishProcessRunner,
 } from "./skill-install.js";
+import {
+  TIELINE_PACKAGE_NAME,
+  TIELINE_PACKAGE_SPEC,
+  TIELINE_VERSION,
+} from "../package-metadata.js";
 
 const TIELINE_MCP_SERVER_NAME = "tieline";
 const CODEX_MCP_TIMEOUT_MS = 30_000;
 
-const TIELINE_SERVE_COMMAND = ["npx", "-y", "tieline", "serve"] as const;
+const TIELINE_SERVE_COMMAND = [
+  "npx",
+  "-y",
+  TIELINE_PACKAGE_SPEC,
+  "serve",
+] as const;
 
 interface McpClientTarget {
   /** null: written for every initialization, independent of agent choice. */
@@ -98,6 +108,19 @@ export interface McpConfigOutcome {
   manualAgents: SkillAgentId[];
 }
 
+export type McpPackageVersionStatus =
+  | "current"
+  | "mismatch"
+  | "unpinned"
+  | "unrecognized";
+
+export interface McpClientConfigDiagnostic {
+  path: string;
+  package_spec: string | null;
+  package_version: string | null;
+  version_status: McpPackageVersionStatus;
+}
+
 function targetsFor(
   agentIds: readonly SkillAgentId[]
 ): McpClientTarget[] {
@@ -178,7 +201,15 @@ export function writeMcpClientConfigs(
   root: string,
   agentIds: readonly SkillAgentId[]
 ): McpConfigOutcome {
-  const writes = targetsFor(agentIds).map((target): McpConfigWrite => {
+  const selectedTargets = new Set(targetsFor(agentIds));
+  const registeredPaths = new Set(
+    inspectMcpClientConfigs(root).map((config) => config.path)
+  );
+  const targets = MCP_CLIENT_TARGETS.filter(
+    (target) =>
+      selectedTargets.has(target) || registeredPaths.has(target.path)
+  );
+  const writes = targets.map((target): McpConfigWrite => {
     const result = mergeServerEntry(
       resolve(root, target.path),
       target.serversKey,
@@ -189,9 +220,110 @@ export function writeMcpClientConfigs(
   return { writes, manualAgents: manualAgentsFor(agentIds) };
 }
 
-/** Repository-relative client config files that register the tieline server. */
-export function detectMcpClientConfigs(root: string): string[] {
-  const found: string[] = [];
+const exactSemverPattern =
+  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+function packageSpecFromServerEntry(entry: unknown): string | null {
+  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    return null;
+  }
+  const record = entry as Record<string, unknown>;
+  const command = record.command;
+  const args = record.args;
+  const invocation = Array.isArray(command)
+    ? command
+    : typeof command === "string"
+      ? [command, ...(Array.isArray(args) ? args : [])]
+      : [];
+  if (!invocation.every((token) => typeof token === "string")) return null;
+  const tokens = invocation as string[];
+  const executable = tokens[0]?.split(/[\\/]/).at(-1)?.toLowerCase();
+  if (executable !== "npx" && executable !== "npx.cmd") return null;
+
+  let explicitPackageSpec: string | null = null;
+  for (let index = 1; index < tokens.length; index++) {
+    const token = tokens[index]!;
+    if (token === "--package" || token === "-p") {
+      const spec = tokens[index + 1];
+      if (!isTielinePackageSpec(spec)) return null;
+      explicitPackageSpec = spec;
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("--package=")) {
+      const spec = token.slice("--package=".length);
+      if (!isTielinePackageSpec(spec)) return null;
+      explicitPackageSpec = spec;
+      continue;
+    }
+    if (token === "-y" || token === "--yes" || token === "--") {
+      continue;
+    }
+    if (token.startsWith("-")) return null;
+    if (explicitPackageSpec && token === TIELINE_PACKAGE_NAME) {
+      return explicitPackageSpec;
+    }
+    return isTielinePackageSpec(token) ? token : null;
+  }
+  return null;
+}
+
+function isTielinePackageSpec(spec: string | undefined): spec is string {
+  return (
+    spec === TIELINE_PACKAGE_NAME ||
+    spec?.startsWith(`${TIELINE_PACKAGE_NAME}@`) === true
+  );
+}
+
+function packageDiagnostic(
+  path: string,
+  packageSpec: string | null
+): McpClientConfigDiagnostic {
+  if (packageSpec === null) {
+    return {
+      path,
+      package_spec: null,
+      package_version: null,
+      version_status: "unrecognized",
+    };
+  }
+  if (packageSpec === TIELINE_PACKAGE_NAME) {
+    return {
+      path,
+      package_spec: packageSpec,
+      package_version: null,
+      version_status: "unpinned",
+    };
+  }
+  const packageVersion = packageSpec.slice(
+    `${TIELINE_PACKAGE_NAME}@`.length
+  );
+  if (!exactSemverPattern.test(packageVersion)) {
+    return {
+      path,
+      package_spec: packageSpec,
+      package_version: null,
+      version_status: "unpinned",
+    };
+  }
+  return {
+    path,
+    package_spec: packageSpec,
+    package_version: packageVersion,
+    version_status:
+      packageVersion === TIELINE_VERSION ? "current" : "mismatch",
+  };
+}
+
+/**
+ * Reads repository-local MCP files and compares their package specs with this
+ * running CLI. It deliberately performs no registry lookup, so status remains
+ * deterministic and usable offline.
+ */
+export function inspectMcpClientConfigs(
+  root: string
+): McpClientConfigDiagnostic[] {
+  const found: McpClientConfigDiagnostic[] = [];
   for (const target of MCP_CLIENT_TARGETS) {
     const filePath = resolve(root, target.path);
     if (!existsSync(filePath)) continue;
@@ -204,13 +336,23 @@ export function detectMcpClientConfigs(root: string): string[] {
         servers !== null &&
         TIELINE_MCP_SERVER_NAME in servers
       ) {
-        found.push(target.path);
+        const entry = (servers as Record<string, unknown>)[
+          TIELINE_MCP_SERVER_NAME
+        ];
+        found.push(
+          packageDiagnostic(target.path, packageSpecFromServerEntry(entry))
+        );
       }
     } catch {
       // An unreadable client config cannot register the server.
     }
   }
   return found;
+}
+
+/** Repository-relative client config files that register the tieline server. */
+export function detectMcpClientConfigs(root: string): string[] {
+  return inspectMcpClientConfigs(root).map((config) => config.path);
 }
 
 export interface CodexMcpOutcome {
