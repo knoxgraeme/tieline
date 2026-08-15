@@ -235,6 +235,39 @@ function boundedSnippet(
   });
 }
 
+/** Builds the shared, bounded projection of one parser-backed declaration. */
+export function buildStructuralSourceEvidence(input: {
+  snapshot: SourceSnapshot;
+  symbol: CodeSymbolFact;
+  canonicalSelector: string;
+  language: SupportedCodeLanguage;
+  compatibility: CodeAnalysisCompatibility;
+  diagnostics: readonly ParserDiagnostic[];
+  maxBytes?: number;
+  maxLines?: number;
+}): StructuralSourceEvidence {
+  return Object.freeze({
+    language: input.language,
+    canonical_selector: input.canonicalSelector,
+    symbol_identity: input.symbol.identity,
+    native_kind: input.symbol.nativeKind,
+    syntax_status: input.symbol.syntaxStatus,
+    name_range: input.symbol.nameRange,
+    range: input.symbol.bodyRange,
+    snippet: boundedSnippet(
+      input.snapshot,
+      input.symbol,
+      input.maxBytes ?? DEFAULT_SOURCE_EVIDENCE_MAX_BYTES,
+      input.maxLines ?? DEFAULT_SOURCE_EVIDENCE_MAX_LINES
+    ),
+    analyzed_content_hash: input.snapshot.sha256,
+    compatibility: input.compatibility,
+    diagnostics: Object.freeze([
+      ...localizedDiagnostics(input.diagnostics, input.symbol),
+    ]),
+  });
+}
+
 function locatorMatches(resolution: SelectorResolution): ArtifactLocatorMatch[] {
   return [...(resolution.matching_symbols ?? [])].map((symbol) => ({
     identity: symbol.identity,
@@ -265,20 +298,15 @@ function sourceEvidence(
   ) {
     return null;
   }
-  return Object.freeze({
+  return buildStructuralSourceEvidence({
+    snapshot,
+    symbol,
+    canonicalSelector: resolution.selector,
     language: resolution.language,
-    canonical_selector: resolution.selector,
-    symbol_identity: symbol.identity,
-    native_kind: symbol.nativeKind,
-    syntax_status: symbol.syntaxStatus,
-    name_range: symbol.nameRange,
-    range: symbol.bodyRange,
-    snippet: boundedSnippet(snapshot, symbol, maxBytes, maxLines),
-    analyzed_content_hash: snapshot.sha256,
     compatibility: resolution.compatibility,
-    diagnostics: Object.freeze([
-      ...localizedDiagnostics(resolution.diagnostics ?? [], symbol),
-    ]),
+    diagnostics: resolution.diagnostics ?? [],
+    maxBytes,
+    maxLines,
   });
 }
 

@@ -21,6 +21,8 @@ import {
 } from "../selector.js";
 
 export interface StructuralSelectorResolver {
+  /** Cached parser analysis for callers that need file-level structural facts. */
+  analyze(snapshot: SourceSnapshot): Promise<LanguageAnalysisResult | null>;
   resolve(input: {
     snapshot: SourceSnapshot;
     selector: string;
@@ -52,24 +54,24 @@ function notChecked(
   };
 }
 
-function structuralResolution(
+function resolutionFromAnalysis(
   snapshot: SourceSnapshot,
   selector: ParsedSelector,
-  analysis: LanguageAnalysisResult
+  analysis: LanguageAnalysisResult,
+  matches: readonly CodeSymbolFact[]
 ): SelectorResolution {
-  const matches = analysis.symbols
-    .filter((symbol) => symbolMatchesSelector(symbol, selector))
+  const orderedMatches = [...matches]
     .sort(
       (left, right) =>
         left.bodyRange.utf16.start - right.bodyRange.utf16.start ||
         left.bodyRange.utf16.end - right.bodyRange.utf16.end ||
         compareCodeTopologyText(left.identity, right.identity)
     );
-  if (matches.length === 1) {
-    return resolved(snapshot, selector, analysis, matches, "resolved");
+  if (orderedMatches.length === 1) {
+    return resolved(snapshot, selector, analysis, orderedMatches, "resolved");
   }
-  if (matches.length > 1) {
-    return resolved(snapshot, selector, analysis, matches, "ambiguous");
+  if (orderedMatches.length > 1) {
+    return resolved(snapshot, selector, analysis, orderedMatches, "ambiguous");
   }
   if (analysis.truncated.symbols || analysis.truncated.diagnostics) {
     return notChecked(
@@ -103,6 +105,33 @@ function structuralResolution(
     diagnostics: analysis.diagnostics,
     detail: `Parsed '${snapshot.path}' but found no declaration with the complete owner-aware selector '${selector.canonical}'.`,
   };
+}
+
+/** Resolves only an exact canonical selector against completed parser facts. */
+export function resolveExactStructuralSelectorFromAnalysis(
+  snapshot: SourceSnapshot,
+  selector: ParsedSelector,
+  analysis: LanguageAnalysisResult
+): SelectorResolution {
+  return resolutionFromAnalysis(
+    snapshot,
+    selector,
+    analysis,
+    analysis.symbols.filter((symbol) => symbol.selector === selector.canonical)
+  );
+}
+
+function structuralResolution(
+  snapshot: SourceSnapshot,
+  selector: ParsedSelector,
+  analysis: LanguageAnalysisResult
+): SelectorResolution {
+  return resolutionFromAnalysis(
+    snapshot,
+    selector,
+    analysis,
+    analysis.symbols.filter((symbol) => symbolMatchesSelector(symbol, selector))
+  );
 }
 
 function symbolMatchesSelector(
@@ -173,6 +202,10 @@ export function createStructuralSelectorResolver(): StructuralSelectorResolver {
   };
 
   return {
+    async analyze(snapshot) {
+      if (disposed) throw new Error("Structural selector resolver has been disposed");
+      return analyze(snapshot);
+    },
     async resolve(input) {
       if (disposed) throw new Error("Structural selector resolver has been disposed");
       const vocabulary = input.vocabulary ?? CORE_SELECTOR_VOCABULARY;

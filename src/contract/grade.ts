@@ -17,12 +17,25 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
-import { extname, resolve } from "node:path";
 import { z } from "zod";
+import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
+import {
+  buildStructuralSourceEvidence,
+  type StructuralSourceEvidence,
+} from "./artifact-assurance.js";
+import {
+  createStructuralSelectorResolver,
+  resolveExactStructuralSelectorFromAnalysis,
+} from "./code-analysis/selector-resolution.js";
+import type {
+  CodeAnalysisCompatibility,
+  CodeSymbolFact,
+  LanguageAnalysisResult,
+  ParserDiagnostic,
+} from "./code-analysis/types.js";
+import type { SupportedCodeLanguage } from "./code-analysis/languages.js";
 import type { RepositoryPathChange } from "./impact.js";
 import type { ContractManifest } from "./manifest.js";
-import { withinRepository } from "./paths.js";
 import {
   analyzeContractReconciliation,
   buildContractClaimIndex,
@@ -33,13 +46,16 @@ import {
   type ReconciliationRelation,
 } from "./reconciliation.js";
 import {
-  CORE_SELECTOR_KINDS,
+  CORE_SELECTOR_VOCABULARY,
   DEFAULT_MAX_SELECTOR_SOURCE_BYTES,
-  RESOLVABLE_SOURCE_EXTENSIONS,
-  indexSourceSymbols,
+  validateSelector,
 } from "./selector.js";
-
-const BINARY_SNIFF_BYTES = 8_000;
+import {
+  createFilesystemSourceSnapshotReader,
+  type SourceSnapshot,
+  type SourceSnapshotFailureStatus,
+  type SourceSnapshotReadResult,
+} from "./source-snapshot.js";
 
 /**
  * Why a link is in the grading scope. A diff status means the artifact side
@@ -52,6 +68,41 @@ export type GradeScopeReason =
   | ReconciliationChangeStatus
   | "link_added"
   | "criterion_changed";
+
+export type GradeCodeEvidenceReason =
+  | SourceSnapshotFailureStatus
+  | "unsupported_language"
+  | "analyzer_unavailable"
+  | "analysis_failed"
+  | "parse_incomplete"
+  | "selector_invalid"
+  | "selector_unresolved"
+  | "selector_ambiguous"
+  | "no_citable_symbols";
+
+/** Ephemeral parser evidence. The host still decides semantic AC support. */
+export interface GradeCodeEvidence {
+  status: "available" | "unavailable";
+  reason: GradeCodeEvidenceReason | null;
+  detail: string;
+  language: SupportedCodeLanguage | null;
+  content_hash: string | null;
+  parser_compatibility: string | null;
+  diagnostics: readonly ParserDiagnostic[];
+  symbols: readonly GradeSymbolEvidence[];
+}
+
+/** Per-symbol facts; file-wide parser facts live once on `GradeCodeEvidence`. */
+export interface GradeSymbolEvidence {
+  canonical_selector: string;
+  symbol_identity: string;
+  native_kind: string;
+  syntax_status: CodeSymbolFact["syntaxStatus"];
+  name_range: StructuralSourceEvidence["name_range"];
+  range: StructuralSourceEvidence["range"];
+  snippet: StructuralSourceEvidence["snippet"];
+  diagnostics: readonly ParserDiagnostic[];
+}
 
 export interface GradeScopeEntry {
   /** Opaque identity the verdict must echo exactly. */
@@ -77,6 +128,8 @@ export interface GradeScopeEntry {
   reason: GradeScopeReason;
   /** Complete, sorted allow-list for a supported verdict's citation. */
   symbols: string[];
+  /** Bounded source facts used by the host to make its semantic judgment. */
+  code_evidence: GradeCodeEvidence;
 }
 
 export interface GradeScope {
@@ -112,49 +165,341 @@ export interface BuildGradeScopeInput {
   sourceRoots: string[];
   ignore?: string[];
   specDirectory?: string;
+  /** Test seam; ownership transfers to this request and is always disposed. */
+  codeAnalysisSession?: GradeCodeAnalysisSession;
 }
 
-/**
- * Uses selector.ts as the sole declaration extractor. File checks mirror its
- * conservative resolver: unreadable or unsupported artifacts have no legal
- * citation rather than producing a guessed vocabulary.
- */
-function citableSymbolsForPath(
-  repositoryRoot: string,
+export interface GradeCodeAnalysisSession {
+  read(path: string): SourceSnapshotReadResult;
+  analyze(snapshot: SourceSnapshot): Promise<LanguageAnalysisResult | null>;
+  dispose(): Promise<void>;
+}
+
+function createGradeCodeAnalysisSession(
+  repositoryRoot: string
+): GradeCodeAnalysisSession {
+  const reader = createFilesystemSourceSnapshotReader({
+    repositoryRoot,
+    maxSourceBytes: DEFAULT_MAX_SELECTOR_SOURCE_BYTES,
+  });
+  const resolver = createStructuralSelectorResolver();
+  return {
+    read(path) {
+      return reader.read(path);
+    },
+    analyze(snapshot) {
+      return resolver.analyze(snapshot);
+    },
+    async dispose() {
+      try {
+        await resolver.dispose();
+      } finally {
+        reader.dispose?.();
+      }
+    },
+  };
+}
+
+type GradePathAnalysis =
+  | { status: "source_unavailable"; read: Exclude<SourceSnapshotReadResult, { status: "read" }> }
+  | { status: "unsupported_language"; snapshot: SourceSnapshot }
+  | { status: "analyzer_unavailable"; snapshot: SourceSnapshot }
+  | { status: "analysis_failed"; snapshot: SourceSnapshot; detail: string }
+  | { status: "analyzed"; snapshot: SourceSnapshot; analysis: LanguageAnalysisResult };
+
+function unavailableEvidence(input: {
+  reason: GradeCodeEvidenceReason;
+  detail: string;
+  language?: SupportedCodeLanguage | null;
+  contentHash?: string | null;
+  compatibility?: CodeAnalysisCompatibility | null;
+  diagnostics?: readonly ParserDiagnostic[];
+}): GradeCodeEvidence {
+  return Object.freeze({
+    status: "unavailable",
+    reason: input.reason,
+    detail: input.detail,
+    language: input.language ?? null,
+    content_hash: input.contentHash ?? null,
+    parser_compatibility: input.compatibility?.identity ?? null,
+    diagnostics: Object.freeze([...(input.diagnostics ?? [])]),
+    symbols: Object.freeze([]),
+  });
+}
+
+function gradeSymbolEvidence(
+  snapshot: SourceSnapshot,
+  analysis: LanguageAnalysisResult,
+  fact: CodeSymbolFact,
+  selector: string
+): GradeSymbolEvidence {
+  const evidence = buildStructuralSourceEvidence({
+    snapshot,
+    symbol: fact,
+    canonicalSelector: selector,
+    language: analysis.language,
+    compatibility: analysis.compatibility,
+    diagnostics: analysis.diagnostics,
+  });
+  return Object.freeze({
+    canonical_selector: evidence.canonical_selector,
+    symbol_identity: evidence.symbol_identity,
+    native_kind: evidence.native_kind,
+    syntax_status: evidence.syntax_status,
+    name_range: evidence.name_range,
+    range: evidence.range,
+    snippet: evidence.snippet,
+    diagnostics: evidence.diagnostics,
+  });
+}
+
+function availableEvidence(
+  analysis: LanguageAnalysisResult,
+  symbols: readonly GradeSymbolEvidence[]
+): GradeCodeEvidence {
+  return Object.freeze({
+    status: "available",
+    reason: null,
+    detail: `Parser-backed evidence from ${symbols.length} uniquely citable declaration(s).`,
+    language: analysis.language,
+    content_hash: analysis.sourceHash,
+    parser_compatibility: analysis.compatibility.identity,
+    diagnostics: Object.freeze([...analysis.diagnostics]),
+    symbols: Object.freeze([...symbols]),
+  });
+}
+
+function rangeIdentity(range: StructuralSourceEvidence["range"] | null) {
+  if (range === null) return null;
+  return {
+    utf16: [range.utf16.start, range.utf16.end],
+    utf8_bytes: [range.utf8Bytes.start, range.utf8Bytes.end],
+    start: [
+      range.start.line,
+      range.start.utf16Column,
+      range.start.utf8ByteColumn,
+    ],
+    end: [range.end.line, range.end.utf16Column, range.end.utf8ByteColumn],
+  };
+}
+
+function diagnosticIdentity(diagnostic: ParserDiagnostic) {
+  return {
+    kind: diagnostic.kind,
+    native_kind: diagnostic.nativeKind,
+    range: rangeIdentity(diagnostic.range),
+  };
+}
+
+function evidenceIdentity(evidence: GradeCodeEvidence): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        status: evidence.status,
+        reason: evidence.reason,
+        language: evidence.language,
+        content_hash: evidence.content_hash,
+        parser_compatibility: evidence.parser_compatibility,
+        diagnostics: evidence.diagnostics.map(diagnosticIdentity),
+        symbols: evidence.symbols.map((symbol) => ({
+          canonical_selector: symbol.canonical_selector,
+          symbol_identity: symbol.symbol_identity,
+          native_kind: symbol.native_kind,
+          syntax_status: symbol.syntax_status,
+          name_range: rangeIdentity(symbol.name_range),
+          range: rangeIdentity(symbol.range),
+          snippet_truncated: symbol.snippet.truncated,
+          diagnostics: symbol.diagnostics.map(diagnosticIdentity),
+        })),
+      })
+    )
+    .digest("hex");
+}
+
+function evidenceForClaim(
+  analysis: GradePathAnalysis,
+  selector: string | null
+): GradeCodeEvidence {
+  if (analysis.status === "source_unavailable") {
+    const detail =
+      analysis.read.status === "oversized"
+        ? `Source '${analysis.read.path}' is ${analysis.read.observedBytes ?? "an unknown number of"} bytes; the analysis limit is ${analysis.read.maxSourceBytes ?? "unknown"} bytes.`
+        : `Source '${analysis.read.path}' is unavailable for parser-backed grading (${analysis.read.status}).`;
+    return unavailableEvidence({
+      reason: analysis.read.status,
+      detail,
+      contentHash: analysis.read.sha256 ?? null,
+    });
+  }
+  if (analysis.status === "unsupported_language") {
+    return unavailableEvidence({
+      reason: "unsupported_language",
+      detail: `'${analysis.snapshot.path}' is not a supported parser language.`,
+      contentHash: analysis.snapshot.sha256,
+    });
+  }
+  if (analysis.status === "analyzer_unavailable") {
+    return unavailableEvidence({
+      reason: "analyzer_unavailable",
+      detail: `'${analysis.snapshot.path}' has no registered parser analyzer.`,
+      language: analysis.snapshot.language,
+      contentHash: analysis.snapshot.sha256,
+    });
+  }
+  if (analysis.status === "analysis_failed") {
+    return unavailableEvidence({
+      reason: "analysis_failed",
+      detail: analysis.detail,
+      language: analysis.snapshot.language,
+      contentHash: analysis.snapshot.sha256,
+    });
+  }
+
+  const result = analysis.analysis;
+  const unavailable = (
+    reason: GradeCodeEvidenceReason,
+    detail: string
+  ): GradeCodeEvidence =>
+    unavailableEvidence({
+      reason,
+      detail,
+      language: result.language,
+      contentHash: result.sourceHash,
+      compatibility: result.compatibility,
+      diagnostics: result.diagnostics,
+    });
+  if (result.truncated.symbols || result.truncated.diagnostics) {
+    return unavailable(
+      "parse_incomplete",
+      `Parser facts for '${analysis.snapshot.path}' were truncated.`
+    );
+  }
+  if (selector !== null) {
+    const validated = validateSelector(selector, CORE_SELECTOR_VOCABULARY);
+    if (!validated.ok) {
+      return unavailable("selector_invalid", validated.error);
+    }
+    const resolution = resolveExactStructuralSelectorFromAnalysis(
+      analysis.snapshot,
+      validated.selector,
+      result
+    );
+    if (resolution.status === "not_checked") {
+      return unavailable(
+        "parse_incomplete",
+        resolution.detail
+      );
+    }
+    if (resolution.status === "unresolved") {
+      return unavailable(
+        "selector_unresolved",
+        `Parsed '${analysis.snapshot.path}' but found no unique declaration '${validated.selector.canonical}'.`
+      );
+    }
+    if (resolution.status === "ambiguous") {
+      return unavailable(
+        "selector_ambiguous",
+        `Found ${resolution.matching_symbols?.length ?? 0} declarations for '${validated.selector.canonical}' in '${analysis.snapshot.path}'.`
+      );
+    }
+    const selected = resolution.matching_symbols?.[0];
+    if (!selected) {
+      return unavailable(
+        "parse_incomplete",
+        `Parser facts did not include '${validated.selector.canonical}' in '${analysis.snapshot.path}'.`
+      );
+    }
+    const selectedEvidence = gradeSymbolEvidence(
+      analysis.snapshot,
+      result,
+      selected,
+      validated.selector.canonical
+    );
+    if (
+      selectedEvidence.syntax_status === "recovered" ||
+      selectedEvidence.diagnostics.length > 0
+    ) {
+      return unavailable(
+        "parse_incomplete",
+        `Localized parser recovery overlaps '${validated.selector.canonical}' in '${analysis.snapshot.path}'.`
+      );
+    }
+    return availableEvidence(result, [selectedEvidence]);
+  }
+
+  if (
+    result.diagnostics.length > 0 ||
+    result.symbols.some((symbol) => symbol.syntaxStatus === "recovered")
+  ) {
+    return unavailable(
+      "parse_incomplete",
+      `Localized parser recovery makes '${analysis.snapshot.path}' incomplete for grading citations.`
+    );
+  }
+
+  const bySelector = new Map<string, CodeSymbolFact[]>();
+  for (const symbol of result.symbols) {
+    if (symbol.selector === null) continue;
+    const matches = bySelector.get(symbol.selector) ?? [];
+    matches.push(symbol);
+    bySelector.set(symbol.selector, matches);
+  }
+  const unique = [...bySelector.entries()]
+    .filter(([, matches]) => matches.length === 1)
+    .sort(([left], [right]) => compareCodeTopologyText(left, right))
+    .map(([canonical, matches]) => ({ fact: matches[0]!, selector: canonical }));
+  if (unique.length === 0) {
+    return unavailable(
+      "no_citable_symbols",
+      `Parsed '${analysis.snapshot.path}' but found no unique canonical selectors.`
+    );
+  }
+  return availableEvidence(
+    result,
+    unique.map(({ fact, selector: canonicalSelector }) =>
+      gradeSymbolEvidence(analysis.snapshot, result, fact, canonicalSelector)
+    )
+  );
+}
+
+async function analyzePath(
+  session: GradeCodeAnalysisSession,
   path: string
-): string[] {
-  if (!RESOLVABLE_SOURCE_EXTENSIONS.has(extname(path).toLowerCase())) return [];
-  const root = resolve(repositoryRoot);
-  const absolute = resolve(root, path);
-  if (!withinRepository(root, absolute)) return [];
-
-  let stat;
-  try {
-    stat = statSync(absolute);
-  } catch {
-    return [];
+): Promise<GradePathAnalysis> {
+  const read = session.read(path);
+  if (read.status !== "read") return { status: "source_unavailable", read };
+  if (read.snapshot.language === null) {
+    return { status: "unsupported_language", snapshot: read.snapshot };
   }
-  if (!stat.isFile() || stat.size > DEFAULT_MAX_SELECTOR_SOURCE_BYTES) return [];
-
-  let content: Buffer;
   try {
-    content = readFileSync(absolute);
+    const analysis = await session.analyze(read.snapshot);
+    return analysis
+      ? { status: "analyzed", snapshot: read.snapshot, analysis }
+      : { status: "analyzer_unavailable", snapshot: read.snapshot };
   } catch {
-    return [];
+    return {
+      status: "analysis_failed",
+      snapshot: read.snapshot,
+      detail: `Parser analysis failed for '${path}'.`,
+    };
   }
-  if (content.subarray(0, BINARY_SNIFF_BYTES).indexOf(0) !== -1) return [];
-
-  const index = indexSourceSymbols(content.toString("utf8"));
-  return CORE_SELECTOR_KINDS.flatMap((kind) =>
-    index.kinds[kind].map((name) => `${kind}:${name}`)
-  ).sort();
 }
 
 function scopeId(input: {
   claim: ClaimingCriterion;
   path: string;
+  previousPath: string | null;
+  reason: GradeScopeReason;
+  evidenceDigest: string;
 }): string {
-  const identity = [contractClaimIdentity(input.claim), input.path].join("\0");
+  const identity = [
+    contractClaimIdentity(input.claim),
+    input.claim.acceptance_criterion,
+    input.path,
+    input.previousPath ?? "",
+    input.reason,
+    input.evidenceDigest,
+  ].join("\0");
   return `grade:${createHash("sha256").update(identity).digest("hex")}`;
 }
 
@@ -218,7 +563,9 @@ function compareEntries(left: GradeScopeEntry, right: GradeScopeEntry): number {
  * index plus a claim diff against the base manifest. Every changed local claim
  * survives, whichever side of it changed; relevance scores never participate.
  */
-export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
+export async function buildGradeScope(
+  input: BuildGradeScopeInput
+): Promise<GradeScope> {
   const reconciliation = analyzeContractReconciliation({
     repositoryRoot: input.repositoryRoot,
     manifest: input.manifest,
@@ -227,47 +574,28 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
     ignore: input.ignore,
     specDirectory: input.specDirectory,
   });
-  const symbolCache = new Map<string, string[]>();
-  const symbolsFor = (path: string): string[] => {
-    let symbols = symbolCache.get(path);
-    if (!symbols) {
-      symbols = citableSymbolsForPath(input.repositoryRoot, path);
-      symbolCache.set(path, symbols);
+  const drafts = new Map<
+    string,
+    {
+      claim: ClaimingCriterion;
+      path: string;
+      previousPath: string | null;
+      reason: GradeScopeReason;
     }
-    return symbols;
-  };
-  const entries = new Map<string, GradeScopeEntry>();
+  >();
   const diffScopedClaims = new Set<string>();
 
   for (const change of reconciliation.claimed_changes) {
-    const symbols = symbolsFor(change.path);
     for (const claim of change.claimed_by) {
-      diffScopedClaims.add(contractClaimIdentity(claim));
-      const id = scopeId({
+      const claimIdentity = contractClaimIdentity(claim);
+      diffScopedClaims.add(claimIdentity);
+      const key = `${claimIdentity}\0${change.path}`;
+      if (drafts.has(key)) continue;
+      drafts.set(key, {
         claim,
         path: change.path,
-      });
-      if (entries.has(id)) continue;
-      entries.set(id, {
-        id,
-        capability_stable_id: claim.capability_stable_id,
-        story_stable_id: claim.story_stable_id,
-        story_title: claim.story_title,
-        acceptance_criterion_stable_id:
-          claim.acceptance_criterion_stable_id,
-        acceptance_criterion: claim.acceptance_criterion,
-        relation: claim.relation,
-        provenance: claim.provenance,
-        link_scope: claim.link_scope,
-        target_kind: claim.target_kind,
-        repository: claim.repository,
-        linked_path: claim.linked_path,
-        selector: claim.selector,
-        framework_hint: claim.framework_hint,
-        path: change.path,
-        previous_path: change.old_path ?? null,
+        previousPath: change.old_path ?? null,
         reason: change.status,
-        symbols: [...symbols],
       });
     }
   }
@@ -279,34 +607,96 @@ export function buildGradeScope(input: BuildGradeScopeInput): GradeScope {
     input.baseManifest
   )) {
     if (diffScopedClaims.has(contractClaimIdentity(claim))) continue;
-    const id = scopeId({
+    const key = `${contractClaimIdentity(claim)}\0${claim.linked_path}`;
+    if (drafts.has(key)) continue;
+    drafts.set(key, {
       claim,
       path: claim.linked_path,
-    });
-    if (entries.has(id)) continue;
-    entries.set(id, {
-      id,
-      capability_stable_id: claim.capability_stable_id,
-      story_stable_id: claim.story_stable_id,
-      story_title: claim.story_title,
-      acceptance_criterion_stable_id: claim.acceptance_criterion_stable_id,
-      acceptance_criterion: claim.acceptance_criterion,
-      relation: claim.relation,
-      provenance: claim.provenance,
-      link_scope: claim.link_scope,
-      target_kind: claim.target_kind,
-      repository: claim.repository,
-      linked_path: claim.linked_path,
-      selector: claim.selector,
-      framework_hint: claim.framework_hint,
-      path: claim.linked_path,
-      previous_path: null,
+      previousPath: null,
       reason,
-      symbols: [...symbolsFor(claim.linked_path)],
     });
   }
 
-  const ordered = [...entries.values()].sort(compareEntries);
+  if (drafts.size === 0) {
+    await input.codeAnalysisSession?.dispose();
+    return {
+      base: input.base,
+      repository: input.manifest.repository.key,
+      scoped_links: 0,
+      entries: [],
+    };
+  }
+
+  const session =
+    input.codeAnalysisSession ??
+    createGradeCodeAnalysisSession(input.repositoryRoot);
+  const analyses = new Map<string, GradePathAnalysis>();
+  try {
+    const paths = [...new Set([...drafts.values()].map((draft) => draft.path))]
+      .sort(compareCodeTopologyText);
+    for (const path of paths) {
+      analyses.set(path, await analyzePath(session, path));
+    }
+  } finally {
+    await session.dispose();
+  }
+
+  const entries: GradeScopeEntry[] = [];
+  const evidenceByLocator = new Map<
+    string,
+    { evidence: GradeCodeEvidence; identityDigest: string }
+  >();
+  for (const draft of drafts.values()) {
+    const pathAnalysis = analyses.get(draft.path);
+    if (!pathAnalysis) {
+      throw new Error(`Missing request-local code analysis for '${draft.path}'.`);
+    }
+    const evidenceKey = `${draft.path}\0${draft.claim.selector ?? ""}`;
+    let cachedEvidence = evidenceByLocator.get(evidenceKey);
+    if (!cachedEvidence) {
+      const evidence = evidenceForClaim(pathAnalysis, draft.claim.selector);
+      cachedEvidence = {
+        evidence,
+        identityDigest: evidenceIdentity(evidence),
+      };
+      evidenceByLocator.set(evidenceKey, cachedEvidence);
+    }
+    const { evidence, identityDigest } = cachedEvidence;
+    const id = scopeId({
+      claim: draft.claim,
+      path: draft.path,
+      previousPath: draft.previousPath,
+      reason: draft.reason,
+      evidenceDigest: identityDigest,
+    });
+    entries.push({
+      id,
+      capability_stable_id: draft.claim.capability_stable_id,
+      story_stable_id: draft.claim.story_stable_id,
+      story_title: draft.claim.story_title,
+      acceptance_criterion_stable_id:
+        draft.claim.acceptance_criterion_stable_id,
+      acceptance_criterion: draft.claim.acceptance_criterion,
+      relation: draft.claim.relation,
+      provenance: draft.claim.provenance,
+      link_scope: draft.claim.link_scope,
+      target_kind: draft.claim.target_kind,
+      repository: draft.claim.repository,
+      linked_path: draft.claim.linked_path,
+      selector: draft.claim.selector,
+      framework_hint: draft.claim.framework_hint,
+      path: draft.path,
+      previous_path: draft.previousPath,
+      reason: draft.reason,
+      symbols:
+        evidence.status === "available"
+          ? evidence.symbols.map((symbol) => symbol.canonical_selector)
+          : [],
+      code_evidence: evidence,
+    });
+  }
+
+  const ordered = entries.sort(compareEntries);
   return {
     base: input.base,
     repository: input.manifest.repository.key,
@@ -334,6 +724,11 @@ export function renderGradeScopeText(scope: GradeScope): string {
       `\n  ${entry.id}  ${entry.acceptance_criterion_stable_id} ${entry.relation} ${entry.path} (${entry.provenance}, ${entry.link_scope}, ${entry.reason}${target})\n`
     );
     lines.push(`    ${entry.acceptance_criterion}\n`);
+    lines.push(
+      entry.code_evidence.status === "available"
+        ? `    Evidence: ${entry.code_evidence.language}, ${entry.code_evidence.content_hash}, ${entry.code_evidence.parser_compatibility}.\n`
+        : `    Evidence unavailable (${entry.code_evidence.reason}): ${entry.code_evidence.detail}\n`
+    );
     lines.push(
       entry.symbols.length > 0
         ? `    Legal citations: ${entry.symbols.join(", ")}\n`

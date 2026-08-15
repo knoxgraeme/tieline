@@ -169,10 +169,10 @@ function resolveContractCommand(
   };
 }
 
-function runGrade(
+async function runGrade(
   parsed: ParsedContractCommand,
   io: CommandIO
-): number {
+): Promise<number> {
   const selectedModes = Number(parsed.emitScope) + Number(parsed.verify !== undefined);
   if (selectedModes !== 1) {
     throw new Error(
@@ -198,7 +198,7 @@ function runGrade(
       } Run \`tieline contract compile .\` and commit the manifest.`
     );
   }
-  const scope = buildGradeScope({
+  const scope = await buildGradeScope({
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
