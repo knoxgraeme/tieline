@@ -21,7 +21,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "25459141312660a70f511da66fb09e31c15af23d9e8dd39ed1fb75a5ac24db33",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -43,7 +43,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8259ab616b4994880e6cc0bbfd0b9b12b4f9875d0315ce519ee699ea2662e118",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -83,35 +83,46 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "86614c7939cfa8190db91db80bc9a3c6f84dca14c7a22d4028d670479cd45224",
-            "criterion": "Tieline must give each grading entry a deterministic identity and a sorted citation allow-list derived from the canonical source-symbol index, while artifacts that cannot be examined must receive an empty allow-list instead of a guessed citation.",
+            "contract_hash": "33c9374e8213c88ef296dda4153fffeb567889f2a04d7773c5d4d83f446ec737",
+            "criterion": "Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, and Rust artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "25459141312660a70f511da66fb09e31c15af23d9e8dd39ed1fb75a5ac24db33",
+                "reviewed_content_hash": "76afbc22d85831dcd0b3cfaa66e51ac84e363be7f1c87d62e87c485e147c859d",
                 "target": {
                   "kind": "code",
-                  "path": "src/contract/grade.ts",
+                  "path": "src/contract/code-analysis/selector-resolution.ts",
                   "repository": "tieline",
-                  "selector": "function:citableSymbolsForPath"
+                  "selector": "function:resolveExactStructuralSelectorFromAnalysis"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c8c72f2099d00f505997d28000d49ccda5570a1223e1a2b6d7c22137fa46dafc",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
-                  "path": "src/contract/selector.ts",
+                  "path": "src/contract/grade.ts",
                   "repository": "tieline",
-                  "selector": "function:indexSourceSymbols"
+                  "selector": "function:evidenceForClaim"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:scopeId"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8259ab616b4994880e6cc0bbfd0b9b12b4f9875d0315ce519ee699ea2662e118",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -121,21 +132,42 @@
               }
             ],
             "position": 1,
-            "rationale": "A host agent may refuse support, but it must not manufacture a symbol or widen the scope that Tieline emitted.",
+            "rationale": "Parser facts can establish which current declaration a host agent may cite, but only the host can judge whether that declaration semantically satisfies the Acceptance Criterion.",
             "scenarios": [
               {
-                "given": "a source artifact declares a function and names another identifier only in a comment",
+                "given": "a source artifact declares a top-level or owner-aware function and names other identifiers only in comments or local variables",
                 "position": 0,
                 "stable_id": "GRADING-001-AC2-S1",
-                "then": "Tieline must offer the function selector and must not offer the comment-only identifier",
+                "then": "Tieline must offer only unique canonical declaration selectors and must not offer comment-only or local identifiers",
                 "when": "its grading entry is built"
               },
               {
-                "given": "a linked artifact is deleted or uses an unsupported language",
+                "given": "a contract link carries an exact canonical selector that resolves uniquely",
                 "position": 1,
                 "stable_id": "GRADING-001-AC2-S2",
-                "then": "Tieline must emit an empty citation allow-list without failing the scope",
+                "then": "Tieline must isolate its allow-list and bounded evidence to that declaration",
                 "when": "its grading entry is built"
+              },
+              {
+                "given": "a linked artifact is missing, unreadable, oversized, unsupported, unsafe to interpret after parser recovery, or named by an invalid, unresolved, or ambiguous explicit selector",
+                "position": 2,
+                "stable_id": "GRADING-001-AC2-S3",
+                "then": "Tieline must emit unavailable evidence and an empty citation allow-list without failing the scope",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a clean exact selected declaration has an unrelated parser diagnostic or only import and reference facts were truncated",
+                "position": 3,
+                "stable_id": "GRADING-001-AC2-S4",
+                "then": "Tieline must retain the selected declaration as citable",
+                "when": "its grading entry is built with complete symbol and diagnostic facts"
+              },
+              {
+                "given": "either the exact Acceptance Criterion text or same-symbol source content changes",
+                "position": 4,
+                "stable_id": "GRADING-001-AC2-S5",
+                "then": "Tieline must issue a different entry identity so the earlier verdict cannot be reused",
+                "when": "the grading scope is emitted again"
               }
             ],
             "stable_id": "GRADING-001-AC2",
@@ -144,8 +176,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "796d92b9bc285c70027461a10c420ac7490cf9f327b530d48a9366f7a14438d2",
-            "criterion": "Contract grading must derive and verify its scope from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
+            "contract_hash": "0820bccbfc51633f5d3d7aea5e0c1234a49b9f8cfe79ed0a03392be5a13ddd79",
+            "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
                 "provenance": "authored",
@@ -161,7 +193,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fe7f1fb114a60d56ea0ff22165e375bf2a3a6c32bf2586497658cd6f4d53d506",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -172,7 +204,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8259ab616b4994880e6cc0bbfd0b9b12b4f9875d0315ce519ee699ea2662e118",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -213,7 +245,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "25459141312660a70f511da66fb09e31c15af23d9e8dd39ed1fb75a5ac24db33",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -224,7 +256,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "25459141312660a70f511da66fb09e31c15af23d9e8dd39ed1fb75a5ac24db33",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -235,7 +267,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8259ab616b4994880e6cc0bbfd0b9b12b4f9875d0315ce519ee699ea2662e118",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -267,7 +299,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "25459141312660a70f511da66fb09e31c15af23d9e8dd39ed1fb75a5ac24db33",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -278,7 +310,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8259ab616b4994880e6cc0bbfd0b9b12b4f9875d0315ce519ee699ea2662e118",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -317,7 +349,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fe7f1fb114a60d56ea0ff22165e375bf2a3a6c32bf2586497658cd6f4d53d506",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -328,7 +360,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "25459141312660a70f511da66fb09e31c15af23d9e8dd39ed1fb75a5ac24db33",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -339,7 +371,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8259ab616b4994880e6cc0bbfd0b9b12b4f9875d0315ce519ee699ea2662e118",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -378,7 +410,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cceebba845c2557452d8633cd9d84178e3bf6238534aa6c0b053ebe733ccf65f",
+                "reviewed_content_hash": "65fb81dd99906e00abfb271e50d036b0b301e12ce42280a78badadb79a03cf06",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/grading.md",
@@ -412,6 +444,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "daf706c72a18ea3604b1b1a4d2a7787711dee59e52c983a87dcab42be208628f"
+    "sha256": "4904ffbbb66b3dbcb5cd236c6bbcbfcdc6d3ed0088f3098a947903798f856e41"
   }
 }

@@ -2037,6 +2037,22 @@ capability:
   assert.match(tielineSkill, /grading-only flow returns after its report/);
   assert.match(gradingReference, /Dispatch fresh subagents/);
   assert.match(gradingReference, /tieline contract grade/);
+  assert.match(gradingReference, /code_evidence/);
+  assert.match(
+    gradingReference,
+    /JavaScript.*TypeScript.*Python.*Rust/s,
+    "grading guidance must name every parser-backed language family"
+  );
+  assert.match(
+    gradingReference,
+    /exact canonical parser selector/,
+    "grading guidance must keep emitted citations closed and parser-backed"
+  );
+  assert.match(
+    gradingReference,
+    /not\s+semantic satisfaction of the Acceptance\s+Criterion/,
+    "grading guidance must leave semantic satisfaction to the host agent"
+  );
   assert.doesNotMatch(tielineSkill, /agent handoff printed/i);
 
   // README wording is under test: editing the install instructions there breaks test:tieline unless these assertions move with it.

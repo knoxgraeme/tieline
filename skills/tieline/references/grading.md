@@ -22,7 +22,10 @@ This command is offline and database-free. Each entry contains:
 - `reason` and `previous_path`, describing why the link is in scope: a diff
   status when the artifact side moved, or `link_added` / `criterion_changed`
   when the claim side is new or re-worded against the base manifest; and
-- `symbols`, the complete allow-list of citations for that artifact.
+- `symbols`, the complete, closed allow-list of citations for that artifact;
+  and
+- `code_evidence`, ephemeral parser-backed facts for deciding whether one of
+  those declarations serves the criterion.
 
 A base ref with no contract manifest — the initial contract — puts every link
 in scope as `link_added`, so onboarding is graded by this same workflow.
@@ -31,15 +34,54 @@ An empty scope is a stated answer: report that no contract link changed
 against the base — no claimed artifact moved and no link or criterion is new
 or re-worded — then stop.
 
+## Read parser evidence as identity, not judgment
+
+For JavaScript, JSX, TypeScript, TSX, Python, and Rust source, `code_evidence`
+is derived through Tieline's existing Tree-sitter analyzers. Emitting it does
+not call a model, network, or database, and neither scope emission nor verdict
+verification persists a grade.
+
+Available evidence contains one set of file-wide facts — `status`, `reason`,
+`detail`, `language`, `content_hash`, `parser_compatibility`, and `diagnostics`
+— followed by bounded facts for each citable declaration. Each declaration
+includes its canonical selector, stable symbol identity, native kind, syntax status,
+name and body ranges, source snippet, and diagnostics localized to that body.
+Do not expect file-wide facts to be repeated inside each symbol.
+
+Treat `symbols` as the authority for citations:
+
+- An explicit contract selector must be an exact canonical parser selector.
+  When it resolves uniquely, the evidence and allow-list contain only that
+  declaration.
+- A selectorless link includes only unique canonical top-level or owner-aware
+  declarations. Local variables and names found only in comments are excluded.
+- Missing, unreadable, oversized, or unsupported source; invalid, unresolved,
+  or ambiguous selectors; incomplete symbol or diagnostic facts; and parser
+  recovery that overlaps the selected declaration make evidence unavailable
+  and leave `symbols` empty. Unrelated diagnostics do not block a clean exact
+  selected declaration, and import/reference truncation alone does not make
+  citation evidence incomplete.
+
+The entry ID binds the exact Acceptance Criterion text and stable source/parser
+evidence, including the content hash. Re-emit the scope after either the
+criterion or source changes; a verdict for the previous ID is intentionally
+stale. Human-facing detail and snippet wording are context, not identity.
+
+Parser evidence proves declaration and source identity and currency, not
+semantic satisfaction of the Acceptance Criterion. The host agent must still
+make that judgment. If evidence is unavailable, or no listed declaration serves
+the whole criterion, return `partial` or `unsupported` rather than stretching
+the closest symbol.
+
 ## Judge every entry
 
-Read the artifact and relevant diff for every scope entry. For a rename,
-`linked_path` is the exact old-path or new-path target named by the contract;
-read the current `path` and use `previous_path` for context. For a deletion,
-inspect the diff or base version; its empty symbol list means it cannot receive
-`supported`. For `link_added` and `criterion_changed`, the artifact may be
-untouched by the branch and there may be no diff hunk to lean on; judge the
-artifact as it stands against the entry's criterion sentence.
+Read the artifact, its `code_evidence`, and relevant diff for every scope entry.
+For a rename, `linked_path` is the exact old-path or new-path target named by
+the contract; read the current `path` and use `previous_path` for context. For
+a deletion, inspect the diff or base version; its empty symbol list means it
+cannot receive `supported`. For `link_added` and `criterion_changed`, the
+artifact may be untouched by the branch and there may be no diff hunk to lean
+on; judge the artifact as it stands against the entry's criterion sentence.
 
 Choose exactly one grade per entry:
 
@@ -54,8 +96,8 @@ Apply these rules:
 1. Grade the link, not the quality of the code change.
 2. Judge direct and `story_fallback` entries separately, even when they name the
    same artifact and criterion.
-3. Never invent, shorten, re-case, or borrow a citation. Copy a `kind:name`
-   value exactly from that entry's `symbols`.
+3. Never invent, shorten, re-case, or borrow a citation. Copy an exact canonical
+   parser selector from that entry's `symbols`.
 4. When `symbols` is empty or no listed symbol serves the criterion, use
    `partial` or `unsupported`. Do not stretch the nearest plausible name.
 5. Treat `unsupported` as useful evidence, not a failed grading run. Never omit
@@ -72,9 +114,9 @@ what the judge cannot see.
 1. Group the scope entries by `path`, one batch per artifact.
 2. Dispatch one subagent per batch. Give it only the batch's scope entries —
    `id`, `acceptance_criterion`, `relation`, `linked_path`, `path`, `reason`,
-   and `symbols` — plus the judgment rules above, and have it read the
-   artifact and return exactly one verdict per entry. Never pass authoring
-   notes, rationale, or surrounding conversation.
+   `symbols`, and `code_evidence` — plus the judgment rules above, and have it
+   read the artifact and return exactly one verdict per entry. Never pass
+   authoring notes, rationale, or surrounding conversation.
 3. Collect the returned verdicts into the single verdicts document yourself,
    then verify as below.
 
@@ -109,8 +151,9 @@ Write a temporary JSON document with exactly one verdict per entry:
 ```
 
 Do not add fields from the scope to a verdict. The opaque `id` binds the verdict
-to the current acceptance criterion, relation, linked path, current artifact
-path, and link scope.
+to the exact current acceptance criterion, relation, linked path, current
+artifact path, link scope, and source/parser evidence. Re-emit the scope instead
+of reusing verdicts after the criterion or source changes.
 
 ## Verify and report
 
