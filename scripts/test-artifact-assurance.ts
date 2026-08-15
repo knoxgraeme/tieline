@@ -259,6 +259,7 @@ await test("emits owner-aware multi-language evidence and conservative ambiguity
     ].join("\n");
     const python = "class Café:\n    def exécute(self):\n        return True\n";
     const rust = "struct Worker;\nimpl Worker { fn r#match(&self) {} }\n";
+    const sql = "CREATE TABLE accounts (id BIGINT PRIMARY KEY);\n";
     const malformed = "export function before() {}\nconst broken = ;\nexport function after() {}\n";
     const bounded = [
       "export function bounded(): void {",
@@ -271,6 +272,7 @@ await test("emits owner-aware multi-language evidence and conservative ambiguity
       ["src/structure.ts", typescript],
       ["src/unicode.py", python],
       ["src/raw.rs", rust],
+      ["src/schema.sql", sql],
       ["src/malformed.ts", malformed],
       ["src/bounded.ts", bounded],
     ] as const) {
@@ -314,6 +316,7 @@ await test("emits owner-aware multi-language evidence and conservative ambiguity
       ["src/structure.ts", "type:Service", typescript, "typescript"],
       ["src/unicode.py", "class:Café/method:exécute", python, "python"],
       ["src/raw.rs", "type:Worker/method:r#match", rust, "rust"],
+      ["src/schema.sql", "type:accounts", sql, "sql"],
     ] as const) {
       const assurance = await inspector.inspect(artifact(path, selector, sha256(source)));
       assert.equal(assurance.locator_resolution, "resolved", `${language}: ${selector}`);

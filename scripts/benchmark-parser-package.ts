@@ -29,7 +29,7 @@ const corpus = execFileSync(
 )
   .toString("utf8")
   .split("\0")
-  .filter((path) => /\.(?:[cm]?js|jsx|[cm]?ts|tsx|pyi?|rs)$/i.test(path))
+  .filter((path) => /\.(?:[cm]?js|jsx|[cm]?ts|tsx|pyi?|rs|sql)$/i.test(path))
   .sort()
   .slice(0, CORPUS_FILES);
 assert.equal(corpus.length, CORPUS_FILES, `benchmark requires ${CORPUS_FILES} supported source files`);
@@ -64,6 +64,7 @@ import { createJavaScriptAnalyzer } from "./node_modules/tieline/dist/contract/c
 import { createPythonAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/python.js";
 import { createCodeParserRuntime } from "./node_modules/tieline/dist/contract/code-analysis/runtime.js";
 import { createRustAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/rust.js";
+import { createSqlAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/sql.js";
 import { supportedCodeLanguages } from "./node_modules/tieline/dist/contract/code-analysis/languages.js";
 import { createFilesystemSourceSnapshotReader } from "./node_modules/tieline/dist/contract/source-snapshot.js";
 const repositoryRoot = process.env.TIELINE_BENCHMARK_REPOSITORY;
@@ -71,7 +72,7 @@ if (!repositoryRoot) throw new Error("missing benchmark repository");
 const corpus = JSON.parse(readFileSync("corpus.json", "utf8"));
 const started = performance.now();
 const runtime = createCodeParserRuntime();
-const analyzers = [createJavaScriptAnalyzer({ runtime }), createPythonAnalyzer({ runtime }), createRustAnalyzer({ runtime })];
+const analyzers = [createJavaScriptAnalyzer({ runtime }), createPythonAnalyzer({ runtime }), createRustAnalyzer({ runtime }), createSqlAnalyzer({ runtime })];
 await runtime.initialize();
 await Promise.all(supportedCodeLanguages.map((language) => runtime.withParser(language.id, (parser) => {
   const tree = parser.parse(language.smokeSource);
@@ -153,9 +154,9 @@ process.stdout.write(JSON.stringify({
   process.stdout.write(`${JSON.stringify(measurements, null, 2)}\n`);
   if (enforce) {
     assert.ok(pinnedEnvironment, "release budget enforcement requires pinned Ubuntu x64 Node 20");
-    assert.ok(parserAssetBytes <= 7 * MIB, "parser assets exceed 7 MiB");
+    assert.ok(parserAssetBytes <= 8 * MIB, "parser assets exceed 8 MiB");
     assert.ok(packageResult.size <= 7 * MIB, "packed package delta exceeds 7 MiB");
-    assert.ok(installedParserBytes <= 10 * MIB, "production parser install exceeds 10 MiB");
+    assert.ok(installedParserBytes <= 13 * MIB, "production parser install exceeds 13 MiB");
     assert.ok(measurements.initialization_median_ms <= 2_000, "median parser load exceeds 2 seconds");
     assert.ok(measurements.initialization_worst_ms <= 4_000, "worst parser load exceeds 4 seconds");
     assert.ok(

@@ -38,6 +38,10 @@ try {
     'import { dependency } from "./dependency.js";\nexport const main = dependency;\n'
   );
   writeFileSync(join(root, "src/dependency.ts"), "export const dependency = true;\n");
+  writeFileSync(
+    join(root, "src/schema.sql"),
+    "CREATE TABLE accounts (id BIGINT PRIMARY KEY);\n"
+  );
   git(["init", "-q"]);
   git(["config", "user.email", "topology@example.test"]);
   git(["config", "user.name", "Topology Integration"]);
@@ -67,12 +71,25 @@ try {
   assert.equal(first.outcome, "inserted");
   const stored = await topology.getGeneration(first.generation_identity);
   assert.ok(stored);
-  assert.equal(stored.counts.files, 2);
+  assert.equal(stored.counts.files, 3);
   assert.ok(stored.counts.edges > 0);
   assert.equal(
     stored.header.revision,
     codeTopologySelectedInputDigest(stored.header)
   );
+  const [storedSqlFile] = await sql<{ language: string }[]>`
+    select language
+    from code_topology_files
+    where generation_identity = ${first.generation_identity}
+      and path = 'src/schema.sql'`;
+  assert.deepEqual(storedSqlFile, { language: "sql" });
+  const [storedSqlSymbol] = await sql<{ canonical_selector: string | null }[]>`
+    select canonical_selector
+    from code_topology_symbols
+    where generation_identity = ${first.generation_identity}
+      and file_path = 'src/schema.sql'
+      and canonical_selector = 'type:accounts'`;
+  assert.deepEqual(storedSqlSymbol, { canonical_selector: "type:accounts" });
   const repeated = await persistCommittedTopologyGeneration({
     store: topology,
     result,

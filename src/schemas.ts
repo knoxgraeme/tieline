@@ -701,7 +701,7 @@ const intentContextLocatorMatch = z
   .strict();
 const intentContextSourceEvidence = z
   .object({
-    language: z.enum(["javascript", "jsx", "typescript", "tsx", "python", "rust"]),
+    language: z.enum(["javascript", "jsx", "typescript", "tsx", "python", "rust", "sql"]),
     canonical_selector: z.string().min(1),
     symbol_identity: z.string().min(1),
     native_kind: z.string().min(1),

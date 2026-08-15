@@ -35,6 +35,10 @@ import {
   createRustAnalyzer,
   rustAnalysisCompatibility,
 } from "./code-analysis/rust.js";
+import {
+  createSqlAnalyzer,
+  sqlAnalysisCompatibility,
+} from "./code-analysis/sql.js";
 import type { LanguageAnalysisResult } from "./code-analysis/types.js";
 import {
   createJavaScriptModuleResolver,
@@ -160,6 +164,7 @@ export function codeTopologyRuntimeCompatibility(): CodeTopologyRuntimeCompatibi
         javascriptAnalysisCompatibility.identity,
         pythonAnalysisCompatibility.identity,
         rustAnalysisCompatibility.identity,
+        sqlAnalysisCompatibility.identity,
       ].sort(),
     }),
     resolver_implementation: `${CODE_TOPOLOGY_RESOLVER_IMPLEMENTATION}:${[
@@ -401,6 +406,7 @@ export async function buildCodeTopologyGeneration(
     createJavaScriptAnalyzer({ runtime }),
     createPythonAnalyzer({ runtime }),
     createRustAnalyzer({ runtime }),
+    createSqlAnalyzer({ runtime }),
   ];
   const analyses = new Map<string, LanguageAnalysisResult>();
   const resolutionAnalyses = new Map<string, ResolutionAnalysis>();

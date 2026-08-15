@@ -17,6 +17,7 @@ const sources: Record<ParserArtifactKey, string> = {
   tsx: "tree-sitter-typescript/tree-sitter-tsx.wasm",
   python: "tree-sitter-python/tree-sitter-python.wasm",
   rust: "tree-sitter-rust/tree-sitter-rust.wasm",
+  sql: "@derekstride/tree-sitter-sql/tree-sitter-sql.wasm",
 };
 
 await mkdir(destinationRoot, { recursive: true });

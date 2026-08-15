@@ -2040,7 +2040,7 @@ capability:
   assert.match(gradingReference, /code_evidence/);
   assert.match(
     gradingReference,
-    /JavaScript.*TypeScript.*Python.*Rust/s,
+    /JavaScript.*TypeScript.*Python.*Rust.*SQL/s,
     "grading guidance must name every parser-backed language family"
   );
   assert.match(

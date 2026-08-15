@@ -72,8 +72,8 @@ const rssBytes = process.memoryUsage().rss;
 const medianColdInitializationMs = coldInitializationMs[Math.floor(coldInitializationMs.length / 2)]!;
 const worstColdInitializationMs = coldInitializationMs.at(-1)!;
 
-assert.ok(assetBytes <= 7 * 1024 * 1024, `parser assets exceed 7 MiB: ${assetBytes}`);
-assert.ok(installedParserBytes <= 10 * 1024 * 1024, `parser footprint exceeds 10 MiB: ${installedParserBytes}`);
+assert.ok(assetBytes <= 8 * 1024 * 1024, `parser assets exceed 8 MiB: ${assetBytes}`);
+assert.ok(installedParserBytes <= 13 * 1024 * 1024, `parser footprint exceeds 13 MiB: ${installedParserBytes}`);
 assert.ok(medianColdInitializationMs <= 2_000, `median initialization exceeds 2s`);
 assert.ok(worstColdInitializationMs <= 4_000, `worst initialization exceeds 4s`);
 assert.ok(peakConcurrency <= 4, `parser concurrency exceeded four: ${peakConcurrency}`);

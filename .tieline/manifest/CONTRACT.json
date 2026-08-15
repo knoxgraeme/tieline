@@ -616,7 +616,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6168c256c745d40be0088ff2ff057f8347a35be2c38728aa5872274efb480453",
+                "reviewed_content_hash": "93cf9c425c349fb9bd54acb55465ddb9fa2064f49a505393fb342776571d2b2a",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -690,7 +690,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "41c14ec12955db7341ce8219230e8f23a242a2f13fc47b1c19510d0ca65a5971",
+                "reviewed_content_hash": "f1128cee59b15af57e14f3f59acea7e28105467fb67eddf9716423d25f85071f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -841,7 +841,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6168c256c745d40be0088ff2ff057f8347a35be2c38728aa5872274efb480453",
+                "reviewed_content_hash": "93cf9c425c349fb9bd54acb55465ddb9fa2064f49a505393fb342776571d2b2a",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -1052,7 +1052,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2ade61c6145a5acddaf5fd7e6fa024e7a2ad912d2081d7b7ed53c8061caa78db",
+                "reviewed_content_hash": "e4ffacf4fd7b7b0d6bf7f6ccb44ad75745f53967e6571b43767e288b7802509e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1272,8 +1272,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "46a1c7ac08e0b2358a5fa0de0bad1aac8bcb9f2d41ad07ba2758b4fab79a5980",
-            "criterion": "Tieline must extract deterministic symbols, owner chains, module references, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, and Rust snapshots while retaining syntax recovery, ambiguity, and truncation explicitly.",
+            "contract_hash": "4e738fa9be64375352b378b11c901676d723d95dd7f709891e34828201e44025",
+            "criterion": "Tieline must extract deterministic symbols, owner chains where applicable, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL snapshots while retaining syntax recovery, ambiguity, and truncation explicitly; it must also extract module references only for languages with a supported static module model.",
             "links": [
               {
                 "provenance": "authored",
@@ -1306,6 +1306,17 @@
                   "path": "src/contract/code-analysis/rust.ts",
                   "repository": "tieline",
                   "selector": "function:createRustAnalyzer"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d931198a8294dd40bacadaf791ab57675ee35cd2529fc92079531de05a95e3f4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/sql.ts",
+                  "repository": "tieline",
+                  "selector": "function:createSqlAnalyzer"
                 }
               },
               {
@@ -1344,6 +1355,17 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
+                "reviewed_content_hash": "78aa72bb46a8dbc775eab83f6167d73156b0af5c296c560739ea98bd9fde42b0",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-analysis-sql.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
                 "reviewed_content_hash": "49bda0bada48449c74eb147e080b7e88f85c930d62ca302aa456cd29b3d4c724",
                 "target": {
                   "framework_hint": "custom-script",
@@ -1369,6 +1391,13 @@
                 "stable_id": "CONTRACT-004-AC1-S2",
                 "then": "a bounded parser-backed snippet may be returned while semantic support remains not_assessed",
                 "when": "exact intent context is read"
+              },
+              {
+                "given": "SQL declares a top-level table, view, or function with a safely representable name",
+                "position": 2,
+                "stable_id": "CONTRACT-004-AC1-S3",
+                "then": "Tieline must expose its declaration selector and ranges without claiming SQL dependency edges",
+                "when": "the source is structurally analyzed"
               }
             ],
             "stable_id": "CONTRACT-004-AC1",
@@ -1416,7 +1445,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ea496939b5c541e747dab78060c28ebc32e3971f3e88e1c47f1b18cdc6d2eea4",
+                "reviewed_content_hash": "043c0864dba6f3838ded9751c5f2561265c32269b7c77c554b4a2046c7fb314e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-topology-indexer.ts",
@@ -1471,9 +1500,19 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ee759438fc0d1cff5ea8cbf16e5c4060ccef595c7dece0e770c3afced698619b",
+            "contract_hash": "6475728ee2e4538ad41199b1c9b6d49394b1d98d0d0c42a9b3b42d1700947c67",
             "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "f4ea34d20f28e8cdb5a5cdaca140bda09958458ece1e61571b4e904d4cbec94c",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0003_sql_topology_language.sql",
+                  "repository": "tieline"
+                }
+              },
               {
                 "provenance": "authored",
                 "relation": "implements",
@@ -1532,7 +1571,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "db685f152a34711fd6c5f6dd6604878ed1e23dc270ce8c1732b89eac84091a7c",
+                "reviewed_content_hash": "74d6f0dfc6d7ee8bdfcbd5d5222b550ed3b433a337f0a10b42bc008ae7283abe",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1554,7 +1593,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a0475f6e4bc1aed9b0f5b615b418208129d1a9b23b5e458a0cc58cdb49665177",
+                "reviewed_content_hash": "7f1e4fff50ef268ae18d0ac433295d1d59abb35d0b44e749ca5e7c0dd6c4e607",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1766,6 +1805,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "c1024cde6e918ebd2e09aa8eb3bb7938b575663d4a09744f5c21d5b8ee795871"
+    "sha256": "6fb9b325601f653ee11d1acf0a588fb805c7e88c7cc81d81cc712cab4bd17db8"
   }
 }

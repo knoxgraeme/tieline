@@ -168,8 +168,9 @@ needs dependency direction or potential change propagation:
   depth 4, 500 nodes, 2,000 edges/frontiers, and 100 paths; hard maxima are
   depth 8, 1,000 nodes, 4,000 edges/frontiers, and 200 paths.
 
-Local topology is language-aware for JavaScript/JSX/TypeScript/TSX, Python, and
-Rust and works without Postgres. Trace and blast select an existing workspace
+Local topology is language-aware for JavaScript/JSX/TypeScript/TSX, Python,
+Rust, and conservative SQL declarations, and works without Postgres. SQL
+object references do not yet produce dependency edges. Trace and blast select an existing workspace
 or exact-commit artifact; they never parse, compile, write, or silently repair
 it. The explicit compiler parses an immutable source snapshot and resolves only
 supported static project-local module forms. Treat `ambiguous`,

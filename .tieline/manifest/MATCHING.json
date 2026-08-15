@@ -153,7 +153,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8e335bbbfda9295d1773ab768e2f988508a6ff712d9a21d6bcc81fe5ffccce6",
+                "reviewed_content_hash": "487f6ac98b353eaadfc9676ac47b278891f0a0ff0bb8ccce69d3b72ef4b8c0ba",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

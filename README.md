@@ -545,6 +545,7 @@ Supported structural facts are intentionally narrower than each language:
 | JavaScript, JSX, TypeScript, TSX | Classes, functions, methods, interfaces, types, enums, namespaces, top-level bindings, static imports, exports, re-exports, and literal dynamic imports | Relative files with supported extensions and index files, static `baseUrl`/`paths` aliases, and named exports/re-exports |
 | Python | Classes, functions, methods, `import`, `from ... import`, relative imports, and public top-level exports | Repository and statically declared source roots, modules, packages, and named public symbols |
 | Rust | Structs, enums, traits, types, modules, functions, constants, statics, impl owners/methods, `mod`, `use`, `pub use`, and grouped paths | Static Cargo crate roots, conventional module files, and `crate`, `self`, and `super` paths |
+| SQL | Conservative top-level table, view, and function declarations with safely representable names | Not yet supported; SQL object references do not produce dependency edges or frontiers |
 
 Dynamic module names, glob imports, generated modules, unsupported or
 non-static configuration, external packages/crates, conditional package
@@ -656,7 +657,7 @@ the link is new, belongs to a new criterion, or its criterion was re-worded,
 even when the linked file is untouched. A base with no manifest is the initial
 contract, so onboarding's links are all in scope as `link_added`.
 
-For JavaScript, JSX, TypeScript, TSX, Python, and Rust source, each scope entry
+For JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL source, each scope entry
 also carries ephemeral `code_evidence` from Tieline's Tree-sitter analyzers:
 the analyzed content hash and parser compatibility, diagnostics, and bounded
 source evidence for each legal declaration. `symbols` remains the complete,
@@ -667,6 +668,12 @@ declarations; comments and local variables do not become citations. Missing,
 unreadable, oversized, unsupported, or structurally incomplete source—or an
 invalid, unresolved, or ambiguous explicit selector—instead produces
 unavailable evidence and an empty allow-list.
+
+SQL evidence is deliberately narrow in this increment: it identifies
+conservative top-level table, view, and function declarations when their names
+can be represented safely. SQL object references and dependency edges are not
+yet derived, so SQL symbols can be linked to Acceptance Criteria without being
+treated as SQL blast-radius coverage.
 
 The agent inspects the evidence and artifact and assigns `supported`, `partial`,
 or `unsupported`; parser evidence establishes which current declaration may be

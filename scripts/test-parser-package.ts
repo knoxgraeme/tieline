@@ -13,7 +13,11 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { report, test } from "./lib/harness.js";
-import { languageForPath, supportedCodeLanguages } from "../src/contract/code-analysis/languages.js";
+import {
+  languageForPath,
+  readParserCompatibilityManifest,
+  supportedCodeLanguages,
+} from "../src/contract/code-analysis/languages.js";
 import { createCodeParserRuntime } from "../src/contract/code-analysis/runtime.js";
 
 function directoryBytes(path: string): number {
@@ -27,11 +31,30 @@ console.log("packaged parser compatibility set");
 
 await test("recognizes every supported source extension", () => {
   assert.deepEqual(
-    ["source.js", "view.jsx", "source.ts", "view.tsx", "source.py", "source.rs"].map(
+    ["source.js", "view.jsx", "source.ts", "view.tsx", "source.py", "source.rs", "schema.sql"].map(
       languageForPath
     ),
-    ["javascript", "jsx", "typescript", "tsx", "python", "rust"]
+    ["javascript", "jsx", "typescript", "tsx", "python", "rust", "sql"]
   );
+});
+
+await test("distinguishes copied npm artifacts from the source-built SQL grammar", async () => {
+  const manifest = await readParserCompatibilityManifest(
+    resolve("assets/parsers/web-tree-sitter-0.26.12")
+  );
+  assert.equal(manifest.schema_version, 2);
+  assert.equal(manifest.artifacts.runtime.provenance.kind, "npm");
+  assert.deepEqual(manifest.artifacts.sql.provenance, {
+    kind: "source_build",
+    project: "DerekStride/tree-sitter-sql",
+    version: "0.3.11",
+    revision: "v0.3.11",
+    archive_url:
+      "https://github.com/DerekStride/tree-sitter-sql/releases/download/v0.3.11/tree-sitter-sql-v0.3.11.tar.gz",
+    archive_sha256: "a97a324eae9c81ed68f6e162b9b33f8911fc6442caa2950e57c498e2460d1387",
+    build_tool: "tree-sitter-cli@0.26.3",
+    build_sdk: "wasi-sdk@29.0",
+  });
 });
 
 await test("loads and parses every language from checked-in Wasm assets", async () => {
@@ -50,7 +73,10 @@ await test("loads and parses every language from checked-in Wasm assets", async 
       })
     )
   );
-  assert.deepEqual(roots, ["program", "program", "program", "program", "module", "source_file"]);
+  assert.deepEqual(
+    roots,
+    ["program", "program", "program", "program", "module", "source_file", "program"]
+  );
 });
 
 await test("limits concurrent parser ownership and supports repeat use", async () => {
@@ -174,10 +200,11 @@ import { resolve } from "node:path";
 import { createJavaScriptAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/javascript.js";
 import { createPythonAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/python.js";
 import { createRustAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/rust.js";
+import { createSqlAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/sql.js";
 import { createFilesystemSourceSnapshotReader } from "./node_modules/tieline/dist/contract/source-snapshot.js";
 const root = resolve("sources");
 const reader = createFilesystemSourceSnapshotReader({ repositoryRoot: root });
-const analyzers = [createJavaScriptAnalyzer(), createPythonAnalyzer(), createRustAnalyzer()];
+const analyzers = [createJavaScriptAnalyzer(), createPythonAnalyzer(), createRustAnalyzer(), createSqlAnalyzer()];
 const facts = [];
 for (const path of readdirSync(root).sort()) {
   const read = reader.read(path);
@@ -208,16 +235,16 @@ process.stdout.write(JSON.stringify({ digest, languages: facts.map((fact) => fac
     );
     const installedParserBytes =
       parserAssetBytes + directoryBytes(resolve(projectRoot, "node_modules/web-tree-sitter"));
-    assert.ok(parserAssetBytes <= 7 * 1024 * 1024, `parser assets are ${parserAssetBytes} bytes`);
+    assert.ok(parserAssetBytes <= 8 * 1024 * 1024, `parser assets are ${parserAssetBytes} bytes`);
     assert.ok(
-      installedParserBytes <= 10 * 1024 * 1024,
+      installedParserBytes <= 13 * 1024 * 1024,
       `installed parser footprint is ${installedParserBytes} bytes`
     );
     const parserAssetEntryBytes = result.files
       .filter((file) => file.path.startsWith("assets/parsers/"))
       .reduce((total, file) => total + file.size, 0);
     assert.ok(parserAssetEntryBytes > 0, "packed parser asset entries were measured");
-    assert.ok(parserAssetEntryBytes <= 7 * 1024 * 1024, `packed parser asset entries are ${parserAssetEntryBytes} bytes`);
+    assert.ok(parserAssetEntryBytes <= 8 * 1024 * 1024, `packed parser asset entries are ${parserAssetEntryBytes} bytes`);
     console.log(JSON.stringify({
       node: process.versions.node,
       fact_digest: runs[0]!.digest,

@@ -14,10 +14,11 @@ const migrations = readdirSync(resolve("migrations"))
 assert.deepEqual(migrations, [
   "0001_baseline.sql",
   "0002_code_topology.sql",
+  "0003_sql_topology_language.sql",
 ]);
 assert.deepEqual(
   migrations.map((filename) => Number(filename.slice(0, 4))),
-  [1, 2],
+  [1, 2, 3],
   "packaged migrations must remain a contiguous ordered sequence"
 );
 
@@ -113,6 +114,16 @@ assert.doesNotMatch(
   topologySql,
   /grant\s+(?:[^;]*\bupdate\b[^;]*|[^;]*\bdelete\b[^;]*)\s+on[^;]*code_topology_(?:generations|files|symbols|references|resolutions|edges|checkpoints)[^;]*to\s+tieline_repository_sync/i,
   "the sync role must not mutate or delete published topology facts directly"
+);
+
+const sqlTopologyLanguageSql = readFileSync(
+  resolve("migrations/0003_sql_topology_language.sql"),
+  "utf8"
+);
+assert.match(
+  sqlTopologyLanguageSql,
+  /drop\s+constraint\s+code_topology_files_language_check[\s\S]+add\s+constraint\s+code_topology_files_language_check[\s\S]+language\s+in\s*\([^)]*'sql'/i,
+  "the forward migration must extend the existing topology language constraint to SQL"
 );
 
 const packaged = readPackagedMigrations();

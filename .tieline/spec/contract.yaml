@@ -694,7 +694,7 @@ capability:
         - derived dependency trace
       acceptance_criteria:
         - key: CONTRACT-004-AC1
-          criterion: Tieline must extract deterministic symbols, owner chains, module references, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, and Rust snapshots while retaining syntax recovery, ambiguity, and truncation explicitly.
+          criterion: Tieline must extract deterministic symbols, owner chains where applicable, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL snapshots while retaining syntax recovery, ambiguity, and truncation explicitly; it must also extract module references only for languages with a supported static module model.
           rationale: Structural evidence is useful only when callers can identify the exact bytes and parser compatibility that produced it without treating a best-effort parse as semantic proof.
           scenarios:
             - given: supported source contains nested declarations, Unicode names, imports, and a recoverable syntax error
@@ -703,6 +703,9 @@ capability:
             - given: a reviewed selector resolves uniquely against hash-current source
               when: exact intent context is read
               then: a bounded parser-backed snippet may be returned while semantic support remains not_assessed
+            - given: SQL declares a top-level table, view, or function with a safely representable name
+              when: the source is structurally analyzed
+              then: Tieline must expose its declaration selector and ranges without claiming SQL dependency edges
           links:
             - relation: implements
               provenance: authored
@@ -739,6 +742,13 @@ capability:
                 repository: tieline
                 path: src/contract/code-analysis/rust.ts
                 selector: function:createRustAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/sql.ts
+                selector: function:createSqlAnalyzer
             - relation: tests
               provenance: authored
               target:
@@ -752,6 +762,13 @@ capability:
                 kind: test
                 repository: tieline
                 path: scripts/test-code-analysis-python-rust.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-analysis-sql.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC2
           criterion: Tieline must resolve supported project-local JavaScript and TypeScript, Python, and Rust module forms in a separate conservative phase and must preserve exact, ambiguous, unresolved, external, dynamic, glob, generated, and unsupported outcomes instead of guessing a dependency.
@@ -855,6 +872,12 @@ capability:
                 repository: tieline
                 path: src/adapters/postgres/code-topology-repository.ts
                 selector: class:PostgresCodeTopologyRepository
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0003_sql_topology_language.sql
             - relation: tests
               provenance: authored
               target:

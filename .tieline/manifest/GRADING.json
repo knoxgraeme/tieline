@@ -83,13 +83,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "33c9374e8213c88ef296dda4153fffeb567889f2a04d7773c5d4d83f446ec737",
-            "criterion": "Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, and Rust artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
+            "contract_hash": "c7794e6e59aff22e58b8d1d09cb974c55aaa01d4039139d6ae5ce3882d159bb1",
+            "criterion": "Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "76afbc22d85831dcd0b3cfaa66e51ac84e363be7f1c87d62e87c485e147c859d",
+                "reviewed_content_hash": "21f88d52beb2217195f3ddbf6e67c58e01e7dc914a43cb0fdb80d0e36ca9570c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-analysis/selector-resolution.ts",
@@ -410,7 +410,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "65fb81dd99906e00abfb271e50d036b0b301e12ce42280a78badadb79a03cf06",
+                "reviewed_content_hash": "cd54443fbd1f4fd40651b9160aa724d9d56ee43e477c0317564aeceb84cb3512",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/grading.md",
@@ -444,6 +444,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "4904ffbbb66b3dbcb5cd236c6bbcbfcdc6d3ed0088f3098a947903798f856e41"
+    "sha256": "c9abaf8d647924ddf83fd176de1db9396569104c6435d455aad33fcf787c9133"
   }
 }
