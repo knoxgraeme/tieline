@@ -2138,7 +2138,7 @@ capability:
   assert.match(cliGuide, /Use semantic discovery only when the exact path, selector, or AC ID is unknown/i);
   assert.match(cliGuide, /intent neighborhood[\s\S]*contract coupling/i);
   assert.match(cliGuide, /not a runtime dependency graph or a[\s\S]*comprehensive blast radius/i);
-  assert.match(cliGuide, /not_assessed[\s\S]*No state proves the criterion is implemented correctly/i);
+  assert.match(cliGuide, /not_assessed[\s\S]*No state proves the AC is implemented correctly/i);
   assert.match(cliGuide, /linked test is an evidence\s+locator[\s\S]*not a receipt that the test ran or passed/i);
   assert.match(conceptsGuide, /From proposed intent to accepted evidence/);
   assert.match(mcpGuide, /agents that do not have[\s\S]*checkout/i);

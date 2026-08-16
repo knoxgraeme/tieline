@@ -99,7 +99,7 @@ npx -y tieline@latest init
 Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
 `.tieline/review.html` provides a browser-friendly view.
 
-Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. 
+Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
 
 ## AC-aware blast radius
 
