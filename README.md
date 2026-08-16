@@ -87,8 +87,9 @@ source code → Tree-sitter → graph.json → symbols and static dependents
 ```
 
 Explicit blast-radius analysis starts from the supplied locators. A Git-base comparison instead
-seeds every symbol in changed files plus the endpoints of changed edges. Both follow static
-dependents, then perform the authored locator-to-AC join. Cycles, external dependencies,
+seeds every symbol in changed files plus the endpoints of changed edges. Both traverse static
+edges in the selected direction—dependents by default, or dependencies when requested—then
+perform the authored locator-to-AC join. Cycles, external dependencies,
 ambiguity, and traversal limits remain visible. The result is a bounded impact signal, not a
 runtime call graph or a guarantee of breakage.
 
