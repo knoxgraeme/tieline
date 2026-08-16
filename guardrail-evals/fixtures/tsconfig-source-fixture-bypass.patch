@@ -1,0 +1,7 @@
+diff --git a/src/fixtures/tsconfig.json b/src/fixtures/tsconfig.json
+deleted file mode 100644
+index 1111111..0000000
+--- a/src/fixtures/tsconfig.json
++++ /dev/null
+@@ -1 +0,0 @@
+-{"compilerOptions":{}}

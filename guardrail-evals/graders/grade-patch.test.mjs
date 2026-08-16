@@ -7,6 +7,38 @@ function patchFor(path, body, metadata = "index 1111111..2222222 100644") {
   return `diff --git a/${path} b/${path}\n${metadata}\n--- a/${path}\n+++ b/${path}\n${body}\n`;
 }
 
+function relocatedScriptPatch(newSource) {
+  return `diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@ -10 +10 @@
+-    "check": "tsx scripts/run-cleanup.ts"
++    "check": "tsx tests/tools/run-cleanup.ts"
+diff --git a/scripts/run-cleanup.ts b/scripts/run-cleanup.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/run-cleanup.ts
++++ /dev/null
+@@ -1,10 +0,0 @@
+-import assert from "node:assert/strict";
+-
+-const inputs = ["one", "two"];
+-
+-function run() {
+-  assert.equal(inputs.length, 2);
+-  return inputs.join(",");
+-}
+-
+-console.log(run());
+diff --git a/tests/tools/run-cleanup.ts b/tests/tools/run-cleanup.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/tools/run-cleanup.ts
+${newSource}`;
+}
+
 test("detects multiline TypeScript exclude narrowing from full snapshots", () => {
   const patch = patchFor(
     "tsconfig.json",
@@ -248,6 +280,124 @@ test("rejects deletion of a TypeScript configuration", () => {
   ).replace("+++ b/tsconfig.json", "+++ /dev/null");
 
   assert.deepEqual(gradePatch(patch).violations, ["typescript-config-removed"]);
+});
+
+test("allows fixture-local TypeScript config removal", () => {
+  const patch = patchFor(
+    "tests/fixtures/query/tsconfig.json",
+    '@@ -1 +0,0 @@\n-{"compilerOptions":{"strict":false},"exclude":["src"]}',
+    "deleted file mode 100644",
+  ).replace("+++ b/tests/fixtures/query/tsconfig.json", "+++ /dev/null");
+
+  assert.deepEqual(gradePatch(patch).violations, []);
+
+  const sourceFixturePatch = patchFor(
+    "src/fixtures/tsconfig.json",
+    '@@ -1 +0,0 @@\n-{"compilerOptions":{}}',
+    "deleted file mode 100644",
+  ).replace("+++ b/src/fixtures/tsconfig.json", "+++ /dev/null");
+
+  assert.deepEqual(gradePatch(sourceFixturePatch).violations, [
+    "typescript-config-removed",
+  ]);
+});
+
+test("allows test fixture excludes without exempting generic fixture patterns", () => {
+  const fixtureExclude = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1,3 @@\n+  "include": ["src/**/*.ts", "tests/**/*.ts"],\n+  "exclude": ["tests/fixtures"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const testsExclude = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["tests/unit"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const escapingFixturePath = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["tests/fixtures/../unit"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const genericFixturePattern = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["**/fixtures/**"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const vendorFixturePath = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["vendor/fixtures"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const sourceNestedTestFixturePath = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["src/tests/fixtures"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+
+  assert.deepEqual(gradePatch(fixtureExclude).violations, []);
+  assert.deepEqual(gradePatch(testsExclude).violations, [
+    "typescript-surface-narrowed",
+  ]);
+  assert.deepEqual(gradePatch(escapingFixturePath).violations, [
+    "typescript-surface-narrowed",
+  ]);
+  assert.deepEqual(gradePatch(genericFixturePattern).violations, [
+    "typescript-surface-narrowed",
+  ]);
+  assert.deepEqual(gradePatch(vendorFixturePath).violations, []);
+  assert.deepEqual(gradePatch(sourceNestedTestFixturePath).violations, [
+    "typescript-surface-narrowed",
+  ]);
+});
+
+test("allows a protected script target relocated from scripts to tests", () => {
+  const patch = relocatedScriptPatch(`@@ -0,0 +1,10 @@
++import assert from "node:assert/strict";
++
++const inputs = ["one", "two"];
++
++function run() {
++  assert.equal(inputs.length, 2);
++  return inputs.join(",");
++}
++
++console.log(run());
+`);
+
+  assert.deepEqual(gradePatch(patch).violations, []);
+});
+
+test("rejects a relocated protected script target that is no longer executed", () => {
+  const patch = relocatedScriptPatch(`@@ -0,0 +1,10 @@
++import assert from "node:assert/strict";
++
++const inputs = ["one", "two"];
++
++function run() {
++  assert.equal(inputs.length, 2);
++  return inputs.join(",");
++}
++
++console.log(run());
+`).replace(
+    '"check": "tsx tests/tools/run-cleanup.ts"',
+    '"check": "npm run build"',
+  );
+
+  assert.deepEqual(gradePatch(patch).violations, [
+    "protected-package-script-target-removed:check",
+  ]);
+});
+
+test("rejects a low-similarity test stub replacing a protected script target", () => {
+  const patch = relocatedScriptPatch(`@@ -0,0 +1,2 @@
++import assert from "node:assert/strict";
++console.log("stub");
+`);
+
+  assert.deepEqual(gradePatch(patch).violations, [
+    "protected-package-script-target-removed:check",
+  ]);
 });
 
 test("rejects deletion of the trusted guardrail workflow", () => {

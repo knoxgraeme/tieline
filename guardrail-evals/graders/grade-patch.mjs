@@ -40,6 +40,15 @@ const TYPESCRIPT_RATCHET_OPTIONS = [
 ];
 
 const TYPESCRIPT_COVERAGE_ROOTS = ["src", "scripts", "test", "tests", "__tests__"];
+const TEST_OR_TOOLING_COVERAGE_ROOTS = new Set([
+  "scripts",
+  "test",
+  "tests",
+  "__tests__",
+]);
+const MAX_RELOCATION_SOURCE_LINES = 20_000;
+const MAX_RELOCATION_LOOKAHEAD = 64;
+const MIN_RELOCATION_SIMILARITY = 0.8;
 
 const SOURCE_EXTENSIONS = new Set([
   ".cjs",
@@ -75,6 +84,13 @@ function isProtectedGuardrailImplementation(pathname) {
 
 export function isTypeScriptConfigPath(pathname) {
   return /^tsconfig(?:\.[^/]+)?\.json$/.test(path.basename(pathname));
+}
+
+function isFixtureTypeScriptConfigPath(pathname) {
+  return (
+    isTypeScriptConfigPath(pathname) &&
+    isTestOrToolingFixturePath(pathname)
+  );
 }
 
 export function parsePatch(patch) {
@@ -173,11 +189,45 @@ function parseJsonConfig(content) {
   }
 }
 
-function coverageRoots(values) {
+function isTestOrToolingFixturePath(value) {
+  const segments = path.posix
+    .normalize(value.replaceAll("\\", "/").replace(/^\.\//, ""))
+    .split("/");
+  const fixtureIndex = segments.indexOf("fixtures");
+  if (fixtureIndex <= 0) return false;
+  const coverageRoot = segments
+    .slice(0, fixtureIndex)
+    .find((segment) => TYPESCRIPT_COVERAGE_ROOTS.includes(segment));
+  return coverageRoot !== undefined && TEST_OR_TOOLING_COVERAGE_ROOTS.has(coverageRoot);
+}
+
+function isUnscopedFixturePath(value) {
+  const segments = path.posix
+    .normalize(value.replaceAll("\\", "/").replace(/^\.\//, ""))
+    .split("/");
+  const fixtureIndex = segments.indexOf("fixtures");
+  return (
+    fixtureIndex > 0 &&
+    segments
+      .slice(0, fixtureIndex)
+      .some((segment) => /[?*[]/.test(segment)) &&
+    !isTestOrToolingFixturePath(value)
+  );
+}
+
+function hasUnscopedFixturePath(values) {
+  return Array.isArray(values) &&
+    values.some(
+      (value) => typeof value === "string" && isUnscopedFixturePath(value),
+    );
+}
+
+function coverageRoots(values, { ignoreFixturePaths = false } = {}) {
   const roots = new Set();
   if (!Array.isArray(values)) return roots;
   for (const value of values) {
     if (typeof value !== "string") continue;
+    if (ignoreFixturePaths && isTestOrToolingFixturePath(value)) continue;
     const normalized = value.replace(/^\.\//, "");
     for (const root of TYPESCRIPT_COVERAGE_ROOTS) {
       if (new RegExp(`(?:^|/)${root}(?:/|$|[*])`).test(normalized)) roots.add(root);
@@ -230,9 +280,31 @@ function changedConfigArrayRoots(lines, property) {
         // Ignore malformed partial JSON and retain the existing line-level checks.
       }
     }
-    for (const root of coverageRoots(values)) roots.add(root);
+    for (
+      const root of coverageRoots(values, {
+        ignoreFixturePaths: property === "exclude",
+      })
+    ) {
+      roots.add(root);
+    }
   }
   return roots;
+}
+
+function changedConfigArrayHasUnscopedFixturePath(lines, property) {
+  const pattern = new RegExp(`"${property}"\\s*:\\s*\\[([\\s\\S]*?)\\]`, "g");
+  for (const match of lines.join("\n").matchAll(pattern)) {
+    const values = [];
+    for (const stringMatch of match[1].matchAll(/"((?:\\.|[^"\\])*)"/g)) {
+      try {
+        values.push(JSON.parse(`"${stringMatch[1]}"`));
+      } catch {
+        // Ignore malformed partial JSON and retain the existing line-level checks.
+      }
+    }
+    if (hasUnscopedFixturePath(values)) return true;
+  }
+  return false;
 }
 
 function fullConfigNarrowsSurface(contents) {
@@ -242,8 +314,15 @@ function fullConfigNarrowsSurface(contents) {
 
   const beforeIncludes = normalizedPatterns(before.include);
   const afterIncludes = normalizedPatterns(after.include);
-  const beforeExcludes = coverageRoots(before.exclude);
-  const afterExcludes = coverageRoots(after.exclude);
+  const beforeExcludes = coverageRoots(before.exclude, {
+    ignoreFixturePaths: true,
+  });
+  const afterExcludes = coverageRoots(after.exclude, {
+    ignoreFixturePaths: true,
+  });
+  const unscopedFixtureExcluded =
+    hasUnscopedFixturePath(after.exclude) &&
+    !hasUnscopedFixturePath(before.exclude);
 
   const includesNarrowed =
     (!Array.isArray(before.include) && Array.isArray(after.include)) ||
@@ -256,6 +335,7 @@ function fullConfigNarrowsSurface(contents) {
 
   return (
     includesNarrowed ||
+    unscopedFixtureExcluded ||
     [...afterExcludes].some((root) => !beforeExcludes.has(root))
   );
 }
@@ -345,6 +425,88 @@ function resolvedVerificationTargets(command, scripts, seen = new Set()) {
   return resolved;
 }
 
+function isDeletedScriptFile(file, target) {
+  return (
+    file.isDeleted &&
+    file.oldPath === target &&
+    /^scripts\/.+/.test(file.oldPath)
+  );
+}
+
+function isAddedTestFile(file, basename) {
+  return (
+    file.isNew &&
+    /^tests\/.+/.test(file.path) &&
+    path.posix.basename(file.path) === basename
+  );
+}
+
+function orderedSourceSimilarity(deleted, added) {
+  if (
+    deleted.length === 0 ||
+    added.length === 0 ||
+    deleted.length > MAX_RELOCATION_SOURCE_LINES ||
+    added.length > MAX_RELOCATION_SOURCE_LINES
+  ) {
+    return 0;
+  }
+
+  let deletedIndex = 0;
+  let addedIndex = 0;
+  let matches = 0;
+  while (deletedIndex < deleted.length && addedIndex < added.length) {
+    if (deleted[deletedIndex] === added[addedIndex]) {
+      matches += 1;
+      deletedIndex += 1;
+      addedIndex += 1;
+      continue;
+    }
+
+    let resynchronized = false;
+    for (let offset = 1; offset <= MAX_RELOCATION_LOOKAHEAD; offset += 1) {
+      if (
+        deletedIndex + offset < deleted.length &&
+        deleted[deletedIndex + offset] === added[addedIndex]
+      ) {
+        deletedIndex += offset;
+        resynchronized = true;
+        break;
+      }
+      if (
+        addedIndex + offset < added.length &&
+        deleted[deletedIndex] === added[addedIndex + offset]
+      ) {
+        addedIndex += offset;
+        resynchronized = true;
+        break;
+      }
+    }
+    if (!resynchronized) {
+      deletedIndex += 1;
+      addedIndex += 1;
+    }
+  }
+
+  return matches / Math.max(deleted.length, added.length);
+}
+
+function isRelocatedScriptTarget(target, files, newTargets) {
+  if (!target.startsWith("script:")) return false;
+
+  const oldTarget = target.slice("script:".length);
+  const oldFile = files.find((file) => isDeletedScriptFile(file, oldTarget));
+  if (!oldFile) return false;
+
+  const basename = path.posix.basename(oldTarget);
+  return files.some(
+    (file) =>
+      isAddedTestFile(file, basename) &&
+      newTargets.has(`script:${file.path}`) &&
+      orderedSourceSimilarity(oldFile.deleted, file.added) >=
+        MIN_RELOCATION_SIMILARITY,
+  );
+}
+
 function gradeSource(files, violations) {
   for (const file of files.filter((entry) => isSourceFile(entry.path))) {
     for (const line of file.added) {
@@ -371,7 +533,9 @@ function gradeSource(files, violations) {
 
 function gradeTypeScriptConfig(files, violations, fileContents) {
   for (const file of files) {
-    const oldConfig = isTypeScriptConfigPath(file.oldPath);
+    const oldConfig =
+      isTypeScriptConfigPath(file.oldPath) &&
+      !isFixtureTypeScriptConfigPath(file.oldPath);
     if (oldConfig && file.isDeleted) {
       violations.add("typescript-config-removed");
     } else if (oldConfig && file.oldPath !== file.path) {
@@ -379,7 +543,11 @@ function gradeTypeScriptConfig(files, violations, fileContents) {
     }
   }
 
-  for (const file of files.filter((entry) => isTypeScriptConfigPath(entry.path))) {
+  for (const file of files.filter(
+    (entry) =>
+      isTypeScriptConfigPath(entry.path) &&
+      !isFixtureTypeScriptConfigPath(entry.path),
+  )) {
     for (const option of TYPESCRIPT_RATCHET_OPTIONS) {
       const truePattern = new RegExp(`^\\s*"${option}"\\s*:\\s*true(?:\\s*[,}]|\\s*$)`);
       const falsePattern = new RegExp(`^\\s*"${option}"\\s*:\\s*false(?:\\s*[,}]|\\s*$)`);
@@ -394,15 +562,30 @@ function gradeTypeScriptConfig(files, violations, fileContents) {
       }
     }
 
-    const narrowedByExclude = file.added.some(
-      (line) =>
-        /"exclude"\s*:/.test(line) &&
-        /(?:src|scripts|tests?|__tests__)/.test(line),
-    );
+    const narrowedByExclude = file.added.some((line) => {
+      if (!/"exclude"\s*:/.test(line)) return false;
+      const values = [...line.matchAll(/"((?:\\.|[^"\\])*)"/g)].flatMap(
+        (match) => {
+          try {
+            return [JSON.parse(`"${match[1]}"`)];
+          } catch {
+            return [];
+          }
+        },
+      );
+      return (
+        coverageRoots(values, { ignoreFixturePaths: true }).size > 0 ||
+        hasUnscopedFixturePath(values)
+      );
+    });
     const coverageNames = TYPESCRIPT_COVERAGE_ROOTS;
     const deletedIncludes = file.deleted.filter((line) => /"include"\s*:/.test(line));
     const addedIncludes = file.added.filter((line) => /"include"\s*:/.test(line));
     const addedExcludeRoots = changedConfigArrayRoots(file.added, "exclude");
+    const addedUnscopedFixtureExclude = changedConfigArrayHasUnscopedFixturePath(
+      file.added,
+      "exclude",
+    );
     const deletedIncludeRoots = changedConfigArrayRoots(file.deleted, "include");
     const addedIncludeRoots = changedConfigArrayRoots(file.added, "include");
     const narrowedByInclude = coverageNames.some(
@@ -414,6 +597,7 @@ function gradeTypeScriptConfig(files, violations, fileContents) {
     if (
       narrowedByExclude ||
       addedExcludeRoots.size > 0 ||
+      addedUnscopedFixtureExclude ||
       narrowedByInclude ||
       fullConfigNarrowsSurface(fileContents?.get(file.path))
     ) {
@@ -552,7 +736,10 @@ function gradePackageScripts(files, violations) {
     const oldTargets = resolvedVerificationTargets(oldCommand, before, new Set([name]));
     const newTargets = resolvedVerificationTargets(newCommand, after, new Set([name]));
     for (const target of oldTargets) {
-      if (!newTargets.has(target)) {
+      if (
+        !newTargets.has(target) &&
+        !isRelocatedScriptTarget(target, files, newTargets)
+      ) {
         violations.add(`protected-package-script-target-removed:${name}`);
       }
     }
