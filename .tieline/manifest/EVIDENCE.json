@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "603c8337d00a8c6aa828979f50c5fcc4397d17b58c2bae2e646bed94fa1b4190",
+                "reviewed_content_hash": "4190e821c670edbddc607cd4a0ce55fb8f2a130d2f4592b16042bd4b04a5b7bd",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/observations.ts",
@@ -163,13 +163,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "5965bbcbbfddf1f8db081c0c037be4fb84b4b9400ef28debb9d80ec179ce9075",
+            "contract_hash": "712fce452757ad7ffb08e9da43315246bf191e76ebf8bf75dff6eed6df2eb3e0",
             "criterion": "Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ad017180e7b563fd83184b5a52e13100fc0cafaea2775fc49627aaf7722c2e2",
+                "reviewed_content_hash": "1c4c709ceb8d6181a233949a92a2f1eb906d4cbacb03cdd9a6d34262fbc4f0dd",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/help-repository.ts",
@@ -199,7 +199,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7a1704bdea68bdda8ee5749630fdf3d423a752a749157bf74633ece4837bb18a",
+                "reviewed_content_hash": "f135958db62e2576692b3000d7af68d93b0d6df377a347d83d3b11a6db802518",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/find-help.ts",
@@ -209,10 +209,10 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "741227ce2f0875a4fcce49899819335e7aa48684d02aabbad298b7fe1ac9f280",
+                "reviewed_content_hash": "19dfe548cc783845bc5ff466539e7c5a63e7bf1a6414cdcd21a0958d3da82778",
                 "target": {
                   "kind": "code",
-                  "path": "src/tools/get-help-article.ts",
+                  "path": "src/tools/get-help-articles.ts",
                   "repository": "tieline"
                 }
               },
@@ -254,6 +254,6 @@
   },
   "input": {
     "path": ".tieline/spec/evidence.yaml",
-    "sha256": "0c9f1fb15ffa1af20a4d3da1ff5d0a76f26f02fa778034400613a2ca21b6b730"
+    "sha256": "65351823685c823d3eedff0c5a024ece7f0c02aa0dd2835d1d401aa74190576f"
   }
 }
