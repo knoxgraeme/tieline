@@ -145,9 +145,10 @@ while `unresolved`, `not_checked`, broken causes, and unknown states remain
 explicit. `not_assessed` is not semantic proof, and a linked test is an evidence
 locator, not a claim that it ran or passed.
 
-Only use `find_related` or `search_knowledge` for discovery when the exact path,
-selector, or AC ID is unknown, or when the task explicitly needs broader
-semantic candidates.
+Only use `search_knowledge` for discovery when the exact path, selector, or AC
+ID is unknown, or when the task explicitly needs broader semantic or help
+candidates. Hydrate selected help results with `get_help_articles` only when
+their full bodies or links are needed.
 
 ## Trace derived code relationships when needed
 
@@ -198,7 +199,7 @@ merge-only publisher must own that boundary when hosted publication is enabled.
    continuing discovery.
 3. If semantic matching is unavailable, continue with the local search and
    state that org-wide duplicate checking was not performed. Otherwise call
-   `find_related` with `profile=discovery` and the intended behavior.
+   `search_knowledge` with `profile=discovery` and the intended behavior.
 4. Prefer, in order: reuse the existing record; add an alias; update or
    supersede the existing record; create a new stable ID.
 5. Never treat a semantic score as confirmation. Present credible matches and

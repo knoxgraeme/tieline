@@ -17,9 +17,9 @@ import {
   type ToolResult,
 } from "./shared.js";
 
-const DESCRIPTION = `Find semantically related business context at Story, AC, Scenario, Backlog Item, or Observation level.
+const DESCRIPTION = `Deprecated: use search_knowledge, which exposes the same retrieval pipeline with versioned profiles, typed context, richer filters, and help discovery.
 
-The selected retrieval profile applies authority and lifecycle predicates before ranking. Optional filters can only narrow that profile. Results identify the matched level and Story/AC ancestry; lifecycle and authority are returned as state metadata and never embedded as semantic prose.`;
+This compatibility tool finds semantically related business context at Story, AC, Scenario, Backlog Item, or Observation level. The selected retrieval profile applies authority and lifecycle predicates before ranking. Optional filters can only narrow that profile.`;
 
 export function registerFindRelated(server: McpServer): void {
   server.registerTool(

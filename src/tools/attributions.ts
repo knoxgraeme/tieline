@@ -31,6 +31,9 @@ export function registerAttributionTools(server: McpServer): void {
           .optional(),
         limit: z.number().int().min(1).max(200).default(50),
       },
+      outputSchema: {
+        suggestions: z.array(z.record(z.unknown())),
+      },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -50,7 +53,7 @@ export function registerAttributionTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "decide_attribution_suggestion",
+    "review_semantic_suggestion",
     {
       title: "Confirm or dismiss an attribution suggestion",
       description:
@@ -58,6 +61,9 @@ export function registerAttributionTools(server: McpServer): void {
       inputSchema: {
         suggestion_id: z.string().uuid(),
         decision: z.enum(["confirmed", "dismissed"]),
+      },
+      outputSchema: {
+        suggestion: z.record(z.unknown()),
       },
       annotations: {
         readOnlyHint: false,

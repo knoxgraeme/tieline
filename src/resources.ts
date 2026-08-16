@@ -27,10 +27,10 @@ change and pull request.
 - \`search_knowledge\` performs cross-type hybrid search and requires a retrieval
   profile: \`support\`, \`engineering\`, \`discovery\`, or \`all\`. Full-text
   and identifier recall are always available; vector similarity is optional.
-  Its typed context accepts an Observation, Backlog Item, Story, or AC anchor
+  It is the canonical discovery tool for Stories, ACs, Scenarios, Backlog Items,
+  sanitized Observations, and ingested help articles. Its typed context accepts
+  an Observation, Backlog Item, Story, AC, or help article anchor
   and code, test, or help artifacts.
-- \`find_related\` is the shorter semantic discovery entry point and returns
-  the applied query scope version.
 - \`query_stories\` is an exact Story/AC lookup with authority and lifecycle filters.
 - \`get_asset_intent_context\` reads the exact manifest-backed intent neighborhood
   and contract coupling for a known path, optional code/test kind, and optional
@@ -56,8 +56,9 @@ change and pull request.
   Observation/Story/AC link set before an update replaces state.
 - \`list_handoff_conflicts\` returns the merged repository definition alongside
   later planning content for explicit reconciliation.
-- \`find_help\` and \`get_help_article\` search/fetch external help content by its
-  stable source + external_id pointer.
+- \`get_help_articles\` hydrates up to ten help results by their exact stable
+  source + external_id pointers. \`find_related\` and \`find_help\` are deprecated
+  compatibility tools; new clients should discover through \`search_knowledge\`.
 
 Explicit filters only narrow a profile; they cannot re-include records the profile
 excluded. Context reranks that same authorized candidate set using artifact
@@ -72,7 +73,8 @@ were applied, their ranking features, and concise match reasons.
 
 1. \`record_observation\` commits a request, bug, or question before matching.
 2. Review the returned suggestions; semantic similarity never confirms a link.
-3. Use \`decide_attribution\` or the suggestion decision tools to confirm/dismiss.
+3. Use \`set_observation_attribution\` or \`review_semantic_suggestion\` to
+   confirm or dismiss the appropriate relationship.
 4. Create a Backlog Item only when work consolidation is useful.
 5. Read a Backlog Item before updating it or replacing its links; preserve links
    that were not explicitly removed.

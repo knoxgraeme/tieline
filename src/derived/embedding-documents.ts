@@ -12,12 +12,24 @@ import type {
 
 export const EMBEDDING_DOCUMENT_VERSION = "contract-v1";
 
+export const EMBEDDING_DOCUMENT_KINDS = [
+  "story",
+  "acceptance_criterion",
+  "scenario",
+  "backlog_item",
+  "observation",
+] as const;
+
 export type EmbeddingDocumentKind =
-  | "story"
-  | "acceptance_criterion"
-  | "scenario"
-  | "backlog_item"
-  | "observation";
+  (typeof EMBEDDING_DOCUMENT_KINDS)[number];
+
+const embeddingDocumentKindSet = new Set<string>(EMBEDDING_DOCUMENT_KINDS);
+
+export function isEmbeddingDocumentKind(
+  value: string
+): value is EmbeddingDocumentKind {
+  return embeddingDocumentKindSet.has(value);
+}
 
 export interface DerivedEmbeddingDocument {
   entity_kind: EmbeddingDocumentKind;

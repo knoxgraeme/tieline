@@ -34,6 +34,7 @@ const profileDefinitionSchema = z
           "scenario",
           "backlog_item",
           "observation",
+          "help_article",
         ])
       )
       .min(1)

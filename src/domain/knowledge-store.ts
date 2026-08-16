@@ -4,6 +4,7 @@ import type { BacklogReadStore } from "./evidence-write-store.js";
 import type { PlanningContractWriteStore } from "./planning-contract-write-store.js";
 import type {
   AttributionSuggestionRecord,
+  SemanticSearchContext,
   SemanticSearchStore,
 } from "./semantic-search-store.js";
 import type { EmbeddingDocumentKind } from "../derived/embedding-documents.js";
@@ -39,10 +40,12 @@ export interface HelpArticleRecord extends HelpArticleRef {
 }
 
 export interface HelpSearchHit extends HelpArticleRef {
+  id: string;
   title: string | null;
   url: string | null;
   summary: string | null;
   lexical_score: number;
+  graph_proximity: number;
   linked_story_count: number;
   linked_acceptance_criterion_count: number;
 }
@@ -51,6 +54,11 @@ export interface HelpReadStore {
   searchHelpArticles(input: {
     query: string;
     sources?: string[];
+    authorities?: ContractAuthority[];
+    lifecycles?: StoryLifecycle[];
+    repositories?: string[];
+    include_inactive?: boolean;
+    context?: SemanticSearchContext;
     limit: number;
   }): Promise<HelpSearchHit[]>;
   getHelpArticles(

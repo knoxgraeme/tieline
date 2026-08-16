@@ -6,6 +6,21 @@ import {
   assertMigrationHistory,
   readPackagedMigrations,
 } from "../src/commands/migrate.js";
+import { hasLinkedHelpFilters } from "../src/adapters/postgres/help-repository.js";
+
+assert.equal(
+  hasLinkedHelpFilters({ include_inactive: false }),
+  false,
+  "unscoped help discovery must include articles without contract links"
+);
+assert.equal(
+  hasLinkedHelpFilters({ include_inactive: true }),
+  false,
+  "include_inactive is intentionally not a linked-record constraint"
+);
+assert.equal(hasLinkedHelpFilters({ authorities: ["repository"] }), true);
+assert.equal(hasLinkedHelpFilters({ lifecycles: ["production"] }), true);
+assert.equal(hasLinkedHelpFilters({ repositories: ["tieline"] }), true);
 
 const migrations = readdirSync(resolve("migrations"))
   .filter((file) => file.endsWith(".sql"))
@@ -15,10 +30,11 @@ assert.deepEqual(migrations, [
   "0001_baseline.sql",
   "0002_code_topology.sql",
   "0003_sql_topology_language.sql",
+  "0004_help_article_discovery.sql",
 ]);
 assert.deepEqual(
   migrations.map((filename) => Number(filename.slice(0, 4))),
-  [1, 2, 3],
+  [1, 2, 3, 4],
   "packaged migrations must remain a contiguous ordered sequence"
 );
 
@@ -124,6 +140,21 @@ assert.match(
   sqlTopologyLanguageSql,
   /drop\s+constraint\s+code_topology_files_language_check[\s\S]+add\s+constraint\s+code_topology_files_language_check[\s\S]+language\s+in\s*\([^)]*'sql'/i,
   "the forward migration must extend the existing topology language constraint to SQL"
+);
+
+const helpArticleDiscoverySql = readFileSync(
+  resolve("migrations/0004_help_article_discovery.sql"),
+  "utf8"
+);
+assert.match(helpArticleDiscoverySql, /help_article/);
+assert.match(helpArticleDiscoverySql, /migration-0004/);
+assert.match(helpArticleDiscoverySql, /help_articles_search/);
+assert.match(helpArticleDiscoverySql, /story_help_articles_article/);
+assert.match(helpArticleDiscoverySql, /criterion_help_articles_article/);
+assert.match(
+  helpArticleDiscoverySql,
+  /pg_advisory_xact_lock\s*\(\s*hashtext\s*\(\s*'tieline-profile:'\s*\|\|\s*profile_key\s*\)\s*\)[\s\S]+order\s+by\s+profile_key/i,
+  "built-in profile upgrades must take publisher-compatible locks in deterministic order"
 );
 
 const packaged = readPackagedMigrations();

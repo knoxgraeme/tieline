@@ -279,6 +279,11 @@ export class FakeKnowledgeStore implements KnowledgeStore {
   searchHelpArticles(_input: {
     query: string;
     sources?: string[];
+    authorities?: ContractAuthority[];
+    lifecycles?: StoryLifecycle[];
+    repositories?: string[];
+    include_inactive?: boolean;
+    context?: SemanticSearchContext;
     limit: number;
   }): Promise<HelpSearchHit[]> {
     return Promise.reject(unconfigured("searchHelpArticles"));

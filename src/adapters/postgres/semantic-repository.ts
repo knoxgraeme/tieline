@@ -2,6 +2,7 @@ import type { Sql } from "postgres";
 import { config } from "../../config.js";
 import {
   EMBEDDING_DOCUMENT_VERSION,
+  isEmbeddingDocumentKind,
   type DerivedEmbeddingDocument,
   type EmbeddingDocumentKind,
 } from "../../derived/embedding-documents.js";
@@ -76,7 +77,7 @@ export function narrowSemanticFilters(
       requested.backlog_stages
     ),
     document_kinds: arrayIntersection(
-      profile.include,
+      profile.include?.filter(isEmbeddingDocumentKind),
       requested.document_kinds
     ),
     repositories: requested.repositories,
@@ -217,8 +218,12 @@ export class PostgresSemanticRepository
         )`
       );
     }
-    if (filters.document_kinds?.length) {
-      conditions.push(sql`ed.document_kind = any(${filters.document_kinds})`);
+    if (filters.document_kinds !== undefined) {
+      conditions.push(
+        filters.document_kinds.length > 0
+          ? sql`ed.document_kind = any(${filters.document_kinds})`
+          : sql`false`
+      );
     }
     if (filters.repositories?.length) {
       conditions.push(

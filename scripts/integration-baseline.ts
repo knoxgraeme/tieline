@@ -202,7 +202,7 @@ const migrationPreflight = (await runDatabasePreflight({ DATABASE_URL_ADMIN: adm
 assert.deepEqual(migrationPreflight, {
   key: "migrations",
   status: "pass",
-  message: "All 3 migrations are applied with matching checksums.",
+  message: "All 4 migrations are applied with matching checksums.",
 });
 
 const sql = postgres(adminUrl, { max: 1, prepare: false });
@@ -273,15 +273,40 @@ try {
   assert.equal(privileges.sync_promote_execute, true);
   assert.equal(privileges.sync_gc_execute, false);
 
-  const profiles = await sql<{ profile_key: string; version: number }[]>`
-    select profile_key, version
-    from retrieval_profiles
-    where active
-    order by profile_key`;
+  type ProfileDefinition = Record<string, unknown> & { include: string[] };
+  const profiles = await sql<
+    Array<{
+      profile_key: string;
+      version: number;
+      definition: ProfileDefinition;
+      baseline_definition: ProfileDefinition;
+    }>
+  >`
+    select active.profile_key, active.version, active.definition,
+           baseline.definition as baseline_definition
+    from retrieval_profiles active
+    join retrieval_profiles baseline
+      on baseline.profile_key = active.profile_key
+     and baseline.version = 1
+    where active.active
+      and active.profile_key in ('support', 'engineering', 'discovery', 'all')
+    order by active.profile_key`;
   assert.deepEqual(
     profiles.map((row) => `${row.profile_key}:${row.version}`),
-    ["all:1", "discovery:1", "engineering:1", "support:1"]
+    ["all:2", "discovery:2", "engineering:2", "support:2"]
   );
+  for (const profile of profiles) {
+    assert.deepEqual(profile.definition, {
+      ...profile.baseline_definition,
+      include: [...profile.baseline_definition.include, "help_article"],
+    });
+    assert.equal(
+      profile.definition.include.filter((kind) => kind === "help_article")
+        .length,
+      1,
+      `${profile.profile_key} must include help_article exactly once`
+    );
+  }
   const profileRepository = new PostgresProfileRepository(
     () => sql,
     () => sql
@@ -295,7 +320,7 @@ try {
     },
     created_by: "integration",
   });
-  assert.equal(published.version, 2);
+  assert.equal(published.version, 3);
   const supportVersions = (await profileRepository.listProfiles()).filter(
     (profile) => profile.key === "support"
   );
@@ -305,7 +330,8 @@ try {
       active: profile.active,
     })),
     [
-      { version: 2, active: true },
+      { version: 3, active: true },
+      { version: 2, active: false },
       { version: 1, active: false },
     ]
   );

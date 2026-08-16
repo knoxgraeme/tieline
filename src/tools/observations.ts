@@ -77,7 +77,7 @@ export function registerObservationTools(server: McpServer): void {
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
-        idempotentHint: true,
+        idempotentHint: false,
         openWorldHint: false,
       },
     },
@@ -96,7 +96,7 @@ export function registerObservationTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "decide_attribution",
+    "set_observation_attribution",
     {
       title: "Confirm or dismiss an observation attribution",
       description:

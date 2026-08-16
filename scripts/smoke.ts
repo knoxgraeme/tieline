@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { FakeKnowledgeStore } from "../src/domain/testing/fake-knowledge-store.js";
+import type { ResolvedRetrievalProfile } from "../src/domain/semantic-search-store.js";
 import { setEmbedder } from "../src/embeddings.js";
 import { createServer } from "../src/server.js";
 import { setStore } from "../src/store.js";
@@ -26,21 +27,21 @@ try {
     "analyze_code_blast_radius",
     "create_backlog_item",
     "create_planning_story",
-    "decide_attribution",
-    "decide_attribution_suggestion",
     "find_help",
     "find_related",
     "get_acceptance_criterion_context",
     "get_asset_intent_context",
     "get_backlog_item",
-    "get_help_article",
+    "get_help_articles",
     "get_path_criteria",
     "list_attribution_suggestions",
     "list_handoff_conflicts",
     "query_stories",
     "record_observation",
+    "review_semantic_suggestion",
     "search_knowledge",
     "set_backlog_item_links",
+    "set_observation_attribution",
     "trace_code_dependencies",
     "update_backlog_item",
     "update_planning_story",
@@ -52,7 +53,7 @@ try {
     "get_acceptance_criterion_context",
     "get_asset_intent_context",
     "get_backlog_item",
-    "get_help_article",
+    "get_help_articles",
     "get_path_criteria",
     "list_attribution_suggestions",
     "list_handoff_conflicts",
@@ -71,6 +72,18 @@ try {
       .every((tool) => tool.annotations?.readOnlyHint === false)
   );
   assert.ok(tools.tools.every((tool) => tool.inputSchema));
+  assert.ok(tools.tools.every((tool) => tool.outputSchema));
+  assert.equal(
+    tools.tools.find((tool) => tool.name === "record_observation")
+      ?.annotations?.idempotentHint,
+    false
+  );
+  for (const name of ["find_related", "find_help"]) {
+    assert.match(
+      tools.tools.find((tool) => tool.name === name)?.description ?? "",
+      /deprecated.*search_knowledge/i
+    );
+  }
   for (const name of [
     "get_asset_intent_context",
     "get_acceptance_criterion_context",
@@ -206,25 +219,42 @@ try {
 }
 
 let capturedSearchContext: unknown;
+let capturedHelpSearch: unknown;
+let semanticSearchCalls = 0;
 setEmbedder({
   provider: "local",
   dim: 384,
   async embed() {
+    await new Promise<void>((resolve) => setImmediate(resolve));
     throw new Error("embedding provider unavailable");
   },
 });
 class ContextualSearchStore extends FakeKnowledgeStore {
-  override async resolveRetrievalProfile(profile: string) {
+  override async resolveRetrievalProfile(
+    profile: string
+  ): Promise<ResolvedRetrievalProfile> {
+    const include =
+      profile === "help-only"
+        ? (["help_article"] as const)
+        : profile === "excluded-help"
+          ? (["acceptance_criterion"] as const)
+          : (["acceptance_criterion", "help_article"] as const);
     return {
       key: profile,
       version: 1,
-      definition: { include: ["acceptance_criterion"] },
+      definition: {
+        include: [...include],
+        authorities: ["repository"],
+        lifecycles: ["in_progress", "production"],
+        include_inactive: false,
+      },
     };
   }
 
   override async searchSemantic(
     input: Parameters<FakeKnowledgeStore["searchSemantic"]>[0]
   ) {
+    semanticSearchCalls += 1;
     capturedSearchContext = input.context;
     return [
       {
@@ -252,6 +282,29 @@ class ContextualSearchStore extends FakeKnowledgeStore {
           coverage: "direct",
           freshness: "current",
         },
+      },
+    ];
+  }
+
+  override async searchHelpArticles(
+    input: Parameters<FakeKnowledgeStore["searchHelpArticles"]>[0]
+  ) {
+    capturedHelpSearch = input;
+    if (input.query.includes("reject help")) {
+      throw new Error("help search unavailable");
+    }
+    return [
+      {
+        id: "00000000-0000-4000-8000-000000000020",
+        source: "intercom",
+        external_id: "retrieval-profiles",
+        title: "Choose a retrieval profile",
+        url: "https://help.example.test/retrieval-profiles",
+        summary: "How support and engineering retrieval differ.",
+        lexical_score: 0.7,
+        graph_proximity: 0.75,
+        linked_story_count: 1,
+        linked_acceptance_criterion_count: 2,
       },
     ];
   }
@@ -285,6 +338,10 @@ try {
     arguments: {
       query: "find behavior grounded by this observation",
       profile: "engineering",
+      authority: ["repository"],
+      lifecycle: ["production"],
+      repository: ["tieline"],
+      include_inactive: true,
       context,
     },
   })) as {
@@ -298,6 +355,16 @@ try {
     JSON.stringify(contextualSearch.content)
   );
   assert.deepEqual(capturedSearchContext, context);
+  assert.deepEqual(capturedHelpSearch, {
+    query: "find behavior grounded by this observation",
+    sources: undefined,
+    authorities: ["repository"],
+    lifecycles: ["production"],
+    repositories: ["tieline"],
+    include_inactive: false,
+    context,
+    limit: 40,
+  });
   const contextualResults = contextualSearch.structuredContent
     ?.results as Array<Record<string, unknown>>;
   assert.deepEqual(
@@ -317,6 +384,103 @@ try {
     repository: "tieline",
     stable_id: "SEARCH-001-AC1",
   });
+  const helpResult = contextualResults.find(
+    (result) => result.entity_kind === "help_article"
+  );
+  assert.equal(
+    (helpResult?.features as Record<string, unknown>)?.graph,
+    0.75
+  );
+  assert.deepEqual(helpResult?.context_anchor, {
+    kind: "help_article",
+    source: "intercom",
+    external_id: "retrieval-profiles",
+  });
+  assert.deepEqual(helpResult?.help_article, {
+    source: "intercom",
+    external_id: "retrieval-profiles",
+    title: "Choose a retrieval profile",
+    url: "https://help.example.test/retrieval-profiles",
+    summary: "How support and engineering retrieval differ.",
+    linked_story_count: 1,
+    linked_acceptance_criterion_count: 2,
+  });
+  const incompatibleHelpFilter = (await contextualClient.callTool({
+    name: "search_knowledge",
+    arguments: {
+      query: "find behavior grounded by this observation",
+      profile: "engineering",
+      document_kind: ["acceptance_criterion"],
+      help_source: ["intercom"],
+    },
+  })) as {
+    isError?: boolean;
+    content: Array<{ type: string; text: string }>;
+  };
+  assert.equal(incompatibleHelpFilter.isError, true);
+  assert.match(
+    incompatibleHelpFilter.content[0]?.text ?? "",
+    /help_source requires document_kind to include help_article/i
+  );
+
+  const searchesBeforeHelpOnly = semanticSearchCalls;
+  const helpOnlySearch = (await contextualClient.callTool({
+    name: "search_knowledge",
+    arguments: {
+      query: "find only help articles",
+      profile: "help-only",
+    },
+  })) as {
+    isError?: boolean;
+    content?: unknown;
+    structuredContent?: Record<string, unknown>;
+  };
+  assert.equal(
+    helpOnlySearch.isError,
+    undefined,
+    JSON.stringify(helpOnlySearch.content)
+  );
+  assert.equal(semanticSearchCalls, searchesBeforeHelpOnly);
+  assert.deepEqual(
+    (helpOnlySearch.structuredContent?.results as Array<Record<string, unknown>>)
+      .map((result) => result.entity_kind),
+    ["help_article"]
+  );
+
+  const helpSearchBeforeExcluded = capturedHelpSearch;
+  const excludedHelpSearch = (await contextualClient.callTool({
+    name: "search_knowledge",
+    arguments: {
+      query: "find excluded help articles",
+      profile: "excluded-help",
+      document_kind: ["help_article"],
+    },
+  })) as {
+    isError?: boolean;
+    content: Array<{ type: string; text: string }>;
+  };
+  assert.equal(excludedHelpSearch.isError, true);
+  assert.match(
+    excludedHelpSearch.content[0]?.text ?? "",
+    /document kind filter does not intersect/i
+  );
+  assert.equal(capturedHelpSearch, helpSearchBeforeExcluded);
+
+  const rejectedHelpSearch = (await contextualClient.callTool({
+    name: "search_knowledge",
+    arguments: {
+      query: "reject help immediately",
+      profile: "engineering",
+    },
+  })) as {
+    isError?: boolean;
+    content: Array<{ type: string; text: string }>;
+  };
+  assert.equal(rejectedHelpSearch.isError, true);
+  assert.match(
+    rejectedHelpSearch.content[0]?.text ?? "",
+    /help search unavailable/i
+  );
 } finally {
   await contextualClient.close();
   await contextualServer.close();

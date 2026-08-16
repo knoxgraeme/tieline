@@ -12,10 +12,9 @@ import {
   type ToolResult,
 } from "./shared.js";
 
-const DESCRIPTION = `Search ingested help content by words and phrases. Results use
-the stable source + external_id pointer carried by Story/AC links and report how
-many accepted/planning contract records reference each article. Use
-get_help_article to fetch selected full bodies.`;
+const DESCRIPTION = `Deprecated: use search_knowledge with document_kind=["help_article"]
+or help_source filters. This compatibility tool searches ingested help content by
+words and phrases. Use get_help_articles to hydrate selected full bodies.`;
 
 export function registerFindHelp(server: McpServer): void {
   server.registerTool(
@@ -34,11 +33,14 @@ export function registerFindHelp(server: McpServer): void {
     },
     async (input: FindHelpInput): Promise<ToolResult> => {
       try {
-        const results = await getReadStore().searchHelpArticles({
+        const hits = await getReadStore().searchHelpArticles({
           query: input.query,
           sources: input.source,
           limit: input.limit,
         });
+        const results = hits.map(
+          ({ id: _id, graph_proximity: _graphProximity, ...hit }) => hit
+        );
         return jsonResult({
           query: { source: input.source },
           results,
