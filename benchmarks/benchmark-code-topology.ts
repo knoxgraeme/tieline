@@ -124,8 +124,8 @@ async function timedBuild(input: {
       revision: input.revision,
       sourceRoots: [input.sourceRoot],
     });
-    assert.equal(result.status, "complete");
     if (result.status !== "complete") throw new Error(result.detail);
+    assert.equal(result.status, "complete");
     peakRssBytes = Math.max(peakRssBytes, process.memoryUsage().rss);
     return {
       generation: result.generation,
@@ -158,8 +158,8 @@ async function timedReadBuild(input: {
       revision: input.revision,
       sourceRoots: [input.sourceRoot],
     });
-    assert.equal(result.status, "complete");
     if (result.status !== "complete") throw new Error(result.detail);
+    assert.equal(result.status, "complete");
     peakRssBytes = Math.max(peakRssBytes, process.memoryUsage().rss);
     return {
       readModel: result.read_model,
@@ -196,11 +196,12 @@ async function populateWorkspaceCache(
 
 const repositoryRoot = mkdtempSync(join(tmpdir(), "tieline-topology-benchmark-"));
 const repository = "topology-release-fixture";
-const levels: Level[] = [
-  { name: "1x", fraction: 0.25, files: 0, bytes: 0, root: "scale-1/src" },
-  { name: "2x", fraction: 0.5, files: 0, bytes: 0, root: "scale-2/src" },
-  { name: "4x", fraction: 1, files: 0, bytes: 0, root: "scale-4/src" },
-].map((level) => ({
+const levelDefinitions: ReadonlyArray<Omit<Level, "files" | "bytes">> = [
+  { name: "1x", fraction: 0.25, root: "scale-1/src" },
+  { name: "2x", fraction: 0.5, root: "scale-2/src" },
+  { name: "4x", fraction: 1, root: "scale-4/src" },
+];
+const levels: Level[] = levelDefinitions.map((level): Level => ({
   ...level,
   files: Math.max(4, Math.round(FULL_FILES * requestedScale * level.fraction)),
   bytes: Math.max(64 * 1024, Math.round(FULL_BYTES * requestedScale * level.fraction)),
@@ -268,7 +269,7 @@ capability:
       rss_growth_bytes: measured.rss_growth_bytes,
     });
   }
-  global.gc();
+  global.gc?.();
   await new Promise((resolveWaiter) => setTimeout(resolveWaiter, 10));
   const baseCurrentRssBaseline = process.memoryUsage().rss;
   let base: TimedReadBuild | null = await timedReadBuild({
@@ -294,14 +295,14 @@ capability:
     elapsed_ms: baseElapsedMs,
     rss_growth_bytes: baseRssGrowthBytes,
   });
-  global.gc();
+  global.gc?.();
   await new Promise((resolveWaiter) => setTimeout(resolveWaiter, 10));
   const baseRetainedMemory = process.memoryUsage();
   assert.equal(base.readModel.files.length, full.files);
   assert.equal(base.readModel.symbols.length, full.files * SYMBOLS_PER_FILE);
   assert.equal(base.readModel.edges.length, full.files * EDGES_PER_FILE);
   base = null;
-  global.gc();
+  global.gc?.();
   await new Promise((resolveWaiter) => setTimeout(resolveWaiter, 10));
 
   const changedFile = join(repositoryRoot, full.root, "module-00000.ts");
@@ -321,7 +322,7 @@ capability:
   const currentPeakRssBytes = current.peakRssBytes;
   readStore.addReadModel(current.readModel);
   rolePeakRssBytes = Math.max(rolePeakRssBytes, currentPeakRssBytes, process.memoryUsage().rss);
-  global.gc();
+  global.gc?.();
   await new Promise((resolveWaiter) => setTimeout(resolveWaiter, 10));
   const pairRetainedMemory = process.memoryUsage();
 
@@ -365,7 +366,7 @@ capability:
 
   current = null;
   readStore.dispose();
-  global.gc();
+  global.gc?.();
   await new Promise((resolveWaiter) => setTimeout(resolveWaiter, 10));
   const heapBeforeCache = process.memoryUsage().heapUsed;
   const cache = new EphemeralTopologyReadModelCache();
@@ -375,7 +376,7 @@ capability:
     revision: "HEAD",
     sourceRoot: levels[0]!.root,
   });
-  global.gc();
+  global.gc?.();
   await new Promise((resolveWaiter) => setTimeout(resolveWaiter, 10));
   const heapWithCache = process.memoryUsage().heapUsed;
   assert.equal(cache.stats().entries, 1);

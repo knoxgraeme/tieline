@@ -20,6 +20,8 @@ import {
 import {
   renderBlastRadiusText,
   renderDependencyTraceText,
+  type BlastRadiusPrimitiveResult,
+  type DependencyTracePrimitiveResult,
 } from "../../../src/commands/code-topology.js";
 import { report, test } from "../../support/harness.js";
 
@@ -29,6 +31,125 @@ const escapedTerminalInjection =
   "CSI:\\x1b[31m OSC:\\x1b]0;owned\\x07 CR:\\x0d BS:\\x08 C1:\\x9b BIDI:\\u{202e}";
 const unsafeTerminalCodePoint =
   /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
+
+function truncation() {
+  return {
+    truncated: false,
+    reasons: [] as Array<"depth" | "nodes" | "edges" | "paths">,
+    depth: { limit: 1, truncated: false, omitted: 0 },
+    nodes: { limit: 1, truncated: false, omitted: 0 },
+    edges: { limit: 1, truncated: false, omitted: 0 },
+    paths: { limit: 1, truncated: false, omitted: 0 },
+  } as const;
+}
+
+function injectedTrace(): Extract<DependencyTracePrimitiveResult, { status: "complete" }> {
+  const locator = {
+    repository: "topology-fixture",
+    kind: "code" as const,
+    path: terminalInjection,
+    selector: terminalInjection,
+    framework_hint: null,
+  };
+  const node = {
+    generation_role: "current" as const,
+    generation_identity: "generation",
+    symbol_identity: "symbol",
+    locator,
+    native_kind: "function_declaration",
+  };
+  return {
+    status: "complete",
+    repository: "topology-fixture",
+    generation_identity: "generation",
+    generation_revision: "revision",
+    generation_role: "current",
+    direction: "dependencies",
+    limits: { depth: 1, nodes: 1, edges: 1, paths: 1 },
+    start: node,
+    visited: [node],
+    paths: [{ relationship: "derived_code_dependency", nodes: [node], edges: [] }],
+    frontiers: [],
+    truncation: truncation(),
+    topology_provenance: {
+      source: "workspace",
+      queried_revision: null,
+      generation_identity: "generation",
+      selected_input_digest: null,
+      artifact_digest: null,
+      projection_digest: null,
+      warnings: [],
+    },
+  };
+}
+
+function injectedBlast(): Extract<BlastRadiusPrimitiveResult, { status: "complete" }> {
+  return {
+    status: "complete",
+    advisory: true,
+    impact: "may_be_impacted",
+    direction: "dependencies",
+    topology_changes: { source: "explicit", files: [], edges: [] },
+    generations: {
+      base: null,
+      current: { identity: "generation", revision: "revision" },
+    },
+    authored_contracts: {
+      base: null,
+      current: { manifest_digest: "manifest", checkpoint_identity: null, revision: null },
+    },
+    revision_divergence: { base: null, current: "unknown" },
+    visited: [],
+    paths: [],
+    frontiers: [],
+    start_outcomes: [],
+    intent_impacts: [{
+      impact: "may_be_impacted",
+      relationship: "contract_coupling",
+      via_relationship: "changed_locator",
+      semantic_support: "not_assessed",
+      generation_role: "current",
+      generation_identity: "generation",
+      locator: {
+        repository: "topology-fixture",
+        kind: "code",
+        path: "src/consumer.ts",
+        selector: null,
+        framework_hint: null,
+      },
+      capability_stable_id: "TOPOLOGY",
+      story_stable_id: "TOPOLOGY-001",
+      story_title: "Trace topology",
+      acceptance_criterion_stable_id: terminalInjection,
+      acceptance_criterion: "Escapes terminal input",
+      relation: "implements",
+      provenance: "authored",
+      link_scope: "direct",
+      match_precision: "file_level",
+    }],
+    intent_coverage: {
+      base: null,
+      current: { visited_locators: [], counts: { direct: 0, story_fallback: 0, no_claim: 0 } },
+    },
+    truncation: { ...truncation(), omitted_starts: 0 },
+    topology_provenance: {
+      base: null,
+      current: {
+        source: "workspace",
+        queried_revision: null,
+        generation_identity: "generation",
+        selected_input_digest: null,
+        artifact_digest: null,
+        projection_digest: null,
+        warnings: [],
+      },
+    },
+    contract_provenance: {
+      base: null,
+      current: { source: "workspace", queried_revision: null, manifest_digest: "manifest" },
+    },
+  };
+}
 
 const fixtureRoot = mkdtempSync(resolve(tmpdir(), "tieline-code-command-"));
 mkdirSync(resolve(fixtureRoot, ".tieline/spec"), { recursive: true });
@@ -218,24 +339,12 @@ try {
   });
 
   await test("CLI trace text visibly escapes repository-controlled terminal codes", () => {
-    const injectedTrace = structuredClone(cliTrace!) as any;
-    injectedTrace.paths = [
-      {
-        nodes: [
-          {
-            locator: {
-              path: terminalInjection,
-              selector: terminalInjection,
-            },
-          },
-        ],
-      },
-    ];
-    const rendered = renderDependencyTraceText(injectedTrace);
+    const trace = injectedTrace();
+    const rendered = renderDependencyTraceText(trace);
     assert.ok(rendered.includes(escapedTerminalInjection));
     assert.doesNotMatch(rendered, unsafeTerminalCodePoint);
     assert.equal(
-      injectedTrace.paths[0].nodes[0].locator.path,
+      trace.paths[0]!.nodes[0]!.locator.path,
       terminalInjection,
       "text rendering must not mutate the structured result"
     );
@@ -274,14 +383,12 @@ try {
   });
 
   await test("CLI blast-radius text visibly escapes repository-controlled terminal codes", () => {
-    const injectedBlast = structuredClone(cliBlast!) as any;
-    injectedBlast.intent_impacts[0].acceptance_criterion_stable_id = terminalInjection;
-    injectedBlast.intent_impacts[0].via_relationship = terminalInjection;
-    const rendered = renderBlastRadiusText(injectedBlast);
+    const blast = injectedBlast();
+    const rendered = renderBlastRadiusText(blast);
     assert.ok(rendered.includes(escapedTerminalInjection));
     assert.doesNotMatch(rendered, unsafeTerminalCodePoint);
     assert.equal(
-      injectedBlast.intent_impacts[0].acceptance_criterion_stable_id,
+      blast.intent_impacts[0]!.acceptance_criterion_stable_id,
       terminalInjection,
       "text rendering must not mutate the structured result"
     );
@@ -459,8 +566,8 @@ try {
       ignore: [],
       revision: "HEAD",
     });
-    assert.equal(built.status, "complete");
     if (built.status !== "complete") throw new Error(built.detail);
+    assert.equal(built.status, "complete");
     const store = new FakeCodeTopologyStore();
     await persistCommittedTopologyGeneration({
       store,

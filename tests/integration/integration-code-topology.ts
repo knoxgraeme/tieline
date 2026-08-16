@@ -99,7 +99,6 @@ try {
 
   const fake = new FakeCodeTopologyStore();
   assert.equal(result.status, "complete");
-  if (result.status !== "complete") throw new Error(result.detail);
   await fake.commitGeneration({
     generation: result.generation,
     expected_previous_generation_identity: null,
@@ -135,8 +134,8 @@ try {
     revision: "HEAD",
     sourceRoots: ["src"],
   });
-  assert.equal(retargeted.status, "complete");
   if (retargeted.status !== "complete") throw new Error(retargeted.detail);
+  assert.equal(retargeted.status, "complete");
   const current = await persistCommittedTopologyGeneration({
     store: topology,
     result: retargeted,

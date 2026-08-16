@@ -37,10 +37,28 @@ function git(args: string[]): string {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 }
 
-async function cli(args: string[]): Promise<{ exit: number; result: Record<string, any> }> {
+function resultString(result: Record<string, unknown>, field: string): string {
+  const value = result[field];
+  if (typeof value !== "string") {
+    throw new Error(`expected '${field}' in command JSON`);
+  }
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resultRecord(result: Record<string, unknown>, field: string): Record<string, unknown> {
+  const value = result[field];
+  if (!isRecord(value)) throw new Error(`expected '${field}' object in command JSON`);
+  return value;
+}
+
+async function cli(args: string[]): Promise<{ exit: number; result: Record<string, unknown> }> {
   output = "";
   const exit = await runCli(args, io, {});
-  return { exit, result: JSON.parse(output) as Record<string, any> };
+  return { exit, result: JSON.parse(output) as Record<string, unknown> };
 }
 
 function artifactBytes(): Map<string, Buffer> {
@@ -101,10 +119,10 @@ try {
     assert.equal(compiled.exit, 0, JSON.stringify(compiled.result));
     assert.equal(compiled.result.status, "current");
     assert.equal(compiled.result.repository, "artifact-fixture");
-    assert.match(compiled.result.generation_identity, /^[a-f0-9]{64}$/);
-    assert.match(compiled.result.artifact_digest, /^[a-f0-9]{64}$/);
-    assert.match(compiled.result.projection_digest, /^[a-f0-9]{64}$/);
-    assert.deepEqual(Object.keys(compiled.result.counts).sort(), [
+    assert.match(resultString(compiled.result, "generation_identity"), /^[a-f0-9]{64}$/);
+    assert.match(resultString(compiled.result, "artifact_digest"), /^[a-f0-9]{64}$/);
+    assert.match(resultString(compiled.result, "projection_digest"), /^[a-f0-9]{64}$/);
+    assert.deepEqual(Object.keys(resultRecord(compiled.result, "counts")).sort(), [
       "dependency_records", "edges", "files", "frontiers", "references", "resolutions", "symbols",
     ]);
     compiledBytes = artifactBytes();
@@ -158,7 +176,7 @@ try {
   });
 
   await test("concurrent compilers serialize publication without changing bytes", async () => {
-    const compile = async (): Promise<{ exit: number; result: Record<string, any> }> => {
+    const compile = async (): Promise<{ exit: number; result: Record<string, unknown> }> => {
       let message = "";
       const commandIo: TielineCliIO = {
         write(value) { message += value; },
@@ -170,7 +188,7 @@ try {
         { repository: root, json: true },
         commandIo
       );
-      return { exit, result: JSON.parse(message) as Record<string, any> };
+      return { exit, result: JSON.parse(message) as Record<string, unknown> };
     };
     const [left, right] = await Promise.all([compile(), compile()]);
     assert.equal(left.exit, 0);

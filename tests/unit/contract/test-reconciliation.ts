@@ -216,9 +216,10 @@ capability:
   );
   assert.equal(intentIndex.claims_by_path.has("src/external.ts"), false);
   assert.equal(intentIndex.claims_by_path.has("test/external.test.ts"), false);
-  assert.equal(
-    criterionRecord.claims.some((claim) => claim.target_kind === "help"),
-    false
+  assert.ok(
+    criterionRecord.claims.every(
+      (claim) => claim.target_kind === "code" || claim.target_kind === "test"
+    )
   );
   const testClaim = criterionRecord.claims.find(
     (claim) =>

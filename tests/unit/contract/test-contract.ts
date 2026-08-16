@@ -41,6 +41,7 @@ function document(overrides: Partial<AcceptedContractDocument> = {}): AcceptedCo
       key: "AUTH",
       name: "Semantic authoring",
       description: "Maintainers can keep product intent with code.",
+      aliases: [],
       stories: [
         {
           key: "AUTH-001",
@@ -50,10 +51,14 @@ function document(overrides: Partial<AcceptedContractDocument> = {}): AcceptedCo
           benefit: "the accepted contract stays current",
           lifecycle: "production",
           aliases: ["review product meaning"],
+          links: [],
+          motivated_by: [],
           acceptance_criteria: [
             {
               key: "AUTH-001-AC1",
               criterion: "Tieline must reject repository paths that escape the checkout.",
+              aliases: [],
+              scenarios: [],
               links: [
                 {
                   relation: "tests",
@@ -164,7 +169,7 @@ capability:
     const target =
       loaded.documents[0]?.capability.stories[0]?.acceptance_criteria[0]?.links[0]
         ?.target;
-    assert.equal(target?.path, "tests/unit/contract/test-contract.ts");
+    assert.equal(target && "path" in target ? target.path : undefined, "tests/unit/contract/test-contract.ts");
     assert.equal(
       target && "selector" in target ? target.selector : undefined,
       "function:test"
@@ -224,6 +229,7 @@ await test("warns without failing when AC text normalizes to an existing criteri
       key: "SEARCH",
       name: "Search",
       description: "Search behavior.",
+      aliases: [],
       stories: [
         {
           ...document().capability.stories[0]!,
@@ -232,6 +238,9 @@ await test("warns without failing when AC text normalizes to an existing criteri
             {
               key: "SEARCH-001-AC1",
               criterion: "  TIELINE must reject repository paths that escape the checkout! ",
+              aliases: [],
+              scenarios: [],
+              links: [],
             },
           ],
         },

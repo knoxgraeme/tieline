@@ -56,8 +56,8 @@ if (mode === "artifact") {
   const artifactModule = await import("../src/contract/code-topology-artifact.js");
   loadArtifact = async (root) => {
     const parsed = artifactModule.readCodeTopologyArtifact(readArtifactDirectory(root));
-    assert.equal(parsed.status, "complete", "detail" in parsed ? parsed.detail : undefined);
     if (parsed.status !== "complete") throw new Error(parsed.detail);
+    assert.equal(parsed.status, "complete");
     const model = parsed.read_model;
     store.addReadModel(model);
     return {
@@ -83,8 +83,8 @@ if (mode === "artifact") {
       revision,
       sourceRoots: [sourceRoot],
     });
-    assert.equal(result.status, "complete", result.status === "complete" ? undefined : result.detail);
     if (result.status !== "complete") throw new Error(result.detail);
+    assert.equal(result.status, "complete");
     store.addReadModel(result.read_model);
     return {
       generation_identity: result.read_model.summary.header.identity,

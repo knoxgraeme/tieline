@@ -21,8 +21,8 @@ async function build() {
     revision: "HEAD",
     sourceRoots: ["src"],
   });
-  assert.equal(result.status, "complete");
   if (result.status !== "complete") throw new Error(result.detail);
+  assert.equal(result.status, "complete");
   return result.generation;
 }
 
@@ -83,18 +83,26 @@ capability:
 
   await test("defaults to dependents and joins exact direct/fallback authored claims", async () => {
     const calls = { comparison: 0, paths: 0, reverse: 0, frontiers: 0 };
-    for (const [method, key] of [
-      ["compareGenerations", "comparison"],
-      ["listSymbolsByPaths", "paths"],
-      ["listReverseEdges", "reverse"],
-      ["listDependencyFrontiers", "frontiers"],
-    ] as const) {
-      const original = store[method].bind(store) as (...args: any[]) => Promise<any>;
-      (store[method] as any) = async (...args: any[]) => {
-        calls[key] += 1;
-        return original(...args);
-      };
-    }
+    const compareGenerations = store.compareGenerations.bind(store);
+    const listSymbolsByPaths = store.listSymbolsByPaths.bind(store);
+    const listReverseEdges = store.listReverseEdges.bind(store);
+    const listDependencyFrontiers = store.listDependencyFrontiers.bind(store);
+    store.compareGenerations = async (input) => {
+      calls.comparison += 1;
+      return compareGenerations(input);
+    };
+    store.listSymbolsByPaths = async (input) => {
+      calls.paths += 1;
+      return listSymbolsByPaths(input);
+    };
+    store.listReverseEdges = async (input) => {
+      calls.reverse += 1;
+      return listReverseEdges(input);
+    };
+    store.listDependencyFrontiers = async (input) => {
+      calls.frontiers += 1;
+      return listDependencyFrontiers(input);
+    };
     const result = await analyzeCodeBlastRadius({
       base: { store, generation_identity: base.header.identity },
       current: { store, generation_identity: current.header.identity },
@@ -140,7 +148,7 @@ capability:
     const currentManifest = structuredClone(manifest);
     currentManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links =
       currentManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links.filter(
-        (link) => link.target.path !== "src/b.ts"
+        (link) => !("path" in link.target) || link.target.path !== "src/b.ts"
       );
     const result = await analyzeCodeBlastRadius({
       base: { store, generation_identity: base.header.identity },

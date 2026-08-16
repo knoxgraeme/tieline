@@ -10,7 +10,7 @@ if (!repositoryRoot || !repository || !sourceRoot) {
   throw new Error("isolated topology scale benchmark is missing repository inputs");
 }
 assert.equal(typeof global.gc, "function", "isolated topology scale benchmark requires --expose-gc");
-global.gc();
+global.gc?.();
 const rssBefore = process.memoryUsage().rss;
 let peakRssBytes = rssBefore;
 const sampler = setInterval(() => {
@@ -24,8 +24,8 @@ try {
     revision,
     sourceRoots: [sourceRoot],
   });
-  assert.equal(result.status, "complete");
   if (result.status !== "complete") throw new Error(result.detail);
+  assert.equal(result.status, "complete");
   peakRssBytes = Math.max(peakRssBytes, process.memoryUsage().rss);
   process.stdout.write(JSON.stringify({
     ...result.read_model.summary.counts,
