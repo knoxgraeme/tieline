@@ -2,376 +2,196 @@
   <img src="assets/tieline-logo.png" alt="Tieline" width="520">
 </p>
 
-# Tieline
+<p align="center">
+  <strong>Give every agent durable product intent, grounded in the code that delivers it.</strong>
+</p>
 
-Tieline maps a product into user stories and keeps those stories connected to their lifecycle,
-source code, feature requests, and knowledge-base articles. It is a local-first CLI and an MCP
-server backed by Postgres with pgvector.
+<p align="center">
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#how-the-code-graph-works">Code graph</a> ·
+  <a href="#what-agents-can-ask">Agent queries</a> ·
+  <a href="docs/setup.md">Docs</a>
+</p>
 
-The CLI owns deterministic setup, migration, review, and import. A coding agent understands the
-product and analyzes the repository. A human approves product context and stories before they are
-persisted.
+---
 
-## Install and initialize
+Tieline generates Capabilities, User Stories, and Acceptance Criteria, linking them to
+the exact code and tests as evidence. Agents no longer have to infer product intent from
+scratch on every run, creating a semantic Business Intent layer grounded in your production code. 
 
-```bash
-npm install --global tieline
-tieline init /path/to/product-repository
-```
+- **Reviewed intent:** Stories and ACs evolve beside the implementation and are accepted through
+  normal pull-request review.
+- **Graded evidence:** a fresh grader assesses changed ACs against bounded source evidence and a
+  closed citation list, returning `supported`, `partial`, or `unsupported`.
+- **A committed code topology:** `.tieline/topology/graph.json` records parsed symbols and static
+  dependencies, letting agents trace code and connect possible impact back to accepted ACs.
 
-When developing Tieline itself, use `npm install && npm run build && npm link` instead. The published
-package contains the compiled CLI, migrations, review UI, and agent skill. It does not contain any
-product data or seed stories.
+The contract works directly from a repository. When synced to optional Postgres, any connected
+agent—including product, research, and support agents without a checkout—can query the accepted
+state of `main`.
 
-`tieline init` is the guided onboarding coordinator. It collects the combined company/product
-profile, chooses a database and embedding backend, records the story approval policy, applies
-migrations, optionally installs the large local embedding runtime, and writes an MCP client snippet.
-The default interactive choices are:
+## How it works
 
-1. a dedicated local Docker PostgreSQL + pgvector container;
-2. local `gte-small` embeddings;
-3. human approval for production-sensitive story changes.
+1. **An agent proposes intent.** The Tieline skill reads product context and code, then drafts or
+   updates Stories, ACs, and evidence links for review.
+2. **Parsers ground code links.** Tree-sitter extracts canonical symbols, source ranges, and bounded
+   snippets. Conservative resolvers preserve ambiguous and unresolved relationships as diagnostics.
+3. **A fresh agent grades the evidence.** The grader receives one AC, its current evidence, and a
+   closed citation list. Deterministic verification rejects stale or invented citations.
+4. **Review establishes acceptance.** The YAML, compiled manifest, topology, and code change travel
+   together. Merge accepts that version of the relationship.
+5. **Checks make drift visible.** The skill updates intent as behavior changes, while `tieline check`
+   flags changed evidence, broken links, invalid contracts, and stale artifacts.
 
-Every external mutation is shown before the final confirmation. Tieline never accepts credentials as
-command-line options. Existing database and hosted embedding credentials must already be present in
-the environment (directly, through a password-manager command, or through a local `.env`) before
-starting init.
+Optional Postgres storage adds Observations such as feature requests, ideas, and bugs, giving agents
+context on both accepted behavior and future direction.
 
-`tieline init` creates a versionable workspace inside the product repository:
+[How evidence, authority, and freshness work →](docs/concepts.md)
+
+## What Tieline can prove
+
+Each signal has a narrow meaning. Tieline exposes the boundary instead of presenting static or
+agent-generated evidence as formal proof:
+
+| Signal | What it establishes | What it does not establish |
+| --- | --- | --- |
+| `authored` link | An explicit contract claim was accepted through repository review | Permanent semantic correctness |
+| Resolved selector | The current symbol can be identified precisely | That its implementation satisfies the AC |
+| `hash_current` | The evidence still matches the bytes accepted in the manifest | That the original review was correct |
+| Grade | A fresh agent judged current allowed evidence as supported, partial, or unsupported | Formal proof or test execution |
+| Blast-radius result | Static code dependents and their linked ACs may be impacted | Runtime reachability or guaranteed breakage |
+
+## How the code graph works
+
+`.tieline/topology/graph.json` is a committed, derived snapshot of the repository's source
+structure. `tieline code compile` uses Tree-sitter parsers to build it; later reads query the
+snapshot without starting a parser or writing to Postgres.
+
+| Layer | Role |
+| --- | --- |
+| Stored file hashes | Identify the exact source bytes represented by the snapshot |
+| Stored locator-bearing symbols | Identify code assets for traversal and authored joins |
+| Stored resolved adjacency edges | Trace static dependencies and dependents |
+| Stored unresolved dependency frontiers | Keep ambiguous imports and unsupported boundaries visible |
+| Query-time AC join (not stored) | Match visited paths and selectors to authored AC links |
+
+Source ranges, source snippets, raw reference and resolution facts, and parser diagnostics are not
+duplicated in `graph.json`.
 
 ```text
-.tieline/
-  config.json
-  product-context.md
-  coverage.json
-  drafts/            one draft per product area
-  stories.draft.json merged, reviewable draft
-  AGENT_HANDOFF.md
-  mcp.json
+source code → Tree-sitter → graph.json → symbols and static dependents
+                                      + authored AC links
+                                      ↓
+                              AC-aware blast radius
 ```
 
-The workspace is safe to commit and contains no database credentials. Credentials and provider
-settings are written to a mode-`0600` profile under
-`~/.config/tieline/profiles/<workspace-id>.json`. `serve`, `migrate`, `review`, and `import`
-automatically load that profile when run from the repository or when `TIELINE_WORKSPACE` points to it.
-Explicit environment variables always override the profile.
+Explicit blast-radius analysis starts from the supplied locators. A Git-base comparison instead
+seeds every symbol in changed files plus the endpoints of changed edges. Both traverse static
+edges in the selected direction—dependents by default, or dependencies when requested—then
+perform the authored locator-to-AC join. Cycles, external dependencies,
+ambiguity, and traversal limits remain visible. The result is a bounded impact signal, not a
+runtime call graph or a guarantee of breakage.
 
-Supply optional product context during init:
+[Topology and blast-radius commands →](docs/cli.md#derived-code-topology-and-blast-radius)
+
+## What the contract looks like
+
+```yaml
+version: 1
+capability:
+  key: CONTRACT
+  name: Living product contract
+  description: Accepted product behavior is reviewable beside the implementation.
+  stories:
+    - key: CONTRACT-003
+      title: Inspect accepted intent before changing an asset
+      actor: implementing agent
+      goal: retrieve reviewed context for a known code locator
+      benefit: implementation begins from accepted intent
+      lifecycle: production
+      acceptance_criteria:
+        - key: CONTRACT-003-AC4
+          criterion: Tieline must expose exact manifest-backed context without a database.
+          scenarios:
+            - given: the compiled manifest is available
+              when: an agent requests context for a known code locator
+              then: Tieline returns its accepted intent and linked evidence
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/intent-context.ts
+                selector: function:registerIntentContextTools
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+```
+
+An AC is complete on its own. Given/When/Then Scenarios are optional examples for important
+conditions or edge cases.
+
+## Quickstart
 
 ```bash
-tieline init . \
-  --product "Company or product name" \
-  --description "What the product helps users accomplish" \
-  --context https://example.com/product \
-  --context docs/product-overview.md
+cd /path/to/your-repository
+npx -y tieline@latest init
 ```
 
-The generated handoff tells the coding agent how to complete the product profile, inspect the
-codebase, record coverage, and draft stories. Marketing material establishes vocabulary and
-intent; repository evidence determines whether behavior is shipped. These semantic analysis and
-human approval phases intentionally remain agent/human work; init does not pretend they are
-deterministic installation steps.
+Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
+`.tieline/review.html` provides a browser-friendly view.
 
-After a human reviews the completed profile:
+Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
+
+## What agents can ask
+
+| Ask | Tool |
+| --- | --- |
+| “What is this symbol supposed to do?” | `get_asset_intent_context` |
+| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
+| “Which criteria touch these paths?” | `get_path_criteria` |
+| “Which code may depend on this symbol?” | `trace_code_dependencies` |
+| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
+
+Exact manifest and topology reads work from the repository. Database-backed reads expose the
+synced accepted contract to agents without repository access. Planning tools can also capture
+Observations and shape backlog Stories.
+
+[Full MCP reference →](docs/mcp.md)
+
+## How the contract stays current
+
+During implementation, the Tieline skill proposes new Stories and ACs when behavior was added,
+updates existing definitions when behavior changed, reconciles evidence links, grades changed
+claims, and refreshes generated artifacts for review.
+
+Run the deterministic check in CI:
 
 ```bash
-tieline context approve .
-tieline status .
+npx -y tieline@latest check --base <base-ref> .
 ```
 
-Approval records a checksum. Later edits make the approval stale and require another human review.
-
-### Init modes
-
-Run the full interactive setup:
-
-```bash
-tieline init .
-```
-
-Create only the versioned workspace and connect infrastructure later:
-
-```bash
-tieline init . --offline
-```
-
-Connect your own PostgreSQL + pgvector database instead of running Docker — no container required:
-
-```bash
-tieline init . --database existing
-```
-
-This reads a connection string from `DATABASE_URL_INGEST` in the environment or a local `.env`
-(credentials are never accepted as CLI arguments). Tieline needs only **Postgres 16 with the
-`pgvector` extension** — it is not tied to any provider. Any of these work:
-
-- a Postgres you already run locally (`brew install postgresql pgvector`, Postgres.app, …);
-- a free hosted database from **Neon**, **Supabase**, or similar (paste the connection string);
-- any managed Postgres (RDS, Crunchy, Timescale, …) with `pgvector` enabled.
-
-Because Tieline reads `DATABASE_URL_INGEST` from `.env`, provisioning tools that sync a `.env`
-(for example [Stripe Projects](https://docs.stripe.com/projects)) are picked up automatically — no
-extra configuration.
-
-For automation, pass `--yes` plus explicit `--database`, `--embedding`, and `--approval` choices.
-`--yes` alone is deliberately offline so it cannot start containers or migrate a database by
-surprise. `--skip-migrate` records a resumable profile without changing the database.
-
-If setup is interrupted, rerun `tieline init .`. Tieline reuses the workspace/profile and reports the
-next product-mapping action through `tieline status`.
-
-## Database and imports
-
-Guided local init starts PostgreSQL and applies the packaged migrations. Manual database setup is
-also supported:
-
-```bash
-# Inject an extension-capable owner URL using your shell or password manager.
-tieline migrate
-```
-
-Tieline does not seed stories. Initial records come only from the target repository's reviewed
-`.tieline/stories.draft.json`:
-
-```bash
-tieline merge /path/to/product-repository
-tieline review /path/to/product-repository/.tieline/stories.draft.json
-tieline import /path/to/product-repository/.tieline/stories.draft.json --batch-size 50
-```
-
-### Sharded drafting
-
-The agent writes one draft per product area into `.tieline/drafts/<area>.draft.json` rather than
-producing the whole map in a single file write. Each shard is a checkpoint, so an interrupted
-drafting session keeps every area already written, and regenerating one area leaves the rest alone.
-
-`tieline merge` folds the shards into `stories.draft.json`. It is deterministic and idempotent, and
-it preserves review decisions already recorded — re-merging after regenerating one area does not
-reset the board to pending. Merge refuses to write when two shards define the same section
-differently, collide on a review id or `import_ref`, disagree on the repository or product-context
-checksum, or when a shard is unparseable. It also refuses to drop merged stories that no shard
-produces any more unless `--prune` is passed.
-
-Shard-local `_review.id` values are namespaced as `<shard>/<id>` on merge, so every shard may mint
-`d-0001` independently. This matters because a keyless story's review id becomes its `import_ref`:
-un-namespaced collisions would make the importer treat a second story as already committed.
-
-```bash
-tieline merge .                # fold .tieline/drafts/*.draft.json into stories.draft.json
-tieline merge . --prune        # also drop stories no shard produces any more
-tieline status .               # shard count, unreadable shards, and whether a merge is pending
-```
-
-`tieline review` starts a loopback-only review page. `tieline import` imports approved records,
-embeds them in bounded batches, and writes a checkpoint report next to the draft. Stable review
-IDs become import references, so retrying a completed batch does not duplicate stories.
-
-Tieline-managed imports reject:
-
-- unapproved or stale product context;
-- a draft created from another context checksum;
-- incomplete repository coverage;
-- a conflicting repository identity;
-- missing, absolute, escaping, or symlink-escaping code paths;
-- an embedding provider different from the workspace provider.
-
-Standalone import payloads may be used without a Tieline workspace, but code paths always require
-an explicit repository identity through `import_source` or `REPO_NAME`.
-
-## Run the MCP server
-
-```bash
-export DATABASE_URL=postgresql://mcp_reader:password@localhost:5432/knowledge
-tieline serve                 # stdio
-tieline serve --http          # streamable HTTP
-```
-
-Copy or merge `.tieline/mcp.json` into the MCP host configuration. Its only environment value is the
-non-secret `TIELINE_WORKSPACE` path; the server discovers the private profile itself.
-
-HTTP binds to `127.0.0.1` by default. A non-loopback bind requires `HTTP_TRUST_PROXY=true`, an
-explicit `HTTP_ALLOWED_ORIGINS` list, and an authenticated TLS gateway.
-
-### Read tools
-
-| Tool | Purpose |
-|---|---|
-| `find_related` | Find conceptually or structurally similar product areas and stories |
-| `find_crossover` | Find areas sharing code paths or entity concepts with a known story/section |
-| `query_stories` | Exact filtered story lookup and grouped counts |
-| `find_help` | Search knowledge-base articles semantically |
-| `get_help_article` | Retrieve a known article's full content |
-| `get_story_history` | Retrieve accepted revisions, events, and proposal history |
-| `suggest_story_help_links` | Rank possible story/article links without writing them |
-
-The server also provides `schema://taxonomy` and `docs://how-to-query` resources.
-
-### Search works with zero embedding setup
-
-Retrieval fuses three signals — **lexical** full-text search (Postgres `tsvector` +
-`pg_trgm` trigram matching over identifiers/code paths), **structural** overlap (shared
-entity slugs and code paths), and optional **semantic** vector similarity — combined with
-Reciprocal Rank Fusion. Lexical and structural retrieval need only the Postgres tieline
-already requires (the `pg_trgm` extension is added by the packaged migrations), so
-`find_related` returns useful results **without any embedding provider configured** — no
-API key, no model download, no external service.
-
-Embeddings are an optional **semantic-recall upgrade** for paraphrase/synonym matching:
-configure any provider (local `gte-small`, an OpenAI-compatible endpoint, or a Supabase
-edge function) and vector similarity joins the fusion. The embedding storage contract is a
-fixed 384 dimensions; a provider must be used consistently for both ingest and search.
-
-### Write tools and approval
-
-Write tools use a dedicated `mcp_writer` connection. The default
-`STORY_APPROVAL_MODE=production` requires human approval for production creates, content changes,
-status changes, relationship changes, and production-sensitive feature-request link changes.
-
-| Mode | Behavior |
-|---|---|
-| `production` | Production-sensitive mutations become proposals |
-| `all` | Every story mutation becomes a proposal |
-| `off` | Mutations auto-apply through the separate approval credential |
-
-Set:
-
-```bash
-DATABASE_URL_WRITE=postgresql://mcp_writer:password@host/database
-DATABASE_URL_APPROVAL=postgresql://mcp_approver:password@host/database
-```
-
-The MCP writer cannot approve its own proposals. Accepted content is stored in the current
-`user_stories` projection; immutable `story_revisions` and semantic `story_events` preserve the
-lifecycle.
-
-Bulk import is disabled on the MCP surface by default. Set `ENABLE_IMPORT_TOOL=true` only on a
-deliberately privileged local or gateway instance.
-
-## Knowledge-base articles
-
-Knowledge-base articles are domain records, not a provider-specific storage feature. The Postgres
-adapter stores them in `help_articles` and links them through `story_help_articles`.
-
-Import JSON or JSONL articles from a source you control:
-
-```bash
-tieline import-help articles.jsonl
-```
-
-Article embeddings use `title + summary + headings`. `suggest_story_help_links` proposes matches;
-`update_story_relationships` accepts selected links with typed relationship metadata.
-
-## Embeddings
-
-Storage is fixed at 384 dimensions. Import and retrieval must use the same provider.
-
-| Provider | Behavior |
-|---|---|
-| `local` | In-process `gte-small`; install `@huggingface/transformers` separately |
-| `openai` | Any OpenAI-compatible embeddings endpoint returning 384 dimensions |
-| `supabase-edge` | Compatibility adapter for an existing embedding edge function |
-| `hash` | Deterministic test-only embeddings |
-
-The local provider is the interactive default but is not bundled because its native runtime is
-large. Guided init can install it into the per-user Tieline runtime directory, or it can be installed
-manually into the Tieline package environment:
-
-```bash
-npm install @huggingface/transformers
-```
-
-Alternatively configure:
-
-```bash
-EMBEDDING_PROVIDER=openai
-EMBEDDING_BASE_URL=https://api.example.com/v1
-EMBEDDING_API_KEY=...
-```
-
-## Database roles
-
-Use separate credentials for each boundary:
-
-| Environment variable | Role |
-|---|---|
-| `DATABASE_URL` | Read-only MCP runtime |
-| `DATABASE_URL_INGEST` | Migrations and reviewed bulk imports |
-| `DATABASE_URL_WRITE` | Ordinary MCP mutations and proposals |
-| `DATABASE_URL_APPROVAL` | Human decision or explicitly configured auto-allow |
-
-Migrations create `mcp_reader`, `mcp_writer`, and `mcp_approver` without passwords. Assign
-credentials out of band or use the hosting platform's identity mechanism.
-
-## Project structure
-
-```text
-migrations/                 portable Postgres + pgvector schema
-src/cli.ts                  Tieline command dispatcher
-src/commands/               compiled serve, migrate, review, and import commands
-src/tieline/                workspace initialization, shard merge, and validation
-src/domain/                 storage port
-src/adapters/postgres/      Postgres implementation
-src/tools/                  MCP read/write tools
-src/authoring/              draft, import, and review UI
-skills/backfill-stories/    provider-neutral coding-agent workflow
-```
-
-## Development and verification
-
-```bash
-npm ci
-npm run check:fast
-npm run check
-```
-
-`npm run check` is the canonical CI-equivalent path: it builds the production source,
-type-checks the browser UI and repository scripts, runs the offline test suite and
-guardrail evals, and verifies the package contents.
-
-Pull requests also run a trusted-base guardrail job that grades the submitted diff
-without checking out or executing PR code. Configure branch protection to require both
-the `quality` and `guardrail` jobs and Code Owner approval for protected control files.
-
-The read-only integration test accepts `DATABASE_URL` and skips when it is absent:
-
-```bash
-npm run test:integration
-```
-
-Write-capable integration tests never consume generic write credentials or load `.env`
-implicitly. They require dedicated URLs targeting the same visibly disposable database,
-plus an exact database-name confirmation:
-
-| Command | Required dedicated variables |
-|---|---|
-| `npm run test:import` | `TIELINE_TEST_DATABASE_URL_INGEST` |
-| `npm run test:approval-mode` | `TIELINE_TEST_DATABASE_URL`, `TIELINE_TEST_DATABASE_URL_WRITE`, `TIELINE_TEST_DATABASE_URL_APPROVAL` |
-| Write portions of `npm run test:integration` | The read URL plus the dedicated ingest and/or write + approval URLs used by that portion |
-
-Set `TIELINE_CONFIRM_TEST_DATABASE` to the exact database name in those URLs. The
-guard rejects non-PostgreSQL URLs, mixed targets, target-overriding query parameters,
-database names without a standalone `test`, `itest`, or `integration` token, and names
-containing `prod`, `stage`, or `live`.
-
-## Docker
-
-The runtime image includes production dependencies and compiled output only:
-
-```bash
-docker build -t tieline .
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL=postgresql://user:password@host/database \
-  -e EMBEDDING_PROVIDER=openai \
-  -e EMBEDDING_API_KEY=... \
-  -e HTTP_HOST=0.0.0.0 \
-  -e HTTP_TRUST_PROXY=true \
-  -e HTTP_ALLOWED_ORIGINS=https://mcp-client.example \
-  tieline
-```
-
-The container starts `tieline serve --http`. Run `tieline migrate` and reviewed imports separately
-using the published CLI.
+Invalid YAML, broken links, and stale generated artifacts fail. Changed linked evidence identifies
+the affected ACs for agent or human review. After merge, an idempotent sync publishes accepted
+`main` to Postgres.
+
+[GitHub Actions example](docs/examples/tieline-check.yml) · [CLI reference](docs/cli.md)
+
+## Where to learn more
+
+| Guide | Contents |
+| --- | --- |
+| [Setup](docs/setup.md) | Initialization, database modes, sync, and agent registration |
+| [Concepts](docs/concepts.md) | Contract structure, evidence, authority, and freshness |
+| [CLI](docs/cli.md) | Contract, topology, check, sync, grading, and review commands |
+| [MCP](docs/mcp.md) | Local and database-backed tools for agents |
+| [Operations](docs/operations.md) | Serving, credentials, durability, and privacy |
 
 ## License
 
-MIT
+[MIT](LICENSE)

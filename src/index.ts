@@ -5,12 +5,17 @@
  * standalone HTTP server.
  */
 
-import "./loadEnv.js";
-import { config } from "./config.js";
-import { runHttp } from "./http.js";
-import { runStdio } from "./stdio.js";
+import "./load-env.js";
+import { removePrivilegedDatabaseEnvironment } from "./tieline/profile.js";
 
 async function main(): Promise<void> {
+  removePrivilegedDatabaseEnvironment(process.env);
+  const [{ reloadConfig }, { runHttp }, { runStdio }] = await Promise.all([
+    import("./config.js"),
+    import("./http.js"),
+    import("./stdio.js"),
+  ]);
+  const config = reloadConfig(process.env);
   if (config.transport === "stdio") {
     await runStdio();
   } else {

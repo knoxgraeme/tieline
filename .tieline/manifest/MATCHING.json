@@ -1,0 +1,372 @@
+{
+  "capability": {
+    "aliases": [],
+    "applies_to": null,
+    "contract_hash": "d376546f55df71c3d4365607d7f3939517f93d37d160554649d47e31274693b5",
+    "description": "Focused semantic documents and auditable suggestions help equivalent language converge.",
+    "name": "Semantic matching and consolidation",
+    "stable_id": "MATCHING",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f8b4307a86adfe06bcb39930547dd3191e5db1587b78931afc6c3afa41a092b4",
+            "criterion": "Tieline must derive separate semantic documents for Stories, Acceptance Criteria, Scenarios, Backlog Items, and sanitized Observations.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "d95a7d4fa16a2bb3c0338f0bf2ef2a488b24a293436f07c33e33eb5500884996",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/vector.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "1f62e20cec56bd2ec7bb1787239fdd0d90a458716ea72704d63abdd2a79e53aa",
+                "target": {
+                  "kind": "code",
+                  "path": "src/derived/embedding-documents.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "393351feb35e496c760b7b1b16a953d4d54b4e4c69eb8ad85721857faf6df4a6",
+                "target": {
+                  "kind": "code",
+                  "path": "src/embeddings.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "75d01de4f34f725a3bcaf087a630462a192ed62b2f531764e789c3ebd11f9540",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-embeddings.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Focused documents preserve specificity and avoid re-embedding unrelated criteria.",
+            "scenarios": [],
+            "stable_id": "MATCHING-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "8c6bbdfe72b3d858ff83a110bb00e8d6350c6f5fd51f1d41444f4de85a96e573",
+            "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "a8fee643ee68cdb20a6c6920d77e83185e3d660747d6bd9daf252be866e98205",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0001_baseline.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "dd1246f8e00cc09394a94ff0b7ab3e6242ef0b5cee1fb8d9c08a031e3fcb7b34",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/search-context.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "6e1a2ddf5485724e8228853205a42fbb6ad8fed9a24e677d8cce45e7fba1d57e",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/semantic-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "612bdf29e518e7d53d2745c544b59cedc7bc42067d564cacbd2b5d15447d9c6b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/domain/semantic-search-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3aaf3c0360884eee206f6fe5ac863df18cafa0ee97152806e6914967dbb17ac5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/ranking.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8f581bef6a26e2f32b89fa489bef21122a1bcdc1970186c14c19621df4e7d21d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/find-related.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "7c269f09ebd5744b522a6c6536dcf58d2c12f8632a7bf1c863708d592f6a290a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/search-knowledge.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "ad6f14683c96f6cc208fe7d66bc65b15995f7876a6c8b77cb7ee7fb65f4384e5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/evaluate-retrieval.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "69d7a3097b746fdd47e120df3f579ad05726a56dd18bd4ba9d301d8b43774007",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-baseline.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-evidence.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/smoke.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "ccd531ae46437064221b582843e2c9583e102988e57585a64ae398978c849637",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-ranking.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "a caller supplies an Observation anchor with only a dismissed relationship to an Acceptance Criterion",
+                "position": 0,
+                "stable_id": "MATCHING-001-AC2-S1",
+                "then": "the dismissed relationship must contribute no graph proximity",
+                "when": "Tieline ranks the authorized semantic candidate set"
+              },
+              {
+                "given": "no embedding provider is installed or reachable",
+                "position": 1,
+                "stable_id": "MATCHING-001-AC2-S2",
+                "then": "Tieline must return full-text or identifier matches with explicit signal features and match reasons",
+                "when": "a caller searches with an authorized retrieval profile"
+              }
+            ],
+            "stable_id": "MATCHING-001-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "da806abe99a3ba7f1453cd632c8503ef9e6e838e3c27d10bd461bc4c056fba62",
+            "criterion": "Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ef3f2d7040cc9cae5b674b6e95c99882c90450eea7950c4f36a5f6ffeecf4d6f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/backlog-advisor.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "7116c0c72ba684e28da12e18970748604584b479508b85cddf5da0500f3887d0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/semantic-matching.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "564129570a4011e2fbfbcbdcb23bfa1250bc6a1062d32d89559cc2576da141b7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/attributions.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-evidence.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "a high-scoring semantic match without an explicit human decision",
+                "position": 0,
+                "stable_id": "MATCHING-001-AC3-S1",
+                "then": "its state must remain suggested",
+                "when": "the suggestion is persisted"
+              }
+            ],
+            "stable_id": "MATCHING-001-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "ede5008a2c6ef59efd490bec06fa205926e3041bf4233c2b26ea562f0c9e40ae",
+            "criterion": "Tieline must use absolute vector, lexical, or exact-alias magnitude to decide whether a semantic candidate is admitted, and must use the blended rank-fusion score only to order admitted candidates.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3aaf3c0360884eee206f6fe5ac863df18cafa0ee97152806e6914967dbb17ac5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/ranking.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "7116c0c72ba684e28da12e18970748604584b479508b85cddf5da0500f3887d0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/semantic-matching.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "ccd531ae46437064221b582843e2c9583e102988e57585a64ae398978c849637",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-ranking.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "The blended score is mostly reciprocal rank fusion, which measures a candidate's position inside the returned set rather than how well it matches. A fixed blended-score cutoff both suppresses credible lexical-only candidates when embeddings are unavailable and can admit the least wrong member of a weak set. Raw comparable signals answer whether a candidate is credible; rank fusion answers which credible candidate should appear first.",
+            "scenarios": [
+              {
+                "given": "the only retrieved candidate carries 0.30 vector similarity and 0.20 lexical similarity",
+                "position": 0,
+                "stable_id": "MATCHING-001-AC4-S1",
+                "then": "the candidate must be withheld even when its blended score ranks first",
+                "when": "Tieline assembles Observation match candidates or planning-create advice"
+              },
+              {
+                "given": "no embedding is available and a candidate carries lexical similarity above the absolute magnitude floor",
+                "position": 1,
+                "stable_id": "MATCHING-001-AC4-S2",
+                "then": "the candidate must be retained and its blended score must affect only its order among other admitted candidates",
+                "when": "Tieline assembles Observation match candidates or planning-create advice"
+              },
+              {
+                "given": "a candidate matches a recorded alias exactly but carries low vector and lexical similarity",
+                "position": 2,
+                "stable_id": "MATCHING-001-AC4-S3",
+                "then": "the candidate must be retained because an exact alias match is a deterministic identifier match rather than a fuzzy one",
+                "when": "Tieline applies the magnitude floor"
+              }
+            ],
+            "stable_id": "MATCHING-001-AC4",
+            "supersedes": null
+          }
+        ],
+        "actor": "author",
+        "aliases": [
+          "duplicate prevention",
+          "semantic consolidation"
+        ],
+        "applies_to": null,
+        "benefit": "alternate phrasing converges without deleting source history",
+        "contract_hash": "4cc4275400d89e1700eac8a2ed87901f1567e4a863cff0d7fa882bce6759a60a",
+        "goal": "find equivalent Stories, Acceptance Criteria, work, and evidence",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "MATCHING-001",
+        "supersedes": null,
+        "title": "Search before creating product or planning records"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tieline/spec/matching.yaml",
+    "sha256": "2e101c599400120123fb3040c2d65aa2346db2175bd856ee2f6425c5bba090aa"
+  }
+}

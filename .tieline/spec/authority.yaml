@@ -1,0 +1,148 @@
+version: 1
+capability:
+  key: AUTHORITY
+  name: Lifecycle-aware authority
+  description: One Story and Acceptance Criterion identity moves from planning authority to repository authority.
+  stories:
+    - key: AUTHORITY-001
+      title: Shape behavior before implementation
+      actor: product teammate
+      goal: refine Stories and Acceptance Criteria while they remain in the backlog
+      benefit: intent can mature without pretending it is accepted behavior
+      lifecycle: production
+      acceptance_criteria:
+        - key: AUTHORITY-001-AC1
+          criterion: Tieline must allow planning writers to create and revise only backlog Stories and their Acceptance Criteria.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/planning-contract-write-store.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/planning-story-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/planning-stories.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-planning.ts
+                framework_hint: custom-script
+    - key: AUTHORITY-002
+      title: Transfer accepted behavior to repository authority
+      actor: maintainer
+      goal: materialize planning definitions with the implementation
+      benefit: stable identity survives delivery without two writers
+      lifecycle: production
+      acceptance_criteria:
+        - key: AUTHORITY-002-AC1
+          criterion: Tieline must preserve matching planning Story and Acceptance Criterion identities when a repository contract is synchronized.
+          scenarios:
+            - given: planning changes after a materializing branch was created
+              when: the reviewed repository definition is synchronized
+              then: Tieline must project the merged definition and preserve the later planning revision as a handoff conflict
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/sync.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/handoff-conflicts.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script
+        - key: AUTHORITY-002-AC2
+          criterion: Tieline must keep read, planning-write, repository-sync, and offline-admin database responsibilities separate.
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/connections.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/migrate.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/preflight.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/profile.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/setup.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-baseline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-baseline.ts
+                framework_hint: custom-script
+        - key: AUTHORITY-002-AC3
+          criterion: Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.
+          rationale: Postgres is a projection of the repository manifest, so a renamed path or a reworded selector otherwise strands a code asset that holds a frozen content hash and still answers the artifact overlap lookup, and the projection drifts further with every rename until it is rebuilt from scratch.
+          scenarios:
+            - given: a synchronized repository contract whose linked implementation path was renamed
+              when: the repository contract is synchronized again
+              then: the code asset for the former path must be removed, while an asset owned by another repository or still linked by another contract record must be retained
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script

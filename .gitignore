@@ -3,8 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+.tieline/review.html
 # Transformers.js model cache
 .cache/
-# Working authoring files
-stories.draft.json
-stories.locked.json

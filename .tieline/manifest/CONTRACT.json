@@ -1,0 +1,1810 @@
+{
+  "capability": {
+    "aliases": [
+      "living specification",
+      "semantic contract"
+    ],
+    "applies_to": null,
+    "contract_hash": "d27bcc3541467c3069d44f0e22131c3789bd839dbf532c020e2a3944dde54d36",
+    "description": "Accepted product behavior is strict, reviewable, and measurable beside the implementation.",
+    "name": "Living product contract",
+    "stable_id": "CONTRACT",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "d11814c21b365fb2ddafd6e944c5fcbef3d89948f688e4fecf9d0f2d154902c9",
+            "criterion": "Tieline must reject repository contract documents that violate the accepted Story and Acceptance Criterion schema.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ea2f18a6d8e9f424ee515d0eaf8d1f90769692aeb2323d25e4a80b2b27c1e056",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/load.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9f6faa9e0e7589376111063f89e4a793c7eb80e26d74a18d84fab89192090e53",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/schema.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "44c6f462a64a7fd399cbb5b44bb49bb7f4cfcfb0ee4ae6aeb1611e27e8710a57",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/validate.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Structural failures make semantic impact and synchronization untrustworthy.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "09af17ffb75ab3e3e19c4ac8773735a2f6a507b617f28483738ef81d50a90b4c",
+            "criterion": "Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3074244b1bd082d0989eadde7a2ba7d354488c21748c29629d8b20e6d3ce8112",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/coverage.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-manifest.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "ten eligible source files and eight mapped paths",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC2-S1",
+                "then": "Tieline must report 80 percent coverage and name both unmapped files",
+                "when": "mapping coverage is calculated"
+              },
+              {
+                "given": "configured source roots contain no eligible files",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC2-S2",
+                "then": "Tieline must report that coverage is not measured instead of reporting 100 percent",
+                "when": "mapping coverage is calculated"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f58cfd249e89384c184540624898e6a862860a0fa03a385a5c98787f7eda8f73",
+            "criterion": "Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "1338b34c826832689d9684789d83aff1211bc1f46b393040c3bb577d22da8168",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/impact.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-impact.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Drift should be visible during review while the MVP remains warn-only.",
+            "scenarios": [
+              {
+                "given": "a linked implementation path changes without a refreshed manifest",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC3-S1",
+                "then": "Tieline must report the linked criterion as impacted and stale",
+                "when": "the branch is checked against its base"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3096d59a6b06c1f3f7b794adf8c1c5d0bb3c8a3a456c750bc8593dc3c131cb72",
+            "criterion": "Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5803d683b0eec4c1d8a59b903b75b55e7ed19759e93c2fce230403d301042afc",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/review-page.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "979b1406178f9de8df83c6d142521dad4d85eee0d6437e4dc9abaae11170292a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/review.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-001-AC4",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f86b5de23d7c2d73fa3a9e7e869f1746f9ab7e0ca6395041c6d78262612f3549",
+            "criterion": "Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-manifest.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 4,
+            "rationale": "A single generated manifest made every branch that touched any specification file conflict with every other one, even when the capabilities they changed were disjoint, and let a partial line merge produce a manifest that parses but that no compilation would emit.",
+            "scenarios": [
+              {
+                "given": "a compiled manifest whose capability was removed from the specification",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC5-S1",
+                "then": "Tieline must delete that capability's manifest file and leave every other file in the manifest directory untouched",
+                "when": "the contract is compiled again"
+              },
+              {
+                "given": "a manifest file whose name does not match the capability it holds",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC5-S2",
+                "then": "Tieline must refuse the manifest and name both the file and the capability instead of accepting the capability under the wrong identity",
+                "when": "the manifest is read"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC5",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "8efa277938f7c53ddc53116b182d5d302d639f04f4eb2e864ae820574bcb8dc3",
+            "criterion": "Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a9987519e8e7ab7b76f7bf0e59988346e1d3a8eb152714dd11c3cc12ed54a826",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-impact.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 5,
+            "rationale": "A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.",
+            "scenarios": [
+              {
+                "given": "a specification file changed without the manifest being recompiled",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC6-S1",
+                "then": "Tieline must report the stale manifest as an error and exit non-zero",
+                "when": "the branch is checked against its base"
+              },
+              {
+                "given": "the same stale manifest and an explicit request to downgrade the gate",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC6-S2",
+                "then": "Tieline must report the stale manifest as a warning and exit zero",
+                "when": "the branch is checked against its base"
+              },
+              {
+                "given": "a manifest that cannot be recompiled at all",
+                "position": 2,
+                "stable_id": "CONTRACT-001-AC6-S3",
+                "then": "Tieline must report the compilation failure once rather than also reporting it as a stale manifest",
+                "when": "the branch is checked against its base"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC6",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3f2b24169185c3d8bb008393ad0e9a2dc5d03c4e9b42f39233af6e64570a467e",
+            "criterion": "Tieline must require every contract link to state whether its claim was authored, inferred, or materialized, and must preserve that provenance through compiled manifests, repository synchronization, and every exact claim read.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "a8fee643ee68cdb20a6c6920d77e83185e3d660747d6bd9daf252be866e98205",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0001_baseline.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "9f6faa9e0e7589376111063f89e4a793c7eb80e26d74a18d84fab89192090e53",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/schema.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "484a403c56ce158b6d1a388580201cda1673361318a6b8f98c3537d91e904042",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-read-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-sync-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8738fdc06528d372fadf2618648b8d9e116959d2b43e09f8926741dc7c3053ef",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/link-plausibility.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-contract-sync.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-manifest.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 6,
+            "rationale": "Relation and target describe what a link claims, while provenance records how that claim entered its current authority surface. Keeping this low-cardinality origin distinct from freshness and grade lets agents interpret a claim without turning mutable review facts into contract identity.",
+            "scenarios": [
+              {
+                "given": "a contract link has no provenance",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC7-S1",
+                "then": "Tieline must reject the link instead of guessing where its claim came from",
+                "when": "the repository contract is validated"
+              },
+              {
+                "given": "only a contract link's provenance changes",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC7-S2",
+                "then": "Tieline must change the owning contract hash without creating a second link identity",
+                "when": "the contract manifest is compiled"
+              },
+              {
+                "given": "an accepted repository link was copied during planning-to-repository authority transfer",
+                "position": 2,
+                "stable_id": "CONTRACT-001-AC7-S3",
+                "then": "Tieline must preserve materialized as the origin of that exact claim",
+                "when": "the repository contract is synchronized and read"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC7",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "42b68fb2b12ae0124214790488894f75e2a80f0da627230459dfa394c715c717",
+            "criterion": "Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "1a1dbe176bc233b499d35a57db7513f2941c99ab9759f177830c9149be99005b",
+                "target": {
+                  "kind": "code",
+                  "path": ".gitattributes",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-sync-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a9987519e8e7ab7b76f7bf0e59988346e1d3a8eb152714dd11c3cc12ed54a826",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2ab580f707a37d516b3624432d784eb35ad6a476dea684e89a6285479789ffb4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "bd211a9aeb20714859f7a88a676cb02ebe2be04e32fd563f59b2dd2c79c9a203",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/sync.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "da33538a7ac9f17a415c334a6c918a441b8d705e84919b23368c227bf393e6be",
+                "target": {
+                  "kind": "code",
+                  "path": "src/schemas.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3d18c6ade03e82a9ab9fec3bc89f213b2780013c0ef246b67dd7f1f6d84a1ef7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tieline/status.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "779fcd5ff896c50294c4b4e459285124be494b4063f09d26246ca0e117a0fc28",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-contract-sync.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-manifest.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "9d490232e62f9029ec6aebecc1a1e83c56189466223fafeb651834039b29d755",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 7,
+            "rationale": "A revision in the tracked repository-level index made every branch conflict in one shared generated file and became stale as soon as that generated file was committed. Content identity belongs to the reviewed manifest, while Git revision belongs to the runtime projection checkpoint and audit boundary.",
+            "scenarios": [
+              {
+                "given": "accepted specifications and linked artifacts whose content is unchanged across two Git revisions",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC8-S1",
+                "then": "the repository-level manifest index must remain byte-identical and must not record either Git revision",
+                "when": "the contract is compiled at each revision"
+              },
+              {
+                "given": "the content of the reviewed manifest changes",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC8-S2",
+                "then": "Tieline must return a different manifest digest identifying the complete reviewed manifest that answered",
+                "when": "exact path criteria are requested"
+              },
+              {
+                "given": "a reviewed manifest and an explicit runtime Git commit",
+                "position": 2,
+                "stable_id": "CONTRACT-001-AC8-S3",
+                "then": "Tieline must use that runtime commit for projection rows, checkpoint guards, sync results, and audit events without adding it to the reviewed manifest",
+                "when": "the repository contract is synchronized"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC8",
+            "supersedes": null
+          }
+        ],
+        "actor": "maintainer",
+        "aliases": [
+          "author accepted behavior"
+        ],
+        "applies_to": null,
+        "benefit": "intent and implementation change through the same review",
+        "contract_hash": "8900f09220101192c88175da8414aa752446016b563e1ba2852348c3038599e3",
+        "goal": "define product behavior in a stable Story and Acceptance Criterion hierarchy",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-001",
+        "supersedes": null,
+        "title": "Review accepted behavior with code"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "7360e197c8a9fb50eab8f469aa111b1e3d7bfd929598c63cfdb3db6998e1fbda",
+            "criterion": "Tieline must report every acceptance criterion linked to an exact repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must return an explicit has_criteria, no_criteria, or not_found status for every requested path.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a9987519e8e7ab7b76f7bf0e59988346e1d3a8eb152714dd11c3cc12ed54a826",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2ab580f707a37d516b3624432d784eb35ad6a476dea684e89a6285479789ffb4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a3b1297f3e9d11940788b32f1a4d8dd4fd9605e0f61905ad872213c5075d4b89",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/reconciliation.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "9d490232e62f9029ec6aebecc1a1e83c56189466223fafeb651834039b29d755",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-path-criteria.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Coverage answers for the whole contract and check answers for a diff, so both describe a violation that already exists; the pre-change question is the only one that can prevent it. An empty array reads to an agent like a failed query rather than the actionable finding that an existing path has no recorded acceptance criteria.",
+            "scenarios": [
+              {
+                "given": "a path is linked by one acceptance criterion and by the Story that owns it",
+                "position": 0,
+                "stable_id": "CONTRACT-002-AC1-S1",
+                "then": "Tieline must return has_criteria with both records marked direct and story_fallback",
+                "when": "the contract criteria for that path are requested"
+              },
+              {
+                "given": "a path exists in the repository and no contract link targets it",
+                "position": 1,
+                "stable_id": "CONTRACT-002-AC1-S2",
+                "then": "Tieline must return no_criteria and state that no acceptance criteria apply instead of returning an empty result",
+                "when": "the contract criteria for that path are requested"
+              },
+              {
+                "given": "a requested path does not exist in the repository",
+                "position": 2,
+                "stable_id": "CONTRACT-002-AC1-S3",
+                "then": "Tieline must return not_found distinctly from an existing path with no criteria",
+                "when": "the contract criteria for that path are requested"
+              }
+            ],
+            "stable_id": "CONTRACT-002-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "787fb7ed403c175926753c57ca19e3087b44de267cada8fbb66db500ab0320bb",
+            "criterion": "The path-criteria lookup must answer from the compiled manifest alone, so Tieline must serve get_path_criteria over MCP with no database connection and must return a named, actionable message when no workspace or no readable manifest is found.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "da33538a7ac9f17a415c334a6c918a441b8d705e84919b23368c227bf393e6be",
+                "target": {
+                  "kind": "code",
+                  "path": "src/schemas.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8d4148640538d951411781b5c70bd69ba36b704c18e41ecf86bfcbe798ff29bc",
+                "target": {
+                  "kind": "code",
+                  "path": "src/server.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "779fcd5ff896c50294c4b4e459285124be494b4063f09d26246ca0e117a0fc28",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "9d490232e62f9029ec6aebecc1a1e83c56189466223fafeb651834039b29d755",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-path-criteria.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Every other MCP tool fails at call time without Postgres, so an offline server boots and answers nothing; a manifest-backed lookup is what makes serving without a database worth doing, and an obscure throw would waste the one answer the caller came for.",
+            "scenarios": [
+              {
+                "given": "no database connection is configured",
+                "position": 0,
+                "stable_id": "CONTRACT-002-AC2-S1",
+                "then": "Tieline must return the applicable acceptance criteria and the content-derived digest of the manifest that answered",
+                "when": "the contract criteria for a path are requested over MCP"
+              },
+              {
+                "given": "the server runs outside any Tieline workspace",
+                "position": 1,
+                "stable_id": "CONTRACT-002-AC2-S2",
+                "then": "Tieline must name the missing workspace and the command that creates one",
+                "when": "the contract criteria for a path are requested"
+              }
+            ],
+            "stable_id": "CONTRACT-002-AC2",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [
+          "path to acceptance criterion lookup",
+          "which acceptance criteria apply to this file"
+        ],
+        "applies_to": null,
+        "benefit": "a contradiction with accepted behavior is prevented instead of reported afterwards",
+        "contract_hash": "5441085cc520464dacd3b7f72acda7e69b2247b26708f4cfc82ba546f60e5c14",
+        "goal": "resolve a repository path to the acceptance criteria already recorded for it",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-002",
+        "supersedes": null,
+        "title": "Learn which acceptance criteria apply to a path before editing it"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "9e069f8e291fa6a819a64ee72cca9bf563d00deb84ea1e83b4805ef10122fc8e",
+            "criterion": "Given an exact repository-relative code or test path with optional kind and selector, Tieline must preserve the complete locator identity, return has_context, no_criteria, or not_found explicitly, include exact-selector and file-level claims while excluding other selectors, and bound associated assets to one Acceptance-Criterion-mediated intent neighborhood.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "85f48f5c504d1ab028a6e529e602c6c83a0d84bbac493252224d17b2a9cc4ed0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/intent-context.ts",
+                  "repository": "tieline",
+                  "selector": "function:lookupAssetIntentContext"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-intent-context.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "A known symbol should retrieve the reviewed behavior that applies to that symbol without collapsing same-file claims or pretending the result is an open-ended graph traversal.",
+            "scenarios": [
+              {
+                "given": "one file has claims for function:first, function:second, and the whole file",
+                "position": 0,
+                "stable_id": "CONTRACT-003-AC1-S1",
+                "then": "Tieline must return the function:first and file-level claims with their kind, repository, canonical path, selector, framework hint, relation, provenance, and link scope while excluding function:second",
+                "when": "exact asset context is requested for function:first"
+              },
+              {
+                "given": "an existing path has no applicable claim for the requested selector",
+                "position": 1,
+                "stable_id": "CONTRACT-003-AC1-S2",
+                "then": "Tieline must return no_criteria distinctly from not_found for a missing path",
+                "when": "exact asset context is requested"
+              }
+            ],
+            "stable_id": "CONTRACT-003-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "28201fe8536c238a87e4169d80ac9a92931c30ca5bd0b2181021f5657bbe6a15",
+            "criterion": "Given an exact Acceptance Criterion stable ID, Tieline must return its Capability and Story ancestry, lifecycle, criterion, rationale, applicability, scenarios, direct links, Story-fallback links, and directly associated code and test assets without recursive code-to-code traversal.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "85f48f5c504d1ab028a6e529e602c6c83a0d84bbac493252224d17b2a9cc4ed0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/intent-context.ts",
+                  "repository": "tieline",
+                  "selector": "function:lookupAcceptanceCriterionIntentContext"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-intent-context.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Reviewers need the accepted product record and its bounded contract coupling, not a semantic approximation or an inferred runtime dependency graph.",
+            "scenarios": [
+              {
+                "given": "an Acceptance Criterion has a direct test link and inherits a Story-level implementation link",
+                "position": 0,
+                "stable_id": "CONTRACT-003-AC2-S1",
+                "then": "Tieline must preserve both assets, their direct or story_fallback scope, and the owning product context in deterministic order",
+                "when": "its exact context is requested"
+              },
+              {
+                "given": "the stable ID does not identify an accepted Acceptance Criterion",
+                "position": 1,
+                "stable_id": "CONTRACT-003-AC2-S2",
+                "then": "Tieline must return an explicit not_found status and an actionable answer naming the unknown stable ID and reviewed manifest",
+                "when": "exact context is requested"
+              }
+            ],
+            "stable_id": "CONTRACT-003-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3a4a4ac3fbe6aaac4af441bc54fbece99af5a0d1baaf0622ee6bc14b93434168",
+            "criterion": "Every code or test claim returned as exact intent context must keep provenance, link scope, content freshness, locator resolution, and semantic support as separate assurance dimensions, must preserve broken and uninspectable claims with honest causes or unknown states, and must report semantic support as not_assessed.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ef4835d7df0ca1075856c33288ab8e89328f9af056a79356ddc161bb888e853d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/artifact-assurance.ts",
+                  "repository": "tieline",
+                  "selector": "function:createArtifactAssuranceInspector"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ac8d19e5bf0ef338717676662bc3a51f436ad2b3f4c8c3c66e8bc57e5a7b5deb",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/source-scan.ts",
+                  "repository": "tieline",
+                  "selector": "function:scanSource"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e4ffacf4fd7b7b0d6bf7f6ccb44ad75745f53967e6571b43767e288b7802509e",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-artifact-assurance.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-intent-context.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Structural currency and selector resolution can guide review, but neither proves the linked behavior or records that a linked test executed or passed.",
+            "scenarios": [
+              {
+                "given": "a current local implementation selector resolves against its reviewed content",
+                "position": 0,
+                "stable_id": "CONTRACT-003-AC3-S1",
+                "then": "provenance, freshness, and locator resolution must be positive while semantic support remains not_assessed",
+                "when": "exact intent context is returned"
+              },
+              {
+                "given": "a local target is missing or a selector uses an unsupported language",
+                "position": 1,
+                "stable_id": "CONTRACT-003-AC3-S2",
+                "then": "the claim must remain visible with a named broken cause or not_checked state and must not be converted into semantic failure",
+                "when": "its claim is inspected"
+              },
+              {
+                "given": "an associated target names another repository",
+                "position": 2,
+                "stable_id": "CONTRACT-003-AC3-S3",
+                "then": "freshness and locator resolution must remain honestly unknown or not_checked",
+                "when": "its claim is inspected from this checkout"
+              }
+            ],
+            "stable_id": "CONTRACT-003-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "904638bde0cf9471cbf0d0af6e33905b5f65a167a71c57a2fc82c780116dc72a",
+            "criterion": "Tieline must expose separate get_asset_intent_context and get_acceptance_criterion_context MCP tools and equivalent contract context --path and --ac CLI modes that answer from the compiled manifest without a database and preserve the same membership, statuses, repository key, and content-derived manifest digest.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "024072c37883377c56552d1f79544bc931318007a8fa502b13d22f5eaa042192",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract-context.ts",
+                  "repository": "tieline",
+                  "selector": "function:runContractContext"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:runContractCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "bdf01dd86664ddadfb82365f149a3866249a8eb6265a62005538945d5ee00ee9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/intent-context.ts",
+                  "repository": "tieline",
+                  "selector": "function:registerIntentContextTools"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/smoke.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "f956d2d18ccc9e8dddd8415ec852396e509cc9170e6d714cbc3ab75eb22f9cd8",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-contract-context-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-intent-context.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "Agents need primitive exact reads while maintainers need CLI and JSON parity to inspect the same reviewed contract and actionable workspace or manifest failures.",
+            "scenarios": [
+              {
+                "given": "no database, embeddings, network, or knowledge store is configured and the compiled manifest is readable",
+                "position": 0,
+                "stable_id": "CONTRACT-003-AC4-S1",
+                "then": "both surfaces must return the same bounded neighborhood membership and manifest identity",
+                "when": "equivalent exact context requests are made over MCP and CLI"
+              },
+              {
+                "given": "no workspace or no readable manifest is available",
+                "position": 1,
+                "stable_id": "CONTRACT-003-AC4-S2",
+                "then": "Tieline must return a named actionable result that explains how to initialize or compile the workspace",
+                "when": "either MCP exact context tool is called"
+              }
+            ],
+            "stable_id": "CONTRACT-003-AC4",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "65b9bab6271c0b079470da2765fe6c488265bf851fa582f7efb439db15d5f66b",
+            "criterion": "Diff impact must preserve selector-qualified target identity and report resolved, unresolved, or not_checked locator state for affected links while keeping selector findings advisory and describing shared Acceptance-Criterion links only as contract coupling rather than runtime dependency or comprehensive blast radius.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "1338b34c826832689d9684789d83aff1211bc1f46b393040c3bb577d22da8168",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/impact.ts",
+                  "repository": "tieline",
+                  "selector": "function:analyzeContractImpact"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-impact.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 4,
+            "rationale": "Selector drift is useful review input, but conservative inspection cannot establish execution topology and must not create a new blocking gate.",
+            "scenarios": [
+              {
+                "given": "a changed file contains one unresolved selector claim and one selector in an unsupported source language",
+                "position": 0,
+                "stable_id": "CONTRACT-003-AC5-S1",
+                "then": "both claims must remain distinct with unresolved and not_checked locator states and selector findings must not change the existing exit behavior",
+                "when": "diff impact is calculated"
+              }
+            ],
+            "stable_id": "CONTRACT-003-AC5",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [
+          "exact acceptance criterion context",
+          "exact asset context",
+          "precise intent context"
+        ],
+        "applies_to": null,
+        "benefit": "implementation and review begin from bounded accepted intent with honest current assurance",
+        "contract_hash": "4aab5b6f1352980b18071db682dbdeea893ef03cc610d7e13a7563cafe37ae46",
+        "goal": "retrieve the exact reviewed context for a known code or test locator or Acceptance Criterion",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-003",
+        "supersedes": null,
+        "title": "Inspect precise accepted intent before changing an asset"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "4e738fa9be64375352b378b11c901676d723d95dd7f709891e34828201e44025",
+            "criterion": "Tieline must extract deterministic symbols, owner chains where applicable, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL snapshots while retaining syntax recovery, ambiguity, and truncation explicitly; it must also extract module references only for languages with a supported static module model.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "980d4957f7d1deec159e5f6ee2696c64f5d2ee852edeacd8d370268ea923527a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/javascript.ts",
+                  "repository": "tieline",
+                  "selector": "function:createJavaScriptAnalyzer"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d14edf43bd9da360bb94d6054c4e5dd6f96bc9d8e0d04cc8dfb300a886e6cd6e",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/python.ts",
+                  "repository": "tieline",
+                  "selector": "function:createPythonAnalyzer"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "7e39684e32bb498377ce8235806057580feb3710cc68e395bd9b92b2ab5b2b2e",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/rust.ts",
+                  "repository": "tieline",
+                  "selector": "function:createRustAnalyzer"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d931198a8294dd40bacadaf791ab57675ee35cd2529fc92079531de05a95e3f4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/sql.ts",
+                  "repository": "tieline",
+                  "selector": "function:createSqlAnalyzer"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "732a1cb0299e702cdbb1f94d631c358eaf32a7976d218c459e4473a9e05c98b1",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/structural-support.ts",
+                  "repository": "tieline",
+                  "selector": "function:createStructuralAnalyzer"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "fdcbb96e21396f6258f17e43374f17fbc51607ed4f4a30a6382e9c0eca57582f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/source-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:createFilesystemSourceSnapshotReader"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "8fc275b689e5097462b613c1089b2ccae3736e5469ed967b055db58b0267a968",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-analysis-python-rust.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "78aa72bb46a8dbc775eab83f6167d73156b0af5c296c560739ea98bd9fde42b0",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-analysis-sql.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "49bda0bada48449c74eb147e080b7e88f85c930d62ca302aa456cd29b3d4c724",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-source-snapshot.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Structural evidence is useful only when callers can identify the exact bytes and parser compatibility that produced it without treating a best-effort parse as semantic proof.",
+            "scenarios": [
+              {
+                "given": "supported source contains nested declarations, Unicode names, imports, and a recoverable syntax error",
+                "position": 0,
+                "stable_id": "CONTRACT-004-AC1-S1",
+                "then": "facts must preserve canonical selectors, complete owners, both coordinate systems, syntax status, diagnostics, and deterministic compatibility identity",
+                "when": "the source is structurally analyzed"
+              },
+              {
+                "given": "a reviewed selector resolves uniquely against hash-current source",
+                "position": 1,
+                "stable_id": "CONTRACT-004-AC1-S2",
+                "then": "a bounded parser-backed snippet may be returned while semantic support remains not_assessed",
+                "when": "exact intent context is read"
+              },
+              {
+                "given": "SQL declares a top-level table, view, or function with a safely representable name",
+                "position": 2,
+                "stable_id": "CONTRACT-004-AC1-S3",
+                "then": "Tieline must expose its declaration selector and ranges without claiming SQL dependency edges",
+                "when": "the source is structurally analyzed"
+              }
+            ],
+            "stable_id": "CONTRACT-004-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "9827b526f4b1547e037d38b9400795136394c52dd085c5303f8e7ecfa34c5cc9",
+            "criterion": "Tieline must resolve supported project-local JavaScript and TypeScript, Python, and Rust module forms in a separate conservative phase and must preserve exact, ambiguous, unresolved, external, dynamic, glob, generated, and unsupported outcomes instead of guessing a dependency.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "117082fbf7926fc97257492cd43960c79844eba6a130293c6738578ca8cc0c0c",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-resolution/javascript.ts",
+                  "repository": "tieline",
+                  "selector": "function:createJavaScriptModuleResolver"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "4974f8b5be13867414180d65da547201f69175191ca2c934463c48726e5dcda0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-resolution/python.ts",
+                  "repository": "tieline",
+                  "selector": "function:createPythonModuleResolver"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "63cd2216373ad71b72f5d807013e4e4c6d6d191e4e713ae0d4b7463d3699f717",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-resolution/rust.ts",
+                  "repository": "tieline",
+                  "selector": "function:createRustModuleResolver"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "043c0864dba6f3838ded9751c5f2561265c32269b7c77c554b4a2046c7fb314e",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-topology-indexer.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildCodeTopologyGeneration"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "86f4b6a047584a7b50fd13972865fa29bd76d000e2364bd8fd1fdfe6c98ab768",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-resolution-javascript.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "075f4ac846773df89d29ed345888832e1f7ce1ffa4f92a7cbfc161459ada8386",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-resolution-python-rust.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "A false edge produces a misleading blast radius, while an explicit frontier gives an agent a precise place to continue investigation.",
+            "scenarios": [
+              {
+                "given": "a static local import has one inventory-backed target",
+                "position": 0,
+                "stable_id": "CONTRACT-004-AC2-S1",
+                "then": "Tieline must record its rule, target, configuration identity, and derived edge",
+                "when": "module resolution runs"
+              },
+              {
+                "given": "a dynamic name, glob, generated module, unsupported configuration, external package, or multiple target is encountered",
+                "position": 1,
+                "stable_id": "CONTRACT-004-AC2-S2",
+                "then": "Tieline must retain a named non-resolved outcome and candidates or diagnostics without manufacturing an exact edge",
+                "when": "module resolution runs"
+              }
+            ],
+            "stable_id": "CONTRACT-004-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "6475728ee2e4538ad41199b1c9b6d49394b1d98d0d0c42a9b3b42d1700947c67",
+            "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "f4ea34d20f28e8cdb5a5cdaca140bda09958458ece1e61571b4e904d4cbec94c",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0003_sql_topology_language.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0a1cdd51725b7d98b6c8f0e78cf791a823bf158f86c5270277409519c576c83a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/code-topology-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresCodeTopologyRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2b483b3087387c2a1e68ed58d3639fb0f89eac0ff965c62e2d64354693db9c3a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/code-topology-artifact.ts",
+                  "repository": "tieline",
+                  "selector": "function:publishCodeTopologyArtifact"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2bf3601f4aef4ffc7cfa150319e90182ea417d5983205d9adaa7ee60889e3bc7",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/compact-code-topology-store.ts",
+                  "repository": "tieline",
+                  "selector": "class:ImmutableCodeTopologySnapshotStore"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "414eeb7ba40b1e21d14382cb85a7653e29059906986ac3c3cb62fb9a09e859ba",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/topology-generation.ts",
+                  "repository": "tieline",
+                  "selector": "function:persistCommittedTopologyGeneration"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "21a6796a4127ba2a95d3bfdf3cc4ea68228158c637e281b6eb5f0b78c4d93953",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/topology-role-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectWorkspaceTopologyRole"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "74d6f0dfc6d7ee8bdfcbd5d5222b550ed3b433a337f0a10b42bc008ae7283abe",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/integration-code-topology.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "21bc95bb043a72321ca4adaa956d84874b1dff69715d28ce47fac77286c86abd",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-topology-artifact-command.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "7f1e4fff50ef268ae18d0ac433295d1d59abb35d0b44e749ca5e7c0dd6c4e607",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-topology-generation.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Readers must never observe a mixed or partial graph, generated artifact bytes must not make identity self-referential, and reviewed repository topology must remain distinct from richer hosted persistence.",
+            "scenarios": [
+              {
+                "given": "topology compilation is interrupted or loses a concurrent publication race",
+                "position": 0,
+                "stable_id": "CONTRACT-004-AC3-S1",
+                "then": "readers must observe either the previous complete graph.json or the complete winning graph.json and never a partial document",
+                "when": "the artifact authority is selected"
+              },
+              {
+                "given": "files change while a working-tree generation is built",
+                "position": 1,
+                "stable_id": "CONTRACT-004-AC3-S2",
+                "then": "Tieline must return workspace_changed without publishing mixed facts",
+                "when": "the consistency check retries and observes another change"
+              },
+              {
+                "given": "only generated topology bytes or unrelated authored intent change",
+                "position": 2,
+                "stable_id": "CONTRACT-004-AC3-S3",
+                "then": "the selected-input identity must remain unchanged",
+                "when": "topology identity and artifact bytes are recomputed"
+              }
+            ],
+            "stable_id": "CONTRACT-004-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "a1737b55445326f4c591826239a07efbf8261dac096f80009a58d7e0c0638b43",
+            "criterion": "Tieline must locate an exact path and optional selector before traversing dependencies or dependents, must default AC-aware blast radius to dependents, and must return cycle-safe deterministic paths, unresolved frontiers, generation identities, and independent depth, node, edge, and path truncation within fixed hard maxima.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "44acd9522c461b5ab3cf0b7ec5bc255bef9c159b2d63ccba21933e915957cd90",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-blast-radius.ts",
+                  "repository": "tieline",
+                  "selector": "function:analyzeCodeBlastRadius"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d2706d56567c63ab581faf69eec84dd3955b031620affb0f6ee200002fb1208d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-topology.ts",
+                  "repository": "tieline",
+                  "selector": "function:traceCodeTopology"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "d1741ad972f6457189dba4cf36a4e584a86bfb6d4fd2f32e71fe15f854c731c8",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-blast-radius.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "7d7daf4cf1dc498fe588384a140a4ae11a4da6beb7fdff032d9c1044c53c4b64",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-topology.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "Bounded topology is safe for agent use only when ambiguity and omitted work stay visible and the caller cannot bypass product limits.",
+            "scenarios": [
+              {
+                "given": "a dependency graph contains a cycle, diamond, ambiguous start, and unresolved reference",
+                "position": 0,
+                "stable_id": "CONTRACT-004-AC4-S1",
+                "then": "Tieline must preserve all applicable start and frontier outcomes without revisiting nodes indefinitely",
+                "when": "a trace is requested"
+              },
+              {
+                "given": "a changed locator and another unrelated locator share one Acceptance Criterion",
+                "position": 1,
+                "stable_id": "CONTRACT-004-AC4-S2",
+                "then": "the unrelated locator must not be traversed unless a derived code edge reaches it",
+                "when": "AC-aware blast radius runs"
+              }
+            ],
+            "stable_id": "CONTRACT-004-AC4",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "00176c0fe08796585d8cbabcbd186e8254b3636c72d9ac043f6bc470e4545798",
+            "criterion": "Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/code-topology.ts",
+                  "repository": "tieline",
+                  "selector": "function:executeChangeBlastRadius"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/code-topology.ts",
+                  "repository": "tieline",
+                  "selector": "function:executeDependencyTrace"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8feb9cf3a98c934c35466578d2558128088add474a3ba900fc983c9705b0e570",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/code-topology.ts",
+                  "repository": "tieline",
+                  "selector": "function:registerCodeTopologyTools"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "de5c84fc29c9b1aebeeb33bfcbcae83ad1ce73179748e1f06ae3e27e4909d07b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-code-topology-command.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 4,
+            "rationale": "Derived topology can prioritize investigation and preserve deleted-side intent, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.",
+            "scenarios": [
+              {
+                "given": "a local workspace has no database connection",
+                "position": 0,
+                "stable_id": "CONTRACT-004-AC5-S1",
+                "then": "both surfaces must select the existing current repository artifact without parsing or writing and return equivalent structured membership",
+                "when": "dependency trace or AC-aware blast radius is requested"
+              },
+              {
+                "given": "a base commit removes linked code or the current manifest removes its authored claim",
+                "position": 1,
+                "stable_id": "CONTRACT-004-AC5-S2",
+                "then": "each visited locator must join only to its matching manifest role while unclaimed locators remain visible",
+                "when": "AC-aware blast radius compares base and current"
+              },
+              {
+                "given": "hosted mode has a compatible complete topology generation but no readable authored manifest",
+                "position": 2,
+                "stable_id": "CONTRACT-004-AC5-S3",
+                "then": "dependency trace may run while AC-aware contract joining must report contract_unavailable",
+                "when": "the tools are called"
+              }
+            ],
+            "stable_id": "CONTRACT-004-AC5",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [
+          "AC-aware blast radius",
+          "derived dependency trace",
+          "multi-language code topology"
+        ],
+        "applies_to": null,
+        "benefit": "code changes can be investigated with bounded structural evidence while reviewed product intent remains authoritative",
+        "contract_hash": "1aab5fcfce9ca8455ce52901a85ef2f356bacfb1a0878cccaeb3c1b57099787d",
+        "goal": "trace conservative multi-language code relationships and their potentially affected accepted intent",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-004",
+        "supersedes": null,
+        "title": "Inspect derived code topology without weakening contract authority"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tieline/spec/contract.yaml",
+    "sha256": "6fb9b325601f653ee11d1acf0a588fb805c7e88c7cc81d81cc712cab4bd17db8"
+  }
+}

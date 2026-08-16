@@ -1,7 +1,7 @@
 /**
- * Query-time (and, once embed-on-write lands, ingest-time) text -> vector
- * embedding. The provider is selectable via EMBEDDING_PROVIDER so the server is
- * not tied to any single embedding backend:
+ * Text -> vector embedding, used at both query time and document-write
+ * (ingest) time. The provider is selectable via EMBEDDING_PROVIDER so the
+ * server is not tied to any single embedding backend:
  *
  *   local         : run the model IN-PROCESS via @huggingface/transformers
  *                   (Transformers.js). Default provider. gte-small, 384-dim, no
@@ -14,8 +14,9 @@
  *                   EMBEDDING_BASE_URL at OpenAI, or a self-hosted Ollama /
  *                   LM Studio / HF TEI. Keeps the server process lean (no model
  *                   in memory) at the cost of running/paying for an endpoint.
- *   supabase-edge : call a Supabase `generate-embedding` edge function (gte-small).
- *                   Kept for back-compat with existing Supabase deployments.
+ *   supabase-edge : call a Supabase `generate-embedding` edge function serving
+ *                   gte-small. Auto-selected when SUPABASE_URL and
+ *                   SUPABASE_ANON_KEY are set.
  *   hash          : deterministic local hashing (384-dim) — DEV/OFFLINE/TESTS
  *                   ONLY, not semantically meaningful.
  *
@@ -83,7 +84,7 @@ class LocalEmbedder implements Embedder {
   async embed(text: string): Promise<number[]> {
     const extractor = await this.getExtractor();
     // mean-pool + L2-normalize -> a single dim-length sentence embedding, the
-    // same recipe the Supabase gte-small pipeline used, so vectors stay aligned.
+    // same recipe as the supabase-edge gte-small provider, so vectors stay aligned.
     const output = await extractor(prepare(text), { pooling: "mean", normalize: true });
     return assertDim(Array.from(output.data as ArrayLike<number>), this.dim);
   }
@@ -91,7 +92,7 @@ class LocalEmbedder implements Embedder {
 
 // --- OpenAI-compatible HTTP endpoint ----------------------------------------
 
-class OpenAIEmbedder implements Embedder {
+export class OpenAIEmbedder implements Embedder {
   readonly provider = "openai" as const;
   constructor(
     readonly dim: number,
@@ -134,7 +135,7 @@ class OpenAIEmbedder implements Embedder {
   }
 }
 
-// --- Supabase edge function (gte-small) — back-compat -----------------------
+// --- Supabase edge function (gte-small) -------------------------------------
 
 class SupabaseEdgeEmbedder implements Embedder {
   readonly provider = "supabase-edge" as const;
@@ -167,7 +168,8 @@ class SupabaseEdgeEmbedder implements Embedder {
 
 // --- Hash fallback (dev/offline only) ---------------------------------------
 
-class HashEmbedder implements Embedder {
+/** Deterministic dev/test embedder — not semantically meaningful. */
+export class HashEmbedder implements Embedder {
   readonly provider = "hash" as const;
   constructor(readonly dim: number = 384) {}
 
@@ -184,17 +186,9 @@ class HashEmbedder implements Embedder {
 
 // --- helpers ----------------------------------------------------------------
 
-/** Canonical text fed to the embedder for a story: the title, then the story
- *  text on the next line. Kept in one place so the ingest path and both write
- *  paths (createUserStory / updateUserStory) embed byte-identically — stored and
- *  query vectors must share one space. */
-export function storyEmbeddingText(title: string, storyText: string): string {
-  return `${title}\n${storyText}`;
-}
-
-/** Guard: fail loudly when a real provider's vector width doesn't match
- *  384-dimension storage contract. Turns the opaque Postgres error
- *  error into an actionable message naming both lengths. */
+/** Guard: fail loudly when a provider's vector width doesn't match the
+ *  384-dimension storage contract. Turns the opaque Postgres error into an
+ *  actionable message naming both lengths. */
 export function assertEmbeddingDimension(embedding: number[], dim = EMBEDDING_DIMENSION): number[] {
   if (typeof dim === "number" && dim > 0 && embedding.length !== dim) {
     throw new Error(
@@ -363,6 +357,17 @@ export function getEmbedder(): Embedder {
       const exhaustive: never = config.embeddingProvider;
       throw new Error(`Unknown EMBEDDING_PROVIDER: ${String(exhaustive)}`);
     }
+  }
+}
+
+/** Search remains useful through lexical retrieval when embeddings are optional. */
+export async function optionalQueryEmbedding(
+  text: string
+): Promise<number[] | undefined> {
+  try {
+    return await getEmbedder().embed(text);
+  } catch {
+    return undefined;
   }
 }
 

@@ -26,7 +26,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Self-test trusted grader
+        run: node guardrail-evals/run.mjs
 
       - name: Grade submitted diff with trusted base grader
         env:
@@ -35,4 +43,4 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "pull/$PR_NUMBER/head"
           git diff --no-ext-diff --no-renames --unified=0 "$BASE_SHA" FETCH_HEAD |
-            node guardrail-evals/run.mjs --stdin
+            node guardrail-evals/run.mjs --stdin --base-ref "$BASE_SHA" --head-ref FETCH_HEAD

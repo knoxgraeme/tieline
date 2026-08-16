@@ -1,269 +1,352 @@
-import { mapWithConcurrency, type Embedder } from "../../embeddings.js";
-import type { HelpArticle, HelpHit } from "../../types.js";
-import type { HelpArticleImportInput, HelpArticleImportResult, HelpLinkSuggestionResult } from "../../domain/knowledge-store.js";
-import { getIngestSql, getReadSql } from "./connections.js";
-import { vectorLiteral } from "./vector.js";
-import { saturate } from "../../ranking.js";
-const getSql = getReadSql;
+import { createHash } from "node:crypto";
+import type {
+  HelpArticleRecord,
+  HelpArticleRef,
+  HelpSearchHit,
+} from "../../domain/knowledge-store.js";
+import type { HelpArticleImportRecord } from "../../authoring/help-schema.js";
+import { getReadSql, getSyncSql } from "./connections.js";
+import type {
+  ContractAuthority,
+  StoryLifecycle,
+} from "../../types.js";
+import type { SemanticSearchContext } from "../../domain/semantic-search-store.js";
+import { scoreSearchContext } from "./search-context.js";
 
-// --- find_help (semantic + lexical search over help articles) ---------------
-
-const HELP_LINKED_STORIES_CAP = 5;
-
-/** The article columns both the KNN and lexical help queries project. */
-type HelpArticleRow = {
-  id: number;
-  article_slug: string;
-  title: string;
-  summary: string | null;
+interface HelpRow {
+  id: string;
+  source: string;
+  external_id: string;
+  title: string | null;
   url: string | null;
-  product_area: string | null;
-  audience: string | null;
-  tags: string[] | null;
-  headings: unknown;
-};
-
-/** Reverse lookup: the story keys each given article documents, primary-first. */
-async function linkedStoriesFor(ids: number[]): Promise<Map<number, string[]>> {
-  const linkMap = new Map<number, string[]>();
-  if (ids.length === 0) return linkMap;
-  const sql = getSql();
-  const links = await sql<{ help_article_id: number; story_key: string }[]>`
-    select sha.help_article_id, us.story_key
-    from story_help_articles sha
-    join user_stories us on us.id = sha.story_id
-    where sha.help_article_id in ${sql(ids)}
-    order by sha.confidence desc`;
-  for (const l of links) {
-    const arr = linkMap.get(l.help_article_id) ?? [];
-    arr.push(l.story_key);
-    linkMap.set(l.help_article_id, arr);
-  }
-  return linkMap;
+  summary: string | null;
+  markdown: string | null;
+  updated_at: Date | string;
 }
 
-/** Shape one article row + its linked stories + a caller-computed score into a HelpHit. */
-function toHelpHit(row: HelpArticleRow, stories: string[], score: number): HelpHit {
+interface StoryHelpLink {
+  article_id: string;
+  repository: string;
+  stable_id: string;
+  authority: ContractAuthority;
+  lifecycle: StoryLifecycle;
+}
+
+interface CriterionHelpLink extends StoryHelpLink {
+  story_stable_id: string;
+}
+
+type LinkedHelpFilters = Pick<
+  Parameters<typeof searchHelpArticles>[0],
+  "authorities" | "lifecycles" | "repositories" | "include_inactive"
+>;
+
+export function hasLinkedHelpFilters(input: LinkedHelpFilters): boolean {
+  return Boolean(
+    input.authorities?.length ||
+      input.lifecycles?.length ||
+      input.repositories?.length
+  );
+}
+
+function articleContent(article: HelpArticleImportRecord): {
+  title: string | null;
+  url: string | null;
+  summary: string | null;
+  markdown: string | null;
+} {
   return {
-    article_slug: row.article_slug,
-    title: row.title,
-    summary: row.summary,
-    url: row.url,
-    product_area: row.product_area,
-    audience: row.audience,
-    tags: row.tags ?? [],
-    headings: Array.isArray(row.headings) ? (row.headings as string[]) : [],
-    score,
-    linked_story_keys: stories.slice(0, HELP_LINKED_STORIES_CAP),
-    linked_story_count: stories.length,
+    title: article.title ?? null,
+    url: article.url ?? null,
+    summary: article.summary ?? null,
+    markdown: article.markdown ?? null,
   };
 }
 
-/** KNN over help_articles, optionally post-filtered by product_area/audience,
- *  each hit enriched with the story keys it documents. The min_score gate and
- *  final limit are applied by the caller (tool layer), mirroring find_related. */
-export async function matchHelpArticles(opts: {
-  embedding: number[];
-  poolSize: number;
-  productArea?: string[];
-  audience?: string[];
-}): Promise<HelpHit[]> {
-  const sql = getSql();
-  const rows = await sql<(HelpArticleRow & { similarity: number })[]>`select * from match_help_articles(
-      ${vectorLiteral(opts.embedding)}::vector,
-      ${opts.poolSize},
-      ${opts.productArea?.length ? opts.productArea : null}::text[],
-      ${opts.audience?.length ? opts.audience : null}::text[]
-    )`;
-  const linkMap = await linkedStoriesFor(rows.map((r) => r.id));
-  return rows.map((r) => toHelpHit(r, linkMap.get(r.id) ?? [], r.similarity));
-}
-
-/** Lexical (tsvector) search over help articles — the always-on path that needs
- *  no embedding provider. Mirrors matchHelpArticles' shape/filters/enrichment;
- *  score is a saturated ts_rank_cd (0..1). The min_score gate + final limit are
- *  applied by the caller, matching the KNN path. */
-export async function lexicalHelpArticles(opts: {
+export async function searchHelpArticles(input: {
   query: string;
-  poolSize: number;
-  productArea?: string[];
-  audience?: string[];
-}): Promise<HelpHit[]> {
-  const query = opts.query.trim();
-  if (!query) return [];
-  const sql = getSql();
-  const productArea = opts.productArea?.length ? opts.productArea : null;
-  const audience = opts.audience?.length ? opts.audience : null;
-  const rows = await sql<(HelpArticleRow & { rank: number })[]>`
-    with q as (select websearch_to_tsquery('english', ${query}) as tsq)
-    select ha.id, ha.article_slug, ha.title, ha.summary, ha.url, ha.product_area,
-           ha.audience, ha.tags, ha.headings, ts_rank_cd(ha.search_tsv, q.tsq) as rank
-    from help_articles ha, q
-    where ha.search_tsv @@ q.tsq
-      and (${productArea}::text[] is null or ha.product_area = any(${productArea}::text[]))
-      and (${audience}::text[] is null or ha.audience = any(${audience}::text[]))
-    order by rank desc
-    limit ${Math.max(opts.poolSize, 1)}`;
-  const linkMap = await linkedStoriesFor(rows.map((r) => r.id));
-  return rows.map((r) => toHelpHit(r, linkMap.get(r.id) ?? [], saturate(r.rank)));
-}
-
-// --- get_help_article (full body on demand, by exact slug) ------------------
-
-/** Fetch full article bodies by exact slug. Returns the found articles in the
- *  caller's requested order plus the slugs that didn't match (recoverable miss,
- *  consistent with the rest of the server's "unmistakable empty" convention). */
-export async function getHelpArticles(
-  slugs: string[]
-): Promise<{ articles: HelpArticle[]; not_found: string[] }> {
-  const sql = getSql();
-  if (slugs.length === 0) return { articles: [], not_found: [] };
-
-  const rows = await sql<
-    {
-      article_slug: string;
-      title: string;
-      url: string | null;
-      product_area: string | null;
-      audience: string | null;
-      tags: string[] | null;
-      headings: unknown;
-      markdown: string | null;
-    }[]
-  >`
-    select article_slug, title, url, product_area, audience, tags, headings, markdown
-    from help_articles
-    where article_slug = any(${slugs})`;
-
-  const bySlug = new Map(rows.map((r) => [r.article_slug, r]));
-  const articles: HelpArticle[] = [];
-  const not_found: string[] = [];
-  for (const slug of slugs) {
-    const r = bySlug.get(slug);
-    if (!r) {
-      not_found.push(slug);
-      continue;
-    }
-    articles.push({
-      article_slug: r.article_slug,
-      title: r.title,
-      url: r.url,
-      product_area: r.product_area,
-      audience: r.audience,
-      tags: r.tags ?? [],
-      headings: Array.isArray(r.headings) ? (r.headings as string[]) : [],
-      markdown: r.markdown,
-    });
-  }
-  return { articles, not_found };
-}
-
-/** Batch-upsert the KB corpus. Embeddings are prepared before each transaction,
- * so an external provider failure cannot leave a partially committed batch. */
-export async function importHelpArticles(
-  articles: HelpArticleImportInput[],
-  embedder: Embedder,
-  opts: { batchSize?: number } = {}
-): Promise<HelpArticleImportResult> {
-  const batchSize = opts.batchSize ?? 50;
-  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 200) {
-    throw new Error("Help import batchSize must be an integer from 1 to 200.");
-  }
-  const slugs = new Set<string>();
-  for (const article of articles) {
-    if (slugs.has(article.article_slug)) {
-      throw new Error(`Duplicate help article_slug in import: ${article.article_slug}`);
-    }
-    slugs.add(article.article_slug);
-  }
-
-  const sql = getIngestSql();
-  const batches: HelpArticleImportResult["batches"] = [];
-  for (let offset = 0; offset < articles.length; offset += batchSize) {
-    const batch = articles.slice(offset, offset + batchSize);
-    const prepared = await mapWithConcurrency(batch, 4, async (article) => ({
-      article,
-      embedding: await embedder.embed(
-        [article.title, article.summary ?? "", ...(article.headings ?? [])]
-          .filter(Boolean)
-          .join("\n")
-      ),
-    }));
-    await sql.begin(async (tx) => {
-      for (const { article, embedding } of prepared) {
-        await tx`
-          insert into help_articles (
-            article_slug, title, summary, url, product_area, audience,
-            tags, headings, markdown, embedding, updated_at
-          ) values (
-            ${article.article_slug}, ${article.title}, ${article.summary ?? null},
-            ${article.url ?? null}, ${article.product_area ?? null}, ${article.audience ?? null},
-            ${article.tags ?? []}, ${JSON.stringify(article.headings ?? [])}::jsonb,
-            ${article.markdown ?? null}, ${vectorLiteral(embedding)}::vector, now()
+  sources?: string[];
+  authorities?: ContractAuthority[];
+  lifecycles?: StoryLifecycle[];
+  repositories?: string[];
+  include_inactive?: boolean;
+  context?: SemanticSearchContext;
+  limit: number;
+}): Promise<HelpSearchHit[]> {
+  const sql = getReadSql();
+  const sourceFilter =
+    input.sources?.length
+      ? sql`and article.source = any(${input.sources})`
+      : sql``;
+  const storyAuthorityFilter = input.authorities?.length
+    ? sql`and story.authority = any(${input.authorities}::contract_authority[])`
+    : sql``;
+  const criterionAuthorityFilter = input.authorities?.length
+    ? sql`and criterion.authority = any(${input.authorities}::contract_authority[])`
+    : sql``;
+  const lifecycleFilter = input.lifecycles?.length
+    ? sql`and story.lifecycle = any(${input.lifecycles}::story_lifecycle[])`
+    : sql``;
+  const repositoryFilter = input.repositories?.length
+    ? sql`and repository.key = any(${input.repositories})`
+    : sql``;
+  const activeStoryFilter = input.include_inactive
+    ? sql``
+    : sql`and story.lifecycle <> 'retired'`;
+  const activeCriterionFilter = input.include_inactive
+    ? sql``
+    : sql`and criterion.active`;
+  const linkedRecordFilter =
+    hasLinkedHelpFilters(input)
+      ? sql`and (
+          exists (
+            select 1
+            from story_help_articles story_link
+            join user_stories story on story.id = story_link.story_id
+            join repositories repository on repository.id = story.repository_id
+            where story_link.article_id = article.id
+            ${storyAuthorityFilter}
+            ${lifecycleFilter}
+            ${repositoryFilter}
+            ${activeStoryFilter}
           )
-          on conflict (article_slug) do update set
-            title = excluded.title,
-            summary = excluded.summary,
-            url = excluded.url,
-            product_area = excluded.product_area,
-            audience = excluded.audience,
-            tags = excluded.tags,
-            headings = excluded.headings,
-            markdown = excluded.markdown,
-            embedding = excluded.embedding,
-            updated_at = now()`;
+          or exists (
+            select 1
+            from criterion_help_articles criterion_link
+            join acceptance_criteria criterion
+              on criterion.id = criterion_link.criterion_id
+            join repositories repository
+              on repository.id = criterion.repository_id
+            join user_stories story on story.id = criterion.story_id
+            where criterion_link.article_id = article.id
+            ${criterionAuthorityFilter}
+            ${lifecycleFilter}
+            ${repositoryFilter}
+            ${activeStoryFilter}
+            ${activeCriterionFilter}
+          )
+        )`
+      : sql``;
+  const rows = await sql<
+    Array<
+      HelpRow & {
+        lexical_score: number;
+        linked_story_count: number;
+        linked_acceptance_criterion_count: number;
       }
+    >
+  >`
+    with query as (
+      select websearch_to_tsquery('simple', ${input.query}) as terms
+    )
+    select
+      article.*,
+      ts_rank_cd(
+        article.search_vector,
+        query.terms
+      )::float as lexical_score,
+      (
+        select count(*)::int
+        from story_help_articles link
+        where link.article_id = article.id
+      ) as linked_story_count,
+      (
+        select count(*)::int
+        from criterion_help_articles link
+        where link.article_id = article.id
+      ) as linked_acceptance_criterion_count
+    from help_articles article
+    cross join query
+    where (
+      article.search_vector @@ query.terms
+      or article.title ilike ${`%${input.query}%`}
+      or article.summary ilike ${`%${input.query}%`}
+    )
+    ${sourceFilter}
+    ${linkedRecordFilter}
+    order by lexical_score desc, article.source, article.external_id
+    limit ${input.limit}
+  `;
+  const contextFeatures = input.context
+    ? await scoreSearchContext(
+        sql,
+        rows.map((row) => ({
+          document_id: row.id,
+          entity_kind: "help_article",
+          entity_id: row.id,
+        })),
+        input.context,
+        input.include_inactive === true
+      )
+    : new Map();
+  return rows.map((row) => ({
+    id: row.id,
+    source: row.source,
+    external_id: row.external_id,
+    title: row.title,
+    url: row.url,
+    summary: row.summary,
+    lexical_score: Number(row.lexical_score),
+    graph_proximity:
+      contextFeatures.get(row.id)?.graph_proximity ?? 0,
+    linked_story_count: Number(row.linked_story_count),
+    linked_acceptance_criterion_count: Number(
+      row.linked_acceptance_criterion_count
+    ),
+  }));
+}
+
+export async function getHelpArticles(
+  refs: HelpArticleRef[]
+): Promise<{ articles: HelpArticleRecord[]; not_found: HelpArticleRef[] }> {
+  if (refs.length === 0) return { articles: [], not_found: [] };
+  const sql = getReadSql();
+  const deduped = [
+    ...new Map(
+      refs.map((ref) => [`${ref.source}\0${ref.external_id}`, ref])
+    ).values(),
+  ];
+  const rows = await sql<HelpRow[]>`
+    with requested as (
+      select *
+      from unnest(
+        ${deduped.map((ref) => ref.source)}::text[],
+        ${deduped.map((ref) => ref.external_id)}::text[]
+      ) as requested(source, external_id)
+    )
+    select article.*
+    from requested
+    join help_articles article using (source, external_id)
+  `;
+  const articleIds = rows.map((row) => row.id);
+  let storyLinks: StoryHelpLink[] = [];
+  let criterionLinks: CriterionHelpLink[] = [];
+  if (articleIds.length > 0) {
+    [storyLinks, criterionLinks] = await Promise.all([
+      sql<StoryHelpLink[]>`
+          select link.article_id, repository.key as repository,
+                 story.stable_id, story.authority::text, story.lifecycle::text
+          from story_help_articles link
+          join user_stories story on story.id = link.story_id
+          join repositories repository on repository.id = story.repository_id
+          where link.article_id = any(${articleIds})
+          order by repository.key, story.stable_id
+        `,
+      sql<CriterionHelpLink[]>`
+          select link.article_id, repository.key as repository,
+                 criterion.stable_id, story.stable_id as story_stable_id,
+                 criterion.authority::text, story.lifecycle::text
+          from criterion_help_articles link
+          join acceptance_criteria criterion on criterion.id = link.criterion_id
+          join user_stories story on story.id = criterion.story_id
+          join repositories repository on repository.id = criterion.repository_id
+          where link.article_id = any(${articleIds})
+          order by repository.key, criterion.stable_id
+        `,
+    ]);
+  }
+  const storiesByArticle = new Map<
+    string,
+    HelpArticleRecord["linked_stories"]
+  >();
+  for (const { article_id, ...link } of storyLinks) {
+    const links = storiesByArticle.get(article_id) ?? [];
+    links.push(link);
+    storiesByArticle.set(article_id, links);
+  }
+  const criteriaByArticle = new Map<
+    string,
+    HelpArticleRecord["linked_acceptance_criteria"]
+  >();
+  for (const { article_id, ...link } of criterionLinks) {
+    const links = criteriaByArticle.get(article_id) ?? [];
+    links.push(link);
+    criteriaByArticle.set(article_id, links);
+  }
+
+  const byKey = new Map(
+    rows.map((row) => [
+      `${row.source}\0${row.external_id}`,
+      {
+        source: row.source,
+        external_id: row.external_id,
+        title: row.title,
+        url: row.url,
+        summary: row.summary,
+        markdown: row.markdown,
+        updated_at:
+          row.updated_at instanceof Date
+            ? row.updated_at.toISOString()
+            : String(row.updated_at),
+        linked_stories: storiesByArticle.get(row.id) ?? [],
+        linked_acceptance_criteria:
+          criteriaByArticle.get(row.id) ?? [],
+      } satisfies HelpArticleRecord,
+    ])
+  );
+  return {
+    articles: deduped
+      .map((ref) => byKey.get(`${ref.source}\0${ref.external_id}`))
+      .filter((article): article is HelpArticleRecord => article !== undefined),
+    not_found: deduped.filter(
+      (ref) => !byKey.has(`${ref.source}\0${ref.external_id}`)
+    ),
+  };
+}
+
+export async function importHelpArticles(
+  articles: HelpArticleImportRecord[],
+  options: { batchSize: number }
+): Promise<{
+  articles: number;
+  batches: Array<{ batch: number; articles: number; status: "committed" }>;
+}> {
+  const seen = new Set<string>();
+  for (const article of articles) {
+    const key = `${article.source}\0${article.external_id}`;
+    if (seen.has(key)) {
+      throw new Error(
+        `Duplicate help article reference '${article.source}:${article.external_id}'.`
+      );
+    }
+    seen.add(key);
+  }
+  const sql = getSyncSql();
+  const batches: Array<{
+    batch: number;
+    articles: number;
+    status: "committed";
+  }> = [];
+  for (let offset = 0; offset < articles.length; offset += options.batchSize) {
+    const batch = articles.slice(offset, offset + options.batchSize);
+    await sql.begin(async (tx) => {
+      const rows = batch.map((article) => {
+        const content = articleContent(article);
+        return {
+          source: article.source,
+          external_id: article.external_id,
+          ...content,
+          content_hash: createHash("sha256")
+            .update(JSON.stringify(content))
+            .digest("hex"),
+        };
+      });
+      await tx`
+        insert into help_articles ${tx(rows)}
+        on conflict (source, external_id) do update set
+          title = excluded.title,
+          url = excluded.url,
+          summary = excluded.summary,
+          markdown = excluded.markdown,
+          content_hash = excluded.content_hash,
+          updated_at = now()
+      `;
     });
-    batches.push({ batch: batches.length + 1, articles: batch.length, status: "committed" });
+    batches.push({
+      batch: batches.length + 1,
+      articles: batch.length,
+      status: "committed",
+    });
   }
   return { articles: articles.length, batches };
-}
-
-/** Rank unlinked and already-linked story/article pairs for human review.
- * This never mutates links; update_story_relationships remains the sole link path. */
-export async function suggestStoryHelpLinks(opts: {
-  storyKey?: string;
-  articleSlug?: string;
-  limit?: number;
-}): Promise<HelpLinkSuggestionResult | null> {
-  if (Boolean(opts.storyKey) === Boolean(opts.articleSlug)) {
-    throw new Error("Provide exactly one of storyKey or articleSlug.");
-  }
-  const sql = getSql();
-  const limit = Math.min(Math.max(opts.limit ?? 10, 1), 50);
-  if (opts.storyKey) {
-    const source = await sql<{ id: number; story_key: string }[]>`
-      select id, story_key from user_stories where story_key = ${opts.storyKey}`;
-    if (!source[0]) return null;
-    const rows = await sql<{
-      story_key: string; story_title: string; article_slug: string; article_title: string;
-      score: number; already_linked: boolean;
-    }[]>`
-      select us.story_key, us.title as story_title, ha.article_slug,
-             ha.title as article_title, 1 - (us.embedding <=> ha.embedding) as score,
-             exists(select 1 from story_help_articles sha
-                    where sha.story_id = us.id and sha.help_article_id = ha.id) as already_linked
-      from user_stories us cross join help_articles ha
-      where us.id = ${source[0].id} and us.embedding is not null and ha.embedding is not null
-      order by us.embedding <=> ha.embedding
-      limit ${limit}`;
-    return { direction: "story_to_articles", source_key: opts.storyKey, suggestions: rows };
-  }
-
-  const source = await sql<{ id: number; article_slug: string }[]>`
-    select id, article_slug from help_articles where article_slug = ${opts.articleSlug!}`;
-  if (!source[0]) return null;
-  const rows = await sql<{
-    story_key: string; story_title: string; article_slug: string; article_title: string;
-    score: number; already_linked: boolean;
-  }[]>`
-    select us.story_key, us.title as story_title, ha.article_slug,
-           ha.title as article_title, 1 - (us.embedding <=> ha.embedding) as score,
-           exists(select 1 from story_help_articles sha
-                  where sha.story_id = us.id and sha.help_article_id = ha.id) as already_linked
-    from help_articles ha cross join user_stories us
-    where ha.id = ${source[0].id} and ha.embedding is not null and us.embedding is not null
-    order by ha.embedding <=> us.embedding
-    limit ${limit}`;
-  return { direction: "article_to_stories", source_key: opts.articleSlug!, suggestions: rows };
 }

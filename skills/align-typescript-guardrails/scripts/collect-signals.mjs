@@ -20,6 +20,18 @@ const ignoredDirectories = new Set([
 ]);
 const sourceExtensions = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const maxSamples = 12;
+const sourceSignalPatterns = {
+  focused_tests: /\b(?:describe|it|test)\.only\s*\(/,
+  skipped_tests: /\b(?:describe|it|test)\.skip\s*\(/,
+  ts_ignore: /@ts-ignore\b/,
+  ts_expect_error: /@ts-expect-error\b/,
+  eslint_disable: /eslint-disable/,
+  explicit_any_or_any_cast: /(?:\bas\s+any\b|:\s*any\b|<any>)/,
+  double_cast: /\bas\s+unknown\s+as\b/,
+  open_ended_loop: /\bwhile\s*\(\s*true\s*\)/,
+  data_sized_promise_all: /\bPromise\.all\s*\([^)]*\.map\s*\(/,
+  empty_catch_same_line: /\bcatch(?:\s*\([^)]*\))?\s*\{\s*\}/,
+};
 
 function read(path) {
   try {
@@ -146,23 +158,32 @@ function firstExisting(candidates) {
   return candidates.filter((candidate) => existsSync(resolve(root, candidate)));
 }
 
-function collectPattern(files, expression) {
-  const samples = [];
-  let count = 0;
+function collectSourceAnalysis(files) {
+  const signals = Object.fromEntries(
+    Object.keys(sourceSignalPatterns).map((name) => [name, { count: 0, samples: [] }]),
+  );
+  let lineCount = 0;
+
   for (const path of files) {
     const text = read(path);
     if (text === null) continue;
     const lines = text.split(/\r?\n/);
+    if (text !== "") lineCount += lines.length;
+
     for (let index = 0; index < lines.length; index++) {
-      expression.lastIndex = 0;
-      if (!expression.test(lines[index])) continue;
-      count++;
-      if (samples.length < maxSamples) {
-        samples.push(`${relativePath(path)}:${index + 1}`);
+      for (const [name, expression] of Object.entries(sourceSignalPatterns)) {
+        expression.lastIndex = 0;
+        if (!expression.test(lines[index])) continue;
+        const signal = signals[name];
+        signal.count++;
+        if (signal.samples.length < maxSamples) {
+          signal.samples.push(`${relativePath(path)}:${index + 1}`);
+        }
       }
     }
   }
-  return { count, samples };
+
+  return { lineCount, signals };
 }
 
 if (!existsSync(root) || !statSync(root).isDirectory()) {
@@ -176,8 +197,7 @@ const sourceFiles = allFiles.filter((path) => sourceExtensions.has(extname(path)
 const packagePath = resolve(root, "package.json");
 const packageResult = parseJsonc(packagePath);
 const packageJson = packageResult.value && typeof packageResult.value === "object" ? packageResult.value : {};
-const packageManifests = allFiles
-  .map(relativePath)
+const packageManifests = repositoryFiles
   .filter((path) => basename(path) === "package.json")
   .sort();
 const scripts = packageJson.scripts && typeof packageJson.scripts === "object" ? packageJson.scripts : {};
@@ -186,8 +206,7 @@ const dependencies = {
   ...(packageJson.devDependencies && typeof packageJson.devDependencies === "object" ? packageJson.devDependencies : {}),
 };
 
-const tsconfigNames = allFiles
-  .map(relativePath)
+const tsconfigNames = repositoryFiles
   .filter((path) => /(^|\/)tsconfig[^/]*\.json$/.test(path))
   .sort();
 const tsconfigs = tsconfigNames.map((path) => {
@@ -226,8 +245,7 @@ const formatterConfigs = firstExisting([
   ".prettierrc", ".prettierrc.cjs", ".prettierrc.js", ".prettierrc.json", ".prettierrc.yml",
   "prettier.config.cjs", "prettier.config.js", "prettier.config.mjs", "biome.json", "biome.jsonc",
 ]);
-const ciFiles = allFiles
-  .map(relativePath)
+const ciFiles = repositoryFiles
   .filter((path) => path.startsWith(".github/workflows/") || path === ".gitlab-ci.yml" || path.startsWith(".circleci/"))
   .sort();
 const ciText = ciFiles.map((path) => read(resolve(root, path)) || "").join("\n");
@@ -249,10 +267,7 @@ const guardrailEvalFiles = repositoryFiles
 const guardrailCommand =
   scripts["test:guardrails"] ?? scripts["guardrails:test"] ?? scripts["eval:guardrails"] ?? null;
 
-const lineCount = sourceFiles.reduce((total, path) => {
-  const text = read(path);
-  return total + (text === null || text === "" ? 0 : text.split(/\r?\n/).length);
-}, 0);
+const sourceAnalysis = collectSourceAnalysis(sourceFiles);
 
 const result = {
   schema_version: 2,
@@ -264,7 +279,7 @@ const result = {
     package_manifests: packageManifests,
     workspace_patterns: packageJson.workspaces ?? null,
     source_files: sourceFiles.length,
-    source_lines: lineCount,
+    source_lines: sourceAnalysis.lineCount,
     node_engine: packageJson.engines?.node ?? null,
     package_manager: packageJson.packageManager ?? null,
     runtime_pins: firstExisting([".nvmrc", ".node-version", ".tool-versions", "mise.toml", "volta.json"]),
@@ -293,8 +308,8 @@ const result = {
       /(^|\/)(test|spec)[-_.][^/]*\.[cm]?[jt]sx?$/.test(path) ||
       /\.(spec|test)\.[cm]?[jt]sx?$/.test(path)
     ).length,
-    focused_tests: collectPattern(sourceFiles, /\b(?:describe|it|test)\.only\s*\(/),
-    skipped_tests: collectPattern(sourceFiles, /\b(?:describe|it|test)\.skip\s*\(/),
+    focused_tests: sourceAnalysis.signals.focused_tests,
+    skipped_tests: sourceAnalysis.signals.skipped_tests,
   },
   control_plane: {
     ci_files: ciFiles,
@@ -319,17 +334,16 @@ const result = {
     .filter((key) => ["arktype", "io-ts", "joi", "runtypes", "superstruct", "typebox", "valibot", "yup", "zod"].some((name) => key === name || key.includes(name)))
     .sort(),
   code_signals: {
-    ts_ignore: collectPattern(sourceFiles, /@ts-ignore\b/),
-    ts_expect_error: collectPattern(sourceFiles, /@ts-expect-error\b/),
-    eslint_disable: collectPattern(sourceFiles, /eslint-disable/),
-    explicit_any_or_any_cast: collectPattern(sourceFiles, /(?:\bas\s+any\b|:\s*any\b|<any>)/),
-    double_cast: collectPattern(sourceFiles, /\bas\s+unknown\s+as\b/),
-    open_ended_loop: collectPattern(sourceFiles, /\bwhile\s*\(\s*true\s*\)/),
-    data_sized_promise_all: collectPattern(sourceFiles, /\bPromise\.all\s*\([^)]*\.map\s*\(/),
-    empty_catch_same_line: collectPattern(sourceFiles, /\bcatch(?:\s*\([^)]*\))?\s*\{\s*\}/),
+    ts_ignore: sourceAnalysis.signals.ts_ignore,
+    ts_expect_error: sourceAnalysis.signals.ts_expect_error,
+    eslint_disable: sourceAnalysis.signals.eslint_disable,
+    explicit_any_or_any_cast: sourceAnalysis.signals.explicit_any_or_any_cast,
+    double_cast: sourceAnalysis.signals.double_cast,
+    open_ended_loop: sourceAnalysis.signals.open_ended_loop,
+    data_sized_promise_all: sourceAnalysis.signals.data_sized_promise_all,
+    empty_catch_same_line: sourceAnalysis.signals.empty_catch_same_line,
   },
-  sensitive_path_signals: allFiles
-    .map(relativePath)
+  sensitive_path_signals: repositoryFiles
     .filter((path) => /(^|\/)(auth|authorization|billing|crypto|migration|migrations|payment|permissions|secrets?|security)(\/|[._-])/i.test(path))
     .slice(0, 100),
 };

@@ -1,0 +1,128 @@
+version: 1
+capability:
+  key: EVIDENCE
+  name: Evidence and planning intake
+  description: Requests, bugs, questions, optional work, and help content remain distinct from accepted behavior.
+  stories:
+    - key: EVIDENCE-001
+      title: Preserve source observations before attribution
+      actor: support or product teammate
+      goal: record a request, bug, or question without first finding a product definition
+      benefit: source evidence is never lost or forced into an incorrect feature
+      lifecycle: production
+      acceptance_criteria:
+        - key: EVIDENCE-001-AC1
+          criterion: Tieline must append an Observation before semantic matching and allow it to remain unattributed.
+          scenarios:
+            - given: semantic matching fails after intake
+              when: an Observation has already been stored
+              then: Tieline must return the stored record for a later matching retry
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/evidence-write-store.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/observation-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/observations.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-evidence.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-evidence.ts
+                framework_hint: custom-script
+    - key: EVIDENCE-002
+      title: Consolidate optional work without duplicating behavior
+      actor: product teammate
+      goal: group evidence and target existing or future behavior
+      benefit: planning work remains separate from the product contract
+      lifecycle: production
+      acceptance_criteria:
+        - key: EVIDENCE-002-AC1
+          criterion: Tieline must let a Backlog Item target zero or more Stories and Acceptance Criteria without becoming their lifecycle container.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/backlog-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/backlog-items.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-evidence.ts
+                framework_hint: custom-script
+    - key: EVIDENCE-003
+      title: Connect external help without copying its identity
+      actor: knowledge maintainer
+      goal: ingest and retrieve help content by its source identity
+      benefit: accepted behavior can point to documentation maintained elsewhere
+      lifecycle: production
+      acceptance_criteria:
+        - key: EVIDENCE-003-AC1
+          criterion: Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/authoring/help-schema.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/help-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/import-help.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/find-help.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/get-help-articles.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script

@@ -1,0 +1,982 @@
+version: 1
+capability:
+  key: CONTRACT
+  name: Living product contract
+  description: Accepted product behavior is strict, reviewable, and measurable beside the implementation.
+  aliases:
+    - semantic contract
+    - living specification
+  stories:
+    - key: CONTRACT-001
+      title: Review accepted behavior with code
+      actor: maintainer
+      goal: define product behavior in a stable Story and Acceptance Criterion hierarchy
+      benefit: intent and implementation change through the same review
+      lifecycle: production
+      aliases:
+        - author accepted behavior
+      acceptance_criteria:
+        - key: CONTRACT-001-AC1
+          criterion: Tieline must reject repository contract documents that violate the accepted Story and Acceptance Criterion schema.
+          rationale: Structural failures make semantic impact and synchronization untrustworthy.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/schema.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/load.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/validate.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC2
+          criterion: Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.
+          scenarios:
+            - given: ten eligible source files and eight mapped paths
+              when: mapping coverage is calculated
+              then: Tieline must report 80 percent coverage and name both unmapped files
+            - given: configured source roots contain no eligible files
+              when: mapping coverage is calculated
+              then: Tieline must report that coverage is not measured instead of reporting 100 percent
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/coverage.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC3
+          criterion: Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.
+          rationale: Drift should be visible during review while the MVP remains warn-only.
+          scenarios:
+            - given: a linked implementation path changes without a refreshed manifest
+              when: the branch is checked against its base
+              then: Tieline must report the linked criterion as impacted and stale
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/impact.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC4
+          criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.
+          rationale: Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-page.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/review.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC5
+          criterion: Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.
+          rationale: A single generated manifest made every branch that touched any specification file conflict with every other one, even when the capabilities they changed were disjoint, and let a partial line merge produce a manifest that parses but that no compilation would emit.
+          scenarios:
+            - given: a compiled manifest whose capability was removed from the specification
+              when: the contract is compiled again
+              then: Tieline must delete that capability's manifest file and leave every other file in the manifest directory untouched
+            - given: a manifest file whose name does not match the capability it holds
+              when: the manifest is read
+              then: Tieline must refuse the manifest and name both the file and the capability instead of accepting the capability under the wrong identity
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC6
+          criterion: Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
+          rationale: A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.
+          scenarios:
+            - given: a specification file changed without the manifest being recompiled
+              when: the branch is checked against its base
+              then: Tieline must report the stale manifest as an error and exit non-zero
+            - given: the same stale manifest and an explicit request to downgrade the gate
+              when: the branch is checked against its base
+              then: Tieline must report the stale manifest as a warning and exit zero
+            - given: a manifest that cannot be recompiled at all
+              when: the branch is checked against its base
+              then: Tieline must report the compilation failure once rather than also reporting it as a stale manifest
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC7
+          criterion: Tieline must require every contract link to state whether its claim was authored, inferred, or materialized, and must preserve that provenance through compiled manifests, repository synchronization, and every exact claim read.
+          rationale: Relation and target describe what a link claims, while provenance records how that claim entered its current authority surface. Keeping this low-cardinality origin distinct from freshness and grade lets agents interpret a claim without turning mutable review facts into contract identity.
+          scenarios:
+            - given: a contract link has no provenance
+              when: the repository contract is validated
+              then: Tieline must reject the link instead of guessing where its claim came from
+            - given: only a contract link's provenance changes
+              when: the contract manifest is compiled
+              then: Tieline must change the owning contract hash without creating a second link identity
+            - given: an accepted repository link was copied during planning-to-repository authority transfer
+              when: the repository contract is synchronized and read
+              then: Tieline must preserve materialized as the origin of that exact claim
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/schema.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-read-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/link-plausibility.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0001_baseline.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC8
+          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.
+          rationale: A revision in the tracked repository-level index made every branch conflict in one shared generated file and became stale as soon as that generated file was committed. Content identity belongs to the reviewed manifest, while Git revision belongs to the runtime projection checkpoint and audit boundary.
+          scenarios:
+            - given: accepted specifications and linked artifacts whose content is unchanged across two Git revisions
+              when: the contract is compiled at each revision
+              then: the repository-level manifest index must remain byte-identical and must not record either Git revision
+            - given: the content of the reviewed manifest changes
+              when: exact path criteria are requested
+              then: Tieline must return a different manifest digest identifying the complete reviewed manifest that answered
+            - given: a reviewed manifest and an explicit runtime Git commit
+              when: the repository contract is synchronized
+              then: Tieline must use that runtime commit for projection rows, checkpoint guards, sync results, and audit events without adding it to the reviewed manifest
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/path-criteria.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/sync.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-sync-repository.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/schemas.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/path-criteria.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tieline/status.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: .gitattributes
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-manifest.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-path-criteria.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-tieline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-contract-sync.ts
+                framework_hint: custom-script
+    - key: CONTRACT-002
+      title: Learn which acceptance criteria apply to a path before editing it
+      actor: implementing agent
+      goal: resolve a repository path to the acceptance criteria already recorded for it
+      benefit: a contradiction with accepted behavior is prevented instead of reported afterwards
+      lifecycle: production
+      aliases:
+        - which acceptance criteria apply to this file
+        - path to acceptance criterion lookup
+      acceptance_criteria:
+        - key: CONTRACT-002-AC1
+          criterion: Tieline must report every acceptance criterion linked to an exact repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must return an explicit has_criteria, no_criteria, or not_found status for every requested path.
+          rationale: Coverage answers for the whole contract and check answers for a diff, so both describe a violation that already exists; the pre-change question is the only one that can prevent it. An empty array reads to an agent like a failed query rather than the actionable finding that an existing path has no recorded acceptance criteria.
+          scenarios:
+            - given: a path is linked by one acceptance criterion and by the Story that owns it
+              when: the contract criteria for that path are requested
+              then: Tieline must return has_criteria with both records marked direct and story_fallback
+            - given: a path exists in the repository and no contract link targets it
+              when: the contract criteria for that path are requested
+              then: Tieline must return no_criteria and state that no acceptance criteria apply instead of returning an empty result
+            - given: a requested path does not exist in the repository
+              when: the contract criteria for that path are requested
+              then: Tieline must return not_found distinctly from an existing path with no criteria
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/reconciliation.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/path-criteria.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-path-criteria.ts
+                framework_hint: custom-script
+        - key: CONTRACT-002-AC2
+          criterion: The path-criteria lookup must answer from the compiled manifest alone, so Tieline must serve get_path_criteria over MCP with no database connection and must return a named, actionable message when no workspace or no readable manifest is found.
+          rationale: Every other MCP tool fails at call time without Postgres, so an offline server boots and answers nothing; a manifest-backed lookup is what makes serving without a database worth doing, and an obscure throw would waste the one answer the caller came for.
+          scenarios:
+            - given: no database connection is configured
+              when: the contract criteria for a path are requested over MCP
+              then: Tieline must return the applicable acceptance criteria and the content-derived digest of the manifest that answered
+            - given: the server runs outside any Tieline workspace
+              when: the contract criteria for a path are requested
+              then: Tieline must name the missing workspace and the command that creates one
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/path-criteria.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/server.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/schemas.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-path-criteria.ts
+                framework_hint: custom-script
+    - key: CONTRACT-003
+      title: Inspect precise accepted intent before changing an asset
+      actor: implementing agent
+      goal: retrieve the exact reviewed context for a known code or test locator or Acceptance Criterion
+      benefit: implementation and review begin from bounded accepted intent with honest current assurance
+      lifecycle: production
+      aliases:
+        - precise intent context
+        - exact asset context
+        - exact acceptance criterion context
+      acceptance_criteria:
+        - key: CONTRACT-003-AC1
+          criterion: Given an exact repository-relative code or test path with optional kind and selector, Tieline must preserve the complete locator identity, return has_context, no_criteria, or not_found explicitly, include exact-selector and file-level claims while excluding other selectors, and bound associated assets to one Acceptance-Criterion-mediated intent neighborhood.
+          rationale: A known symbol should retrieve the reviewed behavior that applies to that symbol without collapsing same-file claims or pretending the result is an open-ended graph traversal.
+          scenarios:
+            - given: one file has claims for function:first, function:second, and the whole file
+              when: exact asset context is requested for function:first
+              then: Tieline must return the function:first and file-level claims with their kind, repository, canonical path, selector, framework hint, relation, provenance, and link scope while excluding function:second
+            - given: an existing path has no applicable claim for the requested selector
+              when: exact asset context is requested
+              then: Tieline must return no_criteria distinctly from not_found for a missing path
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/intent-context.ts
+                selector: function:lookupAssetIntentContext
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC2
+          criterion: Given an exact Acceptance Criterion stable ID, Tieline must return its Capability and Story ancestry, lifecycle, criterion, rationale, applicability, scenarios, direct links, Story-fallback links, and directly associated code and test assets without recursive code-to-code traversal.
+          rationale: Reviewers need the accepted product record and its bounded contract coupling, not a semantic approximation or an inferred runtime dependency graph.
+          scenarios:
+            - given: an Acceptance Criterion has a direct test link and inherits a Story-level implementation link
+              when: its exact context is requested
+              then: Tieline must preserve both assets, their direct or story_fallback scope, and the owning product context in deterministic order
+            - given: the stable ID does not identify an accepted Acceptance Criterion
+              when: exact context is requested
+              then: Tieline must return an explicit not_found status and an actionable answer naming the unknown stable ID and reviewed manifest
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/intent-context.ts
+                selector: function:lookupAcceptanceCriterionIntentContext
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC3
+          criterion: Every code or test claim returned as exact intent context must keep provenance, link scope, content freshness, locator resolution, and semantic support as separate assurance dimensions, must preserve broken and uninspectable claims with honest causes or unknown states, and must report semantic support as not_assessed.
+          rationale: Structural currency and selector resolution can guide review, but neither proves the linked behavior or records that a linked test executed or passed.
+          scenarios:
+            - given: a current local implementation selector resolves against its reviewed content
+              when: exact intent context is returned
+              then: provenance, freshness, and locator resolution must be positive while semantic support remains not_assessed
+            - given: a local target is missing or a selector uses an unsupported language
+              when: its claim is inspected
+              then: the claim must remain visible with a named broken cause or not_checked state and must not be converted into semantic failure
+            - given: an associated target names another repository
+              when: its claim is inspected from this checkout
+              then: freshness and locator resolution must remain honestly unknown or not_checked
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/artifact-assurance.ts
+                selector: function:createArtifactAssuranceInspector
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/source-scan.ts
+                selector: function:scanSource
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-artifact-assurance.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC4
+          criterion: Tieline must expose separate get_asset_intent_context and get_acceptance_criterion_context MCP tools and equivalent contract context --path and --ac CLI modes that answer from the compiled manifest without a database and preserve the same membership, statuses, repository key, and content-derived manifest digest.
+          rationale: Agents need primitive exact reads while maintainers need CLI and JSON parity to inspect the same reviewed contract and actionable workspace or manifest failures.
+          scenarios:
+            - given: no database, embeddings, network, or knowledge store is configured and the compiled manifest is readable
+              when: equivalent exact context requests are made over MCP and CLI
+              then: both surfaces must return the same bounded neighborhood membership and manifest identity
+            - given: no workspace or no readable manifest is available
+              when: either MCP exact context tool is called
+              then: Tieline must return a named actionable result that explains how to initialize or compile the workspace
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runContractCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract-context.ts
+                selector: function:runContractContext
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/intent-context.ts
+                selector: function:registerIntentContextTools
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-contract-context-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-intent-context.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/smoke.ts
+                framework_hint: custom-script
+        - key: CONTRACT-003-AC5
+          criterion: Diff impact must preserve selector-qualified target identity and report resolved, unresolved, or not_checked locator state for affected links while keeping selector findings advisory and describing shared Acceptance-Criterion links only as contract coupling rather than runtime dependency or comprehensive blast radius.
+          rationale: Selector drift is useful review input, but conservative inspection cannot establish execution topology and must not create a new blocking gate.
+          scenarios:
+            - given: a changed file contains one unresolved selector claim and one selector in an unsupported source language
+              when: diff impact is calculated
+              then: both claims must remain distinct with unresolved and not_checked locator states and selector findings must not change the existing exit behavior
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/impact.ts
+                selector: function:analyzeContractImpact
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-impact.ts
+                framework_hint: custom-script
+    - key: CONTRACT-004
+      title: Inspect derived code topology without weakening contract authority
+      actor: implementing agent
+      goal: trace conservative multi-language code relationships and their potentially affected accepted intent
+      benefit: code changes can be investigated with bounded structural evidence while reviewed product intent remains authoritative
+      lifecycle: production
+      aliases:
+        - multi-language code topology
+        - AC-aware blast radius
+        - derived dependency trace
+      acceptance_criteria:
+        - key: CONTRACT-004-AC1
+          criterion: Tieline must extract deterministic symbols, owner chains where applicable, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL snapshots while retaining syntax recovery, ambiguity, and truncation explicitly; it must also extract module references only for languages with a supported static module model.
+          rationale: Structural evidence is useful only when callers can identify the exact bytes and parser compatibility that produced it without treating a best-effort parse as semantic proof.
+          scenarios:
+            - given: supported source contains nested declarations, Unicode names, imports, and a recoverable syntax error
+              when: the source is structurally analyzed
+              then: facts must preserve canonical selectors, complete owners, both coordinate systems, syntax status, diagnostics, and deterministic compatibility identity
+            - given: a reviewed selector resolves uniquely against hash-current source
+              when: exact intent context is read
+              then: a bounded parser-backed snippet may be returned while semantic support remains not_assessed
+            - given: SQL declares a top-level table, view, or function with a safely representable name
+              when: the source is structurally analyzed
+              then: Tieline must expose its declaration selector and ranges without claiming SQL dependency edges
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/source-snapshot.ts
+                selector: function:createFilesystemSourceSnapshotReader
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/structural-support.ts
+                selector: function:createStructuralAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/javascript.ts
+                selector: function:createJavaScriptAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/python.ts
+                selector: function:createPythonAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/rust.ts
+                selector: function:createRustAnalyzer
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/sql.ts
+                selector: function:createSqlAnalyzer
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-source-snapshot.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-analysis-python-rust.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-analysis-sql.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC2
+          criterion: Tieline must resolve supported project-local JavaScript and TypeScript, Python, and Rust module forms in a separate conservative phase and must preserve exact, ambiguous, unresolved, external, dynamic, glob, generated, and unsupported outcomes instead of guessing a dependency.
+          rationale: A false edge produces a misleading blast radius, while an explicit frontier gives an agent a precise place to continue investigation.
+          scenarios:
+            - given: a static local import has one inventory-backed target
+              when: module resolution runs
+              then: Tieline must record its rule, target, configuration identity, and derived edge
+            - given: a dynamic name, glob, generated module, unsupported configuration, external package, or multiple target is encountered
+              when: module resolution runs
+              then: Tieline must retain a named non-resolved outcome and candidates or diagnostics without manufacturing an exact edge
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-topology-indexer.ts
+                selector: function:buildCodeTopologyGeneration
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-resolution/javascript.ts
+                selector: function:createJavaScriptModuleResolver
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-resolution/python.ts
+                selector: function:createPythonModuleResolver
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-resolution/rust.ts
+                selector: function:createRustModuleResolver
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-resolution-javascript.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-resolution-python-rust.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC3
+          criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.
+          rationale: Readers must never observe a mixed or partial graph, generated artifact bytes must not make identity self-referential, and reviewed repository topology must remain distinct from richer hosted persistence.
+          scenarios:
+            - given: topology compilation is interrupted or loses a concurrent publication race
+              when: the artifact authority is selected
+              then: readers must observe either the previous complete graph.json or the complete winning graph.json and never a partial document
+            - given: files change while a working-tree generation is built
+              when: the consistency check retries and observes another change
+              then: Tieline must return workspace_changed without publishing mixed facts
+            - given: only generated topology bytes or unrelated authored intent change
+              when: topology identity and artifact bytes are recomputed
+              then: the selected-input identity must remain unchanged
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-generation.ts
+                selector: function:persistCommittedTopologyGeneration
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology-artifact.ts
+                selector: function:publishCodeTopologyArtifact
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-role-snapshot.ts
+                selector: function:selectWorkspaceTopologyRole
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/compact-code-topology-store.ts
+                selector: class:ImmutableCodeTopologySnapshotStore
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/code-topology-repository.ts
+                selector: class:PostgresCodeTopologyRepository
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0003_sql_topology_language.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-topology-artifact-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-topology-generation.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/integration-code-topology.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC4
+          criterion: Tieline must locate an exact path and optional selector before traversing dependencies or dependents, must default AC-aware blast radius to dependents, and must return cycle-safe deterministic paths, unresolved frontiers, generation identities, and independent depth, node, edge, and path truncation within fixed hard maxima.
+          rationale: Bounded topology is safe for agent use only when ambiguity and omitted work stay visible and the caller cannot bypass product limits.
+          scenarios:
+            - given: a dependency graph contains a cycle, diamond, ambiguous start, and unresolved reference
+              when: a trace is requested
+              then: Tieline must preserve all applicable start and frontier outcomes without revisiting nodes indefinitely
+            - given: a changed locator and another unrelated locator share one Acceptance Criterion
+              when: AC-aware blast radius runs
+              then: the unrelated locator must not be traversed unless a derived code edge reaches it
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-topology.ts
+                selector: function:traceCodeTopology
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-blast-radius.ts
+                selector: function:analyzeCodeBlastRadius
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-topology.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-blast-radius.ts
+                framework_hint: custom-script
+        - key: CONTRACT-004-AC5
+          criterion: Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.
+          rationale: Derived topology can prioritize investigation and preserve deleted-side intent, but accepted YAML and its compiled manifest remain the authority for business intent and normal review remains the acceptance boundary.
+          scenarios:
+            - given: a local workspace has no database connection
+              when: dependency trace or AC-aware blast radius is requested
+              then: both surfaces must select the existing current repository artifact without parsing or writing and return equivalent structured membership
+            - given: a base commit removes linked code or the current manifest removes its authored claim
+              when: AC-aware blast radius compares base and current
+              then: each visited locator must join only to its matching manifest role while unclaimed locators remain visible
+            - given: hosted mode has a compatible complete topology generation but no readable authored manifest
+              when: the tools are called
+              then: dependency trace may run while AC-aware contract joining must report contract_unavailable
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology.ts
+                selector: function:executeDependencyTrace
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology.ts
+                selector: function:executeChangeBlastRadius
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/code-topology.ts
+                selector: function:registerCodeTopologyTools
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: scripts/test-code-topology-command.ts
+                framework_hint: custom-script

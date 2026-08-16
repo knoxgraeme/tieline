@@ -3,19 +3,17 @@ import {
   fetchWithRetry,
   mapWithConcurrency,
   safeResponseText,
+  OpenAIEmbedder,
 } from "../src/embeddings.js";
-
-let passed = 0;
-let failed = 0;
-function check(name: string, condition: boolean, detail = ""): void {
-  if (condition) {
-    passed++;
-    console.log(`  ok  - ${name}`);
-  } else {
-    failed++;
-    console.error(`  FAIL- ${name} ${detail}`);
-  }
-}
+import {
+  contractEmbeddingDocuments,
+  documentsNeedingEmbedding,
+  observationEmbeddingDocument,
+} from "../src/derived/embedding-documents.js";
+import type { ContractStoryRecord } from "../src/domain/contract-read-store.js";
+import type { ObservationRecord } from "../src/domain/evidence-write-store.js";
+import { prepareObservation } from "../src/domain/evidence-write-store.js";
+import { check, report } from "./lib/harness.js";
 
 async function withFetch(
   implementation: typeof fetch,
@@ -113,8 +111,205 @@ async function main(): Promise<void> {
   check("concurrency ceiling respected", maxActive === 2, String(maxActive));
   check("result order preserved", JSON.stringify(values) === JSON.stringify([2, 4, 6, 8, 10, 12]));
 
-  console.log(`\n${passed} passed, ${failed} failed`);
-  process.exit(failed === 0 ? 0 : 1);
+  console.log("hierarchical canonical documents");
+  const story: ContractStoryRecord = {
+    id: "00000000-0000-4000-8000-000000000001",
+    repository: "tieline",
+    repository_commit: "secret-commit",
+    capability: {
+      stable_id: "CAP-SEARCH",
+      name: "Semantic search",
+      description: "Find organizational knowledge",
+    },
+    stable_id: "US-SEARCH-001",
+    title: "Find relevant behavior",
+    actor: "support teammate",
+    goal: "find the behavior related to a customer report",
+    benefit: "I can answer with production context",
+    rendered_story:
+      "As a support teammate, I want to find the behavior related to a customer report, so that I can answer with production context.",
+    lifecycle: "production",
+    authority: "repository",
+    revision: 3,
+    aliases: ["Locate a matching feature"],
+    applies_to: null,
+    effective_applies_to: { plan: ["pro"] },
+    motivated_by: [],
+    direct_links: [],
+    acceptance_criteria: [
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        stable_id: "AC-SEARCH-001",
+        criterion: "Search results must identify their matched semantic level",
+        rationale: "Callers need to distinguish broad intent from edge cases",
+        position: 0,
+        active: true,
+        authority: "repository",
+        aliases: ["Expose match granularity"],
+        applies_to: null,
+        effective_applies_to: { plan: ["pro"] },
+        scenarios: [
+          {
+            id: "00000000-0000-4000-8000-000000000003",
+            stable_id: "SC-SEARCH-001",
+            name: "Specific edge case",
+            given: "a query matches a scenario",
+            when: "results are returned",
+            then: "the parent AC and Story are included",
+            position: 0,
+            active: true,
+          },
+        ],
+        direct_links: [],
+        fallback_story_links: [],
+        freshness: "stale",
+        superseded_by: null,
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000004",
+        stable_id: "AC-SEARCH-002",
+        criterion: "Profile filters must narrow candidate retrieval",
+        rationale: null,
+        position: 1,
+        active: true,
+        authority: "repository",
+        aliases: [],
+        applies_to: null,
+        effective_applies_to: {},
+        scenarios: [],
+        direct_links: [],
+        fallback_story_links: [],
+        freshness: "current",
+        superseded_by: null,
+      },
+    ],
+    footprint: { code_paths: ["src/secret.ts"], help: [] },
+    coverage: { implementation: "complete", test: "partial", help: "none" },
+    freshness: "stale",
+    superseded_by: null,
+  };
+  const docs = contractEmbeddingDocuments([story]);
+  check("Story, AC, and Scenario each receive a document", docs.length === 4);
+  const allText = docs.map((entry) => entry.canonical_text).join("\n");
+  check(
+    "canonical text excludes retrieval metadata and locators",
+    !allText.includes("US-SEARCH-001") &&
+      !allText.includes("Lifecycle:") &&
+      !allText.includes("Authority:") &&
+      !allText.includes("stale") &&
+      !allText.includes("complete") &&
+      !allText.includes("src/secret.ts")
+  );
+  check(
+    "canonical text preserves aliases, rationale, and applicability",
+    allText.includes("Expose match granularity") &&
+      allText.includes("Callers need to distinguish") &&
+      allText.includes("plan: pro")
+  );
+  const previous = new Map(
+    docs.map((entry) => [
+      `${entry.entity_kind}:${entry.entity_id}:${entry.document_kind}`,
+      entry.source_text_hash,
+    ])
+  );
+  const metadataOnly: ContractStoryRecord = {
+    ...story,
+    lifecycle: "retired",
+    freshness: "current",
+  };
+  check(
+    "metadata-only changes do not require re-embedding",
+    documentsNeedingEmbedding(
+      contractEmbeddingDocuments([metadataOnly]),
+      previous
+    ).length === 0
+  );
+  const retiredDocuments = contractEmbeddingDocuments([metadataOnly]);
+  check(
+    "retired Story descendants are inactive retrieval documents",
+    retiredDocuments.every(
+      (entry) => entry.filter_metadata.active === false
+    )
+  );
+  const changedCriterion: ContractStoryRecord = {
+    ...story,
+    acceptance_criteria: story.acceptance_criteria.map((criterion, index) =>
+      index === 0
+        ? { ...criterion, criterion: `${criterion.criterion} clearly` }
+        : criterion
+    ),
+  };
+  const changed = documentsNeedingEmbedding(
+    contractEmbeddingDocuments([changedCriterion]),
+    previous
+  );
+  check(
+    "one AC change regenerates that AC and its Scenario only",
+    changed.length === 2 &&
+      changed.some((entry) => entry.document_kind === "acceptance_criterion") &&
+      changed.some((entry) => entry.document_kind === "scenario")
+  );
+
+  const preparedSensitiveObservation = prepareObservation({
+    kind: "bug",
+    schema_key: "bug",
+    schema_version: 1,
+    summary: "Customer customer@example.test cannot find results",
+    source: "intercom",
+    external_url: "https://secret.invalid/ticket",
+    observed_at: "2026-07-29T00:00:00.000Z",
+    payload: {
+      expected_behavior: "Results appear without token=provider-secret-value.",
+      actual_behavior: "Call +1 604-555-0199 for details.",
+    },
+  });
+  const observation: ObservationRecord = {
+    ...preparedSensitiveObservation,
+    id: "00000000-0000-4000-8000-000000000005",
+    external_id: "ticket-secret",
+    recorded_at: "2026-07-29T00:00:01.000Z",
+    outcome: "created",
+  };
+  const observationDoc = observationEmbeddingDocument(observation);
+  check(
+    "observation documents contain only sanitized search text",
+    observationDoc.canonical_text.includes("[redacted-email]") &&
+      observationDoc.canonical_text.includes("[redacted-phone]") &&
+      observationDoc.canonical_text.includes("[redacted-credential]") &&
+      !observationDoc.canonical_text.includes("ticket-secret") &&
+      !observationDoc.canonical_text.includes("secret.invalid") &&
+      !observationDoc.canonical_text.includes("customer@example.test") &&
+      !observationDoc.canonical_text.includes("604-555-0199") &&
+      !observationDoc.canonical_text.includes("provider-secret-value")
+  );
+  let remoteBody = "";
+  await withFetch(async (_url, init) => {
+    remoteBody = String(init?.body ?? "");
+    return Response.json({
+      data: [{ embedding: new Array(384).fill(0.01) }],
+    });
+  }, async () => {
+    const remote = new OpenAIEmbedder(
+      384,
+      "https://embeddings.invalid/v1",
+      "test-model",
+      "provider-secret",
+      true
+    );
+    await remote.embed(observationDoc.canonical_text);
+  });
+  check(
+    "remote request contains canonical text and excludes raw metadata",
+    remoteBody.includes(observationDoc.canonical_text) &&
+      !remoteBody.includes("ticket-secret") &&
+      !remoteBody.includes("secret.invalid") &&
+      !remoteBody.includes("customer@example.test") &&
+      !remoteBody.includes("604-555-0199") &&
+      !remoteBody.includes("provider-secret-value") &&
+      !remoteBody.includes("provider-secret")
+  );
+
+  report();
 }
 
 void main();

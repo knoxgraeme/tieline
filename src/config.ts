@@ -1,106 +1,106 @@
-/**
- * Central configuration. All env reads happen here so the rest of the code
- * depends on a typed config object, not process.env.
- */
+import { z } from "zod";
 
-// Selectable embedding backend. `local` runs gte-small in-process (default;
-// needs an explicit `npm install @huggingface/transformers`, kept out of the
-// base install so images stay lean); `openai` calls any OpenAI-compatible
-// /embeddings endpoint; `supabase-edge` keeps back-compat with existing Supabase
-// deployments; `hash` is an offline dev/test fallback only.
-export type EmbeddingProvider = "local" | "openai" | "supabase-edge" | "hash";
-export type StoryApprovalMode = "production" | "all" | "off";
+export type EmbeddingProvider =
+  | "local"
+  | "openai"
+  | "supabase-edge"
+  | "hash";
 export const EMBEDDING_DIMENSION = 384;
 
-export interface FusionWeights {
-  vector: number;
-  entity: number;
-  path: number;
-  // Lexical (tsvector + trigram) weight. Optional so existing 3-signal weight
-  // literals keep compiling; treated as 0 when absent.
-  lexical?: number;
+/**
+ * Repository-declared selector kinds.
+ *
+ * Contract link selectors use a closed core vocabulary (`function`, `method`,
+ * `class`, `type`, `const`) that this codebase can actually resolve to a symbol.
+ * That core is rarely the most natural way to say what an acceptance criterion
+ * is about: a criterion usually lands on a route, a CLI command, or a tool
+ * rather than on a function. A repository therefore declares the extra kinds it
+ * uses here, and validation stays closed against core plus these — an
+ * undeclared kind is an error, so `func:` cannot quietly mint a second identity
+ * namespace beside `function:`.
+ *
+ * `resolvable` defaults to false. A declared kind normally addresses something
+ * the source-scanning regexes cannot see, and claiming otherwise would
+ * manufacture "symbol is missing" findings out of a heuristic's blind spot.
+ *
+ * This block lives in `.tieline/config.json` alongside the repository's other
+ * settings and is read leniently: unrelated keys are ignored, and a config with
+ * no `selectors` block yields an empty declaration list, so every existing
+ * config stays valid.
+ */
+export const selectorKindDeclarationSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .regex(
+        /^[A-Za-z][A-Za-z0-9_-]*$/,
+        "must start with a letter and contain only letters, digits, '_' or '-'"
+      ),
+    resolvable: z.boolean().default(false),
+    description: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export const selectorConfigSchema = z
+  .object({
+    kinds: z.array(selectorKindDeclarationSchema).default([]),
+  })
+  .strict();
+
+export type SelectorKindDeclarationConfig = z.infer<
+  typeof selectorKindDeclarationSchema
+>;
+export type SelectorConfig = z.infer<typeof selectorConfigSchema>;
+
+const EMPTY_SELECTOR_CONFIG: SelectorConfig = { kinds: [] };
+
+/**
+ * Reads the `selectors` block out of an already-parsed `.tieline/config.json`
+ * value. Takes `unknown` on purpose so it does not couple to the workspace
+ * config schema: the declared-kind vocabulary is additive, and a checkout whose
+ * config predates it must keep loading.
+ */
+export function readSelectorConfig(configValue: unknown): SelectorConfig {
+  if (configValue === null || typeof configValue !== "object") {
+    return EMPTY_SELECTOR_CONFIG;
+  }
+  const block = (configValue as Record<string, unknown>).selectors;
+  if (block === undefined || block === null) return EMPTY_SELECTOR_CONFIG;
+  const parsed = selectorConfigSchema.safeParse(block);
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid 'selectors' block in Tieline configuration: ${parsed.error.issues
+        .map(
+          (issue) =>
+            `${["selectors", ...issue.path].join(".")}: ${issue.message}`
+        )
+        .join("; ")}`
+    );
+  }
+  return parsed.data;
 }
 
 export interface Config {
-  // Database
   dbUrl: string | undefined;
-  dbUrlIngest: string | undefined;
-  // Write connection — the least-privilege mcp_writer role (RLS-constrained to
-  // feature_request stories). Separate from the read path on purpose; if unset,
-  // the write tools refuse to run.
   dbWriteUrl: string | undefined;
-  // Human decision/auto-allow connection. This role can execute only the
-  // lifecycle decision functions and is never used by ordinary MCP writes.
-  dbApprovalUrl: string | undefined;
-
-  storyApprovalMode: StoryApprovalMode;
-
-  // Optional repository identity for non-Tieline, single-repository writes.
-  // Tieline-managed imports take this identity from their workspace.
-  repo: string | undefined;
-
-  // Transport
+  dbSyncUrl: string | undefined;
+  dbAdminUrl: string | undefined;
   transport: "http" | "stdio";
   port: number;
   httpHost: string;
   httpAllowedOrigins: string[];
   httpTrustProxy: boolean;
-
-  // Embeddings
   embeddingProvider: EmbeddingProvider;
-  // Model id (provider-specific default applied in embeddings.ts):
-  // local -> "Xenova/gte-small", openai -> "text-embedding-3-small".
   embeddingModel: string | undefined;
-  // openai provider: base URL of the OpenAI-compatible endpoint + optional key.
   embeddingBaseUrl: string | undefined;
   embeddingApiKey: string | undefined;
-  // openai provider: send the `dimensions` request param (only text-embedding-3+
-  // and some compatible endpoints support it; others reject it). Opt-in.
   embeddingRequestDimensions: boolean;
-  // supabase-edge provider (back-compat): project URL + anon key.
   supabaseUrl: string | undefined;
   supabaseAnonKey: string | undefined;
-  // Optional per-user runtime installed by `tieline init`; kept outside the
-  // globally installed Tieline package and the versioned workspace.
   localEmbedderRoot: string | undefined;
-
-  // Retrieval tuning
-  candidatePoolSize: number;
-  findRelatedMinVectorScore: number;
-  findRelatedMinStructuralScore: number;
-  // Lexical (FTS) floor — a candidate qualifies on lexical alone at/above this.
-  findRelatedMinLexicalScore: number;
-  // Reciprocal Rank Fusion constant (k). Higher = flatter rank contribution.
-  rrfK: number;
-  // find_help (semantic search over help articles)
-  helpCandidatePoolSize: number;
-  helpMinScore: number;
-  // Lexical floor for the always-on FTS help path.
-  helpMinLexicalScore: number;
-
-  // Fusion weights per mode. Each weight set is normalized to sum 1 at use.
-  weights: {
-    semantic: FusionWeights;
-    structural: FusionWeights;
-    blended: FusionWeights;
-  };
-
-  // Response guard.
   characterLimit: number;
-
-  // Opt-in: register the MCP App (review_stories tool + ui:// resource) for
-  // hosts that support MCP Apps. Off by default so the base tool surface is
-  // unchanged for hosts that don't.
-  enableReviewApp: boolean;
-
-  // Elevated bulk-authoring MCP tool. CLI/local review remain available without
-  // this; off by default so a runtime server never exposes ingest accidentally.
-  enableImportTool: boolean;
-
-  // Opt-in: register the section-coupling graph MCP App (explore_graph tool +
-  // ui:// resource). Read-only — unlike the review app it never writes, so it is
-  // safe to enable on the hosted retrieval-only deploy. Off by default.
-  enableGraphApp: boolean;
 }
 
 function boundedNumber(
@@ -110,182 +110,106 @@ function boundedNumber(
   options: { min: number; max: number; integer?: boolean }
 ): number {
   if (value === undefined || value === "") return fallback;
-  const n = Number(value);
+  const parsed = Number(value);
   if (
-    !Number.isFinite(n) ||
-    n < options.min ||
-    n > options.max ||
-    (options.integer === true && !Number.isInteger(n))
+    !Number.isFinite(parsed) ||
+    parsed < options.min ||
+    parsed > options.max ||
+    (options.integer && !Number.isInteger(parsed))
   ) {
-    const kind = options.integer ? "integer" : "number";
     throw new Error(
-      `Invalid ${name} '${value}'. Must be a ${kind} between ${options.min} and ${options.max}.`
+      `Invalid ${name} '${value}'. Must be a${options.integer ? "n integer" : " number"} between ${options.min} and ${options.max}.`
     );
   }
-  return n;
+  return parsed;
 }
 
 function enabled(value: string | undefined): boolean {
   return value === "true" || value === "1";
 }
 
-export function isLoopbackHost(host: string): boolean {
+function isLoopbackHost(host: string): boolean {
   const normalized = host.trim().toLowerCase();
-  return normalized === "127.0.0.1" || normalized === "localhost" || normalized === "::1";
+  return (
+    normalized === "127.0.0.1" ||
+    normalized === "localhost" ||
+    normalized === "::1"
+  );
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  // Embedding provider resolution:
-  //  - explicit EMBEDDING_PROVIDER always wins.
-  //  - else, if Supabase edge-function creds are present (SUPABASE_URL +
-  //    SUPABASE_ANON_KEY), default to `supabase-edge`. This is BACK-COMPAT: the
-  //    original Supabase-bound deployment embedded via the edge function, so an
-  //    existing deploy that doesn't set EMBEDDING_PROVIDER keeps working exactly
-  //    as before instead of silently switching to `local` (whose
-  //    @huggingface/transformers package isn't in the base install).
-  //  - else default to `local` (in-process gte-small) for fresh open-source
-  //    installs with no external service. `local` needs an explicit
-  //    `npm install @huggingface/transformers`; a lean hosted deploy should set
-  //    EMBEDDING_PROVIDER=openai or supabase-edge.
   const rawProvider = env.EMBEDDING_PROVIDER?.trim();
-  const validProviders: EmbeddingProvider[] = ["local", "openai", "supabase-edge", "hash"];
-  if (rawProvider && !validProviders.includes(rawProvider as EmbeddingProvider)) {
+  const validProviders: EmbeddingProvider[] = [
+    "local",
+    "openai",
+    "supabase-edge",
+    "hash",
+  ];
+  if (
+    rawProvider &&
+    !validProviders.includes(rawProvider as EmbeddingProvider)
+  ) {
     throw new Error(
       `Invalid EMBEDDING_PROVIDER '${rawProvider}'. Must be one of: ${validProviders.join(", ")}.`
     );
   }
-  // An empty/whitespace value is treated as unset (falls through to the
-  // supabase-edge back-compat default below, then local).
-  const explicitProvider = rawProvider ? (rawProvider as EmbeddingProvider) : undefined;
-  const hasSupabaseEdgeCreds = Boolean(env.SUPABASE_URL && env.SUPABASE_ANON_KEY);
-  const provider: EmbeddingProvider =
-    explicitProvider || (hasSupabaseEdgeCreds ? "supabase-edge" : "local");
+  const hasSupabaseCredentials = Boolean(
+    env.SUPABASE_URL && env.SUPABASE_ANON_KEY
+  );
+  const embeddingProvider =
+    (rawProvider as EmbeddingProvider | undefined) ??
+    (hasSupabaseCredentials ? "supabase-edge" : "local");
 
-  const rawApprovalMode = env.STORY_APPROVAL_MODE?.trim() || "production";
-  if (!(["production", "all", "off"] as const).includes(rawApprovalMode as StoryApprovalMode)) {
-    throw new Error(
-      `Invalid STORY_APPROVAL_MODE '${rawApprovalMode}'. Must be one of: production, all, off.`
-    );
-  }
-
-  // Generic DATABASE_URL is the primary name (any Postgres + pgvector host).
-  // The legacy SUPABASE_DB_URL* names are still accepted as a fallback so
-  // existing deployments keep working for one release.
-  const dbUrl = env.DATABASE_URL || env.SUPABASE_DB_URL;
-  const port = boundedNumber("PORT", env.PORT, 3000, { min: 1, max: 65535, integer: true });
   const httpHost = env.HTTP_HOST?.trim() || "127.0.0.1";
   const httpAllowedOrigins = (env.HTTP_ALLOWED_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
   const httpTrustProxy = enabled(env.HTTP_TRUST_PROXY);
-  if (!isLoopbackHost(httpHost) && (!httpTrustProxy || httpAllowedOrigins.length === 0)) {
+  if (
+    !isLoopbackHost(httpHost) &&
+    (!httpTrustProxy || httpAllowedOrigins.length === 0)
+  ) {
     throw new Error(
       "Refusing non-loopback HTTP_HOST without HTTP_TRUST_PROXY=true and at least one HTTP_ALLOWED_ORIGINS entry. Remote HTTP must run behind an authenticated TLS gateway."
     );
   }
 
   return {
-    dbUrl,
-    dbUrlIngest: env.DATABASE_URL_INGEST || env.SUPABASE_DB_URL_INGEST,
-    dbWriteUrl: env.DATABASE_URL_WRITE || env.SUPABASE_DB_URL_WRITE,
-    dbApprovalUrl: env.DATABASE_URL_APPROVAL,
-    storyApprovalMode: rawApprovalMode as StoryApprovalMode,
-
-    // Tieline workspaces carry their own stable identity. REPO_NAME is only the
-    // explicit fallback for standalone writes outside a workspace.
-    repo: env.REPO_NAME,
-
-    // Default to stdio for MCP hosts. HTTP is opt-in via TRANSPORT=http or
-    // `tieline serve --http`.
+    dbUrl: env.DATABASE_URL,
+    dbWriteUrl: env.DATABASE_URL_WRITE,
+    dbSyncUrl: env.DATABASE_URL_SYNC,
+    dbAdminUrl: env.DATABASE_URL_ADMIN,
     transport: env.TRANSPORT === "http" ? "http" : "stdio",
-    port,
+    port: boundedNumber("PORT", env.PORT, 3000, {
+      min: 1,
+      max: 65_535,
+      integer: true,
+    }),
     httpHost,
     httpAllowedOrigins,
     httpTrustProxy,
-
-    embeddingProvider: provider,
-    // The storage contract is fixed at 384 dimensions. A width change is a
-    // deliberate schema migration plus full re-embed, never an env toggle.
+    embeddingProvider,
     embeddingModel: env.EMBEDDING_MODEL,
     embeddingBaseUrl: env.EMBEDDING_BASE_URL,
     embeddingApiKey: env.EMBEDDING_API_KEY,
     embeddingRequestDimensions:
-      env.EMBEDDING_REQUEST_DIMENSIONS !== "false" && env.EMBEDDING_REQUEST_DIMENSIONS !== "0",
+      env.EMBEDDING_REQUEST_DIMENSIONS !== "false" &&
+      env.EMBEDDING_REQUEST_DIMENSIONS !== "0",
     supabaseUrl: env.SUPABASE_URL,
     supabaseAnonKey: env.SUPABASE_ANON_KEY,
     localEmbedderRoot: env.TIELINE_LOCAL_EMBEDDER_ROOT,
-
-    candidatePoolSize: boundedNumber("CANDIDATE_POOL_SIZE", env.CANDIDATE_POOL_SIZE, 50, {
-      min: 1,
-      max: 1000,
-      integer: true,
-    }),
-    findRelatedMinVectorScore: boundedNumber(
-      "FIND_RELATED_MIN_VECTOR_SCORE",
-      env.FIND_RELATED_MIN_VECTOR_SCORE,
-      0.8,
-      { min: 0, max: 1 }
+    characterLimit: boundedNumber(
+      "CHARACTER_LIMIT",
+      env.CHARACTER_LIMIT,
+      25_000,
+      { min: 1_000, max: 1_000_000, integer: true }
     ),
-    findRelatedMinStructuralScore: boundedNumber(
-      "FIND_RELATED_MIN_STRUCTURAL_SCORE",
-      env.FIND_RELATED_MIN_STRUCTURAL_SCORE,
-      0.01,
-      { min: 0, max: 1 }
-    ),
-    // Lexical floor: real tsvector/trigram matches saturate well above this, so
-    // a low floor admits lexical-only hits while excluding near-zero noise.
-    findRelatedMinLexicalScore: boundedNumber(
-      "FIND_RELATED_MIN_LEXICAL_SCORE",
-      env.FIND_RELATED_MIN_LEXICAL_SCORE,
-      0.05,
-      { min: 0, max: 1 }
-    ),
-    rrfK: boundedNumber("RRF_K", env.RRF_K, 60, { min: 1, max: 10000, integer: true }),
-    // Over-fetch from the HNSW gate so post-KNN product_area/audience filters
-    // still have candidates to trim from.
-    helpCandidatePoolSize: boundedNumber("HELP_CANDIDATE_POOL_SIZE", env.HELP_CANDIDATE_POOL_SIZE, 50, {
-      min: 1,
-      max: 1000,
-      integer: true,
-    }),
-    // gte-small runs a high cosine baseline (~0.73-0.78 even off-domain); real
-    // help matches sit at ~0.87+. 0.80 cleanly separates signal from noise.
-    helpMinScore: boundedNumber("HELP_MIN_SCORE", env.HELP_MIN_SCORE, 0.8, { min: 0, max: 1 }),
-    // Saturated ts_rank floor for lexical help hits (independent of the cosine
-    // helpMinScore, which is calibrated to gte-small's high baseline).
-    helpMinLexicalScore: boundedNumber("HELP_MIN_LEXICAL_SCORE", env.HELP_MIN_LEXICAL_SCORE, 0.05, {
-      min: 0,
-      max: 1,
-    }),
-
-    weights: {
-      // pure conceptual similarity — embeddings only, by definition
-      semantic: { vector: 1.0, entity: 0.0, path: 0.0, lexical: 0.0 },
-      // code in -> lean on code-path overlap; a function body embeds poorly vs prose.
-      // A modest lexical share catches exact identifiers embeddings blur.
-      structural: { vector: 0.15, entity: 0.25, path: 0.5, lexical: 0.1 },
-      // sensible default for a naive agent, and the zero-embedding baseline:
-      // lexical is co-weighted with vector so search still ranks when no
-      // embedding provider is configured (vector collapses to 0 for all).
-      blended: { vector: 0.4, entity: 0.15, path: 0.15, lexical: 0.3 },
-    },
-
-    characterLimit: boundedNumber("CHARACTER_LIMIT", env.CHARACTER_LIMIT, 25000, {
-      min: 1000,
-      max: 1_000_000,
-      integer: true,
-    }),
-
-    enableReviewApp: enabled(env.ENABLE_REVIEW_APP),
-    enableImportTool: enabled(env.ENABLE_IMPORT_TOOL),
-    enableGraphApp: enabled(env.ENABLE_GRAPH_APP),
   };
 }
 
 export let config = loadConfig();
 
-/** Reload the live configuration binding after the CLI discovers a workspace profile. */
 export function reloadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   config = loadConfig(env);
   return config;

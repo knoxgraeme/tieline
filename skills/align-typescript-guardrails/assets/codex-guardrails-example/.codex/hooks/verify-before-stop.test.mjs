@@ -22,44 +22,76 @@ function runHook(cwd, stopHookActive = false) {
   return JSON.parse(result.stdout);
 }
 
-test("passes a successful fast check and blocks a failing one only once", async () => {
+async function initializeWorkspace() {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "guardrail-stop-hook-"));
+  const git = spawnSync("git", ["init", "--quiet"], { cwd: workspace, encoding: "utf8" });
+  assert.equal(git.status, 0, git.stderr);
+  await writeFile(
+    path.join(workspace, "package.json"),
+    JSON.stringify({
+      scripts: {
+        "check:fast":
+          "node -e \"const fs=require('node:fs');process.exit(Number(fs.readFileSync('.check-result','utf8')))\"",
+      },
+    }),
+  );
+  await writeFile(path.join(workspace, ".check-result"), "0");
+
+  const add = spawnSync("git", ["add", "package.json", ".check-result"], {
+    cwd: workspace,
+    encoding: "utf8",
+  });
+  assert.equal(add.status, 0, add.stderr);
+  const commit = spawnSync(
+    "git",
+    [
+      "-c",
+      "user.name=Guardrail Test",
+      "-c",
+      "user.email=guardrail@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "baseline",
+    ],
+    { cwd: workspace, encoding: "utf8" },
+  );
+  assert.equal(commit.status, 0, commit.stderr);
+  return workspace;
+}
+
+test("allows a stop outside a Git repository", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "guardrail-stop-hook-nongit-"));
+  try {
+    assert.deepEqual(runHook(workspace), {});
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("allows a stop in a clean repository", async () => {
+  const workspace = await initializeWorkspace();
+  try {
+    assert.deepEqual(runHook(workspace), {});
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("allows a stop when only documentation changed", async () => {
+  const workspace = await initializeWorkspace();
+  try {
+    await writeFile(path.join(workspace, "README.md"), "Documentation only.\n");
+    assert.deepEqual(runHook(workspace), {});
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("passes a successful fast check and blocks a failing one only once", async () => {
+  const workspace = await initializeWorkspace();
 
   try {
-    const git = spawnSync("git", ["init", "--quiet"], { cwd: workspace, encoding: "utf8" });
-    assert.equal(git.status, 0, git.stderr);
-    await writeFile(
-      path.join(workspace, "package.json"),
-      JSON.stringify({
-        scripts: {
-          "check:fast":
-            "node -e \"const fs=require('node:fs');process.exit(Number(fs.readFileSync('.check-result','utf8')))\"",
-        },
-      }),
-    );
-    await writeFile(path.join(workspace, ".check-result"), "0");
-
-    const add = spawnSync("git", ["add", "package.json", ".check-result"], {
-      cwd: workspace,
-      encoding: "utf8",
-    });
-    assert.equal(add.status, 0, add.stderr);
-    const commit = spawnSync(
-      "git",
-      [
-        "-c",
-        "user.name=Guardrail Test",
-        "-c",
-        "user.email=guardrail@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "baseline",
-      ],
-      { cwd: workspace, encoding: "utf8" },
-    );
-    assert.equal(commit.status, 0, commit.stderr);
-
     await mkdir(path.join(workspace, "new", "source"), { recursive: true });
     await writeFile(
       path.join(workspace, "new", "source", "changed.ts"),

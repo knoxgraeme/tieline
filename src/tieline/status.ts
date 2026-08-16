@@ -1,14 +1,18 @@
-import { existsSync, readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
-import { draftSchema } from "../authoring/schema.js";
-import { collectShards, mergedDraftIsCurrent } from "./merge.js";
+import { existsSync, readdirSync } from "node:fs";
+import type { EmbeddingProvider } from "../config.js";
+import { TIELINE_VERSION } from "../package-metadata.js";
+import { loadAcceptedContract } from "../contract/load.js";
+import { readContractManifest } from "../contract/manifest.js";
 import {
-  currentProductContextChecksum,
+  inspectMcpClientConfigs,
+  type McpClientConfigDiagnostic,
+} from "./mcp-config.js";
+import {
   findTielineWorkspace,
-  tielineCoverageSchema,
-  productContextApprovalState,
   type TielineWorkspace,
 } from "./workspace.js";
+import { readWorkspaceProfile } from "./profile.js";
+import type { DatabaseMode } from "./setup.js";
 
 export interface TielineStatus {
   initialized: true;
@@ -16,193 +20,151 @@ export interface TielineStatus {
   product: string;
   repo: string;
   runtime: {
-    database_mode: "local" | "existing" | "offline";
-    embedding_provider: "local" | "openai" | "supabase-edge" | "hash";
-    approval_mode: "production" | "all" | "off";
+    /** Present in current CLI output; optional for older serialized callers. */
+    cli_version?: string;
+    profile_present: boolean;
+    database_mode: DatabaseMode;
+    embedding_provider: EmbeddingProvider;
     setup_complete: boolean;
   };
-  context: {
-    status: "missing" | "draft" | "approved" | "stale";
-    approved_checksum: string | null;
-    current_checksum: string | null;
+  capabilities: {
+    semantic_matching_configured: boolean;
+    planning_writes_configured: boolean;
   };
-  draft: {
-    exists: boolean;
-    product_context_current: boolean;
-    sections: number;
+  integration: {
+    /** Repository-relative client config files that register the MCP server. */
+    mcp_clients: string[];
+    /** Local package/version diagnostics for each registered client file. */
+    mcp_configs?: McpClientConfigDiagnostic[];
+  };
+  contract: {
+    documents: number;
     stories: number;
-    pending: number;
-    approved: number;
-    rejected: number;
-  };
-  shards: {
-    /** Shards that parsed cleanly. */
-    count: number;
-    stories: number;
-    /** Shards present but unreadable — expected while one is being written. */
-    unreadable: number;
-    /** stories.draft.json already reflects every shard. */
-    merged: boolean;
-  };
-  coverage: {
-    exists: boolean;
-    status: string;
-    product_context_current: boolean;
-    areas_examined: number;
-    uncertain_areas: number;
-  };
-  import: {
-    report_exists: boolean;
-    status: string | null;
-    current: boolean;
+    acceptance_criteria: number;
+    manifest_exists: boolean;
   };
   next_action: string;
+  onboarding: {
+    required: true;
+    skill: "tieline";
+    instruction: typeof ONBOARDING_AGENT_INSTRUCTION;
+    install_command: typeof ONBOARDING_SKILL_INSTALL_COMMAND;
+  } | null;
 }
 
-function readJson(path: string): unknown {
-  return JSON.parse(readFileSync(path, "utf8"));
+export const ONBOARDING_AGENT_INSTRUCTION =
+  "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline.";
+export const ONBOARDING_SKILL_INSTALL_COMMAND =
+  "npx -y tieline@latest init .";
+
+function configured(value: string | undefined): boolean {
+  return Boolean(value?.trim());
 }
 
-export function getTielineStatus(workspace: TielineWorkspace): TielineStatus {
-  const contextStatus = productContextApprovalState(workspace);
-  const currentChecksum = currentProductContextChecksum(workspace);
-  let draftChecksum: string | null = null;
-  let sections = 0;
-  let stories = 0;
-  let pending = 0;
-  let approved = 0;
-  let rejected = 0;
-  let draftFileChecksum: string | null = null;
-  if (existsSync(workspace.draftPath)) {
-    const draftBody = readFileSync(workspace.draftPath, "utf8");
-    draftFileChecksum = createHash("sha256").update(draftBody).digest("hex");
-    const draft = draftSchema.parse(JSON.parse(draftBody));
-    draftChecksum = draft.product_context_checksum ?? null;
-    sections = draft.sections.length;
-    stories = draft.stories.length;
-    if (draft.stories.length > 0) {
-      for (const story of draft.stories) {
-        const state = story._review.state;
-        if (state === "approved") approved++;
-        else if (state === "rejected") rejected++;
-        else pending++;
-      }
-    }
+function readableManifest(directory: string): boolean {
+  try {
+    readContractManifest(directory);
+    return true;
+  } catch {
+    return false;
   }
+}
 
-  let coverageStatus = "missing";
-  let coverageChecksum: string | null = null;
-  let coverageRepo: string | null = null;
-  let areasExamined = 0;
-  let uncertainAreas = 0;
-  if (existsSync(workspace.coveragePath)) {
-    const coverage = tielineCoverageSchema.parse(readJson(workspace.coveragePath));
-    coverageStatus = coverage.status;
-    areasExamined = coverage.areas_examined.length;
-    uncertainAreas = coverage.uncertain_areas.length;
-    coverageChecksum = coverage.product_context_checksum ?? null;
-    coverageRepo = coverage.repo;
-  }
-
-  const reportPath = `${workspace.draftPath}.import-report.json`;
-  let importStatus: string | null = null;
-  let importCurrent = false;
-  if (existsSync(reportPath)) {
-    const report = readJson(reportPath) as { status?: unknown; source_checksum?: unknown };
-    importStatus = typeof report.status === "string" ? report.status : "unknown";
-    importCurrent = report.source_checksum === draftFileChecksum;
-  }
-
-  const productContextCurrent = Boolean(
-    contextStatus === "approved" &&
-      currentChecksum &&
-      draftChecksum &&
-      currentChecksum === draftChecksum
+export function getTielineStatus(
+  workspace: TielineWorkspace,
+  env: NodeJS.ProcessEnv = process.env
+): TielineStatus {
+  const stored = readWorkspaceProfile(workspace, env);
+  const runtime =
+    stored?.profile.runtime ??
+    {
+      database_mode: workspace.config.runtime.default_database_mode,
+      embedding_provider:
+        workspace.config.runtime.default_embedding_provider,
+      setup_completed_at: null,
+    };
+  const hasContractFiles =
+    existsSync(workspace.specDirectoryPath) &&
+    readdirSync(workspace.specDirectoryPath, { recursive: true }).some(
+      (entry) =>
+        String(entry).endsWith(".yaml") ||
+        String(entry).endsWith(".yml")
+    );
+  const loaded = hasContractFiles
+    ? loadAcceptedContract(
+        workspace.root,
+        `.tieline/${workspace.config.files.spec_directory}`
+      )
+    : { documents: [], warnings: [] };
+  const stories = loaded.documents.flatMap(
+    (document) => document.capability.stories
   );
-  const coverageCurrent = Boolean(
-    coverageStatus === "complete" &&
-      currentChecksum &&
-      coverageChecksum === currentChecksum &&
-      coverageRepo === workspace.config.product.repo_name
+  const acceptanceCriteria = stories.flatMap(
+    (story) => story.acceptance_criteria
   );
-  const shards = collectShards(workspace);
-  const shardStories = shards.shards.reduce((total, entry) => total + entry.draft.stories.length, 0);
-  const shardsMerged = mergedDraftIsCurrent(workspace, shards);
-
-  let nextAction: string;
-  if (!workspace.config.runtime.setup_completed_at) {
-    nextAction = "Runtime setup is incomplete; rerun `tieline init` to resume configuration.";
-  } else if (contextStatus === "missing" || contextStatus === "draft") {
-    nextAction = "Have the agent complete product-context.md, confirm it with the human, then run `tieline context approve`.";
-  } else if (contextStatus === "stale") {
-    nextAction = "Product context changed after approval; review it and run `tieline context approve` again.";
-  } else if (shards.errors.length > 0) {
-    nextAction = `Fix ${shards.errors.length} unreadable draft shard(s) in ${workspace.config.files.drafts_dir}/, then run \`tieline merge\`.`;
-  } else if (shards.shards.length > 0 && !shardsMerged) {
-    nextAction = "Merge the per-area draft shards into stories.draft.json with `tieline merge`.";
-  } else if (stories === 0 || !productContextCurrent) {
-    nextAction = "Have the agent generate the story draft and coverage from the approved product-context checksum.";
-  } else if (!coverageCurrent) {
-    nextAction = "Have the agent finish coverage.json for the approved product context before story import.";
-  } else if (pending > 0) {
-    nextAction = "Review the pending stories and approve or reject each one.";
-  } else if (approved === 0) {
-    nextAction = "No stories are approved for import.";
-  } else if (importStatus !== "complete" || !importCurrent) {
-    nextAction = "Import the approved draft with the local reviewed batch importer.";
-  } else {
-    nextAction = "Onboarding import is complete; run representative semantic and code-path searches.";
-  }
-
+  // Presence alone is not availability: an interrupted compile, malformed
+  // shard, or legacy schema cannot answer manifest-backed reads. Status stays
+  // recoverable and sends each of those states through the existing compile
+  // action instead of throwing.
+  const manifestExists = readableManifest(workspace.manifestPath);
+  const onboarding =
+    stories.length === 0
+      ? ({
+          required: true,
+          skill: "tieline",
+          instruction: ONBOARDING_AGENT_INSTRUCTION,
+          install_command: ONBOARDING_SKILL_INSTALL_COMMAND,
+        } as const)
+      : null;
+  const nextAction =
+    onboarding
+      ? onboarding.instruction
+      : !manifestExists
+        ? "Run `tieline contract compile .` and review the semantic diff."
+        : "Use $tieline to reconcile branch work; the pull request is the approval boundary.";
+  const mcpConfigs = inspectMcpClientConfigs(workspace.root);
   return {
     initialized: true,
     root: workspace.root,
     product: workspace.config.product.name,
     repo: workspace.config.product.repo_name,
     runtime: {
-      database_mode: workspace.config.runtime.database_mode,
-      embedding_provider: workspace.config.runtime.embedding_provider,
-      approval_mode: workspace.config.runtime.approval_mode,
-      setup_complete: Boolean(workspace.config.runtime.setup_completed_at),
+      cli_version: TIELINE_VERSION,
+      profile_present: Boolean(stored),
+      database_mode: runtime.database_mode,
+      embedding_provider: runtime.embedding_provider,
+      setup_complete: Boolean(runtime.setup_completed_at),
     },
-    context: {
-      status: contextStatus,
-      approved_checksum: workspace.config.context.approved_checksum ?? null,
-      current_checksum: currentChecksum,
+    capabilities: {
+      semantic_matching_configured: configured(
+        env.DATABASE_URL ?? stored?.profile.env.DATABASE_URL
+      ),
+      planning_writes_configured: configured(
+        env.DATABASE_URL_WRITE ?? stored?.profile.env.DATABASE_URL_WRITE
+      ),
     },
-    draft: {
-      exists: existsSync(workspace.draftPath),
-      product_context_current: productContextCurrent,
-      sections,
-      stories,
-      pending,
-      approved,
-      rejected,
+    integration: {
+      mcp_clients: mcpConfigs.map((config) => config.path),
+      mcp_configs: mcpConfigs,
     },
-    shards: {
-      count: shards.shards.length,
-      stories: shardStories,
-      unreadable: shards.errors.length,
-      merged: shardsMerged,
-    },
-    coverage: {
-      exists: existsSync(workspace.coveragePath),
-      status: coverageStatus,
-      product_context_current: coverageCurrent,
-      areas_examined: areasExamined,
-      uncertain_areas: uncertainAreas,
-    },
-    import: {
-      report_exists: existsSync(reportPath),
-      status: importStatus,
-      current: importCurrent,
+    contract: {
+      documents: loaded.documents.length,
+      stories: stories.length,
+      acceptance_criteria: acceptanceCriteria.length,
+      manifest_exists: manifestExists,
     },
     next_action: nextAction,
+    onboarding,
   };
 }
 
-export function statusFromPath(path: string): TielineStatus {
+export function statusFromPath(
+  path: string,
+  env: NodeJS.ProcessEnv = process.env
+): TielineStatus {
   const workspace = findTielineWorkspace(path);
-  if (!workspace) throw new Error(`No .tieline/config.json found from ${path}.`);
-  return getTielineStatus(workspace);
+  if (!workspace) {
+    throw new Error(`No .tieline/config.json found from ${path}.`);
+  }
+  return getTielineStatus(workspace, env);
 }

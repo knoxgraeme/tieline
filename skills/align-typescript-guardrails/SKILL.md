@@ -1,6 +1,6 @@
 ---
 name: align-typescript-guardrails
-description: Audit, test, or incrementally migrate TypeScript/Node.js repositories toward a compact, NASA-inspired code-assurance baseline for agent-generated code. Use when asked to assess TypeScript maintainability, establish coding guardrails, evaluate whether agents can bypass rules, add guardrail evals, measure hook false positives, harden an agent workflow, add bounded async/error/type/test controls, prevent agents from weakening checks, or migrate an existing JavaScript/TypeScript project without a disruptive rewrite.
+description: Audit, test, or incrementally migrate TypeScript/Node.js repositories toward a compact, tested code-assurance baseline for agent-generated code. Use when asked to assess TypeScript maintainability, establish coding guardrails, evaluate whether agents can bypass rules, add guardrail evals, measure hook false positives, harden an agent workflow, add bounded async/error/type/test controls, prevent agents from weakening checks, or migrate an existing JavaScript/TypeScript project without a disruptive rewrite.
 ---
 
 # Align TypeScript Guardrails

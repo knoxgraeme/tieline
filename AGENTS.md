@@ -12,16 +12,16 @@
 - Install dependencies: `npm ci`
 - Fast validation: `npm run check:fast`
 - Full required validation: `npm run check`
-- Risk-triggered read integration validation: `npm run test:integration`
+- Disposable-database integration validation: `npm run test:integration`
 - Guardrail verification: `npm run test:guardrails`
-- Submitted-diff grading: `git diff --no-renames --unified=0 <base> HEAD | node guardrail-evals/run.mjs --stdin`
+- Submitted-diff grading: `git diff --no-renames --unified=0 <base> <head> | node guardrail-evals/run.mjs --stdin --base-ref <base> --head-ref <head>`
 
 Use the Node version supported by `package.json` and npm with the committed lockfile.
 Do not substitute a different package manager. Completion requires observed command
 results; configuration or an existing test file is not evidence that a check passed.
 
-Write-capable integration commands, including `npm run test:import` and
-`npm run test:approval-mode`, require guarded disposable test credentials and a
+Write-capable integration commands, including `npm run test:integration` and
+`npm run test:release:database`, require guarded disposable test credentials and a
 verified test-only database target. [DB-WRITE] Never run them using a general
 development, staging, or production `DATABASE_URL`, and never infer authorization to
 run them from a request to run the ordinary test suite.

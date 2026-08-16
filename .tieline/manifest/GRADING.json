@@ -1,0 +1,449 @@
+{
+  "capability": {
+    "aliases": [
+      "evidence grading",
+      "link claim verification"
+    ],
+    "applies_to": null,
+    "contract_hash": "d034a3197970273ca97e0ae89191725b132de09209de83ae5d3b9602d30847df",
+    "description": "A host agent can judge changed contract links while Tieline deterministically fixes the scope and rejects unsupported evidence claims.",
+    "name": "Agent-graded contract evidence",
+    "stable_id": "GRADING",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0310d453a9a807fb781099e41d68db192975e27d7bc7f34ddf0b9fb03fdd7164",
+            "criterion": "Tieline must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildGradeScope"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a3b1297f3e9d11940788b32f1a4d8dd4fd9605e0f61905ad872213c5075d4b89",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/reconciliation.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildContractClaimIndex"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Relevance is useful for ranking review work but cannot decide which accepted evidence claims are allowed to escape judgment.",
+            "scenarios": [
+              {
+                "given": "a changed path is linked directly by an Acceptance Criterion and by its owning Story",
+                "position": 0,
+                "stable_id": "GRADING-001-AC1-S1",
+                "then": "Tieline must emit both the direct and story_fallback entries",
+                "when": "grading scope is emitted against the branch base"
+              },
+              {
+                "given": "a changed linked artifact shares no lexical vocabulary with its Acceptance Criterion",
+                "position": 1,
+                "stable_id": "GRADING-001-AC1-S2",
+                "then": "Tieline must retain the entry for judgment",
+                "when": "grading scope is emitted"
+              },
+              {
+                "given": "one Acceptance Criterion links both the old and new paths of a renamed artifact",
+                "position": 2,
+                "stable_id": "GRADING-001-AC1-S3",
+                "then": "Tieline must emit distinct entries whose linked_path values preserve both contract targets",
+                "when": "grading scope is emitted"
+              }
+            ],
+            "stable_id": "GRADING-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "c7794e6e59aff22e58b8d1d09cb974c55aaa01d4039139d6ae5ce3882d159bb1",
+            "criterion": "Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "21f88d52beb2217195f3ddbf6e67c58e01e7dc914a43cb0fdb80d0e36ca9570c",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/selector-resolution.ts",
+                  "repository": "tieline",
+                  "selector": "function:resolveExactStructuralSelectorFromAnalysis"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:evidenceForClaim"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:scopeId"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Parser facts can establish which current declaration a host agent may cite, but only the host can judge whether that declaration semantically satisfies the Acceptance Criterion.",
+            "scenarios": [
+              {
+                "given": "a source artifact declares a top-level or owner-aware function and names other identifiers only in comments or local variables",
+                "position": 0,
+                "stable_id": "GRADING-001-AC2-S1",
+                "then": "Tieline must offer only unique canonical declaration selectors and must not offer comment-only or local identifiers",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a contract link carries an exact canonical selector that resolves uniquely",
+                "position": 1,
+                "stable_id": "GRADING-001-AC2-S2",
+                "then": "Tieline must isolate its allow-list and bounded evidence to that declaration",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a linked artifact is missing, unreadable, oversized, unsupported, unsafe to interpret after parser recovery, or named by an invalid, unresolved, or ambiguous explicit selector",
+                "position": 2,
+                "stable_id": "GRADING-001-AC2-S3",
+                "then": "Tieline must emit unavailable evidence and an empty citation allow-list without failing the scope",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a clean exact selected declaration has an unrelated parser diagnostic or only import and reference facts were truncated",
+                "position": 3,
+                "stable_id": "GRADING-001-AC2-S4",
+                "then": "Tieline must retain the selected declaration as citable",
+                "when": "its grading entry is built with complete symbol and diagnostic facts"
+              },
+              {
+                "given": "either the exact Acceptance Criterion text or same-symbol source content changes",
+                "position": 4,
+                "stable_id": "GRADING-001-AC2-S5",
+                "then": "Tieline must issue a different entry identity so the earlier verdict cannot be reused",
+                "when": "the grading scope is emitted again"
+              }
+            ],
+            "stable_id": "GRADING-001-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0820bccbfc51633f5d3d7aea5e0c1234a49b9f8cfe79ed0a03392be5a13ddd79",
+            "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a9987519e8e7ab7b76f7bf0e59988346e1d3a8eb152714dd11c3cc12ed54a826",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildProgram"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:runGrade"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "The semantic judgment belongs to the host agent, while both Tieline phases remain deterministic and usable in the same offline pull-request loop as contract validation.",
+            "scenarios": [],
+            "stable_id": "GRADING-001-AC3",
+            "supersedes": null
+          }
+        ],
+        "actor": "reviewing agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "semantic evidence claims can be checked without silently omitting difficult links",
+        "contract_hash": "f4da56c52a9a26e1f3cf68cdb70677b56f4cb3ce4e72923ae65b7fb967eb6637",
+        "goal": "receive the complete changed-link work list and its legal citations",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-001",
+        "supersedes": null,
+        "title": "Judge every contract link touched by a change"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "8b5b3e7324a6bb7cc77cab64c518860535409387ca1dfcaf57f4b50219473b55",
+            "criterion": "Tieline must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:parseGradeVerdicts"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyGradeVerdicts"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "an agent submits a supported verdict with a citation Tieline did not emit for that entry",
+                "position": 0,
+                "stable_id": "GRADING-002-AC1-S1",
+                "then": "Tieline must report unsupported with fabricated_citation",
+                "when": "the verdict document is verified"
+              }
+            ],
+            "stable_id": "GRADING-002-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "2d98ce33a6dae53144a249ec3af6b3c24867c8a5ebd0dd381fd0468cde1fe7de",
+            "criterion": "Tieline must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyGradeVerdicts"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Omission is the refusal path rather than a way to skip hard work, while an identity outside the current scope signals stale or substituted input.",
+            "scenarios": [
+              {
+                "given": "the emitted scope contains an entry that no verdict names",
+                "position": 0,
+                "stable_id": "GRADING-002-AC2-S1",
+                "then": "Tieline must report that entry unsupported with missing_verdict",
+                "when": "the verdict document is verified"
+              },
+              {
+                "given": "a verdict identity is duplicated or absent from the rederived scope",
+                "position": 1,
+                "stable_id": "GRADING-002-AC2-S2",
+                "then": "Tieline must reject the submission instead of choosing or ignoring a verdict",
+                "when": "the verdict document is verified"
+              }
+            ],
+            "stable_id": "GRADING-002-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0e1f7e0686284a644a93a6e6fcc21285b55c499072b44e82c3f3ff3412b0075e",
+            "criterion": "Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:runGrade"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyGradeVerdicts"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "scripts/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Agent judgment stays advisory until its operating quality is known; callers that knowingly want a gate can opt into one without hiding its findings.",
+            "scenarios": [
+              {
+                "given": "verification leaves an unsupported result and strict mode is not requested",
+                "position": 0,
+                "stable_id": "GRADING-002-AC3-S1",
+                "then": "Tieline must print the unsupported result and exit zero",
+                "when": "contract grade finishes"
+              },
+              {
+                "given": "verification leaves an unsupported result and strict mode is requested",
+                "position": 1,
+                "stable_id": "GRADING-002-AC3-S2",
+                "then": "Tieline must print the unsupported result and exit non-zero",
+                "when": "contract grade finishes"
+              }
+            ],
+            "stable_id": "GRADING-002-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "fe9f7833ed697cf9602f23b5988e13b4c2a272576fbdec2f909305ac0fb7b49a",
+            "criterion": "The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "cd54443fbd1f4fd40651b9160aa724d9d56ee43e477c0317564aeceb84cb3512",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/grading.md",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.",
+            "scenarios": [],
+            "stable_id": "GRADING-002-AC4",
+            "supersedes": null
+          }
+        ],
+        "actor": "reviewing maintainer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "an agent cannot turn weak or absent evidence into a silent confirmation",
+        "contract_hash": "04a46ff1a0be64c3af1c39d9796afecc1a852d993a9843123f9bd680833d5641",
+        "goal": "see every negative, missing, malformed, and downgraded judgment",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-002",
+        "supersedes": null,
+        "title": "Refuse grading claims that cannot be checked"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tieline/spec/grading.yaml",
+    "sha256": "c9abaf8d647924ddf83fd176de1db9396569104c6435d455aad33fcf787c9133"
+  }
+}

@@ -1,0 +1,462 @@
+/**
+ * Exact manifest-backed intent context for repository assets and Acceptance
+ * Criteria. Both reads consume reconciliation's shared intent index and expand
+ * at most one Acceptance-Criterion-mediated hop.
+ */
+import { resolve } from "node:path";
+import {
+  createArtifactAssuranceInspector,
+  type ArtifactAssurance,
+  type ArtifactAssuranceInspector,
+  type ArtifactTarget,
+} from "./artifact-assurance.js";
+import { manifestDigest, type ContractManifest } from "./manifest.js";
+import {
+  canonicalRepositoryRelativePath,
+  repositoryEntryKindExactly,
+} from "./paths.js";
+import {
+  buildContractIntentIndex,
+  type ClaimingCriterion,
+  type ContractIntentIndex,
+  type IntentAcceptanceCriterionRecord,
+} from "./reconciliation.js";
+import { stableKeySchema } from "./schema.js";
+import {
+  validateSelector,
+  type SelectorVocabulary,
+} from "./selector.js";
+import { selectorVocabularyForRepository } from "./validate.js";
+
+export type IntentAssetKind = "code" | "test";
+
+export interface IntentAssetLocatorInput {
+  path: string;
+  kind?: IntentAssetKind;
+  selector?: string;
+}
+
+export interface CanonicalIntentAssetLocator {
+  repository: string;
+  path: string;
+  kind: IntentAssetKind | null;
+  selector: string | null;
+}
+
+export type IntentAssetMatchPrecision =
+  | "exact_selector"
+  | "file_level"
+  | "path_only";
+
+export interface IntentAssetTarget {
+  kind: IntentAssetKind;
+  repository: string;
+  path: string;
+  selector: string | null;
+  framework_hint: string | null;
+}
+
+/** One accepted code/test claim plus separately derived current assurance. */
+export interface InspectedIntentClaim {
+  relation: ClaimingCriterion["relation"];
+  provenance: ClaimingCriterion["provenance"];
+  link_scope: ClaimingCriterion["link_scope"];
+  target: IntentAssetTarget;
+  reviewed_content_hash: string | null;
+  assurance: ArtifactAssurance;
+}
+
+/** A claim that directly matched the caller's exact locator. */
+export interface MatchingIntentClaim extends InspectedIntentClaim {
+  capability_stable_id: string;
+  story_stable_id: string;
+  acceptance_criterion_stable_id: string;
+  match_precision: IntentAssetMatchPrecision;
+}
+
+export interface AcceptanceCriterionIntentNeighborhood {
+  capability: IntentAcceptanceCriterionRecord["capability"];
+  story: IntentAcceptanceCriterionRecord["story"];
+  acceptance_criterion: IntentAcceptanceCriterionRecord["acceptance_criterion"];
+  direct_claims: InspectedIntentClaim[];
+  story_fallback_claims: InspectedIntentClaim[];
+}
+
+interface IntentContextIdentity {
+  repository: ContractManifest["repository"];
+  manifest_digest: string;
+  /** Explicitly names the authored relationship represented by this result. */
+  relationship: "contract_coupling";
+}
+
+export type AssetIntentContextStatus =
+  | "has_context"
+  | "no_criteria"
+  | "not_found";
+
+export interface AssetIntentContextResult extends IntentContextIdentity {
+  locator: CanonicalIntentAssetLocator;
+  status: AssetIntentContextStatus;
+  exists: boolean;
+  answer: string;
+  matching_claims: MatchingIntentClaim[];
+  intent_neighborhood: AcceptanceCriterionIntentNeighborhood[];
+}
+
+export type AcceptanceCriterionIntentContextResult = IntentContextIdentity & {
+  requested_stable_id: string;
+  status: "found" | "not_found";
+  answer: string;
+  intent_neighborhood: AcceptanceCriterionIntentNeighborhood | null;
+};
+
+export type IntentContextErrorCode =
+  | "invalid_path"
+  | "invalid_kind"
+  | "malformed_selector"
+  | "invalid_stable_id";
+
+export class IntentContextError extends Error {
+  constructor(
+    public readonly code: IntentContextErrorCode,
+    message: string
+  ) {
+    super(message);
+    this.name = "IntentContextError";
+  }
+}
+
+interface IntentContextInput {
+  manifest: ContractManifest;
+  repositoryRoot: string;
+  /** Reuse a caller-built index when multiple exact reads share one manifest. */
+  index?: ContractIntentIndex;
+  /** Narrow injection seam for callers that already own a request inspector. */
+  inspector?: ArtifactAssuranceInspector;
+  /** Keep locator validation and assurance on one repository vocabulary. */
+  selectorVocabulary?: SelectorVocabulary;
+}
+
+export interface AssetIntentContextInput extends IntentContextInput {
+  locator: IntentAssetLocatorInput;
+}
+
+export interface AcceptanceCriterionIntentContextInput
+  extends IntentContextInput {
+  stableId: string;
+}
+
+function canonicalPath(path: unknown): string {
+  if (typeof path !== "string" || path.trim().length === 0) {
+    throw new IntentContextError(
+      "invalid_path",
+      "Asset path must be a non-empty repository-relative path."
+    );
+  }
+  const normalized = canonicalRepositoryRelativePath(path);
+  if (normalized === null) {
+    throw new IntentContextError(
+      "invalid_path",
+      `Asset path '${path}' must name a file inside the repository.`
+    );
+  }
+  return normalized;
+}
+
+function canonicalLocator(
+  repository: string,
+  locator: IntentAssetLocatorInput,
+  selectorVocabulary: SelectorVocabulary
+): CanonicalIntentAssetLocator {
+  const kind = locator.kind ?? null;
+  if (kind !== null && kind !== "code" && kind !== "test") {
+    throw new IntentContextError(
+      "invalid_kind",
+      `Asset kind '${String(kind)}' is invalid; expected 'code' or 'test'.`
+    );
+  }
+  let selector: string | null = null;
+  if (locator.selector !== undefined) {
+    const validated = validateSelector(locator.selector, selectorVocabulary);
+    if (!validated.ok) {
+      throw new IntentContextError(
+        "malformed_selector",
+        `Malformed asset selector: ${validated.error}.`
+      );
+    }
+    selector = validated.selector.canonical;
+  }
+  return {
+    repository,
+    path: canonicalPath(locator.path),
+    kind,
+    selector,
+  };
+}
+
+function targetFor(claim: ClaimingCriterion): IntentAssetTarget {
+  return {
+    kind: claim.target_kind,
+    repository: claim.repository,
+    path: claim.linked_path,
+    selector: claim.selector,
+    framework_hint: claim.framework_hint,
+  };
+}
+
+function assuranceTarget(claim: ClaimingCriterion): ArtifactTarget {
+  return claim.target_kind === "test"
+    ? {
+        kind: "test",
+        repository: claim.repository,
+        path: claim.linked_path,
+        ...(claim.selector === null ? {} : { selector: claim.selector }),
+        ...(claim.framework_hint === null
+          ? {}
+          : { framework_hint: claim.framework_hint }),
+      }
+    : {
+        kind: "code",
+        repository: claim.repository,
+        path: claim.linked_path,
+        ...(claim.selector === null ? {} : { selector: claim.selector }),
+      };
+}
+
+function claimSortFields(claim: ClaimingCriterion): string[] {
+  return [
+    claim.relation,
+    claim.link_scope,
+    claim.target_kind,
+    claim.repository,
+    claim.linked_path,
+    claim.selector ?? "",
+    claim.framework_hint ?? "",
+    claim.provenance,
+  ];
+}
+
+function compareClaimFields(
+  left: ClaimingCriterion,
+  right: ClaimingCriterion
+): number {
+  return claimSortFields(left)
+    .join("\0")
+    .localeCompare(claimSortFields(right).join("\0"));
+}
+
+async function inspectedClaim(
+  claim: ClaimingCriterion,
+  inspector: ArtifactAssuranceInspector
+): Promise<InspectedIntentClaim> {
+  return {
+    relation: claim.relation,
+    provenance: claim.provenance,
+    link_scope: claim.link_scope,
+    target: targetFor(claim),
+    reviewed_content_hash: claim.reviewed_content_hash,
+    assurance: await inspector.inspect({
+      target: assuranceTarget(claim),
+      reviewed_content_hash: claim.reviewed_content_hash,
+    }),
+  };
+}
+
+async function neighborhood(
+  record: IntentAcceptanceCriterionRecord,
+  inspector: ArtifactAssuranceInspector
+): Promise<AcceptanceCriterionIntentNeighborhood> {
+  const ordered = [...record.claims].sort(compareClaimFields);
+  return {
+    capability: record.capability,
+    story: record.story,
+    acceptance_criterion: record.acceptance_criterion,
+    direct_claims: await Promise.all(
+      ordered
+        .filter((claim) => claim.link_scope === "direct")
+        .map((claim) => inspectedClaim(claim, inspector))
+    ),
+    story_fallback_claims: await Promise.all(
+      ordered
+        .filter((claim) => claim.link_scope === "story_fallback")
+        .map((claim) => inspectedClaim(claim, inspector))
+    ),
+  };
+}
+
+function contextParts(
+  input: IntentContextInput,
+  selectorVocabulary?: SelectorVocabulary
+): {
+  identity: IntentContextIdentity;
+  index: ContractIntentIndex;
+  inspector: ArtifactAssuranceInspector;
+  ownsInspector: boolean;
+} {
+  const root = resolve(input.repositoryRoot);
+  return {
+    identity: {
+      repository: { ...input.manifest.repository },
+      manifest_digest: manifestDigest(input.manifest),
+      relationship: "contract_coupling",
+    },
+    index: input.index ?? buildContractIntentIndex(input.manifest),
+    inspector:
+      input.inspector ??
+      createArtifactAssuranceInspector({
+        repositoryRoot: root,
+        repositoryKey: input.manifest.repository.key,
+        ...(selectorVocabulary === undefined ? {} : { selectorVocabulary }),
+      }),
+    ownsInspector: input.inspector === undefined,
+  };
+}
+
+function matchPrecision(
+  claim: ClaimingCriterion,
+  locator: CanonicalIntentAssetLocator
+): IntentAssetMatchPrecision | null {
+  if (locator.kind !== null && claim.target_kind !== locator.kind) return null;
+  if (locator.selector === null) return "path_only";
+  if (claim.selector === locator.selector) return "exact_selector";
+  return claim.selector === null ? "file_level" : null;
+}
+
+function assetAnswer(
+  locator: CanonicalIntentAssetLocator,
+  status: AssetIntentContextStatus,
+  criterionCount: number
+): string {
+  const described = `${locator.kind ?? "code/test"} asset '${locator.path}'${
+    locator.selector === null ? "" : ` at '${locator.selector}'`
+  }`;
+  if (status === "not_found") {
+    return criterionCount > 0
+      ? `The ${described} was not found in the repository, but ${criterionCount} accepted ${
+          criterionCount === 1 ? "criterion still forms" : "criteria still form"
+        } its manifest-backed intent neighborhood. Inspect the broken assurance on each claim.`
+      : `The ${described} was not found in the repository and has no accepted contract coupling.`;
+  }
+  if (status === "no_criteria") {
+    return `The ${described} exists, but no acceptance criteria apply to that exact locator.`;
+  }
+  return `${criterionCount} acceptance ${
+    criterionCount === 1 ? "criterion forms" : "criteria form"
+  } the bounded intent neighborhood for the ${described}.`;
+}
+
+/** Exact asset -> linked Acceptance Criteria -> their direct/fallback claims. */
+export async function lookupAssetIntentContext(
+  input: AssetIntentContextInput
+): Promise<AssetIntentContextResult> {
+  const root = resolve(input.repositoryRoot);
+  const selectorVocabulary =
+    input.selectorVocabulary ?? selectorVocabularyForRepository(root);
+  const locator = canonicalLocator(
+    input.manifest.repository.key,
+    input.locator,
+    selectorVocabulary
+  );
+  const { identity, index, inspector, ownsInspector } = contextParts(
+    input,
+    selectorVocabulary
+  );
+  try {
+    const matches = (index.claims_by_path.get(locator.path) ?? [])
+      .map((claim) => ({ claim, precision: matchPrecision(claim, locator) }))
+      .filter(
+        (
+          entry
+        ): entry is {
+          claim: ClaimingCriterion;
+          precision: IntentAssetMatchPrecision;
+        } => entry.precision !== null
+      )
+      .sort(
+        (left, right) =>
+          left.claim.acceptance_criterion_stable_id.localeCompare(
+            right.claim.acceptance_criterion_stable_id
+          ) || compareClaimFields(left.claim, right.claim)
+      );
+    const exists = repositoryEntryKindExactly(root, locator.path) === "file";
+    const status: AssetIntentContextStatus = !exists
+      ? "not_found"
+      : matches.length > 0
+        ? "has_context"
+        : "no_criteria";
+    const criterionIds = [
+      ...new Set(
+        matches.map((entry) => entry.claim.acceptance_criterion_stable_id)
+      ),
+    ].sort();
+    const intentNeighborhood = await Promise.all(
+      criterionIds.map(async (stableId) => {
+        const record = index.acceptance_criteria_by_stable_id.get(stableId);
+        if (!record) {
+          throw new Error(
+            `Shared intent index is inconsistent: Acceptance Criterion '${stableId}' has a path claim but no record.`
+          );
+        }
+        return await neighborhood(record, inspector);
+      })
+    );
+    return {
+      ...identity,
+      locator,
+      status,
+      exists,
+      answer: assetAnswer(locator, status, criterionIds.length),
+      matching_claims: await Promise.all(
+        matches.map(async ({ claim, precision }) => ({
+          capability_stable_id: claim.capability_stable_id,
+          story_stable_id: claim.story_stable_id,
+          acceptance_criterion_stable_id: claim.acceptance_criterion_stable_id,
+          match_precision: precision,
+          ...(await inspectedClaim(claim, inspector)),
+        }))
+      ),
+      intent_neighborhood: intentNeighborhood,
+    };
+  } finally {
+    if (ownsInspector) await inspector.dispose();
+  }
+}
+
+/** Exact Acceptance Criterion -> its direct and Story-fallback asset claims. */
+export async function lookupAcceptanceCriterionIntentContext(
+  input: AcceptanceCriterionIntentContextInput
+): Promise<AcceptanceCriterionIntentContextResult> {
+  const parsedStableId = stableKeySchema.safeParse(input.stableId);
+  if (!parsedStableId.success) {
+    throw new IntentContextError(
+      "invalid_stable_id",
+      "Acceptance Criterion stable ID must be 1-160 characters, start with a letter or digit, and contain only letters, digits, '.', '_', or '-'."
+    );
+  }
+  const requestedStableId = parsedStableId.data;
+  const { identity, index, inspector, ownsInspector } = contextParts(
+    input,
+    input.selectorVocabulary
+  );
+  try {
+    const record = index.acceptance_criteria_by_stable_id.get(requestedStableId);
+    if (!record) {
+      return {
+        ...identity,
+        requested_stable_id: requestedStableId,
+        status: "not_found",
+        answer: `Acceptance Criterion '${requestedStableId}' was not found in the reviewed manifest. Check the stable ID and manifest workspace.`,
+        intent_neighborhood: null,
+      };
+    }
+    return {
+      ...identity,
+      requested_stable_id: requestedStableId,
+      status: "found",
+      answer: `Acceptance Criterion '${requestedStableId}' and its bounded intent neighborhood were found in the reviewed manifest.`,
+      intent_neighborhood: await neighborhood(record, inspector),
+    };
+  } finally {
+    if (ownsInspector) await inspector.dispose();
+  }
+}

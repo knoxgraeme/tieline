@@ -20,5 +20,5 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "scripts", "src/authoring/review-ui", "src/authoring/graph-ui"]
+  "exclude": ["node_modules", "dist", "scripts"]
 }

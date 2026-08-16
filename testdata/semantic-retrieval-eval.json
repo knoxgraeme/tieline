@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "name": "broad intent ranks the Story document",
+      "expected_top": "story-search",
+      "candidates": [
+        { "id": "story-search", "kind": "story", "vector": 0.94, "lexical": 0.7 },
+        { "id": "ac-filter", "kind": "acceptance_criterion", "vector": 0.63, "lexical": 0.2 }
+      ]
+    },
+    {
+      "name": "specific outcome ranks its AC document",
+      "expected_top": "ac-level",
+      "candidates": [
+        { "id": "story-search", "kind": "story", "vector": 0.72, "lexical": 0.2 },
+        { "id": "ac-level", "kind": "acceptance_criterion", "vector": 0.93, "lexical": 0.8 }
+      ]
+    },
+    {
+      "name": "edge case ranks its Scenario document",
+      "expected_top": "scenario-ancestry",
+      "candidates": [
+        { "id": "ac-level", "kind": "acceptance_criterion", "vector": 0.74, "lexical": 0.3 },
+        { "id": "scenario-ancestry", "kind": "scenario", "vector": 0.96, "lexical": 0.8 }
+      ]
+    },
+    {
+      "name": "similar observations cluster without merging",
+      "expected_top": "observation-2",
+      "candidates": [
+        { "id": "observation-2", "kind": "observation", "vector": 0.95, "lexical": 0.5 },
+        { "id": "backlog-1", "kind": "backlog_item", "vector": 0.71, "lexical": 0.2 }
+      ]
+    },
+    {
+      "name": "applicability breaks a close tie",
+      "expected_top": "ac-applicable",
+      "candidates": [
+        { "id": "ac-inapplicable", "kind": "acceptance_criterion", "vector": 0.91, "lexical": 0.5, "applicable": false },
+        { "id": "ac-applicable", "kind": "acceptance_criterion", "vector": 0.88, "lexical": 0.5, "applicable": true }
+      ]
+    }
+  ]
+}

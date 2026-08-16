@@ -1,0 +1,9 @@
+{
+  // U7 intentionally supports static root configuration without executing TypeScript.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["src/*"]
+    }
+  }
+}

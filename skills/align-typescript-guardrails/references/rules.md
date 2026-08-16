@@ -6,7 +6,6 @@
 2. Baseline rules
 3. Change-risk profiles
 4. Tailoring and waivers
-5. Literal NASA rules not to copy
 
 ## Operating principle
 
@@ -266,15 +265,3 @@ Every waiver must state:
 - events that invalidate the waiver.
 
 Expired or scope-mismatched waivers do not apply. Prefer a repository-tracked structured record over an undocumented comment.
-
-## Literal NASA rules not to copy
-
-Do not:
-
-- ban recursion globally—bound depth for untrusted structures;
-- ban dynamic allocation—bound collections, queues, caches, and payloads;
-- enforce a universal 60-line function failure—use review triggers;
-- require a fixed assertion count—place contracts at meaningful boundaries;
-- demand maximum rigor for every change—use risk profiles;
-- treat zero warnings from one tool as proof—combine independent evidence;
-- equate test links or line coverage with verified behavior.

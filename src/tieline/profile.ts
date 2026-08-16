@@ -13,11 +13,20 @@ import { z } from "zod";
 import type { TielineWorkspace } from "./workspace.js";
 import { findTielineWorkspace } from "./workspace.js";
 
-const PROFILE_ENV_KEYS = [
+export const DATABASE_PROFILE_ENV_KEYS = [
   "DATABASE_URL",
-  "DATABASE_URL_INGEST",
   "DATABASE_URL_WRITE",
-  "DATABASE_URL_APPROVAL",
+  "DATABASE_URL_SYNC",
+  "DATABASE_URL_ADMIN",
+] as const;
+
+export const PRIVILEGED_DATABASE_PROFILE_ENV_KEYS = [
+  "DATABASE_URL_SYNC",
+  "DATABASE_URL_ADMIN",
+] as const;
+
+const PROFILE_ENV_KEYS = [
+  ...DATABASE_PROFILE_ENV_KEYS,
   "EMBEDDING_PROVIDER",
   "EMBEDDING_MODEL",
   "EMBEDDING_BASE_URL",
@@ -25,21 +34,49 @@ const PROFILE_ENV_KEYS = [
   "EMBEDDING_REQUEST_DIMENSIONS",
   "SUPABASE_URL",
   "SUPABASE_ANON_KEY",
-  "STORY_APPROVAL_MODE",
   "TIELINE_LOCAL_EMBEDDER_ROOT",
 ] as const;
 
-const profileSchema = z.object({
+const MCP_PROFILE_ENV_KEYS = PROFILE_ENV_KEYS.filter(
+  (key) =>
+    !PRIVILEGED_DATABASE_PROFILE_ENV_KEYS.includes(
+      key as (typeof PRIVILEGED_DATABASE_PROFILE_ENV_KEYS)[number]
+    )
+);
+
+const embeddingProviderSchema = z.enum([
+  "local",
+  "openai",
+  "supabase-edge",
+  "hash",
+]);
+
+const runtimeStateSchema = z
+  .object({
+    database_mode: z.enum(["local", "existing", "offline"]),
+    embedding_provider: embeddingProviderSchema,
+    setup_completed_at: z.string().min(1).nullable(),
+  })
+  .strict();
+
+const storedProfileSchema = z.object({
   version: z.literal(1),
   profile_id: z.string().min(1),
   repository_root: z.string().min(1),
   repo_name: z.string().min(1),
   created_at: z.string().min(1),
   updated_at: z.string().min(1),
+  runtime: runtimeStateSchema.optional(),
   env: z.record(z.string()),
 });
 
-export type TielineProfile = z.infer<typeof profileSchema>;
+export type TielineRuntimeState = z.infer<typeof runtimeStateSchema>;
+export type TielineProfile = Omit<
+  z.infer<typeof storedProfileSchema>,
+  "runtime"
+> & {
+  runtime: TielineRuntimeState;
+};
 
 export function tielineConfigHome(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(
@@ -52,7 +89,7 @@ export function tielineConfigHome(env: NodeJS.ProcessEnv = process.env): string 
   );
 }
 
-export function workspaceProfileId(repoName: string, repositoryRoot: string): string {
+function workspaceProfileId(repoName: string, repositoryRoot: string): string {
   const fingerprint = createHash("sha256").update(resolve(repositoryRoot)).digest("hex").slice(0, 12);
   return `${repoName}-${fingerprint}`;
 }
@@ -63,13 +100,13 @@ export function profilePath(profileId: string, env: NodeJS.ProcessEnv = process.
 }
 
 export function profileIdForWorkspace(workspace: TielineWorkspace): string {
-  return (
-    workspace.config.runtime.profile_id ||
-    workspaceProfileId(workspace.config.product.repo_name, workspace.root)
+  return workspaceProfileId(
+    workspace.config.product.repo_name,
+    workspace.root
   );
 }
 
-export function selectProfileEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
+function selectProfileEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
   const selected: Record<string, string> = {};
   for (const key of PROFILE_ENV_KEYS) {
     const value = env[key]?.trim();
@@ -81,6 +118,7 @@ export function selectProfileEnvironment(env: NodeJS.ProcessEnv): Record<string,
 export function writeWorkspaceProfile(
   workspace: TielineWorkspace,
   sourceEnv: NodeJS.ProcessEnv,
+  runtime: TielineRuntimeState,
   pathEnv: NodeJS.ProcessEnv = sourceEnv
 ): { path: string; profile: TielineProfile } {
   const id = profileIdForWorkspace(workspace);
@@ -89,7 +127,9 @@ export function writeWorkspaceProfile(
   let createdAt = now;
   if (existsSync(path)) {
     try {
-      createdAt = profileSchema.parse(JSON.parse(readFileSync(path, "utf8"))).created_at;
+      createdAt = storedProfileSchema.parse(
+        JSON.parse(readFileSync(path, "utf8"))
+      ).created_at;
     } catch {
       // Replace an invalid profile rather than merging unknown or unsafe fields.
     }
@@ -101,6 +141,7 @@ export function writeWorkspaceProfile(
     repo_name: workspace.config.product.repo_name,
     created_at: createdAt,
     updated_at: now,
+    runtime,
     env: selectProfileEnvironment(sourceEnv),
   };
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -119,7 +160,24 @@ export function readWorkspaceProfile(
 ): { path: string; profile: TielineProfile } | null {
   const path = profilePath(profileIdForWorkspace(workspace), env);
   if (!existsSync(path)) return null;
-  const profile = profileSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+  const stored = storedProfileSchema.parse(
+    JSON.parse(readFileSync(path, "utf8"))
+  );
+  const configuredProvider = embeddingProviderSchema.safeParse(
+    stored.env.EMBEDDING_PROVIDER
+  );
+  const profile: TielineProfile = {
+    ...stored,
+    runtime:
+      stored.runtime ??
+      {
+        database_mode: workspace.config.runtime.default_database_mode,
+        embedding_provider: configuredProvider.success
+          ? configuredProvider.data
+          : workspace.config.runtime.default_embedding_provider,
+        setup_completed_at: null,
+      },
+  };
   if (resolve(profile.repository_root) !== resolve(workspace.root)) {
     throw new Error(`Tieline profile '${path}' belongs to a different repository root.`);
   }
@@ -132,7 +190,8 @@ export function readWorkspaceProfile(
 /** Load a workspace profile without overriding explicit process/host environment values. */
 export function loadWorkspaceProfile(
   startPath: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  allowedKeys: readonly string[] = PROFILE_ENV_KEYS
 ): { path: string; profile: TielineProfile; loaded: string[] } | null {
   const workspace = findTielineWorkspace(startPath);
   if (!workspace) return null;
@@ -141,10 +200,31 @@ export function loadWorkspaceProfile(
   const loaded: string[] = [];
   for (const [key, value] of Object.entries(stored.profile.env)) {
     if (!PROFILE_ENV_KEYS.includes(key as (typeof PROFILE_ENV_KEYS)[number])) continue;
+    if (!allowedKeys.includes(key)) continue;
     if (env[key] === undefined || env[key] === "") {
       env[key] = value;
       loaded.push(key);
     }
   }
   return { ...stored, loaded };
+}
+
+export function removePrivilegedDatabaseEnvironment(
+  env: NodeJS.ProcessEnv
+): void {
+  for (const key of PRIVILEGED_DATABASE_PROFILE_ENV_KEYS) {
+    delete env[key];
+  }
+}
+
+export function loadWorkspaceProfileForCommand(
+  command: string,
+  startPath: string,
+  env: NodeJS.ProcessEnv = process.env
+): { path: string; profile: TielineProfile; loaded: string[] } | null {
+  if (command !== "serve") {
+    return loadWorkspaceProfile(startPath, env);
+  }
+  removePrivilegedDatabaseEnvironment(env);
+  return loadWorkspaceProfile(startPath, env, MCP_PROFILE_ENV_KEYS);
 }
