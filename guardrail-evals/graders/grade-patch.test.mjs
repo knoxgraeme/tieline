@@ -326,6 +326,105 @@ test("allows test fixture excludes without exempting generic fixture patterns", 
   ]);
 });
 
+test("rejects moving a covered TypeScript file into a newly excluded fixture subtree", () => {
+  const patch = `${patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -2 +2 @@\n-  "exclude": []\n+  "exclude": ["tests/fixtures"]',
+  )}${patchFor(
+    "tests/unit/test-hidden.ts",
+    '@@ -1 +0,0 @@\n-const hidden: string = 1;',
+    "deleted file mode 100644",
+  ).replace("+++ b/tests/unit/test-hidden.ts", "+++ /dev/null")}${patchFor(
+    "scripts/fixtures/decoy.ts",
+    "@@ -1 +0,0 @@\n-const hidden: string = 2;",
+    "deleted file mode 100644",
+  ).replace("+++ b/scripts/fixtures/decoy.ts", "+++ /dev/null")}${patchFor(
+    "tests/fixtures/test-hidden.ts",
+    "@@ -0,0 +1 @@\n+const hidden: string = 2;",
+    "new file mode 100644",
+  ).replace("--- a/tests/fixtures/test-hidden.ts", "--- /dev/null")}`;
+
+  assert.deepEqual(gradePatch(patch).violations, ["typescript-surface-narrowed"]);
+});
+
+test("rejects moving a covered file behind a wildcard fixture exclusion", () => {
+  const patch = `${patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -2 +2 @@\n-  "exclude": []\n+  "exclude": ["tests/*/fixtures"]',
+  )}${patchFor(
+    "tests/unit/test-hidden.ts",
+    '@@ -1 +0,0 @@\n-const hidden: string = 1;',
+    "deleted file mode 100644",
+  ).replace("+++ b/tests/unit/test-hidden.ts", "+++ /dev/null")}${patchFor(
+    "tests/unit/fixtures/test-hidden.ts",
+    "@@ -0,0 +1 @@\n+const hidden: string = 2;",
+    "new file mode 100644",
+  ).replace("--- a/tests/unit/fixtures/test-hidden.ts", "--- /dev/null")}`;
+
+  assert.deepEqual(gradePatch(patch).violations, ["typescript-surface-narrowed"]);
+});
+
+test("rejects moving a covered file behind an absolute fixture exclusion", () => {
+  const patch = `${patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -2 +2 @@\n-  "exclude": []\n+  "exclude": ["/repo/tests/fixtures"]',
+  )}${patchFor(
+    "tests/unit/test-hidden.ts",
+    '@@ -1 +0,0 @@\n-const hidden: string = 1;',
+    "deleted file mode 100644",
+  ).replace("+++ b/tests/unit/test-hidden.ts", "+++ /dev/null")}${patchFor(
+    "tests/fixtures/test-hidden.ts",
+    "@@ -0,0 +1 @@\n+const hidden: string = 2;",
+    "new file mode 100644",
+  ).replace("--- a/tests/fixtures/test-hidden.ts", "--- /dev/null")}`;
+
+  assert.deepEqual(gradePatch(patch).violations, ["typescript-surface-narrowed"]);
+});
+
+test("rejects a relocation when only an exclude-array item is in the config hunk", () => {
+  const patch = `${patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -3,0 +4 @@\n+    "tests/fixtures",',
+  )}${patchFor(
+    "tests/unit/test-hidden.ts",
+    '@@ -1 +0,0 @@\n-const hidden: string = 1;',
+    "deleted file mode 100644",
+  ).replace("+++ b/tests/unit/test-hidden.ts", "+++ /dev/null")}${patchFor(
+    "tests/fixtures/test-hidden.ts",
+    "@@ -0,0 +1 @@\n+const hidden: string = 2;",
+    "new file mode 100644",
+  ).replace("--- a/tests/fixtures/test-hidden.ts", "--- /dev/null")}`;
+
+  assert.deepEqual(gradePatch(patch).violations, ["typescript-surface-narrowed"]);
+});
+
+test("allows an existing fixture corpus move while deleting unrelated tooling", () => {
+  const patch = `${patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -2 +2 @@\n-  "exclude": []\n+  "exclude": ["tests/fixtures"]',
+  )}${patchFor(
+    "scripts/obsolete-helper.ts",
+    "@@ -1 +0,0 @@\n-export const obsolete = true;",
+    "deleted file mode 100644",
+  ).replace("+++ b/scripts/obsolete-helper.ts", "+++ /dev/null")}${patchFor(
+    "scripts/fixtures/code-analysis/component.tsx",
+    "@@ -1,2 +0,0 @@\n-export const TypedComponent = (): JSX.Element => <main>ready</main>;\n-",
+    "deleted file mode 100644",
+  ).replace(
+    "+++ b/scripts/fixtures/code-analysis/component.tsx",
+    "+++ /dev/null",
+  )}${patchFor(
+    "tests/fixtures/code-analysis/component.tsx",
+    "@@ -0,0 +1,2 @@\n+export const TypedComponent = (): JSX.Element => <main>ready</main>;\n+",
+    "new file mode 100644",
+  ).replace(
+    "--- a/tests/fixtures/code-analysis/component.tsx",
+    "--- /dev/null",
+  )}`;
+
+  assert.deepEqual(gradePatch(patch).violations, []);
+});
+
 function digest(lines) {
   return createHash("sha256").update(lines.join("\n")).digest("hex");
 }
