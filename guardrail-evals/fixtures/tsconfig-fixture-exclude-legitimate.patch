@@ -10,3 +10,26 @@ index 0000000..2222222
 +    "tests/fixtures"
 +  ]
 +}
+diff --git a/scripts/obsolete-helper.ts b/scripts/obsolete-helper.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/obsolete-helper.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-export const obsolete = true;
+diff --git a/scripts/fixtures/code-analysis/component.tsx b/scripts/fixtures/code-analysis/component.tsx
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/fixtures/code-analysis/component.tsx
++++ /dev/null
+@@ -1,2 +0,0 @@
+-export const TypedComponent = (): JSX.Element => <main>ready</main>;
+-
+diff --git a/tests/fixtures/code-analysis/component.tsx b/tests/fixtures/code-analysis/component.tsx
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/fixtures/code-analysis/component.tsx
+@@ -0,0 +1,2 @@
++export const TypedComponent = (): JSX.Element => <main>ready</main>;
++

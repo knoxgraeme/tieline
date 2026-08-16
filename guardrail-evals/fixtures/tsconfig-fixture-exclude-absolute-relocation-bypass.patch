@@ -1,0 +1,21 @@
+diff --git a/tsconfig.typecheck.json b/tsconfig.typecheck.json
+index 1111111..2222222 100644
+--- a/tsconfig.typecheck.json
++++ b/tsconfig.typecheck.json
+@@ -2 +2 @@
+-  "exclude": []
++  "exclude": ["/repo/tests/fixtures"]
+diff --git a/tests/unit/test-hidden.ts b/tests/unit/test-hidden.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/tests/unit/test-hidden.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-const hidden: string = 1;
+diff --git a/tests/fixtures/test-hidden.ts b/tests/fixtures/test-hidden.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/fixtures/test-hidden.ts
+@@ -0,0 +1 @@
++const hidden: string = 2;

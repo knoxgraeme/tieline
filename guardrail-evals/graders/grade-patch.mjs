@@ -206,6 +206,115 @@ const INTEGRATION_PREFLIGHT_ATTESTATION = {
   newPath: "tests/support/integration-database-preflight.ts",
   newDigest: "b8e2b0df0ff6bf370b7aa36bd257ca0c64f39d6116ffdf5d006d52333b864cd1",
 };
+const FIXTURE_RELOCATION_ATTESTATIONS = new Map(
+  [
+    [
+      "scripts/fixtures/code-analysis/component.tsx",
+      "tests/fixtures/code-analysis/component.tsx",
+      "a696492cc7e0d53578709f1e7e11105c3e19233f7973d85703e856c3ae5f7498",
+    ],
+    [
+      "scripts/fixtures/code-analysis/malformed.ts",
+      "tests/fixtures/code-analysis/malformed.ts",
+      "ef13b4e8f411fb776ff4c9d452a243210c5a3fdcfd9a4ecde88368bf17131fe2",
+    ],
+    [
+      "scripts/fixtures/code-analysis/recovered.ts",
+      "tests/fixtures/code-analysis/recovered.ts",
+      "24351a0abc2883a648d5911d0e333f6e597529916c975a4bf6c7d2aade1ac024",
+    ],
+    [
+      "scripts/fixtures/code-analysis/typescript.ts",
+      "tests/fixtures/code-analysis/typescript.ts",
+      "4eee7b7eb5ae0e4adfe22db1a3af5cf2c5ce3396615c2f0d8e6a935e3c212af7",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript-no-config/src/main.ts",
+      "tests/fixtures/code-resolution/javascript-no-config/src/main.ts",
+      "e863867876682a1134ce757effa68d0d91c29fcbc20a3f0fb7d3e9fa9570ca56",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/ambiguous-barrel.ts",
+      "tests/fixtures/code-resolution/javascript/src/ambiguous-barrel.ts",
+      "45f44198593404afad0c43b57fd03888965dc5fc20c447d51959aaefaed5e6c9",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/barrel.ts",
+      "tests/fixtures/code-resolution/javascript/src/barrel.ts",
+      "9f036a29f282a1b460932ec1cab5da4f939727fc17f7324f185116f4072d71c3",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/deep.ts",
+      "tests/fixtures/code-resolution/javascript/src/deep.ts",
+      "8774eef9f3713858dea6115861415e087656180ff56e258d6b56844e42cc81b7",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/directory/index.ts",
+      "tests/fixtures/code-resolution/javascript/src/directory/index.ts",
+      "7af0bd3d811091cc62f0146515b7d150f555ace2712ed3ae98934e9099427f05",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/duplicates.ts",
+      "tests/fixtures/code-resolution/javascript/src/duplicates.ts",
+      "b1e6f9414afa7b5ef7d659e665f721c4887482ccd76b8bcb2454500b537ad568",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/emitted/ambiguous.ts",
+      "tests/fixtures/code-resolution/javascript/src/emitted/ambiguous.ts",
+      "a4d1841a8e388865ec63a18b4cd4f81f19e62cfeabfdf4d5b5a2d6356b1a569d",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/emitted/ambiguous.tsx",
+      "tests/fixtures/code-resolution/javascript/src/emitted/ambiguous.tsx",
+      "3bb818081e86bb89a52d2c339327453520d33e0237d1e615944dcd410f5f0f88",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/emitted/common.cts",
+      "tests/fixtures/code-resolution/javascript/src/emitted/common.cts",
+      "da643abfe95d338113fde31ca043e270ff87d880dab11103c39b3a82c22db9bb",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/emitted/module.mts",
+      "tests/fixtures/code-resolution/javascript/src/emitted/module.mts",
+      "5a8865c756e695d2eb7803a991e1868d7d88ba133a6b7366d4c34ed6701f8edd",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/emitted/value.ts",
+      "tests/fixtures/code-resolution/javascript/src/emitted/value.ts",
+      "9c563be2e382b39a33de6c097246dc13a301c58e9c6705d4cc93084f6aa326fb",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/lazy.ts",
+      "tests/fixtures/code-resolution/javascript/src/lazy.ts",
+      "6075cdee62163f6991790ebbe5a9d16b64b47f9d004bf3a3919982e4f277afb7",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/lib/value.ts",
+      "tests/fixtures/code-resolution/javascript/src/lib/value.ts",
+      "fcbcb7aece718d280178457c2c5a3bfb8e8743b8331374c29a50397f38d511e4",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/main.ts",
+      "tests/fixtures/code-resolution/javascript/src/main.ts",
+      "ab562a32290e3838069ebef68ef8a610a48e6c5200dca232e0bdd8f0b2c589ad",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/multiple.ts",
+      "tests/fixtures/code-resolution/javascript/src/multiple.ts",
+      "12b15b889c6fdd7b69a4310c6d907271358a97d6a6d65ca0d1133147724ff6a7",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/same-symbol.ts",
+      "tests/fixtures/code-resolution/javascript/src/same-symbol.ts",
+      "a63e3d170aa6ad3f9eeff14aec5e1c64eee518b0dd82393b366872d5c47e0fec",
+    ],
+    [
+      "scripts/fixtures/code-resolution/javascript/src/types.ts",
+      "tests/fixtures/code-resolution/javascript/src/types.ts",
+      "96e458e0c792e012d5e59218f320e40658c21ceb21447e9ca4d6a506893c1ef3",
+    ],
+  ].map(([oldPath, newPath, digest]) => [oldPath, { newPath, digest }]),
+);
 
 const SOURCE_EXTENSIONS = new Set([
   ".cjs",
@@ -217,6 +326,7 @@ const SOURCE_EXTENSIONS = new Set([
   ".ts",
   ".tsx",
 ]);
+const TYPESCRIPT_SOURCE_EXTENSIONS = new Set([".cts", ".mts", ".ts", ".tsx"]);
 
 function isGuardrailImplementation(pathname) {
   return (
@@ -610,6 +720,117 @@ function fullConfigNarrowsSurface(contents) {
   );
 }
 
+function fixtureExclusionDirectories(values) {
+  const directories = new Set();
+  let unsupported = false;
+  if (!Array.isArray(values)) return { directories, unsupported };
+
+  for (const value of values) {
+    if (typeof value !== "string" || !isTestOrToolingFixturePath(value)) continue;
+    const slashPath = value.replaceAll("\\", "/");
+    if (path.posix.isAbsolute(slashPath) || /^[A-Za-z]:\//.test(slashPath)) {
+      unsupported = true;
+      continue;
+    }
+    const segments = path.posix
+      .normalize(slashPath.replace(/^\.\//, ""))
+      .split("/");
+    const fixtureIndex = segments.indexOf("fixtures");
+    const fixtureRootSegments = segments.slice(0, fixtureIndex + 1);
+    if (fixtureRootSegments.some((segment) => /[?*[]/.test(segment))) {
+      unsupported = true;
+      continue;
+    }
+    directories.add(fixtureRootSegments.join("/"));
+  }
+  return { directories, unsupported };
+}
+
+function configStringValues(lines) {
+  const values = [];
+  for (const match of lines.join("\n").matchAll(/"((?:\\.|[^"\\])*)"/g)) {
+    try {
+      values.push(JSON.parse(`"${match[1]}"`));
+    } catch {
+      // Ignore malformed partial JSON and retain the existing line-level checks.
+    }
+  }
+  return values;
+}
+
+function newlyExcludedFixtureDirectories(file, contents) {
+  const before = parseJsonConfig(contents?.before);
+  const after = parseJsonConfig(contents?.after);
+  if (after) {
+    const beforePatterns = new Set(
+      Array.isArray(before?.exclude)
+        ? before.exclude.filter((value) => typeof value === "string")
+        : [],
+    );
+    const addedPatterns = Array.isArray(after.exclude)
+      ? after.exclude.filter(
+          (value) => typeof value === "string" && !beforePatterns.has(value),
+        )
+      : [];
+    return fixtureExclusionDirectories(addedPatterns);
+  }
+  return fixtureExclusionDirectories(configStringValues(file.added));
+}
+
+function isCoveredNonFixtureTypeScriptPath(pathname) {
+  if (
+    !TYPESCRIPT_SOURCE_EXTENSIONS.has(path.extname(pathname)) ||
+    isTestOrToolingFixturePath(pathname)
+  ) {
+    return false;
+  }
+  const segments = path.posix
+    .normalize(pathname.replaceAll("\\", "/").replace(/^\.\//, ""))
+    .split("/");
+  return segments.some((segment) => TEST_OR_TOOLING_COVERAGE_ROOTS.has(segment));
+}
+
+function isWithinFixtureDirectory(pathname, directory) {
+  const normalized = path.posix.normalize(
+    pathname.replaceAll("\\", "/").replace(/^\.\//, ""),
+  );
+  return normalized.startsWith(`${directory}/`);
+}
+
+function verifiesFixtureRelocation(file, files) {
+  for (const [oldPath, attestation] of FIXTURE_RELOCATION_ATTESTATIONS) {
+    if (attestation.newPath !== file.path) continue;
+    const oldFile = files.find(
+      (candidate) => candidate.isDeleted && candidate.oldPath === oldPath,
+    );
+    return (
+      oldFile !== undefined &&
+      relocationDigest(oldFile.deleted) === attestation.digest &&
+      relocationDigest(file.added) === attestation.digest
+    );
+  }
+  return false;
+}
+
+function movesCoveredSourceIntoExcludedFixture(files, fixtureDirectories) {
+  if (fixtureDirectories.size === 0) return false;
+  const deletesCoveredSource = files.some(
+    (file) =>
+      file.isDeleted && isCoveredNonFixtureTypeScriptPath(file.oldPath),
+  );
+  if (!deletesCoveredSource) return false;
+
+  return files.some(
+    (file) =>
+      file.isNew &&
+      TYPESCRIPT_SOURCE_EXTENSIONS.has(path.extname(file.path)) &&
+      !verifiesFixtureRelocation(file, files) &&
+      [...fixtureDirectories].some((directory) =>
+        isWithinFixtureDirectory(file.path, directory),
+      ),
+  );
+}
+
 function broadEslintDisableViolation(line) {
   const match = line.match(
     /eslint-disable(-next-line|-line)?\b(.*?)(?:\*\/|$)/,
@@ -841,6 +1062,13 @@ function gradeTypeScriptConfig(files, violations, fileContents) {
       isTypeScriptConfigPath(entry.path) &&
       !isFixtureTypeScriptConfigPath(entry.path),
   )) {
+    const {
+      directories: newlyExcludedFixtures,
+      unsupported: unsupportedFixtureExclusion,
+    } = newlyExcludedFixtureDirectories(
+      file,
+      fileContents?.get(file.path),
+    );
     for (const option of TYPESCRIPT_RATCHET_OPTIONS) {
       const truePattern = new RegExp(`^\\s*"${option}"\\s*:\\s*true(?:\\s*[,}]|\\s*$)`);
       const falsePattern = new RegExp(`^\\s*"${option}"\\s*:\\s*false(?:\\s*[,}]|\\s*$)`);
@@ -892,7 +1120,9 @@ function gradeTypeScriptConfig(files, violations, fileContents) {
       addedExcludeRoots.size > 0 ||
       addedUnscopedFixtureExclude ||
       narrowedByInclude ||
-      fullConfigNarrowsSurface(fileContents?.get(file.path))
+      unsupportedFixtureExclusion ||
+      fullConfigNarrowsSurface(fileContents?.get(file.path)) ||
+      movesCoveredSourceIntoExcludedFixture(files, newlyExcludedFixtures)
     ) {
       violations.add("typescript-surface-narrowed");
     }
