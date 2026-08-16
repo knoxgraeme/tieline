@@ -169,7 +169,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1c4c709ceb8d6181a233949a92a2f1eb906d4cbacb03cdd9a6d34262fbc4f0dd",
+                "reviewed_content_hash": "9a1416b339b6857c2401cfb2e3628da262c2d1f919402d45f1f4381ff3f08eb5",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/help-repository.ts",

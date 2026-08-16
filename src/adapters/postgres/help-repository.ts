@@ -36,6 +36,19 @@ interface CriterionHelpLink extends StoryHelpLink {
   story_stable_id: string;
 }
 
+type LinkedHelpFilters = Pick<
+  Parameters<typeof searchHelpArticles>[0],
+  "authorities" | "lifecycles" | "repositories" | "include_inactive"
+>;
+
+export function hasLinkedHelpFilters(input: LinkedHelpFilters): boolean {
+  return Boolean(
+    input.authorities?.length ||
+      input.lifecycles?.length ||
+      input.repositories?.length
+  );
+}
+
 function articleContent(article: HelpArticleImportRecord): {
   title: string | null;
   url: string | null;
@@ -84,10 +97,7 @@ export async function searchHelpArticles(input: {
     ? sql``
     : sql`and criterion.active`;
   const linkedRecordFilter =
-    input.authorities !== undefined ||
-    input.lifecycles !== undefined ||
-    input.repositories !== undefined ||
-    input.include_inactive !== undefined
+    hasLinkedHelpFilters(input)
       ? sql`and (
           exists (
             select 1

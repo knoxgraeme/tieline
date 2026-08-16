@@ -6,6 +6,21 @@ import {
   assertMigrationHistory,
   readPackagedMigrations,
 } from "../src/commands/migrate.js";
+import { hasLinkedHelpFilters } from "../src/adapters/postgres/help-repository.js";
+
+assert.equal(
+  hasLinkedHelpFilters({ include_inactive: false }),
+  false,
+  "unscoped help discovery must include articles without contract links"
+);
+assert.equal(
+  hasLinkedHelpFilters({ include_inactive: true }),
+  false,
+  "include_inactive is intentionally not a linked-record constraint"
+);
+assert.equal(hasLinkedHelpFilters({ authorities: ["repository"] }), true);
+assert.equal(hasLinkedHelpFilters({ lifecycles: ["production"] }), true);
+assert.equal(hasLinkedHelpFilters({ repositories: ["tieline"] }), true);
 
 const migrations = readdirSync(resolve("migrations"))
   .filter((file) => file.endsWith(".sql"))
