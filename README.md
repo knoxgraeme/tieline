@@ -32,19 +32,6 @@ The contract creates a manifest in your repository. When synced to optional Post
 agent—including product, research, and support agents without codebase access can query the accepted
 state of `main`, and review + update 'Observations'. 
 
----
-## Quickstart
-
-```bash
-cd /path/to/your-repository
-npx -y tieline@latest init
-```
-
-Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
-`.tieline/review.html` provides a browser-friendly view.
-
-Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
-
 ## How it works
 
 1. **An agent proposes intent.** The Tieline skill reads product context and code, then drafts or
@@ -62,6 +49,18 @@ Optional Postgres storage adds Observations such as feature requests, ideas, and
 context on both accepted behavior and future direction.
 
 [How evidence, authority, and freshness work →](docs/concepts.md)
+
+## Quickstart
+
+```bash
+cd /path/to/your-repository
+npx -y tieline@latest init
+```
+
+Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
+`.tieline/review.html` provides a browser-friendly view.
+
+Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
 
 ## Core concepts
 
@@ -199,4 +198,3 @@ the affected ACs for agent or human review. After merge, an idempotent sync publ
 | [CLI](docs/cli.md) | Contract, topology, check, sync, grading, and review commands |
 | [MCP](docs/mcp.md) | Local and database-backed tools for agents |
 | [Operations](docs/operations.md) | Serving, credentials, durability, and privacy |
-
