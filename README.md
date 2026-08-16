@@ -9,8 +9,8 @@
 <p align="center">
   <a href="#how-it-works">How it works</a> ·
   <a href="#quickstart">Quickstart</a> ·
-  <a href="#ac-aware-blast-radius">Blast radius</a> ·
-  <a href="#for-agents">For agents</a> ·
+  <a href="#how-the-code-graph-works">Code graph</a> ·
+  <a href="#what-agents-can-ask">Agent queries</a> ·
   <a href="docs/setup.md">Docs</a>
 </p>
 
@@ -33,22 +33,69 @@ state of `main`.
 
 ## How it works
 
-1. **An agent proposes intent.** The Tieline skill reads product context, code, schemas, and tests,
-   then drafts or updates Stories, ACs, and evidence links for review.
-2. **Parsers ground the links.** Tree-sitter extracts canonical symbols, source ranges, and bounded
-   snippets. Conservative resolvers write the committed topology graph without hiding ambiguous
-   or unresolved relationships.
-3. **A fresh agent grades the evidence.** The grader receives one AC, its current evidence, and the
-   only citations it may use. Deterministic verification rejects stale or invented citations.
-4. **Review establishes acceptance.** The authored YAML, compiled manifest, topology, and code
-   change travel together. Merge accepts that version of the relationship.
-5. **Tieline keeps it reviewable.** The skill updates intent as behavior changes, while
-   `tieline check` flags changed evidence, broken links, invalid contracts, and stale artifacts.
-6. **Follow features from request to production** In addition to production state, Tieline can store 'Observations' like feature requests, ideas or bug reports. Observations are stored in postgres outside of the codebase, and give agents context on both the current state and future direction. 
+1. **An agent proposes intent.** The Tieline skill reads product context and code, then drafts or
+   updates Stories, ACs, and evidence links for review.
+2. **Parsers ground code links.** Tree-sitter extracts canonical symbols, source ranges, and bounded
+   snippets. Conservative resolvers preserve ambiguous and unresolved relationships as diagnostics.
+3. **A fresh agent grades the evidence.** The grader receives one AC, its current evidence, and a
+   closed citation list. Deterministic verification rejects stale or invented citations.
+4. **Review establishes acceptance.** The YAML, compiled manifest, topology, and code change travel
+   together. Merge accepts that version of the relationship.
+5. **Checks make drift visible.** The skill updates intent as behavior changes, while `tieline check`
+   flags changed evidence, broken links, invalid contracts, and stale artifacts.
+
+Optional Postgres storage adds Observations such as feature requests, ideas, and bugs, giving agents
+context on both accepted behavior and future direction.
 
 [How evidence, authority, and freshness work →](docs/concepts.md)
 
-## Example Capability
+## What Tieline can prove
+
+Each signal has a narrow meaning. Tieline exposes the boundary instead of presenting static or
+agent-generated evidence as formal proof:
+
+| Signal | What it establishes | What it does not establish |
+| --- | --- | --- |
+| `authored` link | An explicit contract claim was accepted through repository review | Permanent semantic correctness |
+| Resolved selector | The current symbol can be identified precisely | That its implementation satisfies the AC |
+| `hash_current` | The evidence still matches the bytes accepted in the manifest | That the original review was correct |
+| Grade | A fresh agent judged current allowed evidence as supported, partial, or unsupported | Formal proof or test execution |
+| Blast-radius result | Static code dependents and their linked ACs may be impacted | Runtime reachability or guaranteed breakage |
+
+## How the code graph works
+
+`.tieline/topology/graph.json` is a committed, derived snapshot of the repository's source
+structure. `tieline code compile` uses Tree-sitter parsers to build it; later reads query the
+snapshot without starting a parser or writing to Postgres.
+
+| Layer | Role |
+| --- | --- |
+| Stored file hashes | Identify the exact source bytes represented by the snapshot |
+| Stored locator-bearing symbols | Identify code assets for traversal and authored joins |
+| Stored resolved adjacency edges | Trace static dependencies and dependents |
+| Stored unresolved dependency frontiers | Keep ambiguous imports and unsupported boundaries visible |
+| Query-time AC join (not stored) | Match visited paths and selectors to authored AC links |
+
+Source ranges, source snippets, raw reference and resolution facts, and parser diagnostics are not
+duplicated in `graph.json`.
+
+```text
+source code → Tree-sitter → graph.json → symbols and static dependents
+                                      + authored AC links
+                                      ↓
+                              AC-aware blast radius
+```
+
+Explicit blast-radius analysis starts from the supplied locators. A Git-base comparison instead
+seeds every symbol in changed files plus the endpoints of changed edges. Both traverse static
+edges in the selected direction—dependents by default, or dependencies when requested—then
+perform the authored locator-to-AC join. Cycles, external dependencies,
+ambiguity, and traversal limits remain visible. The result is a bounded impact signal, not a
+runtime call graph or a guarantee of breakage.
+
+[Topology and blast-radius commands →](docs/cli.md#derived-code-topology-and-blast-radius)
+
+## What the contract looks like
 
 ```yaml
 version: 1
@@ -101,28 +148,7 @@ Restart your agent, then run the /tieline skill to begin onboarding. The skill p
 
 Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
 
-## AC-aware blast radius
-
-The authored intent graph and derived code topology remain separate until they meet at an exact
-path and symbol:
-
-```text
-Capability → Story → AC → path/selector
-                              ↕ exact locator
-                graph.json: symbol → static dependents
-                              ↓
-                    ACs that may be impacted
-```
-
-`tieline code compile` parses the checkout into the committed `graph.json` snapshot. Blast-radius
-analysis starts with changed symbols, follows static imports and references, then joins the
-visited locators to authored AC links. Reads query the snapshot rather than reparsing the code.
-Ambiguous imports, external dependencies, cycles, and traversal limits remain visible, so the
-result is a bounded impact signal rather than a claim about runtime behavior.
-
-[Topology and blast-radius commands →](docs/cli.md#derived-code-topology-and-blast-radius)
-
-## For agents
+## What agents can ask
 
 | Ask | Tool |
 | --- | --- |
@@ -138,7 +164,7 @@ Observations and shape backlog Stories.
 
 [Full MCP reference →](docs/mcp.md)
 
-## Keeping the contract current
+## How the contract stays current
 
 During implementation, the Tieline skill proposes new Stories and ACs when behavior was added,
 updates existing definitions when behavior changed, reconciles evidence links, grades changed
@@ -156,7 +182,7 @@ the affected ACs for agent or human review. After merge, an idempotent sync publ
 
 [GitHub Actions example](docs/examples/tieline-check.yml) · [CLI reference](docs/cli.md)
 
-## Documentation
+## Where to learn more
 
 | Guide | Contents |
 | --- | --- |

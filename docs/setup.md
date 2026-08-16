@@ -253,7 +253,7 @@ pull-request diff remains the review and acceptance surface.
 
 While the spec has no Stories, `npx -y tieline@latest status --json` reports that onboarding is
 required and includes the skill invocation. Open `.tieline/review.html` after onboarding to review
-the contract as cards, then follow [Keeping the contract current](../README.md#keeping-the-contract-current)
+the contract as cards, then follow [How the contract stays current](../README.md#how-the-contract-stays-current)
 to add the CI check.
 
 For the contract lifecycle and assurance boundaries, read [Concepts](concepts.md). For individual
