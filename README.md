@@ -16,9 +16,9 @@
 
 ---
 
-Tieline stores accepted Capabilities, Stories, and Acceptance Criteria in Git and links them to
-the exact code and tests offered as evidence. Agents no longer have to infer product intent from
-scratch on every run.
+Tieline generates Capabilities, User Stories, and Acceptance Criteria, linking them to
+the exact code and tests as evidence. Agents no longer have to infer product intent from
+scratch on every run, creating a semantic Business Intent layer grounded in your production code. 
 
 - **Reviewed intent:** Stories and ACs evolve beside the implementation and are accepted through
   normal pull-request review.
