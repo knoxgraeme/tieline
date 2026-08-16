@@ -15,14 +15,9 @@ import {
 } from "../../src/contract/manifest.js";
 import { prepareObservation } from "../../src/domain/evidence-write-store.js";
 import { withRole } from "../support/db.js";
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
-const adminUrl = process.env.DATABASE_URL_ADMIN;
-if (!adminUrl) {
-  console.log(
-    "SKIP - DATABASE_URL_ADMIN not set; lifecycle integration needs a disposable database."
-  );
-  process.exit(0);
-}
+const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 const repositoryKey = "lifecycle-integration";
 const capabilityKey = "LIFECYCLE";

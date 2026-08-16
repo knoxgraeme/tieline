@@ -103,17 +103,18 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tieline
+          POSTGRES_DB: tieline_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d tieline"
+          --health-cmd "pg_isready -U postgres -d tieline_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/tieline
-      DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/tieline_test
+      DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline_test
+      TIELINE_INTEGRATION_TEST_DATABASE: "1"
     steps:
       - uses: actions/checkout@v4
         with:

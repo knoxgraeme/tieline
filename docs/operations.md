@@ -98,8 +98,12 @@ Database integration tests require a disposable blank Postgres database with pgv
 administrative URL with the migration privileges described above:
 
 ```bash
-DATABASE_URL_ADMIN=postgresql://... npm run test:integration
-DATABASE_URL_ADMIN=postgresql://... npm run test:integration:code-topology
+TIELINE_INTEGRATION_TEST_DATABASE=1 \
+DATABASE_URL_ADMIN=postgresql://postgres:postgres@localhost:5432/tieline_test \
+npm run test:integration
+TIELINE_INTEGRATION_TEST_DATABASE=1 \
+DATABASE_URL_ADMIN=postgresql://postgres:postgres@localhost:5432/tieline_test \
+npm run test:integration:code-topology
 ```
 
 Before publishing a release, `npm run test:release:focused` runs the focused offline and

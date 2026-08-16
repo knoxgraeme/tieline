@@ -20,14 +20,9 @@ import {
   type ContractSyncOptions,
 } from "../../src/contract/sync.js";
 import type { ContractManifest } from "../../src/contract/manifest.js";
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
-const adminUrl = process.env.DATABASE_URL_ADMIN;
-if (!adminUrl) {
-  console.log(
-    "SKIP - DATABASE_URL_ADMIN not set; contract sync integration needs a disposable database."
-  );
-  process.exit(0);
-}
+const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 function contractYaml(input: {
   capabilityKey: string;

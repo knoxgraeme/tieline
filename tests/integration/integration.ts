@@ -1,6 +1,10 @@
-if (!process.env.DATABASE_URL_ADMIN) {
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
+
+try {
+  requireIntegrationDatabaseAdminUrl(process.env);
+} catch (error) {
   console.error(
-    "DATABASE_URL_ADMIN is required for test:integration and must point to a guarded disposable blank database."
+    error instanceof Error ? error.message : "test:integration database preflight failed."
   );
   process.exit(1);
 }
