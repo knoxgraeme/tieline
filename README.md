@@ -44,6 +44,7 @@ state of `main`.
    change travel together. Merge accepts that version of the relationship.
 5. **Tieline keeps it reviewable.** The skill updates intent as behavior changes, while
    `tieline check` flags changed evidence, broken links, invalid contracts, and stale artifacts.
+6. **Follow features from request to production** In addition to production state, Tieline can store 'Observations' like feature requests, ideas or bug reports. Observations are stored in postgres outside of the codebase, and give agents context on both the current state and future direction. 
 
 [How evidence, authority, and freshness work →](docs/concepts.md)
 
@@ -65,6 +66,10 @@ capability:
       acceptance_criteria:
         - key: CONTRACT-003-AC4
           criterion: Tieline must expose exact manifest-backed context without a database.
+          scenarios:
+            - given: the compiled manifest is available
+              when: an agent requests context for a known code locator
+              then: Tieline returns its accepted intent and linked evidence
           links:
             - relation: implements
               provenance: authored
@@ -86,20 +91,15 @@ conditions or edge cases.
 
 ## Quickstart
 
-Requires Node 20.12 or newer. No database is needed.
-
 ```bash
 cd /path/to/your-repository
 npx -y tieline@latest init
 ```
 
-Restart your agent, then run `$tieline` in Codex or `/tieline` in agents that expose skills as
-slash commands. The skill proposes the initial contract and code links for review; the generated
+Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
 `.tieline/review.html` provides a browser-friendly view.
 
-Postgres is optional. Use it when agents without a checkout need the accepted product state, then
-configure [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) to publish only merged
-changes from `main`.
+Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. 
 
 ## AC-aware blast radius
 
@@ -134,7 +134,7 @@ result is a bounded impact signal rather than a claim about runtime behavior.
 
 Exact manifest and topology reads work from the repository. Database-backed reads expose the
 synced accepted contract to agents without repository access. Planning tools can also capture
-Observations and shape backlog Stories before they materialize into reviewed repository YAML.
+Observations and shape backlog Stories.
 
 [Full MCP reference →](docs/mcp.md)
 
