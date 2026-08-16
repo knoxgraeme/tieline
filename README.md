@@ -63,22 +63,6 @@ context on both accepted behavior and future direction.
 
 [How evidence, authority, and freshness work →](docs/concepts.md)
 
-## What agents can ask
-
-| Ask | Tool |
-| --- | --- |
-| “What is this symbol supposed to do?” | `get_asset_intent_context` |
-| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
-| “Which criteria touch these paths?” | `get_path_criteria` |
-| “Which code may depend on this symbol?” | `trace_code_dependencies` |
-| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
-
-Exact manifest and topology reads work from the repository. Database-backed reads expose the
-synced accepted contract to agents without repository access. Planning tools can also capture
-Observations and shape backlog Stories.
-
-[Full MCP reference →](docs/mcp.md)
-
 ## Core concepts
 
 ```text
@@ -97,6 +81,22 @@ links remain available when the evidence applies to the broader user outcome.
 | Observation | Append-only source evidence such as a request, bug, or question |
 | Backlog Item | Optional work that consolidates Observations before or alongside a User Story |
 | Artifact | Code or test evidence linked to a User Story or Acceptance Criteria |
+
+## What agents can ask
+
+| Ask | Tool |
+| --- | --- |
+| “What is this symbol supposed to do?” | `get_asset_intent_context` |
+| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
+| “Which criteria touch these paths?” | `get_path_criteria` |
+| “Which code may depend on this symbol?” | `trace_code_dependencies` |
+| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
+
+Exact manifest and topology reads work from the repository. Database-backed reads expose the
+synced accepted contract to agents without repository access. Planning tools can also capture
+Observations and shape backlog Stories.
+
+[Full MCP reference →](docs/mcp.md)
 
 ## How the code graph works
 
