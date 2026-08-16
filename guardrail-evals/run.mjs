@@ -102,6 +102,9 @@ async function gradeExternalPatch(patchPath, refs) {
 }
 
 function gradeExternalDiff(patch, fileContents = new Map()) {
+  if (patch.trim() === "") {
+    throw new Error("Refusing to grade an empty diff.");
+  }
   const result = gradePatch(patch, { fileContents });
   console.log(JSON.stringify(result, null, 2));
   if (!result.pass) process.exitCode = 1;

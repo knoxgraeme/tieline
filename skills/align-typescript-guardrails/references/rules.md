@@ -265,3 +265,7 @@ Every waiver must state:
 - events that invalidate the waiver.
 
 Expired or scope-mismatched waivers do not apply. Prefer a repository-tracked structured record over an undocumented comment.
+
+A waiver record is evidence for reviewers, not an automatic mechanical bypass. A
+trusted grader must explicitly parse and validate the record before it can affect a
+check result.

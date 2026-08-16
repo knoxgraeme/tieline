@@ -54,6 +54,15 @@ export const cases = [
     expectedViolations: ["protected-guardrail-implementation-removed"],
   },
   {
+    id: "guardrail-no-renames-removal-bypass",
+    rule: "TG-10/TG-11",
+    category: "source-validation",
+    kind: "bypass",
+    fixture: "fixtures/source-no-renames-bypass.patch",
+    expectedPass: false,
+    expectedViolations: ["protected-guardrail-implementation-removed"],
+  },
+  {
     id: "tsconfig-violation",
     rule: "TG-1",
     category: "typescript-config",
@@ -97,6 +106,15 @@ export const cases = [
     fixture: "fixtures/tsconfig-multiline-bypass.patch",
     expectedPass: false,
     expectedViolations: ["typescript-surface-narrowed"],
+  },
+  {
+    id: "tsconfig-no-renames-removal-bypass",
+    rule: "TG-10",
+    category: "typescript-config",
+    kind: "bypass",
+    fixture: "fixtures/tsconfig-no-renames-bypass.patch",
+    expectedPass: false,
+    expectedViolations: ["typescript-config-removed"],
   },
   {
     id: "ci-violation",
@@ -148,7 +166,7 @@ export const cases = [
     kind: "bypass",
     fixture: "fixtures/ci-condition-bypass.patch",
     expectedPass: false,
-    expectedViolations: ["ci-disabled-by-condition"],
+    expectedViolations: ["ci-disabled-by-condition", "ci-made-advisory"],
   },
   {
     id: "trusted-guardrail-workflow-removal-bypass",
@@ -203,6 +221,18 @@ export const cases = [
     fixture: "fixtures/package-fallback-bypass.patch",
     expectedPass: false,
     expectedViolations: ["protected-package-script-advisory:check"],
+  },
+  {
+    id: "package-script-shell-control-bypass",
+    rule: "TG-9/TG-10",
+    category: "package-scripts",
+    kind: "bypass",
+    fixture: "fixtures/package-shell-bypass.patch",
+    expectedPass: false,
+    expectedViolations: [
+      "protected-package-script-advisory:build",
+      "protected-package-script-advisory:check",
+    ],
   },
   {
     id: "agents-violation",

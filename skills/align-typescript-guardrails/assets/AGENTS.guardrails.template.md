@@ -125,6 +125,10 @@ Store exceptions in `{{WAIVER_PATH}}`. Every waiver must identify:
 An expired or scope-mismatched waiver does not apply. Convenience alone is not a
 justification.
 
+A waiver record affects a mechanical guard only when the trusted grader explicitly
+parses and validates its schema, scope, approval, and expiry. A record alone does not
+disable a check.
+
 ## Completion report
 
 At handoff, state:

@@ -139,6 +139,11 @@ Store any necessary exception as a reviewed Markdown record under
 An expired or scope-mismatched waiver does not apply. Convenience alone is not a
 justification. There are no implicit or verbal waivers.
 
+A waiver record is review evidence, not an automatic bypass. The current grader
+rejects newly added focused or skipped tests and does not consume waiver records.
+A mechanical exception requires a separately reviewed change that teaches the
+trusted grader to validate the waiver's schema, scope, approval, and expiry.
+
 ## Completion report
 
 At handoff, state:

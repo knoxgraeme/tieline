@@ -186,6 +186,38 @@ function coverageRoots(values) {
   return roots;
 }
 
+function normalizedPatterns(values) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((value) => typeof value === "string")
+    .map((value) => path.posix.normalize(value.replaceAll("\\", "/")))
+    .map((value) => value.replace(/^\.\//, "").replace(/\/$/, ""));
+}
+
+function includePatternCovers(candidate, previous) {
+  if (candidate === previous || candidate === "**" || candidate === "**/*") {
+    return true;
+  }
+
+  const recursiveDirectory = /^(.*)\/\*\*(?:\/\*)?$/.exec(candidate);
+  if (recursiveDirectory) {
+    const prefix = recursiveDirectory[1];
+    return previous === prefix || previous.startsWith(`${prefix}/`);
+  }
+
+  if (!/[?*[]/.test(candidate)) {
+    return previous.startsWith(`${candidate}/`);
+  }
+
+  const typedRecursiveDirectory = /^(.*)\/\*\*\/\*([^*?[\]]+)$/.exec(candidate);
+  if (typedRecursiveDirectory && !/[?*[]/.test(previous)) {
+    const [, prefix, suffix] = typedRecursiveDirectory;
+    return previous.startsWith(`${prefix}/`) && previous.endsWith(suffix);
+  }
+
+  return false;
+}
+
 function changedConfigArrayRoots(lines, property) {
   const roots = new Set();
   const pattern = new RegExp(`"${property}"\\s*:\\s*\\[([\\s\\S]*?)\\]`, "g");
@@ -208,13 +240,22 @@ function fullConfigNarrowsSurface(contents) {
   const after = parseJsonConfig(contents?.after);
   if (!before || !after) return false;
 
-  const beforeIncludes = coverageRoots(before.include);
-  const afterIncludes = coverageRoots(after.include);
+  const beforeIncludes = normalizedPatterns(before.include);
+  const afterIncludes = normalizedPatterns(after.include);
   const beforeExcludes = coverageRoots(before.exclude);
   const afterExcludes = coverageRoots(after.exclude);
 
+  const includesNarrowed =
+    (!Array.isArray(before.include) && Array.isArray(after.include)) ||
+    (Array.isArray(before.include) &&
+      Array.isArray(after.include) &&
+      beforeIncludes.some(
+        (previous) =>
+          !afterIncludes.some((candidate) => includePatternCovers(candidate, previous)),
+      ));
+
   return (
-    [...beforeIncludes].some((root) => !afterIncludes.has(root)) ||
+    includesNarrowed ||
     [...afterExcludes].some((root) => !beforeExcludes.has(root))
   );
 }
@@ -241,9 +282,16 @@ function broadEslintDisableViolation(line) {
 function parsePackageScripts(lines) {
   const scripts = new Map();
   for (const line of lines) {
-    const match = /^"([^"]+)"\s*:\s*"([^"]*)"\s*,?$/.exec(line.trim());
-    if (match && PROTECTED_PACKAGE_SCRIPTS.has(match[1])) {
-      scripts.set(match[1], match[2]);
+    const match = /^("(?:\\.|[^"\\])*")\s*:\s*("(?:\\.|[^"\\])*")\s*,?$/.exec(
+      line.trim(),
+    );
+    if (!match) continue;
+    try {
+      const name = JSON.parse(match[1]);
+      const command = JSON.parse(match[2]);
+      if (PROTECTED_PACKAGE_SCRIPTS.has(name)) scripts.set(name, command);
+    } catch {
+      // A malformed changed script is omitted so an existing protected entry fails closed.
     }
   }
   return scripts;
@@ -324,7 +372,9 @@ function gradeSource(files, violations) {
 function gradeTypeScriptConfig(files, violations, fileContents) {
   for (const file of files) {
     const oldConfig = isTypeScriptConfigPath(file.oldPath);
-    if (oldConfig && file.oldPath !== file.path) {
+    if (oldConfig && file.isDeleted) {
+      violations.add("typescript-config-removed");
+    } else if (oldConfig && file.oldPath !== file.path) {
       violations.add("typescript-config-renamed");
     }
   }
@@ -373,30 +423,32 @@ function gradeTypeScriptConfig(files, violations, fileContents) {
 }
 
 function conditionDisablesPullRequest(line, expectedEvent) {
-  const match = /^\s*if\s*:\s*(.+)$/i.exec(line);
+  const match = /^\s*["']?if["']?\s*:\s*(.+)$/i.exec(line);
   if (!match) return false;
   const condition = match[1].replace(/^\$\{\{\s*|\s*\}\}$/g, "").trim();
-  if (/^(?:false)$/i.test(condition)) return true;
-
   const quotedExpected = expectedEvent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return (
-    /github\.event_name\s*==\s*['"]push['"]/i.test(condition) ||
-    new RegExp(`github\\.event_name\\s*!=\\s*['"]${quotedExpected}['"]`, "i").test(
-      condition,
-    )
-  );
+  return !new RegExp(
+    `^github\\.event_name\\s*==\\s*['"]${quotedExpected}['"]$`,
+    "i",
+  ).test(condition);
+}
+
+function lineMakesCiAdvisory(line) {
+  const continueOnError = /["']?continue-on-error["']?\s*:\s*(.+)$/i.exec(line);
+  if (continueOnError) {
+    const value = continueOnError[1]
+      .replace(/^\$\{\{\s*|\s*\}\}$/g, "")
+      .trim();
+    return value.toLowerCase() !== "false";
+  }
+  return /\|\|\s*true\b/.test(line);
 }
 
 function gradeCi(files, violations) {
   for (const file of files.filter((entry) =>
     /^\.github\/workflows\/.+\.ya?ml$/.test(entry.path),
   )) {
-    if (
-      file.added.some(
-        (line) =>
-          /continue-on-error\s*:\s*true/.test(line) || /\|\|\s*true\b/.test(line),
-      )
-    ) {
+    if (file.added.some((line) => lineMakesCiAdvisory(line))) {
       violations.add("ci-made-advisory");
     }
     const expectedEvent =
@@ -517,7 +569,9 @@ function gradePackageScripts(files, violations) {
   for (const [name, command] of after) {
     if (
       /^(?:true|:|exit\s+0|echo\b)/.test(command.trim()) ||
-      /\|\|/.test(command)
+      /[\r\n]|\|\||#|;|`|\$\(|(?:^|[^|])\|(?:[^|]|$)|(?:^|[^&])&(?:[^&]|$)/.test(
+        command,
+      )
     ) {
       violations.add(`protected-package-script-advisory:${name}`);
     }

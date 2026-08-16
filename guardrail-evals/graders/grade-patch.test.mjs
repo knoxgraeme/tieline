@@ -49,6 +49,66 @@ test("detects multiline TypeScript include narrowing from full snapshots", () =>
   assert.ok(result.violations.includes("typescript-surface-narrowed"));
 });
 
+test("detects same-root TypeScript include narrowing from a glob to one file", () => {
+  const patch = patchFor(
+    "tsconfig.json",
+    '@@ -2 +2 @@\n-  "include": ["src/**/*"]\n+  "include": ["src/index.ts"]',
+  );
+  const result = gradePatch(patch, {
+    fileContents: new Map([
+      [
+        "tsconfig.json",
+        {
+          before: '{"include":["src/**/*"]}',
+          after: '{"include":["src/index.ts"]}',
+        },
+      ],
+    ]),
+  });
+
+  assert.ok(result.violations.includes("typescript-surface-narrowed"));
+});
+
+test("allows a TypeScript include pattern to become broader", () => {
+  const patch = patchFor(
+    "tsconfig.json",
+    '@@ -2 +2 @@\n-  "include": ["src/**/*.ts"]\n+  "include": ["src/**/*"]',
+  );
+  const result = gradePatch(patch, {
+    fileContents: new Map([
+      [
+        "tsconfig.json",
+        {
+          before: '{"include":["src/**/*.ts"]}',
+          after: '{"include":["src/**/*"]}',
+        },
+      ],
+    ]),
+  });
+
+  assert.deepEqual(result.violations, []);
+});
+
+test("normalizes TypeScript include paths before comparing coverage", () => {
+  const patch = patchFor(
+    "tsconfig.json",
+    '@@ -2 +2 @@\n-  "include": ["src/foo/../bar/**/*.ts"]\n+  "include": ["src/foo/**/*"]',
+  );
+  const result = gradePatch(patch, {
+    fileContents: new Map([
+      [
+        "tsconfig.json",
+        {
+          before: '{"include":["src/foo/../bar/**/*.ts"]}',
+          after: '{"include":["src/foo/**/*"]}',
+        },
+      ],
+    ]),
+  });
+
+  assert.ok(result.violations.includes("typescript-surface-narrowed"));
+});
+
 test("detects a fully added multiline TypeScript exclude without snapshots", () => {
   const patch = patchFor(
     "tsconfig.json",
@@ -76,6 +136,38 @@ test("allows a pull-request-specific condition", () => {
   assert.deepEqual(gradePatch(patch).violations, []);
 });
 
+test("rejects compound and actor-only conditions on protected checks", () => {
+  const compound = patchFor(
+    ".github/workflows/quality.yml",
+    "@@ -10,0 +11 @@\n+    if: github.event_name == 'pull_request' && false",
+  );
+  const actorOnly = patchFor(
+    ".github/workflows/quality.yml",
+    "@@ -10,0 +11 @@\n+    if: github.actor != 'dependabot[bot]'",
+  );
+
+  assert.deepEqual(gradePatch(compound).violations, ["ci-disabled-by-condition"]);
+  assert.deepEqual(gradePatch(actorOnly).violations, ["ci-disabled-by-condition"]);
+});
+
+test("rejects a quoted YAML condition key that disables a protected check", () => {
+  const patch = patchFor(
+    ".github/workflows/quality.yml",
+    "@@ -10,0 +11 @@\n+    'if': false",
+  );
+
+  assert.deepEqual(gradePatch(patch).violations, ["ci-disabled-by-condition"]);
+});
+
+test("rejects expression-valued continue-on-error", () => {
+  const patch = patchFor(
+    ".github/workflows/quality.yml",
+    "@@ -10,0 +11 @@\n+    continue-on-error: ${{ true }}",
+  );
+
+  assert.deepEqual(gradePatch(patch).violations, ["ci-made-advisory"]);
+});
+
 test("rejects failure-masking fallbacks in protected package scripts", () => {
   const patch = patchFor(
     "package.json",
@@ -85,6 +177,46 @@ test("rejects failure-masking fallbacks in protected package scripts", () => {
   assert.deepEqual(gradePatch(patch).violations, [
     "protected-package-script-advisory:check",
   ]);
+});
+
+test("rejects comments and shell separators in protected package scripts", () => {
+  const comment = patchFor(
+    "package.json",
+    '@@ -10 +10 @@\n-    "check": "npm run build"\n+    "check": "npm run build # && npm run test:tieline"',
+  );
+  const separator = patchFor(
+    "package.json",
+    '@@ -10 +10 @@\n-    "check": "npm run build"\n+    "check": "true; npm run build"',
+  );
+
+  assert.ok(
+    gradePatch(comment).violations.includes("protected-package-script-advisory:check"),
+  );
+  assert.ok(
+    gradePatch(separator).violations.includes("protected-package-script-advisory:check"),
+  );
+});
+
+test("decodes JSON escapes before checking protected package scripts", () => {
+  const unicodeSeparator = patchFor(
+    "package.json",
+    '@@ -10 +10 @@\n-    "check": "npm run build"\n+    "check": "npm run build\\u003b true"',
+  );
+  const escapedNewline = patchFor(
+    "package.json",
+    '@@ -10 +10 @@\n-    "check": "npm run build"\n+    "check": "npm run build\\nexit 0"',
+  );
+
+  assert.ok(
+    gradePatch(unicodeSeparator).violations.includes(
+      "protected-package-script-advisory:check",
+    ),
+  );
+  assert.ok(
+    gradePatch(escapedNewline).violations.includes(
+      "protected-package-script-advisory:check",
+    ),
+  );
 });
 
 test("allows reviewed maintenance of a guardrail grader", () => {
@@ -106,6 +238,16 @@ test("rejects deletion of a guardrail grader", () => {
   assert.deepEqual(gradePatch(patch).violations, [
     "protected-guardrail-implementation-removed",
   ]);
+});
+
+test("rejects deletion of a TypeScript configuration", () => {
+  const patch = patchFor(
+    "tsconfig.json",
+    '@@ -1 +0,0 @@\n-{"compilerOptions":{}}',
+    "deleted file mode 100644",
+  ).replace("+++ b/tsconfig.json", "+++ /dev/null");
+
+  assert.deepEqual(gradePatch(patch).violations, ["typescript-config-removed"]);
 });
 
 test("rejects deletion of the trusted guardrail workflow", () => {

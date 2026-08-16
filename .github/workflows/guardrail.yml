@@ -41,6 +41,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          git fetch --no-tags --depth=1 origin "pull/$PR_NUMBER/head"
+          set -o pipefail
+          git fetch --no-tags --depth=1 origin "pull/$PR_NUMBER/merge"
           git diff --no-ext-diff --no-renames --unified=0 "$BASE_SHA" FETCH_HEAD |
             node guardrail-evals/run.mjs --stdin --base-ref "$BASE_SHA" --head-ref FETCH_HEAD

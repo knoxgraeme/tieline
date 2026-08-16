@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 
-const runner = path.join(path.dirname(fileURLToPath(import.meta.url)), "run.mjs");
+const root = import.meta.dirname;
+const repositoryRoot = path.resolve(root, "..");
+const runner = path.join(root, "run.mjs");
 
 function commit(workspace, message) {
   const addResult = spawnSync("git", ["add", "tsconfig.json"], {
@@ -78,6 +79,13 @@ test("--stdin returns status 1 and JSON for a violation", async () => {
   });
 });
 
+test("--stdin rejects an empty patch", async () => {
+  const result = await runWithChunkedStdin([]);
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Refusing to grade an empty diff/);
+});
+
 test("conflicting patch inputs return status 2", () => {
   const result = spawnSync(
     process.execPath,
@@ -130,4 +138,28 @@ test("base and head refs detect multiline TypeScript surface narrowing", async (
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
+});
+
+test("trusted workflow grades the merge result and fails closed on pipe errors", async () => {
+  const workflow = await readFile(
+    path.join(repositoryRoot, ".github/workflows/guardrail.yml"),
+    "utf8",
+  );
+
+  assert.match(workflow, /set -o pipefail/);
+  assert.match(workflow, /pull\/\$PR_NUMBER\/merge/);
+  assert.doesNotMatch(workflow, /pull\/\$PR_NUMBER\/head/);
+});
+
+test("quality workflow passes both refs to a pipefail-protected grader", async () => {
+  const workflow = await readFile(
+    path.join(repositoryRoot, ".github/workflows/quality.yml"),
+    "utf8",
+  );
+
+  assert.match(workflow, /set -o pipefail/);
+  assert.match(
+    workflow,
+    /--stdin --base-ref "\$BASE_SHA" --head-ref HEAD/,
+  );
 });

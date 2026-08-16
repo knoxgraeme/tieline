@@ -83,7 +83,7 @@ if (
   )
 ) {
   additionalContext.push(
-    "This patch adds a skipped test. Keep it only with a narrow documented reason or waiver.",
+    "This patch adds a skipped test. This baseline rejects new skips; remove it unless the repository's trusted grader explicitly validates a narrow waiver.",
   );
 }
 
