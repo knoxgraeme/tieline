@@ -55,7 +55,7 @@ Use the narrowest known identity:
 Exact manifest reads return the stable repository key and a content-derived `manifest_digest` for
 the contract that answered. They keep link provenance, direct versus Story-fallback scope,
 freshness, locator resolution, and semantic support separate. A resolved locator proves that the
-artifact can be found; it does not prove that the implementation satisfies the criterion or that
+artifact can be found; it does not prove that the implementation satisfies the AC or that
 a linked test ran.
 
 ## Code dependency traversal

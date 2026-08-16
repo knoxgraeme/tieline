@@ -690,7 +690,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1e0eb723e047a5cec10e8470903681d13dd31d068e90ea22d251f19b97bbfbd2",
+                "reviewed_content_hash": "68960c41f0436547166d86714b26df2dea1623718a53048238c60af02f416b2f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

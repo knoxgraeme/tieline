@@ -17,7 +17,7 @@ tieline contract coverage . --json
 
 ### Reading exact context
 
-When an asset locator or Acceptance Criterion ID is already known, read its exact reviewed
+When an asset locator or AC ID is already known, read its exact reviewed
 context before editing or using semantic discovery. Asset mode accepts a repository-relative
 path plus optional `code`/`test` kind and canonical selector; AC mode accepts one stable ID:
 
@@ -45,7 +45,7 @@ Each returned claim reports authored provenance, direct or Story-fallback link s
 freshness, locator resolution, and semantic support separately. `resolved` or current means only
 that structural inspection succeeded; `unresolved`, `not_checked`, broken causes, and unknown
 cross-repository states remain explicit. Semantic support is always `not_assessed` in these
-reads. No state proves the criterion is implemented correctly, and a linked test is an evidence
+reads. No state proves the AC is implemented correctly, and a linked test is an evidence
 locator — not a receipt that the test ran or passed.
 
 ### Path-to-AC lookup
@@ -59,7 +59,7 @@ tieline contract criteria src/commands/check.ts src/server.ts
 
 This is an exact path lookup, not semantic search. Each path is reported as `has_criteria`,
 `no_criteria`, or `not_found`; results with criteria preserve whether the link is `direct` on an
-acceptance criterion or a `story_fallback`. JSON output also carries a content-derived
+AC or a `story_fallback`. JSON output also carries a content-derived
 `manifest_digest`.
 
 ### Link review
@@ -70,8 +70,8 @@ Ask which links a human should re-read:
 tieline contract link-review .
 ```
 
-Link review scores each criterion-level code and test link on lexical overlap between the
-acceptance criterion's prose and the linked file's names, comments, and string literals, then
+Link review scores each AC-level code and test link on lexical overlap between the AC's prose and
+the linked file's names, comments, and string literals, then
 reports the weakest links in the repository's own distribution. This is inference, never
 evidence. It never confirms a relationship and never refutes one; each candidate carries a
 rationale naming the terms that did and did not overlap so a reviewer can judge the suggestion
@@ -88,10 +88,10 @@ tieline contract grade . --base <base-ref> --emit-scope --json
 tieline contract grade . --base <base-ref> --verify <verdicts.json>
 ```
 
-The first command deterministically emits every changed acceptance-criterion link to grade and
+The first command deterministically emits every changed AC link to grade and
 the exact symbol citations allowed for it. A link enters the scope when either of its sides
 changed against the base: the artifact side (the linked file was modified, added, renamed, or
-deleted) or the claim side (the link is new, belongs to a new criterion, or its criterion was
+deleted) or the claim side (the link is new, belongs to a new AC, or its AC text was
 re-worded, even when the linked file is untouched). A base with no manifest is the initial
 contract, so onboarding's links are all in scope as `link_added`.
 
@@ -112,8 +112,8 @@ Criteria without being treated as SQL blast-radius coverage.
 
 The agent inspects the evidence and artifact and assigns `supported`, `partial`, or
 `unsupported`; parser evidence establishes which current declaration may be cited, not whether
-its implementation semantically satisfies the criterion. Grade IDs bind the exact criterion text
-and current source/parser evidence, so verdicts become stale after either the criterion or source
+its implementation semantically satisfies the AC. Grade IDs bind the exact AC text and current
+source/parser evidence, so verdicts become stale after either the AC or source
 changes. The second command verifies that every verdict belongs to the current scope and that
 every claimed citation came from its allow-list. Tieline does not call a model, database, or
 network or persist grades for this workflow. Verification is advisory by default, including

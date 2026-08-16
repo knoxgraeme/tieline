@@ -5,7 +5,7 @@
 ## The hierarchy
 
 ```text
-Capability → User Story → Acceptance Criterion → zero or more Scenarios
+Capability → User Story → Acceptance Criteria → zero or more Scenarios
 ```
 
 Acceptance Criteria (ACs) are the primary graph anchor. Code, test, and Observation
@@ -16,7 +16,7 @@ coarse fallback.
 | --- | --- |
 | Capability | A stable product or business area that groups related Stories |
 | User Story | Desired behavior expressed through actor, goal, and benefit |
-| Acceptance Criterion | One observable outcome that defines when a Story is satisfied |
+| Acceptance Criteria | Observable outcomes that define when a Story is satisfied |
 | Scenario | An optional Given/When/Then example that clarifies an AC |
 | Observation | Append-only source evidence: a request, bug, or question |
 | Backlog Item | Optional work used to consolidate Observations before or alongside a Story |
