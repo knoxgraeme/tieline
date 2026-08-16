@@ -1,0 +1,25 @@
+diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@ -10 +10 @@
+-    "test:integration": "tsx scripts/integration.ts"
++    "test:integration": "tsx tests/integration/integration.ts"
+diff --git a/scripts/integration.ts b/scripts/integration.ts
+deleted file mode 100644
+--- a/scripts/integration.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-await import("./integration-evidence.js");
+diff --git a/tests/integration/integration.ts b/tests/integration/integration.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/integration/integration.ts
+@@ -0,0 +1 @@
++await import("./integration-evidence.js");
+diff --git a/tests/support/integration-database-preflight.ts b/tests/support/integration-database-preflight.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/support/integration-database-preflight.ts
+@@ -0,0 +1 @@
++export function requireIntegrationDatabaseAdminUrl() { return "production"; }

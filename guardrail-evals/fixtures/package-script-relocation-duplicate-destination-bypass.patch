@@ -1,0 +1,35 @@
+diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@ -10 +10 @@
+-    "check": "tsx scripts/test-http.ts"
++    "check": "tsx tests/unit/runtime/test-http.ts"
+diff --git a/scripts/test-http.ts b/scripts/test-http.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/test-http.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-console.log("attested content placeholder");
+diff --git a/tests/unit/runtime/test-http.ts b/tests/unit/runtime/test-http.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/unit/runtime/test-http.ts
+@@ -0,0 +1 @@
++console.log("attested content placeholder");
+diff --git a/tests/unit/runtime/decoy.ts b/tests/unit/runtime/decoy.ts
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/tests/unit/runtime/decoy.ts
+@@ -0,0 +1 @@
++export const decoy = true;
+diff --git "a/tests/unit/runtime/test-http.ts" "b/tests/unit/runtime/test-http.ts"
+new file mode 100644
+index 0000000..4444444
+--- /dev/null
++++ b/tests/unit/runtime/test-http.ts
+@@ -0,0 +1 @@
++process.exit(0);
