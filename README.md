@@ -18,8 +18,7 @@
 ---
 
 Tieline generates Capabilities, User Stories, and Acceptance Criteria, linking them to
-the exact code and tests as evidence. Agents no longer have to infer product intent from
-scratch on every run, creating a semantic Business Intent layer grounded in your production code. 
+the exact code and tests as evidence. By creating a semantic business intent layer grounded in your production code, Tieline ensures nothing gets lost in translation between you and your agent. 
 
 - **Reviewed intent:** Stories and ACs evolve beside the implementation and are accepted through
   normal pull-request review.
