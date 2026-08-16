@@ -153,7 +153,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "be38f667a1c6eb4b9afd2f54dc462fc2a1a10221e1fcf42f5394dfdf0ef31e92",
+                "reviewed_content_hash": "82b5667492bd66ca41ea28d3a828b070185eeade4afc7a037f1ecfb3a3fa5566",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -164,7 +164,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f33d115ae76bc87ec5997e05762b1f3b3a81b7b63c9f85c7b738eb3a9c2ca340",
+                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -255,7 +255,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f33d115ae76bc87ec5997e05762b1f3b3a81b7b63c9f85c7b738eb3a9c2ca340",
+                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
