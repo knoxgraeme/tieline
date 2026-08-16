@@ -1764,7 +1764,7 @@ capability:
   assert.match(tielineSkill, /get_acceptance_criterion_context/);
   assert.match(tielineSkill, /tieline contract context --path/);
   assert.match(tielineSkill, /tieline contract context --ac/);
-  assert.match(tielineSkill, /Only use `find_related` or `search_knowledge`[\s\S]*exact path,[\s\S]*unknown/i);
+  assert.match(tielineSkill, /Only use `search_knowledge`[\s\S]*exact path, selector, or AC[\s\S]*unknown/i);
   assert.match(tielineSkill, /intent neighborhood[\s\S]*contract coupling/i);
   assert.match(tielineSkill, /not a runtime dependency graph or comprehensive blast radius/i);
   assert.match(tielineSkill, /not_assessed[\s\S]*not semantic proof/i);

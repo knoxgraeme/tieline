@@ -1,11 +1,13 @@
 import type { Sql } from "postgres";
 import type {
+  SearchDocumentKind,
   SemanticSearchAnchor,
   SemanticSearchCandidate,
   SemanticSearchContext,
 } from "../../domain/semantic-search-store.js";
 
 const GRAPH_PROXIMITY_BY_DISTANCE = [1, 0.75, 0.5, 0.25] as const;
+const HELP_ANCHOR_GRAPH_FRONTIER_LIMIT = 500;
 
 interface ResolvedAnchor {
   kind: SemanticSearchAnchor["kind"];
@@ -27,14 +29,18 @@ type SearchContextFeatures = Pick<
   "artifact_overlap" | "graph_proximity"
 >;
 
-type SearchContextCandidate = Pick<
-  SemanticSearchCandidate,
-  "document_id" | "entity_kind" | "entity_id"
->;
+interface SearchContextCandidate {
+  document_id: string;
+  entity_kind: SearchDocumentKind;
+  entity_id: string;
+}
 
 function anchorLabel(anchor: SemanticSearchAnchor): string {
   if (anchor.kind === "observation") return anchor.id;
   if (anchor.kind === "backlog_item") return anchor.stable_id;
+  if (anchor.kind === "help_article") {
+    return `${anchor.source}:${anchor.external_id}`;
+  }
   return `${anchor.repository}/${anchor.stable_id}`;
 }
 
@@ -51,6 +57,12 @@ async function resolveAnchor(
     case "backlog_item":
       rows = await sql<Array<{ id: string }>>`
         select id from backlog_items where stable_id = ${anchor.stable_id}`;
+      break;
+    case "help_article":
+      rows = await sql<Array<{ id: string }>>`
+        select id from help_articles
+        where source = ${anchor.source}
+          and external_id = ${anchor.external_id}`;
       break;
     case "story":
       rows = await sql<Array<{ id: string }>>`
@@ -86,7 +98,7 @@ async function artifactFeatures(
   anchor?: ResolvedAnchor
 ): Promise<ArtifactFeatureRow[]> {
   const candidateJson = sql.json(
-    candidates as Parameters<Sql["json"]>[0]
+    candidates as unknown as Parameters<Sql["json"]>[0]
   );
   const artifactJson = sql.json(
     (context.artifacts ?? []) as Parameters<Sql["json"]>[0]
@@ -388,6 +400,26 @@ function graphNeighbors(sql: Sql): ReturnType<Sql> {
     where frontier.entity_kind = 'scenario'
       and scenario.id = frontier.entity_id
     union all
+    select 'help_article', link.article_id
+    from story_help_articles link
+    where frontier.entity_kind = 'story'
+      and link.story_id = frontier.entity_id
+    union all
+    select 'story', link.story_id
+    from story_help_articles link
+    where frontier.entity_kind = 'help_article'
+      and link.article_id = frontier.entity_id
+    union all
+    select 'help_article', link.article_id
+    from criterion_help_articles link
+    where frontier.entity_kind = 'acceptance_criterion'
+      and link.criterion_id = frontier.entity_id
+    union all
+    select 'acceptance_criterion', link.criterion_id
+    from criterion_help_articles link
+    where frontier.entity_kind = 'help_article'
+      and link.article_id = frontier.entity_id
+    union all
     select 'story', attribution.story_id
     from observation_story_attributions attribution
     where frontier.entity_kind = 'observation'
@@ -521,8 +553,12 @@ async function graphFeatures(
   anchor: ResolvedAnchor
 ): Promise<GraphFeatureRow[]> {
   const candidateJson = sql.json(
-    candidates as Parameters<Sql["json"]>[0]
+    candidates as unknown as Parameters<Sql["json"]>[0]
   );
+  const frontierCap = anchor.kind === "help_article"
+    ? sql`order by edge.target_kind, edge.target_id
+          limit ${HELP_ANCHOR_GRAPH_FRONTIER_LIMIT}`
+    : sql``;
   return sql<GraphFeatureRow[]>`
     with
     candidate_documents as materialized (
@@ -546,6 +582,7 @@ async function graphFeatures(
         where visited.entity_kind = edge.target_kind
           and visited.entity_id = edge.target_id
       )
+      ${frontierCap}
     ),
     hop2(entity_kind, entity_id) as (
       select distinct edge.target_kind, edge.target_id
@@ -563,6 +600,7 @@ async function graphFeatures(
           where visited.entity_kind = edge.target_kind
             and visited.entity_id = edge.target_id
         )
+      ${frontierCap}
     ),
     hop3(entity_kind, entity_id) as (
       select distinct edge.target_kind, edge.target_id
@@ -586,6 +624,7 @@ async function graphFeatures(
           where visited.entity_kind = edge.target_kind
             and visited.entity_id = edge.target_id
         )
+      ${frontierCap}
     ),
     distances as (
       select entity_kind, entity_id, 0 as distance from hop0

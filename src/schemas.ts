@@ -21,6 +21,7 @@ const documentKind = z.enum([
   "scenario",
   "backlog_item",
   "observation",
+  "help_article",
 ]);
 const backlogStage = z.enum([
   "open",
@@ -87,6 +88,13 @@ export const semanticSearchAnchor = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
+      kind: z.literal("help_article"),
+      source: z.string().trim().min(1),
+      external_id: z.string().trim().min(1),
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal("story"),
       repository: stableId,
       stable_id: stableId,
@@ -130,6 +138,7 @@ export const searchKnowledgeShape = {
   lifecycle: nonEmptyArray(z.enum(STORY_LIFECYCLES)).optional(),
   backlog_stage: nonEmptyArray(backlogStage).optional(),
   repository: nonEmptyArray(z.string().min(1)).optional(),
+  help_source: nonEmptyArray(z.string().trim().min(1)).optional(),
   applicability: applicability.optional(),
   include_inactive: z.boolean().optional(),
   context: semanticSearchContext.optional(),
@@ -168,6 +177,17 @@ export const searchKnowledgeOutputShape = {
       why: z.array(z.string()),
       canonical_text: z.string(),
       context_anchor: semanticSearchAnchor.optional(),
+      help_article: z
+        .object({
+          source: z.string(),
+          external_id: z.string(),
+          title: z.string().nullable(),
+          url: z.string().nullable(),
+          summary: z.string().nullable(),
+          linked_story_count: z.number(),
+          linked_acceptance_criterion_count: z.number(),
+        })
+        .optional(),
       state: z.object({
         authority: z.string().nullable(),
         lifecycle: z.string().nullable(),
@@ -216,14 +236,14 @@ const helpArticleRef = () =>
       external_id: z.string().trim().min(1),
     })
     .strict();
-export const getHelpArticleShape = {
+export const getHelpArticlesShape = {
   articles: z.array(helpArticleRef()).min(1).max(10),
 };
-const getHelpArticleSchema = z
-  .object(getHelpArticleShape)
+const getHelpArticlesSchema = z
+  .object(getHelpArticlesShape)
   .strict();
-export type GetHelpArticleInput = z.infer<typeof getHelpArticleSchema>;
-export const getHelpArticleOutputShape = {
+export type GetHelpArticlesInput = z.infer<typeof getHelpArticlesSchema>;
+export const getHelpArticlesOutputShape = {
   articles: z.array(z.record(z.unknown())),
   not_found: z.array(helpArticleRef()),
   note: z.string().optional(),

@@ -536,6 +536,15 @@ await test("caller filters can narrow but not broaden a profile", () => {
   assert.deepEqual(narrowed.document_kinds, ["acceptance_criterion"]);
   assert.equal(narrowed.include_inactive, false);
 
+  const helpOnlyProfile = narrowSemanticFilters({
+    include: ["help_article"],
+  });
+  assert.deepEqual(
+    helpOnlyProfile.document_kinds,
+    [],
+    "a help-only profile must narrow semantic retrieval to no embedding kinds"
+  );
+
   const allowedInactive = narrowSemanticFilters(
     { include_inactive: true }
   );

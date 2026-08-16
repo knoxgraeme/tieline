@@ -10,6 +10,8 @@ import type {
   ContractAuthority,
   StoryLifecycle,
 } from "../../types.js";
+import type { SemanticSearchContext } from "../../domain/semantic-search-store.js";
+import { scoreSearchContext } from "./search-context.js";
 
 interface HelpRow {
   id: string;
@@ -20,6 +22,18 @@ interface HelpRow {
   summary: string | null;
   markdown: string | null;
   updated_at: Date | string;
+}
+
+interface StoryHelpLink {
+  article_id: string;
+  repository: string;
+  stable_id: string;
+  authority: ContractAuthority;
+  lifecycle: StoryLifecycle;
+}
+
+interface CriterionHelpLink extends StoryHelpLink {
+  story_stable_id: string;
 }
 
 function articleContent(article: HelpArticleImportRecord): {
@@ -39,12 +53,69 @@ function articleContent(article: HelpArticleImportRecord): {
 export async function searchHelpArticles(input: {
   query: string;
   sources?: string[];
+  authorities?: ContractAuthority[];
+  lifecycles?: StoryLifecycle[];
+  repositories?: string[];
+  include_inactive?: boolean;
+  context?: SemanticSearchContext;
   limit: number;
 }): Promise<HelpSearchHit[]> {
   const sql = getReadSql();
   const sourceFilter =
     input.sources?.length
       ? sql`and article.source = any(${input.sources})`
+      : sql``;
+  const storyAuthorityFilter = input.authorities?.length
+    ? sql`and story.authority = any(${input.authorities}::contract_authority[])`
+    : sql``;
+  const criterionAuthorityFilter = input.authorities?.length
+    ? sql`and criterion.authority = any(${input.authorities}::contract_authority[])`
+    : sql``;
+  const lifecycleFilter = input.lifecycles?.length
+    ? sql`and story.lifecycle = any(${input.lifecycles}::story_lifecycle[])`
+    : sql``;
+  const repositoryFilter = input.repositories?.length
+    ? sql`and repository.key = any(${input.repositories})`
+    : sql``;
+  const activeStoryFilter = input.include_inactive
+    ? sql``
+    : sql`and story.lifecycle <> 'retired'`;
+  const activeCriterionFilter = input.include_inactive
+    ? sql``
+    : sql`and criterion.active`;
+  const linkedRecordFilter =
+    input.authorities !== undefined ||
+    input.lifecycles !== undefined ||
+    input.repositories !== undefined ||
+    input.include_inactive !== undefined
+      ? sql`and (
+          exists (
+            select 1
+            from story_help_articles story_link
+            join user_stories story on story.id = story_link.story_id
+            join repositories repository on repository.id = story.repository_id
+            where story_link.article_id = article.id
+            ${storyAuthorityFilter}
+            ${lifecycleFilter}
+            ${repositoryFilter}
+            ${activeStoryFilter}
+          )
+          or exists (
+            select 1
+            from criterion_help_articles criterion_link
+            join acceptance_criteria criterion
+              on criterion.id = criterion_link.criterion_id
+            join repositories repository
+              on repository.id = criterion.repository_id
+            join user_stories story on story.id = criterion.story_id
+            where criterion_link.article_id = article.id
+            ${criterionAuthorityFilter}
+            ${lifecycleFilter}
+            ${repositoryFilter}
+            ${activeStoryFilter}
+            ${activeCriterionFilter}
+          )
+        )`
       : sql``;
   const rows = await sql<
     Array<
@@ -61,10 +132,7 @@ export async function searchHelpArticles(input: {
     select
       article.*,
       ts_rank_cd(
-        to_tsvector(
-          'simple',
-          concat_ws(' ', article.title, article.summary, article.markdown)
-        ),
+        article.search_vector,
         query.terms
       )::float as lexical_score,
       (
@@ -80,24 +148,37 @@ export async function searchHelpArticles(input: {
     from help_articles article
     cross join query
     where (
-      to_tsvector(
-        'simple',
-        concat_ws(' ', article.title, article.summary, article.markdown)
-      ) @@ query.terms
+      article.search_vector @@ query.terms
       or article.title ilike ${`%${input.query}%`}
       or article.summary ilike ${`%${input.query}%`}
     )
     ${sourceFilter}
+    ${linkedRecordFilter}
     order by lexical_score desc, article.source, article.external_id
     limit ${input.limit}
   `;
+  const contextFeatures = input.context
+    ? await scoreSearchContext(
+        sql,
+        rows.map((row) => ({
+          document_id: row.id,
+          entity_kind: "help_article",
+          entity_id: row.id,
+        })),
+        input.context,
+        input.include_inactive === true
+      )
+    : new Map();
   return rows.map((row) => ({
+    id: row.id,
     source: row.source,
     external_id: row.external_id,
     title: row.title,
     url: row.url,
     summary: row.summary,
     lexical_score: Number(row.lexical_score),
+    graph_proximity:
+      contextFeatures.get(row.id)?.graph_proximity ?? 0,
     linked_story_count: Number(row.linked_story_count),
     linked_acceptance_criterion_count: Number(
       row.linked_acceptance_criterion_count
@@ -110,31 +191,29 @@ export async function getHelpArticles(
 ): Promise<{ articles: HelpArticleRecord[]; not_found: HelpArticleRef[] }> {
   if (refs.length === 0) return { articles: [], not_found: [] };
   const sql = getReadSql();
+  const deduped = [
+    ...new Map(
+      refs.map((ref) => [`${ref.source}\0${ref.external_id}`, ref])
+    ).values(),
+  ];
   const rows = await sql<HelpRow[]>`
-    select *
-    from help_articles
-    where source = any(${refs.map((ref) => ref.source)})
-      and external_id = any(${refs.map((ref) => ref.external_id)})
+    with requested as (
+      select *
+      from unnest(
+        ${deduped.map((ref) => ref.source)}::text[],
+        ${deduped.map((ref) => ref.external_id)}::text[]
+      ) as requested(source, external_id)
+    )
+    select article.*
+    from requested
+    join help_articles article using (source, external_id)
   `;
-  const requested = new Set(
-    refs.map((ref) => `${ref.source}\0${ref.external_id}`)
-  );
-  const matchingRows = rows.filter((row) =>
-    requested.has(`${row.source}\0${row.external_id}`)
-  );
-  const articleIds = matchingRows.map((row) => row.id);
-  const storyLinks =
-    articleIds.length === 0
-      ? []
-      : await sql<
-          Array<{
-            article_id: string;
-            repository: string;
-            stable_id: string;
-            authority: ContractAuthority;
-            lifecycle: StoryLifecycle;
-          }>
-        >`
+  const articleIds = rows.map((row) => row.id);
+  let storyLinks: StoryHelpLink[] = [];
+  let criterionLinks: CriterionHelpLink[] = [];
+  if (articleIds.length > 0) {
+    [storyLinks, criterionLinks] = await Promise.all([
+      sql<StoryHelpLink[]>`
           select link.article_id, repository.key as repository,
                  story.stable_id, story.authority::text, story.lifecycle::text
           from story_help_articles link
@@ -142,20 +221,8 @@ export async function getHelpArticles(
           join repositories repository on repository.id = story.repository_id
           where link.article_id = any(${articleIds})
           order by repository.key, story.stable_id
-        `;
-  const criterionLinks =
-    articleIds.length === 0
-      ? []
-      : await sql<
-          Array<{
-            article_id: string;
-            repository: string;
-            stable_id: string;
-            story_stable_id: string;
-            authority: ContractAuthority;
-            lifecycle: StoryLifecycle;
-          }>
-        >`
+        `,
+      sql<CriterionHelpLink[]>`
           select link.article_id, repository.key as repository,
                  criterion.stable_id, story.stable_id as story_stable_id,
                  criterion.authority::text, story.lifecycle::text
@@ -165,7 +232,9 @@ export async function getHelpArticles(
           join repositories repository on repository.id = criterion.repository_id
           where link.article_id = any(${articleIds})
           order by repository.key, criterion.stable_id
-        `;
+        `,
+    ]);
+  }
   const storiesByArticle = new Map<
     string,
     HelpArticleRecord["linked_stories"]
@@ -186,7 +255,7 @@ export async function getHelpArticles(
   }
 
   const byKey = new Map(
-    matchingRows.map((row) => [
+    rows.map((row) => [
       `${row.source}\0${row.external_id}`,
       {
         source: row.source,
@@ -205,11 +274,6 @@ export async function getHelpArticles(
       } satisfies HelpArticleRecord,
     ])
   );
-  const deduped = [
-    ...new Map(
-      refs.map((ref) => [`${ref.source}\0${ref.external_id}`, ref])
-    ).values(),
-  ];
   return {
     articles: deduped
       .map((ref) => byKey.get(`${ref.source}\0${ref.external_id}`))

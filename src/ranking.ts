@@ -1,14 +1,13 @@
-export interface SemanticDocumentCandidate {
+import type { SearchDocumentKind } from "./domain/semantic-search-store.js";
+
+export interface SemanticDocumentCandidate<
+  Kind extends SearchDocumentKind = SearchDocumentKind,
+> {
   document_id: string;
-  entity_kind:
-    | "story"
-    | "acceptance_criterion"
-    | "scenario"
-    | "backlog_item"
-    | "observation";
+  entity_kind: Kind;
   entity_id: string;
   canonical_text: string;
-  matched_level: SemanticDocumentCandidate["entity_kind"];
+  matched_level: Kind;
   story_id?: string;
   story_stable_id?: string;
   acceptance_criterion_id?: string;
@@ -47,7 +46,9 @@ export interface SemanticRankingFeatures
   rrf: number;
 }
 
-export interface RankedSemanticDocument extends SemanticDocumentCandidate {
+export interface RankedSemanticDocument<
+  Kind extends SearchDocumentKind = SearchDocumentKind,
+> extends SemanticDocumentCandidate<Kind> {
   score: number;
   features: SemanticRankingFeatures;
   why: string[];
@@ -88,9 +89,9 @@ function rankingWhy(
   return why;
 }
 
-export function rankSemanticDocuments(
-  candidates: SemanticDocumentCandidate[]
-): RankedSemanticDocument[] {
+export function rankSemanticDocuments<Kind extends SearchDocumentKind>(
+  candidates: SemanticDocumentCandidate<Kind>[]
+): RankedSemanticDocument<Kind>[] {
   const raw = candidates.map((candidate) => {
     const features = {
       vector: clamp01(candidate.vector_score),
@@ -206,11 +207,13 @@ export function clearsSemanticMagnitudeFloor(
   return semanticAdmissionSignals(features).length > 0;
 }
 
-export function groupSemanticHitsAroundAcceptanceCriteria(
-  ranked: RankedSemanticDocument[]
-): RankedSemanticDocument[] {
-  const grouped = new Map<string, RankedSemanticDocument>();
-  const ungrouped: RankedSemanticDocument[] = [];
+export function groupSemanticHitsAroundAcceptanceCriteria<
+  Kind extends SearchDocumentKind,
+>(
+  ranked: RankedSemanticDocument<Kind>[]
+): RankedSemanticDocument<Kind>[] {
+  const grouped = new Map<string, RankedSemanticDocument<Kind>>();
+  const ungrouped: RankedSemanticDocument<Kind>[] = [];
   for (const hit of ranked) {
     const anchor =
       hit.acceptance_criterion_id ??

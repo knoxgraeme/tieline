@@ -16,7 +16,7 @@ use discovery only when it is not.
 | `trace_code_dependencies` | Follow statically derived imports or references from an exact symbol | Topology snapshot | No |
 | `analyze_code_blast_radius` | Find code and linked ACs that may be affected by changes since a Git base | Topology plus manifest | No |
 | `query_stories` | Filter synced Stories and ACs by authority, lifecycle, IDs, or locators | PostgreSQL | Yes |
-| `find_related` | Discover related product records when exact identity is unknown | PostgreSQL | Yes |
+| `search_knowledge` | Discover related product records when exact identity is unknown | PostgreSQL | Yes |
 
 Manifest and topology reads require the MCP server to run with the repository as its workspace.
 Database-backed reads make the accepted contract available to connected agents that do not have
@@ -27,13 +27,13 @@ their own checkout.
 | Tool | Purpose | Writes state |
 | --- | --- | --- |
 | `record_observation` | Append a request, bug, or question and return possible relationships | Yes |
-| `decide_attribution` | Confirm or dismiss an Observation relationship | Yes |
+| `set_observation_attribution` | Confirm or dismiss an Observation relationship | Yes |
 | `get_backlog_item` | Read a Backlog Item revision and its Observation, Story, and AC links | No |
 | `create_backlog_item`, `update_backlog_item` | Manage optional work records after reading the current revision | Yes |
 | `set_backlog_item_links` | Replace Observation and Story/AC targets atomically | Yes |
 | `create_planning_story`, `update_planning_story` | Shape `backlog` Stories and ACs | Yes |
 | `list_attribution_suggestions` | Review machine-proposed relationships and their provenance | No |
-| `decide_attribution_suggestion` | Confirm or dismiss a machine suggestion | Yes |
+| `review_semantic_suggestion` | Confirm or dismiss a machine suggestion | Yes |
 | `list_handoff_conflicts` | Read planning-to-repository conflicts preserved during sync | No |
 
 All evidence and planning tools require PostgreSQL. Repository-owned Stories and ACs cannot be
@@ -50,7 +50,10 @@ Use the narrowest known identity:
 4. For a known symbol's static dependents, call `trace_code_dependencies`.
 5. For branch-level possible impact, call `analyze_code_blast_radius`.
 6. Without a repository, use `query_stories` for exact filters against the synced accepted state.
-7. Use `find_related` only when the exact Story, AC, or locator is unknown.
+7. Use `search_knowledge` when the exact Story, AC, or locator is unknown.
+
+`find_related` and `find_help` remain available as deprecated compatibility tools. New clients
+should use `search_knowledge`; it is the single discovery surface across supported record types.
 
 Exact manifest reads return the stable repository key and a content-derived `manifest_digest` for
 the contract that answered. They keep link provenance, direct versus Story-fallback scope,

@@ -106,7 +106,7 @@ export class DefaultSemanticMatcher implements SemanticMatcher {
   private async candidates(
     query: string,
     filters?: SemanticSearchFilters
-  ): Promise<ReturnType<typeof rankSemanticDocuments>> {
+  ): Promise<RankedSemanticDocument<EmbeddingDocumentKind>[]> {
     const profile =
       await this.repository.resolveRetrievalProfile("discovery");
     const embedding = await optionalQueryEmbedding(query);
@@ -120,7 +120,9 @@ export class DefaultSemanticMatcher implements SemanticMatcher {
     // Shared by matchObservation and advisePlanningCreate so both paths apply the
     // same admission rule.
     return groupSemanticHitsAroundAcceptanceCriteria(
-      rankSemanticDocuments(rows).filter(isPresentableSemanticMatch)
+      rankSemanticDocuments<EmbeddingDocumentKind>(rows).filter(
+        isPresentableSemanticMatch
+      )
     );
   }
 

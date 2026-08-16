@@ -5,6 +5,8 @@ import type {
 } from "../derived/embedding-documents.js";
 import type { ContractTarget } from "../contract/schema.js";
 
+export type SearchDocumentKind = EmbeddingDocumentKind | "help_article";
+
 export const RETRIEVAL_PROFILE_KEYS = [
   "support",
   "engineering",
@@ -21,7 +23,7 @@ export interface RetrievalProfileDefinition {
   observation_attribution_states?: Array<
     "suggested" | "confirmed" | "dismissed"
   >;
-  include?: EmbeddingDocumentKind[];
+  include?: SearchDocumentKind[];
 }
 
 export interface ResolvedRetrievalProfile {
@@ -43,6 +45,7 @@ export interface SemanticSearchFilters {
 export type SemanticSearchAnchor =
   | { kind: "observation"; id: string }
   | { kind: "backlog_item"; stable_id: string }
+  | { kind: "help_article"; source: string; external_id: string }
   | {
       kind: "story" | "acceptance_criterion";
       repository: string;
