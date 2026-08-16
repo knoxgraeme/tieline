@@ -2055,60 +2055,99 @@ capability:
   );
   assert.doesNotMatch(tielineSkill, /agent handoff printed/i);
 
-  // README wording is under test: editing the install instructions there breaks test:tieline unless these assertions move with it.
+  // Public documentation structure is under test: keep the README concise while ensuring the
+  // linked guides retain setup and assurance details.
   const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
-  const quickSetupIndex = readme.indexOf("## Quick setup");
-  const detailedSetupIndex = readme.indexOf("## Detailed setup and configuration");
+  const setupGuide = readFileSync(resolve(process.cwd(), "docs/setup.md"), "utf8");
+  const conceptsGuide = readFileSync(resolve(process.cwd(), "docs/concepts.md"), "utf8");
+  const cliGuide = readFileSync(resolve(process.cwd(), "docs/cli.md"), "utf8");
+  const mcpGuide = readFileSync(resolve(process.cwd(), "docs/mcp.md"), "utf8");
+  const operationsGuide = readFileSync(resolve(process.cwd(), "docs/operations.md"), "utf8");
+  const publicDocs = [
+    readme,
+    setupGuide,
+    conceptsGuide,
+    cliGuide,
+    mcpGuide,
+    operationsGuide,
+  ].join("\n");
+  const howItWorksIndex = readme.indexOf("## How it works");
+  const quickstartIndex = readme.indexOf("## Quickstart");
   const firstSectionIndex = readme.search(/^## /m);
-  assert.ok(quickSetupIndex > 0, "README must include Quick setup near the top");
+  assert.ok(howItWorksIndex > 0, "README must explain how assurance works near the top");
   assert.equal(
-    quickSetupIndex,
+    howItWorksIndex,
     firstSectionIndex,
-    "README Quick setup must be the first section after the value proposition"
+    "README How it works must be the first section after the value proposition"
   );
   assert.ok(
-    detailedSetupIndex > quickSetupIndex,
-    "README Quick setup must precede detailed setup"
+    quickstartIndex > howItWorksIndex,
+    "README assurance model must precede Quickstart"
   );
-  assert.ok(
-    (readme.match(/npx -y tieline@latest init/g) ?? []).length >= 2,
-    "README quick and detailed bootstrap commands must explicitly resolve the latest Tieline release"
+  assert.match(
+    readme,
+    /\[Setup\]\(docs\/setup\.md\)/,
+    "README must link the detailed setup guide"
+  );
+  assert.match(
+    readme,
+    /\[Setup's post-merge sync\]\(docs\/setup\.md#post-merge-contract-sync\)/,
+    "README must direct hosted readers to the post-merge sync setup"
+  );
+  assert.match(
+    readme,
+    /npx -y tieline@latest init/,
+    "README bootstrap must explicitly resolve the latest Tieline release"
   );
   assert.doesNotMatch(
-    readme,
+    `${readme}\n${setupGuide}`,
     /npx -y tieline init/,
-    "README must not leave a first-time init command on implicit package resolution"
+    "public setup docs must not leave a first-time init command on implicit package resolution"
   );
   assert.doesNotMatch(
-    readme,
+    `${readme}\n${setupGuide}`,
     /^tieline init /m,
-    "README automation and recovery examples must not require a global Tieline install"
+    "public setup docs must not require a global Tieline install"
   );
   assert.doesNotMatch(
-    readme,
+    `${readme}\n${setupGuide}`,
     /npm install --save-dev tieline|pin the CLI as a dev dependency/i,
-    "README setup must not make dependency pinning part of onboarding"
+    "public setup docs must not make dependency pinning part of onboarding"
   );
   assert.match(
     readme,
-    /npx --yes --package=skillfish@latest skillfish add knoxgraeme\/tieline/
+    /proposes new Stories and ACs[\s\S]*updates existing definitions/i,
+    "README must explain that the installed skill maintains product intent as behavior changes"
+  );
+  assert.match(setupGuide, /--agent codex[\s\S]*--agent claude-code/);
+  assert.match(setupGuide, /--skill-scope project/);
+  assert.match(
+    setupGuide,
+    /## Post-merge contract sync[\s\S]*protected post-merge job[\s\S]*tieline@latest contract sync[\s\S]*--expected-previous-commit/,
+    "Setup must require a protected post-merge projection sync"
   );
   assert.match(
-    readme,
-    /installed skill runs semantic closeout[\s\S]*pull-request diff is the review\s+surface/i,
-    "README must explain that project skill installation supplies the semantic handoff hook"
+    setupGuide,
+    /DATABASE_URL_SYNC[\s\S]*MCP runtime processes receive only[\s\S]*DATABASE_URL[\s\S]*DATABASE_URL_WRITE[\s\S]*not sync or admin credentials/,
+    "Setup must keep sync and admin credentials out of MCP runtime"
   );
-  assert.match(readme, /--agent codex[\s\S]*--agent claude-code/);
-  assert.match(readme, /--skill-scope project/);
   assert.match(readme, /get_asset_intent_context/);
   assert.match(readme, /get_acceptance_criterion_context/);
-  assert.match(readme, /tieline contract context --path/);
-  assert.match(readme, /tieline contract context --ac/);
-  assert.match(readme, /Use semantic discovery only when the exact path, selector, or AC ID is unknown/i);
-  assert.match(readme, /intent neighborhood[\s\S]*contract coupling/i);
-  assert.match(readme, /not a runtime dependency graph or a[\s\S]*comprehensive blast radius/i);
-  assert.match(readme, /not_assessed[\s\S]*No[\s\S]*proves the criterion is implemented correctly/i);
-  assert.match(readme, /linked test is an[\s\S]*evidence locator[—-]not a receipt that the test ran or passed/i);
+  assert.match(cliGuide, /tieline contract context --path/);
+  assert.match(cliGuide, /tieline contract context --ac/);
+  assert.match(cliGuide, /Use semantic discovery only when the exact path, selector, or AC ID is unknown/i);
+  assert.match(cliGuide, /intent neighborhood[\s\S]*contract coupling/i);
+  assert.match(cliGuide, /not a runtime dependency graph or a[\s\S]*comprehensive blast radius/i);
+  assert.match(cliGuide, /not_assessed[\s\S]*No state proves the criterion is implemented correctly/i);
+  assert.match(cliGuide, /linked test is an evidence\s+locator[\s\S]*not a receipt that the test ran or passed/i);
+  assert.match(conceptsGuide, /From proposed intent to accepted evidence/);
+  assert.match(mcpGuide, /agents that do not have[\s\S]*checkout/i);
+  assert.match(operationsGuide, /Run the MCP server/);
+  assert.doesNotMatch(
+    publicDocs,
+    /retrieval profiles?|help articles?|help content/i,
+    "public documentation must not promote internal retrieval profiles or help content"
+  );
   assert.doesNotMatch(readme, /agent_onboarding_prompt/);
   assert.doesNotMatch(readme, /copyable,? self-contained prompt/i);
 

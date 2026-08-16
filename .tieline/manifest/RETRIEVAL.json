@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "93cf9c425c349fb9bd54acb55465ddb9fa2064f49a505393fb342776571d2b2a",
+                "reviewed_content_hash": "fa0585b5facb70ce377fd91254633a1224ae2beb2ad1951a6eca7c41a89acd22",
                 "target": {
                   "kind": "code",
                   "path": "src/schemas.ts",
@@ -129,7 +129,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "76d8c75e65581aedc023bfcc9e825f53e055ea08dcbaa5e6c524a9493e33a770",
+                "reviewed_content_hash": "0227b94592ea8ef807753e480c49a334a0466894602705516632192bd9737899",
                 "target": {
                   "kind": "code",
                   "path": "src/resources.ts",

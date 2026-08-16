@@ -52,7 +52,7 @@ export const findRelatedShape = {
   context: z.string().min(3).max(8_000),
   profile: z
     .enum(["support", "engineering", "discovery", "all"])
-    .default("engineering"),
+    .default("all"),
   authority: nonEmptyArray(z.enum(CONTRACT_AUTHORITIES)).optional(),
   lifecycle: nonEmptyArray(z.enum(STORY_LIFECYCLES)).optional(),
   repository: nonEmptyArray(z.string().min(1)).optional(),

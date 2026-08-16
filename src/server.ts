@@ -34,7 +34,7 @@ export function createServer(): McpServer {
       instructions:
         "Tieline is a lifecycle-aware semantic contract grounded in repository YAML. " +
         "When an exact repository path, selector, or Acceptance Criterion stable ID is known, use get_asset_intent_context or get_acceptance_criterion_context before semantic search to read its manifest-backed intent neighborhood and contract coupling without a database. " +
-        "Use search_knowledge with an explicit profile for cross-type search, find_related for engineering-oriented discovery, and query_stories for exact Story/AC reads. " +
+        "Use search_knowledge with an explicit profile for cross-type search, find_related for lightweight semantic discovery, and query_stories for exact Story/AC reads. " +
         "get_path_criteria remains available for compatibility when only the criteria recorded for whole paths are needed. " +
         "Use trace_code_dependencies for bounded, artifact-backed derived code dependencies or dependents, and analyze_code_blast_radius for advisory may_be_impacted joins from changed code to matching base/current authored AC roles. These read-only tools never compile, parse source, repair, or write; they preserve unresolved frontiers, distinguish derived_code_dependency from contract_coupling, and never claim implementation satisfies an AC. " +
         "Use the tieline prompt to onboard, author, grade, or reconcile repository behavior. " +

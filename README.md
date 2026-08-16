@@ -2,1042 +2,169 @@
   <img src="assets/tieline-logo.png" alt="Tieline" width="520">
 </p>
 
-# Tieline
+<p align="center">
+  <strong>Give every agent durable product intent, grounded in the code that delivers it.</strong>
+</p>
 
-Tieline keeps product intent from getting lost between docs, tickets, code, and
-AI agents. It turns how a product and business work into a living, versioned
-semantic contract, so people and agents share the same reviewed definition of
-what the product should do and where that behavior lives.
+<p align="center">
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#ac-aware-blast-radius">Blast radius</a> ·
+  <a href="#for-agents">For agents</a> ·
+  <a href="docs/setup.md">Docs</a>
+</p>
 
-## Quick setup
+---
 
-From the repository you want to onboard (requires Node.js 20.12 or newer):
+Tieline stores accepted Capabilities, Stories, and Acceptance Criteria in Git and links them to
+the exact code and tests offered as evidence. Agents no longer have to infer product intent from
+scratch on every run.
 
-```bash
-cd /path/to/product-repository
-npx -y tieline@latest init
-```
+- **Reviewed intent:** Stories and ACs evolve beside the implementation and are accepted through
+  normal pull-request review.
+- **Graded evidence:** a fresh grader assesses changed ACs against bounded source evidence and a
+  closed citation list, returning `supported`, `partial`, or `unsupported`.
+- **A committed code topology:** `.tieline/topology/graph.json` records parsed symbols and static
+  dependencies, letting agents trace code and connect possible impact back to accepted ACs.
 
-Select the coding agents you use. Tieline creates or updates the `.tieline`
-workspace and installs the project-scoped `tieline` skill for those agents. It
-configures MCP automatically where the selected agent supports repository or
-CLI registration; otherwise, follow init's printed manual MCP instruction.
-Restart or reload the selected agent, then start semantic onboarding:
+The contract works directly from a repository. When synced to optional Postgres, any connected
+agent—including product, research, and support agents without a checkout—can query the accepted
+state of `main`.
 
-- Claude Code: run `/tieline`
-- Codex: run `$tieline`
-- Other supported agents: ask the agent to use the installed `tieline` skill
+## How it works
 
-The agent then discovers product context from the repository, proposes the
-initial semantic contract for review, and guides the remaining setup. See
-[Detailed setup and configuration](#detailed-setup-and-configuration) for
-database modes, automation, agent-specific behavior, and advanced options.
+1. **An agent proposes intent.** The Tieline skill reads product context, code, schemas, and tests,
+   then drafts or updates Stories, ACs, and evidence links for review.
+2. **Parsers ground the links.** Tree-sitter extracts canonical symbols, source ranges, and bounded
+   snippets. Conservative resolvers write the committed topology graph without hiding ambiguous
+   or unresolved relationships.
+3. **A fresh agent grades the evidence.** The grader receives one AC, its current evidence, and the
+   only citations it may use. Deterministic verification rejects stale or invented citations.
+4. **Review establishes acceptance.** The authored YAML, compiled manifest, topology, and code
+   change travel together. Merge accepts that version of the relationship.
+5. **Tieline keeps it reviewable.** The skill updates intent as behavior changes, while
+   `tieline check` flags changed evidence, broken links, invalid contracts, and stale artifacts.
 
-## How Tieline works
+[How evidence, authority, and freshness work →](docs/concepts.md)
 
-The core hierarchy is:
-
-```text
-Capability → User Story → Acceptance Criterion → optional Scenario
-```
-
-Acceptance Criteria (ACs) are the primary graph anchor. Code, test, help, and
-observation relationships should target the most specific known AC; Story-level
-links remain useful as a coarse fallback.
-
-### Vocabulary
-
-| Term | Meaning |
-| --- | --- |
-| Capability | A stable product or business area that groups related Stories |
-| User Story | Desired behavior expressed through actor, goal, and benefit |
-| Acceptance Criterion | One observable outcome that defines when a Story is satisfied |
-| Scenario | An optional Given/When/Then example for an AC |
-| Observation | Append-only source evidence: a request, bug, or question |
-| Backlog Item | Optional work used to consolidate Observations before or alongside a Story |
-| Artifact | Code, test, or external help content linked to a Story or AC |
-
-## Authority model
-
-A Story stays the same kind of record as it moves from ideation to delivery. Its
-lifecycle determines which system may change it:
-
-| Lifecycle | Authority | Writable from |
-| --- | --- | --- |
-| `backlog` | `planning` | Postgres planning tools |
-| `in_progress` | `repository` | `.tieline/spec/**/*.yaml` in a code change |
-| `production` | `repository` | `.tieline/spec/**/*.yaml` in a code change |
-| `retired` | `repository` | `.tieline/spec/**/*.yaml` in a code change |
-
-Materialization preserves the planning Story and AC stable IDs. Once a code
-change containing those IDs merges, repository sync claims the matching rows
-and Postgres becomes a searchable projection. Repository-owned definitions
-cannot be edited through MCP planning tools.
-
-Normal code review and merge are the acceptance boundary. There is no separate
-semantic decision system or ownership roster, and semantic warnings do not stop
-deployment in the MVP.
-
-## Four planes
-
-- **Contract plane:** strict repository YAML for accepted Stories/ACs; planning
-  Stories/ACs in Postgres while they remain `backlog`.
-- **Evidence plane:** append-only Observations (`request`, `bug`, `question`),
-  optional Backlog Items, and confirmed/dismissed relationships.
-- **Derived plane:** focused Story, AC, Scenario, Backlog Item, and sanitized
-  Observation embedding documents; candidate links, coverage, and freshness.
-- **Governance plane:** repository history, pull-request review, versioned
-  retrieval profiles, sync checkpoints, conflicts, and audit events.
-
-Observations and Backlog Items do not move into the repository. Repository YAML
-may retain stable `motivated_by` pointers without copying their source payloads.
-Help content also remains external/DB-native; contract links use its stable
-`source + external_id` pointer.
-
-## Contract YAML
+## Example Capability
 
 ```yaml
 version: 1
 capability:
-  key: RETRIEVAL
-  name: Intent-aware retrieval
-  description: People and agents retrieve the right business context.
+  key: CONTRACT
+  name: Living product contract
+  description: Accepted product behavior is reviewable beside the implementation.
   stories:
-    - key: RETRIEVAL-001
-      title: Search with an explicit intent
-      actor: support specialist
-      goal: find the production behavior behind a question
-      benefit: answers are grounded in accepted product intent
+    - key: CONTRACT-003
+      title: Inspect accepted intent before changing an asset
+      actor: implementing agent
+      goal: retrieve reviewed context for a known code locator
+      benefit: implementation begins from accepted intent
       lifecycle: production
-      aliases: [production behavior search]
       acceptance_criteria:
-        - key: RETRIEVAL-001-AC1
-          criterion: Tieline must exclude planning records from support results.
-          rationale: Support answers should distinguish shipped behavior from ideas.
-          scenarios:
-            - given: production and backlog Stories match a query
-              when: the support profile is selected
-              then: only production contract records must be returned
+        - key: CONTRACT-003-AC4
+          criterion: Tieline must expose exact manifest-backed context without a database.
           links:
             - relation: implements
               provenance: authored
               target:
                 kind: code
                 repository: tieline
-                path: src/adapters/postgres/semantic-repository.ts
+                path: src/tools/intent-context.ts
+                selector: function:registerIntentContextTools
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-evidence.ts
-                framework_hint: custom-script
-            - relation: documents
-              provenance: authored
-              target:
-                kind: help
-                source: intercom
-                external_id: retrieval-profiles
+                path: scripts/test-intent-context.ts
 ```
 
-Accepted Stories store `title`, `actor`, `goal`, and `benefit` separately and
-render the familiar “As a … I want … so that …” sentence. Each accepted AC states
-one observable outcome using `<subject> must <outcome> [when <condition>]`.
-Scenarios use framework-neutral Given/When/Then text. Test locators may include a
-`framework_hint`, but no test framework is required.
+An AC is complete on its own. Given/When/Then Scenarios are optional examples for important
+conditions or edge cases.
 
-Every link states its provenance: `authored` for a deliberate human-authored
-claim, `inferred` for a derived claim, or `materialized` for a copied projection.
+## Quickstart
 
-Stable IDs are identity, not embedding prose. Aliases support alternate language,
-applicability distinguishes legitimately different behavior, and `supersedes`
-converges definitions without deleting history.
-
-## Detailed setup and configuration
-
-### Requirements and installation
-
-- Node.js 20.12 or newer.
-- Docker with a running daemon when using `--database local`.
-- A hosted or remote PostgreSQL database with pgvector when using
-  `--database existing`.
-- Embeddings are optional for retrieval. An OpenAI-compatible provider,
-  Supabase Edge Function, or the optional local runtime adds vector similarity;
-  full-text and identifier search remain available without one.
-
-No install is required. Bootstrap with the current published CLI explicitly:
+Requires Node 20.12 or newer. No database is needed.
 
 ```bash
+cd /path/to/your-repository
 npx -y tieline@latest init
 ```
 
-This does not add Tieline to the application's dependencies or modify its
-lockfile. After setup, commands can run through `npx -y tieline <command>`,
-which is also how the registered MCP configuration launches the server. A
-global install also works when a bare `tieline` command is preferred:
+Restart your agent, then run `$tieline` in Codex or `/tieline` in agents that expose skills as
+slash commands. The skill proposes the initial contract and code links for review; the generated
+`.tieline/review.html` provides a browser-friendly view.
 
-```bash
-npm install --global tieline
-tieline --help
+Postgres is optional. Use it when agents without a checkout need the accepted product state, then
+configure [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) to publish only merged
+changes from `main`.
+
+## AC-aware blast radius
+
+The authored intent graph and derived code topology remain separate until they meet at an exact
+path and symbol:
+
+```text
+Capability → Story → AC → path/selector
+                              ↕ exact locator
+                graph.json: symbol → static dependents
+                              ↓
+                    ACs that may be impacted
 ```
 
-Contributors, or users who specifically need the current `main` branch, can
-instead install from source:
+`tieline code compile` parses the checkout into the committed `graph.json` snapshot. Blast-radius
+analysis starts with changed symbols, follows static imports and references, then joins the
+visited locators to authored AC links. Reads query the snapshot rather than reparsing the code.
+Ambiguous imports, external dependencies, cycles, and traversal limits remain visible, so the
+result is a bounded impact signal rather than a claim about runtime behavior.
 
-```bash
-git clone https://github.com/knoxgraeme/tieline.git
-cd tieline
-npm ci
-npm run build
-npm link
-tieline --help
-```
+[Topology and blast-radius commands →](docs/cli.md#derived-code-topology-and-blast-radius)
 
-`npm link` makes that checkout's compiled `tieline` command available on the
-current machine. Without it, replace `tieline` in the examples below with
-`node dist/cli.js` from the checkout.
+## For agents
 
-### Initialize and onboard a repository
-
-Run init from the repository. It auto-detects the product name, repository
-name, and code scope, defaults the runtime to offline, and asks one question:
-which coding agents should receive the onboarding skill. Agents the
-repository already shows evidence of (`.claude/`, `.agents/`, `.cursor/`, and
-similar), or the agent whose session is running init, arrive preselected;
-nothing else does. Selecting the agents is the confirmation: init applies the
-setup immediately without repeating detected defaults in a second review
-screen. Everything else — product description,
-context sources, database upgrades — is gathered conversationally by the
-agent during semantic onboarding, where it can read the repository first and
-verify instead of interrogate:
-
-```bash
-cd /path/to/product-repository
-npx -y tieline@latest init
-```
-
-Restart or reload the selected agent, then ask it to use the installed
-`tieline` skill. In Claude Code, run `/tieline`; in Codex, run `$tieline`.
-Other supported agents can activate the skill from the same natural-language
-request. That invocation is the semantic-onboarding handoff.
-
-The same setup remains prompt-free for automation:
-
-```bash
-npx -y tieline@latest init /path/to/product-repository \
-  --database offline \
-  --embedding local \
-  --description "A concise description of the product and business" \
-  --context docs/product-context.md \
-  --skip-skill-install \
-  --yes
-```
-
-Prompt-free setup requires at least one explicit `--agent`, or
-`--skip-skill-install` when no agent should receive the skill.
-`--skill-scope` defaults to `project`. To initialize and install
-`tieline` for multiple agents:
-
-```bash
-npx -y tieline@latest init /path/to/product-repository \
-  --database offline \
-  --embedding local \
-  --yes \
-  --agent codex \
-  --agent claude-code \
-  --skill-scope project
-```
-
-Interactive init does not ask for a product description or context inventory;
-the installed `tieline` skill discovers README, product documentation,
-public code entry points, and tests during semantic onboarding. Automation can
-still provide known product framing with `--description`. Additional context
-sources are optional and explicit: provide each one with a repeatable
-`--context` flag. A local source must already exist in the repository, while a
-website must use an explicit `http://` or `https://` URL. Init records local
-sources by repository-relative location rather than generating or copying
-them. A durable product-context file can hold business purpose, actors, domain
-terms, invariants, and glossary entries. It should describe the business, not
-ideas, feature requests, or a second backlog.
-
-Tieline also auto-detects the code directories used for mapping coverage and
-records them as the **Code scope**—for example, `apps` and `packages`. Most users
-do not need to configure this. Use a repeatable `--source-root` only when the
-repository uses code directories Tieline did not detect. The stored
-configuration name for this code scope is `repository.source_roots`.
-
-Choose the database mode based on the workflow:
-
-| Mode | Behavior |
+| Ask | Tool |
 | --- | --- |
-| `offline` | Writes the workspace and supports local YAML/manifest authoring; Observations, Backlog Items, planning Stories, and semantic matching need a database |
+| “What is this symbol supposed to do?” | `get_asset_intent_context` |
+| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
+| “Which criteria touch these paths?” | `get_path_criteria` |
+| “Which code may depend on this symbol?” | `trace_code_dependencies` |
+| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
 
-What lives where:
+Exact manifest and topology reads work from the repository. Database-backed reads expose the
+synced accepted contract to agents without repository access. Planning tools can also capture
+Observations and shape backlog Stories before they materialize into reviewed repository YAML.
 
-| Location | Contents |
+[Full MCP reference →](docs/mcp.md)
+
+## Keeping the contract current
+
+During implementation, the Tieline skill proposes new Stories and ACs when behavior was added,
+updates existing definitions when behavior changed, reconciles evidence links, grades changed
+claims, and refreshes generated artifacts for review.
+
+Run the deterministic check in CI:
+
+```bash
+npx -y tieline@latest check --base <base-ref> .
+```
+
+Invalid YAML, broken links, and stale generated artifacts fail. Changed linked evidence identifies
+the affected ACs for agent or human review. After merge, an idempotent sync publishes accepted
+`main` to Postgres.
+
+[GitHub Actions example](docs/examples/tieline-check.yml) · [CLI reference](docs/cli.md)
+
+## Documentation
+
+| Guide | Contents |
 | --- | --- |
-| `.tieline/` in the repository (committed, PR-reviewed) | Product identity and context (`config.json`), the contract YAML (`spec/`), the compiled manifest (`manifest/`) |
-| PostgreSQL (optional: local Docker, existing, or provisioned) | A synced, queryable copy of the accepted contract, plus Observations (feature requests, ideas, bugs), Backlog Items, planning Stories and revisions, and semantic search embeddings |
-| Private profile outside the repository (`~/.config/tieline/`) | Database credentials and clone-local setup state — never committed, never shared through git |
-| `local` | Creates or reuses a dedicated Docker PostgreSQL + pgvector database and stores clone-local credentials privately |
-| `existing` (hosted / remote) | Connects a hosted or remote Postgres 16 + pgvector database identified by `DATABASE_URL_ADMIN`; no Docker container is required |
-
-`--embedding hash` is deterministic and intended only for development and
-tests, so it is not offered during interactive onboarding. For a real
-deployment, choose `local`, `openai`, or `supabase-edge`. In `existing`
-(hosted / remote) mode, the baseline defines the least-privilege roles as
-`NOLOGIN`. Before init, provide URLs for operator-managed login roles that
-inherit `tieline_reader`, `tieline_planning_writer`, and
-`tieline_repository_sync`; init does not create or rotate passwords unless
-`--provision-roles` explicitly asks it to. That flag assigns generated login
-passwords to the tieline roles directly, which is how the agent-driven
-provisioning path (a freshly created Neon project, for example) reaches a
-working setup from `DATABASE_URL_ADMIN` alone.
-Tieline is provider-neutral: a local Postgres installation, Neon, Supabase,
-RDS, or any other managed Postgres with pgvector enabled works. It reads
-`DATABASE_URL_ADMIN` from the environment or a local `.env`; credentials are
-never accepted as CLI arguments. Provisioning tools that synchronize `.env`
-files are picked up automatically.
-Init writes shared product identity, configured context, code scope, contract
-paths, and runtime defaults to `.tieline/config.json`. It also registers the
-`tieline` MCP server with each selected coding agent: `.mcp.json` at the
-repository root is always created or updated, and Claude Code and compatible
-hosts load it automatically on the next session. Selecting Cursor, GitHub
-Copilot, Gemini CLI, or OpenCode additionally maintains `.cursor/mcp.json`,
-`.vscode/mcp.json`, `.gemini/settings.json`, or `opencode.json`. Unrelated
-server entries in those files are preserved, and a file that fails to parse is
-left untouched and reported instead. Codex keeps MCP configuration in a global
-`~/.codex/config.toml`, so selecting Codex runs `codex mcp add` with the
-absolute repository path; if the Codex CLI is unavailable, init prints the
-exact command to run later.
-Init also writes `.tieline/review.html`, a self-contained page for browsing
-the authored capabilities, Stories, and Acceptance Criteria in a browser
-instead of raw YAML. `tieline contract compile` regenerates it whenever the
-contract changes, and a nested `.tieline/.gitignore` keeps the derived page
-out of commits. Clone-local setup state
-and credentials live in a private profile outside the repository, so a new
-clone completes its own runtime setup instead of inheriting another machine's
-"ready" state.
-
-On a new repository, the only Tieline command a user needs to begin onboarding
-is `tieline init`. It captures deterministic setup, then asks which coding
-agents should receive the packaged `tieline` skill. That one skill owns
-both first-time semantic onboarding and ongoing authoring/reconciliation; a
-separate onboarding skill is not required. Tieline
-does not auto-detect or launch an agent, persist agent choices in shared
-configuration, or invent generic starter content.
-
-Interactive setup offers Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot,
-OpenCode, and Windsurf. Choose `project` to install for this repository or
-`global` to install for the current user. Project scope is the interactive
-default. Cancelling agent selection stops initialization before anything is
-written. Headless callers can use `--skip-skill-install` to explicitly suppress
-installation.
-
-| `--agent` ID | Coding agent |
-| --- | --- |
-| `claude-code` | Claude Code |
-| `codex` | Codex |
-| `cursor` | Cursor |
-| `gemini-cli` | Gemini CLI |
-| `github-copilot` | GitHub Copilot |
-| `opencode` | OpenCode |
-| `windsurf` | Windsurf |
-
-For a project-scoped install, Tieline creates the selected agent's project
-marker when the repository is fresh, then delegates skill installation to
-Skillfish. It invokes the latest installer through `npx`, against Tieline's
-public default branch and without adding Skillfish as a package dependency. A
-single-target project invocation has this shape:
-
-```bash
-npx --yes --package=skillfish@latest skillfish add knoxgraeme/tieline \
-  --path skills/tieline \
-  --agent "Codex" \
-  --project \
-  --yes \
-  --json
-```
-
-The installed skill runs semantic closeout before implementation handoff,
-commit, push, or pull-request creation and updates. It classifies each changed
-behavior cluster, directly updates and compiles justified contract changes, and
-reruns if the implementation diff changes. The pull-request diff is the review
-surface; the agent does not stop at a comment and wait for separate approval to
-write the contract. The deterministic Contract workflow still validates the
-result and never invokes a model or authors branch changes.
-
-If a requested install fails or does not finish within two minutes, the
-workspace and private runtime profile remain ready. Tieline terminates the
-installer, exits non-zero, and prints a retry command using its stable agent
-IDs, for example:
-
-```bash
-npx -y tieline@latest init . --yes --agent codex --skill-scope project
-```
-
-The MCP server is registered with the exact Tieline version that ran `init`, so
-hosts use the same published package without requiring a global install or
-silently changing versions. Rerun `npx -y tieline@latest init .` to upgrade
-repository-local pins; repeat any `--agent` options for hosts configured outside
-the repository. The checked-in configs keep `TIELINE_WORKSPACE` at `"."`, which
-resolves against the host's working directory. Hosts that keep MCP configuration
-outside the repository and have no registration CLI (Claude Desktop, Windsurf)
-need a manual entry with the same exact version and the absolute repository path:
-
-```json
-{
-  "mcpServers": {
-    "tieline": {
-      "command": "npx",
-      "args": ["-y", "tieline@<installed-version>", "serve"],
-      "env": { "TIELINE_WORKSPACE": "/absolute/path/to/repository" }
-    }
-  }
-}
-```
-
-The installed `tieline` skill (`/tieline` in slash-command agents and
-`$tieline` in Codex) and the equivalent `tieline` MCP prompt are two delivery
-surfaces for the same maintained semantic workflow. The MCP prompt is a
-reusable instruction template exposed by the Tieline server; retrieving it
-loads the workflow into the conversation, while MCP tools remain the operations
-the agent calls. Existing MCP clients can continue to request the deprecated
-`tieline_author` prompt name; it returns the same content. That workflow can:
-
-- shape a planning Story/AC or Backlog Item in Postgres;
-- semantically onboard an empty spec from configured descriptions, local
-  context, repository docs, code entry points, and tests;
-- start implementation from a Story, AC, Backlog Item, Observation, or branch;
-- reuse an existing definition, add an alias, or intentionally create a new ID;
-- materialize planning IDs into repository YAML;
-- reconcile branch changes, compile the manifest, and summarize semantic and
-  mapping-coverage changes.
-
-An empty `.tieline/spec/` immediately after init is intentional: init does not
-invent generic capabilities. The authoring skill validates the detected code
-scope against the repository before claiming coverage. While the spec has no
-Stories, `tieline status --json` exposes `onboarding.required`, the `tieline`
-skill name, its direct invocation instruction, and
-`npx -y tieline@latest init .` as the install command. `onboarding` becomes
-`null` after the first Story exists. Status also reports whether the local
-profile is ready and whether database-backed semantic matching and planning
-writes are configured. Tool calls remain the operational check.
-
-Before creating planning work, machine matching searches existing Stories, ACs,
-Backlog Items, and similar Observations. It presents candidates and requires an
-explicit reuse-or-continue choice. Each candidate reports its raw ranking
-features and the `admitted_by` signals that cleared the absolute magnitude
-floor; the blended score only orders admitted candidates. Similarity never
-confirms a relationship.
-Raw Observations remain append-only even when duplicate language is consolidated.
-In offline mode, authoring searches local YAML and the compiled manifest and
-explicitly reports that organization-wide duplicate checking was unavailable.
-
-Validate and compile without a database:
-
-```bash
-tieline contract validate .
-tieline contract compile .
-tieline contract coverage . --json
-```
-
-When an asset locator or Acceptance Criterion ID is already known, read its exact
-reviewed context before editing or using semantic discovery. Asset mode accepts a
-repository-relative path plus optional `code`/`test` kind and canonical selector;
-AC mode accepts one stable ID:
-
-```bash
-tieline contract context --path src/contract/impact.ts \
-  --kind code --selector function:analyzeContractImpact
-tieline contract context --ac CONTRACT-001-AC3 --json
-```
-
-The equivalent read-only MCP tools are `get_asset_intent_context` and
-`get_acceptance_criterion_context`. Both CLI modes and MCP tools answer from the
-compiled manifest without Postgres, embeddings, or network access. Results
-include the stable repository key and a content-derived `manifest_digest` for
-the reviewed contract that answered.
-
-Asset context returns `has_context`, `no_criteria`, or `not_found`. A
-selector-qualified query includes exact-selector and file-level claims while
-excluding claims for other selectors in the same file; a path-only query keeps
-every claim's full kind, repository, path, selector, and framework-hint identity.
-AC context returns the exact Capability, Story, AC, scenarios, direct links, and
-Story-fallback links. Both entry points stop after one AC-mediated hop. The
-associated code and tests are an **intent neighborhood** and their shared AC
-links are **contract coupling**; they are not a runtime dependency graph or a
-comprehensive blast radius.
-
-Each returned claim reports authored provenance, direct or Story-fallback link
-scope, content freshness, locator resolution, and semantic support separately.
-`resolved` or current means only that structural inspection succeeded;
-`unresolved`, `not_checked`, broken causes, and unknown cross-repository states
-remain explicit. Semantic support is always `not_assessed` in these reads. No
-state proves the criterion is implemented correctly, and a linked test is an
-evidence locator—not a receipt that the test ran or passed.
-
-### Derived code topology and blast radius
-
-Tieline can separately derive a conservative code topology from repository
-source. This does not replace the authored contract and does not use a graph
-database. Developers explicitly compile one thin, reviewable
-`.tieline/topology/graph.json`; local and historical reads select that file
-without parsing source or writing files. PostgreSQL can hold the richer,
-queryable projection of an accepted `main` generation. Local compilation never
-writes it. The compiled manifest remains the authority for business intent.
-
-The repository artifact retains a thin traversal projection: file
-hashes, locator-bearing symbols, adjacency, and unresolved dependency
-frontiers. Parser diagnostics, source ranges, reference facts, and resolved
-explanations remain available in committed PostgreSQL generations but are not
-duplicated in the artifact.
-
-The two storage forms have separate operational roles:
-
-| Store | Role | Update boundary |
-| --- | --- | --- |
-| `.tieline/topology/graph.json` | Deterministic, repository-local traversal snapshot for review and Git history | Explicit `tieline code compile`; commit it with the source change |
-| PostgreSQL topology tables | Rich shared projection for hosted reads of accepted code | A protected repository publisher after merge to `main` |
-
-They identify the same derived generation but are not competing authorities.
-`graph.json` contains no Story or AC bodies; trace and blast radius join its
-code locators to the matching compiled manifest at read time. PostgreSQL keeps
-relational source ranges, references, resolutions, and diagnostics that would
-only bloat the reviewed file.
-
-This release defines the relational schema and repository but does not attach
-topology publication to the existing repository-sync command. Until that
-merge-only publisher is added, `code compile` writes only `graph.json` and
-hosted topology is available only when a trusted integration explicitly
-persists a complete generation.
-
-```bash
-# Explicitly derive the artifact after selected source or resolver changes.
-tieline code compile . --json
-
-# Verify integrity and freshness without parsing or writing.
-tieline code validate . --json
-
-# Follow statically derived imports from one exact symbol.
-tieline code trace --path src/commands/code-topology.ts \
-  --selector function:executeDependencyTrace --direction dependencies --json
-
-# Find code that may depend on changes since a Git base, then join visited
-# locators to authored AC claims. The default direction is dependents.
-tieline code blast-radius --base origin/main --json
-```
-
-The equivalent read-only MCP tools are `trace_code_dependencies` and
-`analyze_code_blast_radius`. CLI and MCP delegate to the same domain results.
-Local reads need no database and never compile or silently repair topology.
-Missing, stale, incompatible, invalid, over-capacity, and unsafe artifacts are
-named nonzero outcomes with an explicit compile remediation only for mutable
-workspace state. Historical reads load the topology and, for blast radius, the
-manifest from the same resolved commit. A hosted dependency trace can continue
-to select a compatible complete Postgres generation when no checkout is
-available.
-
-Supported structural facts are intentionally narrower than each language:
-
-| Language | Parsed symbols and module forms | Conservative resolution |
-| --- | --- | --- |
-| JavaScript, JSX, TypeScript, TSX | Classes, functions, methods, interfaces, types, enums, namespaces, top-level bindings, static imports, exports, re-exports, and literal dynamic imports | Relative files with supported extensions and index files, static `baseUrl`/`paths` aliases, and named exports/re-exports |
-| Python | Classes, functions, methods, `import`, `from ... import`, relative imports, and public top-level exports | Repository and statically declared source roots, modules, packages, and named public symbols |
-| Rust | Structs, enums, traits, types, modules, functions, constants, statics, impl owners/methods, `mod`, `use`, `pub use`, and grouped paths | Static Cargo crate roots, conventional module files, and `crate`, `self`, and `super` paths |
-| SQL | Conservative top-level table, view, and function declarations with safely representable names | Not yet supported; SQL object references do not produce dependency edges or frontiers |
-
-Dynamic module names, glob imports, generated modules, unsupported or
-non-static configuration, external packages/crates, conditional package
-exports, and multiple possible targets remain named `unresolved`, `external`,
-or `ambiguous` frontiers. Tieline never guesses an exact edge for them. Parser
-recovery and capture truncation are also explicit.
-
-Every fact is tied to immutable source bytes and records zero-based UTF-16 code
-unit offsets plus zero-based UTF-8 byte offsets; line and column values use the
-same named coordinate systems. Persisted compatibility includes the pinned
-parser/grammar set, normalized query contract, resolver implementation and
-configuration digest, topology schema, and fact policy. Incompatible
-generations are refused rather than silently mixed.
-
-Traversal locates an exact repository path and optional canonical selector
-before walking. Defaults are depth 4, 500 visited nodes, 2,000 edges/frontiers,
-and 100 returned paths. Hard maxima are depth 8, 1,000 nodes, 4,000
-edges/frontiers, and 200 paths. Results are cycle-safe and report each
-independent truncation reason. Code paths are labeled
-`derived_code_dependency`; authored joins are `contract_coupling` and say only
-`may_be_impacted` with `semantic_support: not_assessed`. Two files sharing an
-AC do not thereby depend on one another, and no topology result proves that an
-implementation satisfies an AC or that a linked test passed.
-
-Use semantic discovery only when the exact path, selector, or AC ID is unknown.
-For the compatibility path-to-AC list without selector-aware neighborhood
-context, ask which criteria the reviewed manifest records:
-
-```bash
-tieline contract criteria src/commands/check.ts src/server.ts
-```
-
-This is an exact path lookup, not semantic search. Each path is reported as
-`has_criteria`, `no_criteria`, or `not_found`; results with criteria preserve
-whether the link is `direct` on an acceptance criterion or a `story_fallback`.
-JSON output also carries a content-derived `manifest_digest` identifying the
-complete reviewed manifest that answered.
-
-Compilation writes `.tieline/manifest/`, one file per capability plus a small
-index:
-
-```
-.tieline/manifest/
-  index.json        schema version and the stable repository key
-  CONTRACT.json     one capability, named after its stable ID, with the
-  RETRIEVAL.json    specification file and hash it was compiled from
-  ...
-```
-
-A capability is exactly one specification file, so this is the boundary the
-contract already has. The schema-v2 index contains only stable repository
-identity, stays byte-identical for commit-only changes, and uses normal Git
-merging. Different capability shards avoid cross-capability conflicts; edits to
-the same shard use normal conflict resolution. Compiling deletes stale
-capability shards the specification no longer declares.
-
-Mapping coverage counts a repository file as mapped when any contract link names
-it. That records who claimed the file is evidence, not how much is known about
-the claim, so coverage also reports a confidence tier. Each mapped file counts
-once, at the highest tier it reaches:
-
-| Tier | What is known | What it does not establish |
-| --- | --- | --- |
-| `asserted` | A link names the file. A human said so. | That anything was measured at all |
-| `hash_current` | The file still hashes to the content recorded in the reviewed manifest. | That the review was right, or that the file still does what the criterion says |
-
-The tiers are additive. `eligible_files`, `mapped_files`, `unmapped_files`, and
-`percentage` keep their existing meaning, and the tier percentages use the same
-denominator, so they sum to `percentage`. With no hash comparison available,
-every mapped file reports `asserted` and the numbers are unchanged.
-
-`hash_current` compares against `.tieline/manifest/` when that manifest is
-readable and belongs to this repository, because the reviewed manifest is the
-only record of the content a reviewer accepted. Without it, coverage compiles
-the manifest from the working tree, where the reviewed hash is the hash it just
-measured and no drift is observable. Story-level and criterion-level links are
-treated alike here: a link names a file whatever its scope, so either can carry
-the reviewed hash that lifts the file to `hash_current`.
-
-Ask which links a human should re-read:
-
-```bash
-tieline contract link-review .
-```
-
-Link review scores each criterion-level code and test link on lexical overlap
-between the acceptance criterion's prose and the linked file's names, comments,
-and string literals, then reports the weakest links in the repository's own
-distribution. This is inference, never evidence. It never confirms a
-relationship and never refutes one; each candidate carries a rationale naming
-the terms that did and did not overlap so a reviewer can judge the suggestion
-instead of trusting a number. An empty candidate list means the heuristic is not
-asking for attention, not that the links are correct. Missing files are left to
-`tieline check` and are reported as skipped rather than scored. The command is
-advisory and exits zero.
-
-Ask an agent to judge the branch's contract evidence:
-
-```bash
-tieline contract grade . --base <base-ref> --emit-scope --json
-tieline contract grade . --base <base-ref> --verify <verdicts.json>
-```
-
-The first command deterministically emits every changed acceptance-criterion
-link to grade and the exact symbol citations allowed for it. A link enters the
-scope when either of its sides changed against the base: the artifact side —
-the linked file was modified, added, renamed, or deleted — or the claim side —
-the link is new, belongs to a new criterion, or its criterion was re-worded,
-even when the linked file is untouched. A base with no manifest is the initial
-contract, so onboarding's links are all in scope as `link_added`.
-
-For JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL source, each scope entry
-also carries ephemeral `code_evidence` from Tieline's Tree-sitter analyzers:
-the analyzed content hash and parser compatibility, diagnostics, and bounded
-source evidence for each legal declaration. `symbols` remains the complete,
-closed citation allow-list. An explicit link selector must exactly match one
-canonical parser selector and limits the entry to that declaration. A link
-without a selector offers only unique canonical top-level or owner-aware
-declarations; comments and local variables do not become citations. Missing,
-unreadable, oversized, unsupported, or structurally incomplete source—or an
-invalid, unresolved, or ambiguous explicit selector—instead produces
-unavailable evidence and an empty allow-list.
-
-SQL evidence is deliberately narrow in this increment: it identifies
-conservative top-level table, view, and function declarations when their names
-can be represented safely. SQL object references and dependency edges are not
-yet derived, so SQL symbols can be linked to Acceptance Criteria without being
-treated as SQL blast-radius coverage.
-
-The agent inspects the evidence and artifact and assigns `supported`, `partial`,
-or `unsupported`; parser evidence establishes which current declaration may be
-cited, not whether its implementation semantically satisfies the criterion.
-Grade IDs bind the exact criterion text and current source/parser evidence, so
-verdicts become stale after either the criterion or source changes. The second
-command verifies that every verdict belongs to the current scope and that every
-claimed citation came from its allow-list. Tieline does not call a model,
-database, or network or persist grades for this workflow. Verification is
-advisory by default, including negative results; add `--strict` to the verify
-command only when unsupported evidence should fail the gate. The installed
-`tieline` skill carries this grading workflow as an internal reference and
-dispatches fresh grading contexts so authors do not judge their own rationale.
-
-Generate a human-readable browser review of the accepted YAML:
-
-```bash
-tieline contract review .
-```
-
-This writes `.tieline/review.html`, a self-contained page with capability
-navigation, Story and AC cards, scenario steps, evidence links, search,
-lifecycle filters, and a print layout. Open the file directly in a browser.
-Use `--output <path>` to write it elsewhere.
-
-CI can check affected ACs:
-
-```bash
-tieline check --base <base-ref> .
-```
-
-Use the comparison ref supplied by the caller when available. Otherwise,
-agents should determine it from repository metadata, preferring the
-remote-tracking default branch, and ask only when it cannot be determined;
-do not assume every repository uses `origin/main`.
-
-The check compares changed, renamed, and deleted paths with manifest locators and
-reports each affected AC plus its freshness. It also sweeps every link for broken
-targets, whether or not the diff touched them, because a link can rot without the
-change under review going near it. The check treats these integrity states
-differently:
-
-| State | Cause | Effect |
-| --- | --- | --- |
-| stale | The linked file changed since it was reviewed, or was never reviewed against a recorded hash. Whether the AC still holds needs a human. | Warning, exit 0 |
-| broken | The linked path is missing, is not a file, or resolves outside the repository. | Error, exit 1 |
-| stale manifest | The committed manifest differs from what the current contract compiles to. | Error, exit 1 |
-
-Broken links fail the check because deciding they are wrong needs no judgement:
-the manifest points at evidence that is not there. Pass `--no-fail-on-broken`
-to downgrade broken links to warnings and exit zero. A stale manifest also
-fails by default: run `tieline contract compile .`, review the semantic diff,
-and commit the result. Use `--no-fail-on-stale-manifest` only when intentionally
-downgrading that integrity gate to a warning. Invalid YAML or an unreadable
-manifest fails because no trustworthy result can be computed. See
-[the GitHub Actions example](docs/examples/tieline-check.yml).
-
-After merge, run:
-
-```bash
-tieline contract sync . --expected-previous-commit <previous-main-sha>
-```
-
-Sync is idempotent and checkpointed. A delayed job cannot overwrite a newer
-projection. If planning changed while a materializing pull request was open, the
-merged repository version wins and the later planning revision is preserved as a
-handoff conflict for reconciliation.
-
-## MCP tools
-
-Reads:
-
-| Tool | Purpose |
-| --- | --- |
-| `search_knowledge` | Cross-type semantic search with a required retrieval profile and optional typed context |
-| `find_related` | Engineering-oriented semantic discovery with applied profile metadata |
-| `query_stories` | Exact Story/AC lookup by authority, lifecycle, IDs, or locators |
-| `get_asset_intent_context` | Exact selector-aware asset-to-intent neighborhood from the compiled manifest; no database required |
-| `get_acceptance_criterion_context` | Exact AC-to-associated-assets neighborhood from the compiled manifest; no database required |
-| `get_path_criteria` | Exact path-to-AC lookup from the compiled manifest; no database required |
-| `get_backlog_item` | Read a Backlog Item revision and its complete Observation/Story/AC link set |
-| `list_handoff_conflicts` | Read unresolved or historical planning-to-repository conflicts |
-| `find_help` | Search ingested external help content |
-| `get_help_article` | Fetch selected help bodies by `source + external_id` |
-| `list_attribution_suggestions` | Review machine suggestions and their provenance |
-
-Evidence and planning writes:
-
-| Tool | Purpose |
-| --- | --- |
-| `record_observation` | Append a request, bug, or question, then return suggestions |
-| `decide_attribution` | Confirm or dismiss an Observation relationship |
-| `create_backlog_item`, `update_backlog_item` | Manage optional work records after reading their current revision |
-| `set_backlog_item_links` | Replace Observation and Story/AC targets atomically |
-| `create_planning_story`, `update_planning_story` | Shape `backlog` Stories and ACs |
-| `decide_attribution_suggestion` | Confirm or dismiss a machine suggestion |
-
-## External help content
-
-Help articles remain DB-native rather than being copied into repository YAML.
-Set `DATABASE_URL_SYNC`, then import a JSON array, an
-`{"articles": [...]}` object, or one article per line in a `.jsonl` file:
-
-```json
-[
-  {
-    "source": "intercom",
-    "external_id": "retrieval-profiles",
-    "title": "Choose a retrieval profile",
-    "summary": "How support and engineering views differ.",
-    "url": "https://help.example.com/retrieval-profiles",
-    "markdown": "Use the support profile for production-only answers."
-  }
-]
-```
-
-```bash
-tieline import-help ./articles.json --batch-size 50
-```
-
-Batch size may be 1–200. The command writes
-`articles.json.import-report.json` after a complete import. Contracts refer to
-articles by stable `source + external_id`; imported bodies and metadata stay in
-Postgres, while YAML may optionally repeat the public URL for review.
-
-## Retrieval profiles
-
-Every `search_knowledge` call names a profile. Explicit filters are additional
-constraints and cannot broaden it.
-
-| Profile | Intended view |
-| --- | --- |
-| `support` | Repository-owned production Stories/ACs and confirmed evidence |
-| `engineering` | Repository-owned in-progress, production, and retired context |
-| `discovery` | Planning and repository contract, Backlog Items, and Observations |
-| `all` | Full corpus permitted by the connected database role |
-
-Use `get_asset_intent_context` for a known path or selector and
-`get_acceptance_criterion_context` for a known AC stable ID before semantic
-search. Use `get_path_criteria` for the compatibility path-to-AC list without
-the selector-aware neighborhood. Use `query_stories` for broader exact filters
-such as lifecycle, authority, or capability. Use `find_related` for shorter
-engineering-oriented semantic discovery and `search_knowledge` for
-heterogeneous retrieval only when exact identity is unknown or the caller needs
-explicit profile selection and narrowing filters.
-
-An MCP `search_knowledge` input can carry a reusable Story/AC anchor and
-artifacts from the caller's current task:
-
-```json
-{
-  "query": "why are support searches production-only?",
-  "profile": "engineering",
-  "context": {
-    "anchor": {
-      "kind": "acceptance_criterion",
-      "repository": "tieline",
-      "stable_id": "RETRIEVAL-001-AC1"
-    },
-    "artifacts": [
-      {
-        "kind": "code",
-        "repository": "tieline",
-        "path": "src/tools/search-knowledge.ts"
-      }
-    ]
-  },
-  "limit": 10
-}
-```
-
-Responses include the profile version and each result’s authority/lifecycle or
-planning state, attribution state when applicable, coverage, freshness, applied
-retrieval signals, ranking features, and reader-facing match reasons.
-An optional `context` can name an Observation, Backlog Item, Story, or AC anchor
-and/or code, test, or help artifacts. Context reranks only the candidate set
-already allowed by the profile and filters. Artifact overlap and confirmed graph
-proximity appear in each result’s ranking features; suggested and dismissed
-relationships do not create proximity or become confirmed through search. Each
-result also includes a typed `context_anchor` when it can be used directly in a
-follow-up search. Callers can inspect the scores without Tieline claiming that
-an unresolved artifact locator was applied.
-
-Lexical retrieval is always on. English full-text search covers semantic prose,
-while `pg_trgm` identifier matching recalls stable IDs, aliases, code/test
-paths, selectors, and external help identifiers that stemming handles poorly.
-Vector similarity is added when an embedding provider is available. Reciprocal
-rank fusion combines the available lexical and vector rankings with exact alias,
-artifact-overlap, and confirmed graph-proximity signals, so a missing embedding
-backend does not turn search into an error. Absolute vector, lexical, or exact
-alias magnitude determines whether a candidate is credible enough to present;
-the blended rank-fusion score orders those admitted candidates but does not
-filter them through a second fixed cutoff.
-
-Graph proximity traverses structural links, repository-declared relationships,
-and confirmed attributions up to three hops. The graph feature decays from
-`1.0` at the anchor to `0.75`, `0.5`, and `0.25`; records beyond three hops
-receive no graph boost. The bound covers useful chains such as
-Observation → Story → AC → Scenario while keeping broad, weakly related graph
-neighborhoods from dominating semantic relevance.
-
-Profiles are versioned:
-
-```bash
-tieline profile list --json
-tieline profile put \
-  --key support \
-  --file ./support-profile.json \
-  --created-by maintainer
-```
-
-## Coverage, freshness, and mapping
-
-Implementation-link, test-link, and help-link coverage are independently
-`none`, `partial`, or `complete` for repository-owned Stories. Only direct AC
-links count; Story-level fallback links remain searchable.
-
-Freshness compares linked repository content with the reviewed manifest hash.
-It does not claim that a test ran or passed. Test execution receipts are
-deliberately deferred beyond the MVP.
-
-Repository mapping coverage uses the configured code scope
-(`repository.source_roots`) and exclusions as its denominator. Reports include
-both the percentage and every unmapped eligible file. Path coverage and
-behavioral correctness remain separate.
-When no eligible files exist, coverage is `null` with
-`status=no_eligible_files`; it is never reported as 100%.
-
-## Configuration
-
-Copy `.env.example` and set only the credentials needed by the process:
-
-| Variable | Responsibility |
-| --- | --- |
-| `DATABASE_URL` | Read-only contract, evidence view, profiles, and search |
-| `DATABASE_URL_WRITE` | Planning Stories/ACs, Observations, Backlog Items, suggestions |
-| `DATABASE_URL_SYNC` | Repository authority transfer, projection, help ingestion |
-| `DATABASE_URL_ADMIN` | Offline migrations, profile publication, retention |
-
-The MCP server uses read and planning-write connections. Sync/admin credentials
-belong to explicit CLI/CI operations and should not be exposed to ordinary agents.
-The packaged migrations must run with an administrative database role. The
-baseline installs the `vector`, `pgcrypto`, and `pg_trgm` extensions and creates
-the three Tieline runtime roles. Managed Postgres environments may require an
-administrator to preinstall pgvector/Postgres contrib extensions or grant the
-equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities before
-`tieline migrate` runs.
-
-Choose one embedding provider:
-
-| Provider | Configuration |
-| --- | --- |
-| `local` | Keeps text local; install the optional runtime during init with `--install-local-embedder` |
-| `openai` | Set `EMBEDDING_BASE_URL` and `EMBEDDING_API_KEY`; the endpoint must return 384-dimensional vectors |
-| Supabase Edge Function (`supabase-edge`) | Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` |
-| `hash` | Deterministic development/test provider; do not use for semantic quality |
-
-When Tieline is already initialized, rerun init with
-`--embedding local --install-local-embedder` to install the local runtime in
-Tieline's private runtime directory. Container builds can instead use
-`--build-arg WITH_LOCAL_EMBEDDER=true`.
-
-Remote embedding providers receive canonical semantic text or the caller’s query,
-not raw Observation payloads, external URLs, audit metadata, lifecycle metadata,
-or repository locators. Use `EMBEDDING_PROVIDER=local` to keep semantic text local,
-or `hash` only for deterministic development tests.
-
-## Run the MCP server
-
-Start the transport expected by the MCP host:
-
-```bash
-tieline serve --stdio
-tieline serve --http
-```
-
-HTTP binds to `127.0.0.1:3000` by default and exposes MCP at `POST /mcp` and
-liveness at `GET /health`. Tieline does not provide end-user authentication.
-Binding to a non-loopback host therefore requires `HTTP_TRUST_PROXY=true`, at
-least one comma-separated `HTTP_ALLOWED_ORIGINS` entry, and an authenticated
-TLS gateway in front of the server.
-
-### Docker
-
-The image defaults to HTTP mode:
-
-```bash
-docker build -t tieline .
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL=postgresql://... \
-  -e DATABASE_URL_WRITE=postgresql://... \
-  -e EMBEDDING_PROVIDER=openai \
-  -e EMBEDDING_API_KEY=... \
-  -e HTTP_HOST=0.0.0.0 \
-  -e HTTP_TRUST_PROXY=true \
-  -e HTTP_ALLOWED_ORIGINS=https://mcp.example.com \
-  tieline
-```
-
-Run migrations separately with `DATABASE_URL_ADMIN`; do not expose that
-credential to the serving container. For a stdio-only container host, override
-the image command with `node dist/cli.js serve --stdio` and set
-`TRANSPORT=stdio` so the HTTP health check is disabled:
-
-```bash
-docker run --rm -i \
-  -e TRANSPORT=stdio \
-  -e DATABASE_URL=postgresql://... \
-  -e DATABASE_URL_WRITE=postgresql://... \
-  tieline node dist/cli.js serve --stdio
-```
-
-## Data durability and privacy
-
-Repository-owned definitions and their review history are durable in Git.
-Planning revisions, raw Observations, Backlog Items, retrieval profiles,
-attribution decisions, help content, conflicts, and audit events originate in
-Postgres and require normal database backups. Rebuilding the repository
-projection alone cannot recreate them.
-
-Observation payloads may contain customer or operational data. Store the
-minimum useful source text and retain the source-system pointer; ordinary MCP
-reads use sanitized Observation projections. Retention or redaction requires a
-privileged administrative workflow rather than the read or planning-write
-connection.
-
-## Verification
-
-```bash
-npm run build
-npm test
-npm run test:tieline
-```
-
-`npm test` runs every offline suite: contract schema, manifest, contract
-command, impact, link plausibility, reconciliation, path criteria, grading,
-ranking, retrieval, embeddings, HTTP transport, MCP smoke, evidence, contract
-reads, and the migration baseline. `npm run test:tieline` builds the CLI and
-exercises workspace onboarding end to end. Individual suites remain available
-as `npm run test:<name>`.
-
-Database integration tests require a disposable blank Postgres database with
-pgvector and an administrative URL with the migration privileges described
-above:
-
-```bash
-DATABASE_URL_ADMIN=postgresql://... npm run test:integration
-```
-
-The current baseline is intentionally breaking: pre-release databases from the
-earlier model must be recreated rather than upgraded in place.
-
-## Project structure
-
-| Path | Purpose |
-| --- | --- |
-| `src/contract/` | YAML schemas, loading, validation, and manifest compilation |
-| `src/tools/` | MCP read, evidence, and planning tools |
-| `src/adapters/postgres/` | Least-privilege persistence and semantic retrieval |
-| `src/tieline/` | Repository initialization, profiles, status, and setup |
-| `migrations/` | PostgreSQL/pgvector schema and role baseline |
-| `scripts/` | Contract, retrieval, transport, and integration verification |
-| `skills/tieline/` | Packaged onboarding, authoring, grading, and reconciliation workflow |
-| `.tieline/` | This repository's own accepted contract and compiled manifest |
+| [Setup](docs/setup.md) | Initialization, database modes, sync, and agent registration |
+| [Concepts](docs/concepts.md) | Contract structure, evidence, authority, and freshness |
+| [CLI](docs/cli.md) | Contract, topology, check, sync, grading, and review commands |
+| [MCP](docs/mcp.md) | Local and database-backed tools for agents |
+| [Operations](docs/operations.md) | Serving, credentials, durability, and privacy |
 
 ## License
 

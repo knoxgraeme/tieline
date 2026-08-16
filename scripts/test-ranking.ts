@@ -22,6 +22,7 @@ import { parseRetrievalProfileDefinition } from "../src/adapters/postgres/profil
 import {
   createBacklogItemSchema,
   createPlanningStorySchema,
+  findRelatedShape,
   searchKnowledgeSchema,
 } from "../src/schemas.js";
 import { report, test } from "./lib/harness.js";
@@ -553,6 +554,10 @@ await test("caller filters can narrow but not broaden a profile", () => {
     }).include_inactive,
     undefined
   );
+});
+
+await test("find related defaults to the all scope", () => {
+  assert.equal(findRelatedShape.profile.parse(undefined), "all");
 });
 
 await test("empty retrieval filters and profile predicates are rejected", () => {

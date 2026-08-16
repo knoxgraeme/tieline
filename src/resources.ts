@@ -29,8 +29,8 @@ change and pull request.
   and identifier recall are always available; vector similarity is optional.
   Its typed context accepts an Observation, Backlog Item, Story, or AC anchor
   and code, test, or help artifacts.
-- \`find_related\` is the shorter engineering-oriented semantic entry point and
-  still returns the applied profile version.
+- \`find_related\` is the shorter semantic discovery entry point and returns
+  the applied query scope version.
 - \`query_stories\` is an exact Story/AC lookup with authority and lifecycle filters.
 - \`get_asset_intent_context\` reads the exact manifest-backed intent neighborhood
   and contract coupling for a known path, optional code/test kind, and optional
