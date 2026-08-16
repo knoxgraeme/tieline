@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -10,6 +10,7 @@ import { cases } from "./cases.mjs";
 import {
   gradePatch,
   isTypeScriptConfigPath,
+  MAX_PATCH_BYTES,
   parsePatch,
 } from "./graders/grade-patch.mjs";
 
@@ -97,6 +98,10 @@ async function runFixtureSuite() {
 }
 
 async function gradeExternalPatch(patchPath, refs) {
+  const stats = await stat(patchPath);
+  if (stats.size > MAX_PATCH_BYTES) {
+    throw new Error("Patch exceeds the maximum accepted size.");
+  }
   const patch = await readFile(path.resolve(process.cwd(), patchPath), "utf8");
   gradeExternalDiff(patch, loadFileContents(patch, refs));
 }
@@ -203,9 +208,17 @@ if (patchFlag >= 0 && stdinFlag) {
 } else if (stdinFlag) {
   process.stdin.setEncoding("utf8");
   let patch = "";
-  for await (const chunk of process.stdin) patch += chunk;
+  for await (const chunk of process.stdin) {
+    patch += chunk;
+    if (Buffer.byteLength(patch, "utf8") > MAX_PATCH_BYTES) {
+      console.error("Patch exceeds the maximum accepted size.");
+      process.exitCode = 2;
+      break;
+    }
+  }
+  if (process.exitCode === 2) process.stdin.destroy();
   try {
-    gradeExternalDiff(patch, loadFileContents(patch, refs));
+    if (process.exitCode !== 2) gradeExternalDiff(patch, loadFileContents(patch, refs));
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 2;

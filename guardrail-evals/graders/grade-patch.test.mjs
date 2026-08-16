@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { gradePatch } from "./grade-patch.mjs";
+import {
+  gradePatch,
+  MAX_PATCH_FILE_LINES,
+  parsePatch,
+  verifiesIntegrationRelocationBundle,
+  verifiesRelocationAttestation,
+  verifiesRelocationBundle,
+} from "./grade-patch.mjs";
 
 function patchFor(path, body, metadata = "index 1111111..2222222 100644") {
   return `diff --git a/${path} b/${path}\n${metadata}\n--- a/${path}\n+++ b/${path}\n${body}\n`;
@@ -248,6 +256,311 @@ test("rejects deletion of a TypeScript configuration", () => {
   ).replace("+++ b/tsconfig.json", "+++ /dev/null");
 
   assert.deepEqual(gradePatch(patch).violations, ["typescript-config-removed"]);
+});
+
+test("allows fixture-local TypeScript config removal", () => {
+  const patch = patchFor(
+    "tests/fixtures/query/tsconfig.json",
+    '@@ -1 +0,0 @@\n-{"compilerOptions":{"strict":false},"exclude":["src"]}',
+    "deleted file mode 100644",
+  ).replace("+++ b/tests/fixtures/query/tsconfig.json", "+++ /dev/null");
+
+  assert.deepEqual(gradePatch(patch).violations, []);
+
+  const sourceFixturePatch = patchFor(
+    "src/fixtures/tsconfig.json",
+    '@@ -1 +0,0 @@\n-{"compilerOptions":{}}',
+    "deleted file mode 100644",
+  ).replace("+++ b/src/fixtures/tsconfig.json", "+++ /dev/null");
+
+  assert.deepEqual(gradePatch(sourceFixturePatch).violations, [
+    "typescript-config-removed",
+  ]);
+});
+
+test("allows test fixture excludes without exempting generic fixture patterns", () => {
+  const fixtureExclude = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1,3 @@\n+  "include": ["src/**/*.ts", "tests/**/*.ts"],\n+  "exclude": ["tests/fixtures"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const testsExclude = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["tests/unit"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const escapingFixturePath = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["tests/fixtures/../unit"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const genericFixturePattern = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["**/fixtures/**"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const vendorFixturePath = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["vendor/fixtures"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+  const sourceNestedTestFixturePath = patchFor(
+    "tsconfig.typecheck.json",
+    '@@ -0,0 +1 @@\n+  "exclude": ["src/tests/fixtures"]',
+    "new file mode 100644",
+  ).replace("--- a/tsconfig.typecheck.json", "--- /dev/null");
+
+  assert.deepEqual(gradePatch(fixtureExclude).violations, []);
+  assert.deepEqual(gradePatch(testsExclude).violations, [
+    "typescript-surface-narrowed",
+  ]);
+  assert.deepEqual(gradePatch(escapingFixturePath).violations, [
+    "typescript-surface-narrowed",
+  ]);
+  assert.deepEqual(gradePatch(genericFixturePattern).violations, [
+    "typescript-surface-narrowed",
+  ]);
+  assert.deepEqual(gradePatch(vendorFixturePath).violations, []);
+  assert.deepEqual(gradePatch(sourceNestedTestFixturePath).violations, [
+    "typescript-surface-narrowed",
+  ]);
+});
+
+function digest(lines) {
+  return createHash("sha256").update(lines.join("\n")).digest("hex");
+}
+
+function testAttestation() {
+  const deleted = ['import assert from "node:assert/strict";', 'assert.ok(true);'];
+  const added = ['import assert from "node:assert/strict";', 'assert.ok(true);'];
+  const oldPath = "scripts/test-cleanup.ts";
+  const newPath = "tests/unit/test-cleanup.ts";
+  return {
+    oldPath,
+    newPath,
+    deleted,
+    added,
+    attestations: new Map([
+      [oldPath, { newPath, oldDigest: digest(deleted), newDigest: digest(added) }],
+    ]),
+  };
+}
+
+test("accepts an exact relocation attestation", () => {
+  const input = testAttestation();
+  assert.equal(verifiesRelocationAttestation(input, input.attestations), true);
+});
+
+test("rejects an attested relocation with changed content", () => {
+  const input = testAttestation();
+  assert.equal(
+    verifiesRelocationAttestation(
+      { ...input, added: [...input.added, "process.exit(0);"] },
+      input.attestations,
+    ),
+    false,
+  );
+});
+
+test("rejects an attested relocation with the wrong destination", () => {
+  const input = testAttestation();
+  assert.equal(
+    verifiesRelocationAttestation(
+      { ...input, newPath: "tests/unit/other.ts" },
+      input.attestations,
+    ),
+    false,
+  );
+});
+
+test("rejects an attested relocation into test fixtures", () => {
+  const input = testAttestation();
+  const fixturePath = "tests/fixtures/test-cleanup.ts";
+  const attestations = new Map([
+    [
+      input.oldPath,
+      {
+        newPath: fixturePath,
+        oldDigest: digest(input.deleted),
+        newDigest: digest(input.added),
+      },
+    ],
+  ]);
+  assert.equal(
+    verifiesRelocationAttestation({ ...input, newPath: fixturePath }, attestations),
+    false,
+  );
+});
+
+function supportBundle() {
+  const moves = [
+    ["scripts/lib/harness.ts", "tests/support/harness.ts", ["export function run() {}"]],
+    ["src/domain/testing/fake-store.ts", "tests/support/fakes/fake-store.ts", ["export class FakeStore {}"]],
+  ];
+  const attestations = new Map();
+  const files = [];
+  for (const [oldPath, newPath, source] of moves) {
+    attestations.set(oldPath, {
+      newPath,
+      oldDigest: digest(source),
+      newDigest: digest(source),
+    });
+    files.push(
+      { oldPath, path: oldPath, deleted: source, added: [], isDeleted: true, isNew: false },
+      { oldPath: newPath, path: newPath, deleted: [], added: source, isDeleted: false, isNew: true },
+    );
+  }
+  return { files, attestations };
+}
+
+test("accepts only the complete exact support relocation bundle", () => {
+  const bundle = supportBundle();
+  assert.equal(verifiesRelocationBundle(bundle.files, bundle.attestations), true);
+  assert.equal(
+    verifiesRelocationBundle(bundle.files.slice(0, -1), bundle.attestations),
+    false,
+  );
+});
+
+test("rejects an exact entry when a relocated support file is weakened", () => {
+  const entry = testAttestation();
+  assert.equal(verifiesRelocationAttestation(entry, entry.attestations), true);
+
+  const bundle = supportBundle();
+  const harness = bundle.files.find((file) => file.path === "tests/support/harness.ts");
+  harness.added = ["export function run() { process.exit(0); }"];
+  assert.equal(verifiesRelocationBundle(bundle.files, bundle.attestations), false);
+});
+
+function integrationBundle() {
+  const moduleSource = ["export async function run() {}"];
+  const oldPath = "scripts/integration-evidence.ts";
+  const newPath = "tests/integration/integration-evidence.ts";
+  const preflightSource = ["export function requireDatabase() {}"];
+  return {
+    files: [
+      { oldPath, path: oldPath, deleted: moduleSource, added: [], isDeleted: true, isNew: false },
+      { oldPath: newPath, path: newPath, deleted: [], added: moduleSource, isDeleted: false, isNew: true },
+      {
+        oldPath: "tests/support/integration-database-preflight.ts",
+        path: "tests/support/integration-database-preflight.ts",
+        deleted: [],
+        added: preflightSource,
+        isDeleted: false,
+        isNew: true,
+      },
+    ],
+    attestations: new Map([
+      [oldPath, { newPath, oldDigest: digest(moduleSource), newDigest: digest(moduleSource) }],
+    ]),
+    preflightAttestation: {
+      newPath: "tests/support/integration-database-preflight.ts",
+      newDigest: digest(preflightSource),
+    },
+  };
+}
+
+test("accepts the complete exact integration relocation bundle", () => {
+  const bundle = integrationBundle();
+  assert.equal(
+    verifiesIntegrationRelocationBundle(
+      bundle.files,
+      bundle.attestations,
+      bundle.preflightAttestation,
+    ),
+    true,
+  );
+});
+
+test("rejects an exact aggregate entry with a weakened integration dependency", () => {
+  const entry = testAttestation();
+  assert.equal(verifiesRelocationAttestation(entry, entry.attestations), true);
+  const bundle = integrationBundle();
+  bundle.files[1].added = ["export async function run() { process.exit(0); }"];
+  assert.equal(
+    verifiesIntegrationRelocationBundle(
+      bundle.files,
+      bundle.attestations,
+      bundle.preflightAttestation,
+    ),
+    false,
+  );
+});
+
+test("rejects an exact aggregate entry with a weakened database preflight", () => {
+  const entry = testAttestation();
+  assert.equal(verifiesRelocationAttestation(entry, entry.attestations), true);
+  const bundle = integrationBundle();
+  bundle.files[2].added = ["export function requireDatabase() { return undefined; }"];
+  assert.equal(
+    verifiesIntegrationRelocationBundle(
+      bundle.files,
+      bundle.attestations,
+      bundle.preflightAttestation,
+    ),
+    false,
+  );
+});
+
+test("rejects duplicate destination records before relocation attestation", () => {
+  const patch = `diff --git a/tests/unit/test-http.ts b/tests/unit/test-http.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test-http.ts
+@@ -0,0 +1 @@
++console.log("first");
+diff --git a/tests/unit/test-http.ts b/tests/unit/test-http.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test-http.ts
+@@ -0,0 +1 @@
++process.exit(0);
+`;
+
+  assert.deepEqual(gradePatch(patch).violations, ["patch-invalid"]);
+});
+
+test("decodes quoted Git paths and rejects quoted duplicate destinations", () => {
+  const legitimate = `diff --git "a/src/space name\\tvalue.ts" "b/src/space name\\tvalue.ts"
+new file mode 100644
+--- /dev/null
++++ "b/src/space name\\tvalue.ts"
+@@ -0,0 +1 @@
++export const value = true;
+`;
+  assert.equal(parsePatch(legitimate)[0].path, "src/space name\tvalue.ts");
+
+  const duplicate = `${legitimate}diff --git "a/src/space name\\tvalue.ts" "b/src/space name\\tvalue.ts"
+new file mode 100644
+--- /dev/null
++++ "b/src/space name\\tvalue.ts"
+@@ -0,0 +1 @@
++process.exit(0);
+`;
+  assert.deepEqual(gradePatch(duplicate).violations, ["patch-invalid"]);
+});
+
+test("rejects malformed Git path quoting", () => {
+  const patch = `diff --git "a/src/value.ts" "b/src/value.ts
+new file mode 100644
+--- /dev/null
++++ b/src/value.ts
+@@ -0,0 +1 @@
++export const value = true;
+`;
+  assert.deepEqual(gradePatch(patch).violations, ["patch-invalid"]);
+});
+
+test("rejects oversized relocation-shaped input before hashing", () => {
+  const input = testAttestation();
+  const oversized = Array.from({ length: MAX_PATCH_FILE_LINES + 1 }, () => "x");
+  assert.equal(
+    verifiesRelocationAttestation(
+      { ...input, deleted: oversized, added: oversized },
+      input.attestations,
+    ),
+    false,
+  );
 });
 
 test("rejects deletion of the trusted guardrail workflow", () => {
