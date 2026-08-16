@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Setup](setup.md) · **Concepts** · [CLI](cli.md) · [MCP](mcp.md) · [Operations](operations.md)
 
-## The hierarchy
+## How the contract is structured
 
 ```text
 Capability → User Story → Acceptance Criteria → zero or more Scenarios
@@ -25,9 +25,10 @@ coarse fallback.
 An AC stands on its own. A Scenario is useful when a condition, edge case, or concrete example
 would make the outcome easier to review; it is not required for the AC to be valid.
 
-## From proposed intent to accepted evidence
+## How evidence becomes accepted
 
-Tieline combines agent judgment with deterministic checks. Each layer has a narrower job:
+From proposed intent to accepted evidence, Tieline combines agent judgment with deterministic
+checks. Each layer has a narrower job:
 
 1. The Tieline skill reads configured product context, repository documentation, source entry
    points, schemas, migrations, and tests, then proposes Capabilities, Stories, ACs, and links.
@@ -43,17 +44,10 @@ Tieline combines agent judgment with deterministic checks. Each layer has a narr
 6. A separate code topology can follow static dependents and join visited locators back to the
    accepted AC links, producing an AC-aware possible blast radius.
 
-The resulting assurance is deliberately specific:
+The [README assurance table](../README.md#what-tieline-can-prove) summarizes what each signal
+establishes and where its claims stop.
 
-| Signal | Establishes | Does not establish |
-| --- | --- | --- |
-| `authored` link | An explicit contract claim was accepted through repository review | Permanent semantic correctness |
-| Resolved selector | The current symbol can be identified precisely | That its implementation satisfies the AC |
-| `hash_current` | The evidence still matches the bytes accepted in the manifest | That the original review was correct |
-| Grade | A fresh agent judged current allowed evidence as supported, partial, or unsupported | Formal proof or test execution |
-| Blast-radius result | Static code dependents and their linked ACs may be impacted | Runtime reachability or guaranteed breakage |
-
-## Authority model
+## Who can change each record
 
 A Story stays the same kind of record as it moves from planning to delivery. Its lifecycle
 determines which system may change it:
@@ -73,7 +67,7 @@ planning tools.
 Observations and Backlog Items do not turn into repository records. Repository YAML may retain
 stable `motivated_by` pointers without copying their source payloads.
 
-## The four planes
+## How the data is separated
 
 - **Contract plane** — strict repository YAML for accepted Stories and ACs; planning Stories and
   ACs live in Postgres while they remain `backlog`.
@@ -84,7 +78,7 @@ stable `motivated_by` pointers without copying their source payloads.
 - **Governance plane** — repository history, pull-request review, sync checkpoints, conflicts, and
   audit events.
 
-## Where things live
+## Where data lives
 
 | Location | Contents |
 | --- | --- |
@@ -95,7 +89,7 @@ stable `motivated_by` pointers without copying their source payloads.
 The private config location can be changed through `TIELINE_CONFIG_HOME`, `XDG_CONFIG_HOME`, or
 the platform-specific application-data directory.
 
-## Contract YAML
+## What contract YAML contains
 
 ```yaml
 version: 1
@@ -143,7 +137,7 @@ Stable IDs are identity, not search prose. Aliases support alternate language, a
 distinguishes legitimately different behavior, and `supersedes` converges definitions without
 deleting history.
 
-## The compiled manifest
+## What the compiled manifest contains
 
 Compilation writes `.tieline/manifest/`, one file per capability plus a small index:
 
@@ -162,11 +156,12 @@ stale shards for capabilities the specification no longer declares.
 The manifest intentionally repeats normalized contract content. YAML is the authoring source;
 the manifest is the deterministic, hash-bearing read model used by local tools, CI, and sync.
 
-## The derived topology
+## What the code topology contains
 
-`tieline code compile` writes `.tieline/topology/graph.json`. It records current symbols,
-references, resolved static edges, diagnostics, and unresolved frontiers for supported source
-languages. Reads query this committed snapshot without starting a parser or writing to Postgres.
+`tieline code compile` writes `.tieline/topology/graph.json`. It records source hashes,
+locator-bearing symbols, resolved static adjacency edges, and unresolved dependency frontiers for
+supported source languages. Reads query this committed snapshot without starting a parser or
+writing to Postgres.
 
 The topology is not a second source of product truth. It describes code-to-code relationships;
 the contract describes accepted intent-to-code relationships. Exact repository/path/selector
@@ -176,7 +171,7 @@ Repository sync and topology compilation are separate operations. A main-branch 
 compile and commit the reviewed topology with code changes, then sync the accepted contract and
 topology projection after merge when Postgres-backed access is configured.
 
-## Coverage and freshness
+## How coverage and freshness work
 
 Implementation-link and test-link coverage are independently `none`, `partial`, or `complete` for
 repository-owned Stories. Only direct AC links count; Story-level fallback links remain
