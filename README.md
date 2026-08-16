@@ -53,7 +53,7 @@ context on both accepted behavior and future direction.
 ## Core concepts
 
 ```text
-Capability → User Story → Acceptance Criteria → zero or more Scenarios
+Capability → User Story → Acceptance Criteria → Scenarios [Given/When/Then]
 ```
 
 Acceptance Criteria are the primary anchors for code, test, and Observation links. Story-level
