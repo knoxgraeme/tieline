@@ -1,0 +1,8 @@
+# Guardrails need a human root of trust in addition to repository-local checks.
+/AGENTS.md @knoxgraeme
+/.github/CODEOWNERS @knoxgraeme
+/.github/workflows/ @knoxgraeme
+/guardrail-evals/ @knoxgraeme
+/package.json @knoxgraeme
+/package-lock.json @knoxgraeme
+/tsconfig*.json @knoxgraeme

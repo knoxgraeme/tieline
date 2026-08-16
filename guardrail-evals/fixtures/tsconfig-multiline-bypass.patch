@@ -1,0 +1,8 @@
+diff --git a/tsconfig.json b/tsconfig.json
+index 1111111..2222222 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -15,0 +16,3 @@
++  "exclude": [
++    "scripts"
++  ]

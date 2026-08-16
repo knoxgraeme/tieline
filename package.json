@@ -84,7 +84,14 @@
     "test:integration:planning": "tsx scripts/integration-planning.ts",
     "test:integration:lifecycle": "tsx scripts/integration-lifecycle.ts",
     "test:baseline": "tsx scripts/test-baseline.ts",
-    "test:integration:baseline": "tsx scripts/integration-baseline.ts"
+    "test:integration:baseline": "tsx scripts/integration-baseline.ts",
+    "test:guardrail:fixtures": "node guardrail-evals/run.mjs",
+    "test:guardrail:unit": "node --test guardrail-evals/graders/grade-patch.test.mjs guardrail-evals/run.test.mjs",
+    "test:guardrail:hooks": "node --test skills/align-typescript-guardrails/assets/codex-guardrails-example/.codex/hooks/pre-tool-use.test.mjs skills/align-typescript-guardrails/assets/codex-guardrails-example/.codex/hooks/verify-before-stop.test.mjs",
+    "test:guardrail:rules": "node --test skills/align-typescript-guardrails/assets/codex-guardrails-example/.codex/rules/guardrails.test.mjs",
+    "test:guardrails": "npm run test:guardrail:fixtures && npm run test:guardrail:unit && npm run test:guardrail:hooks && npm run test:guardrail:rules",
+    "check:fast": "npm run build && npm test && npm run test:guardrails",
+    "check": "npm run check:fast && npm run test:tieline && npm pack --dry-run --ignore-scripts"
   },
   "engines": {
     "node": ">=20.12"

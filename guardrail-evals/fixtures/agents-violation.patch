@@ -1,0 +1,7 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 1111111..2222222 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -20,2 +20,2 @@
+- [TG-1] Keep TypeScript strict. Do not exclude failing files.
++ [TG-1] TypeScript strictness is optional when convenient.

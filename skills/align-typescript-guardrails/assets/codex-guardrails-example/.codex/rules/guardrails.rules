@@ -1,0 +1,72 @@
+# Example outside-sandbox command policy. Tailor to repository tooling and test
+# every decision with `codex execpolicy check` before adoption.
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "Preserve user changes. Inspect the diff and use a targeted, recoverable operation.",
+    match = [
+        "git reset --hard",
+        "git reset --hard HEAD~1",
+    ],
+    not_match = [
+        "git reset --soft HEAD~1",
+        "git status --short",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", ["-f", "--force", "-fd", "-df", "-fxd", "-xdf"]],
+    decision = "prompt",
+    justification = "Cleaning can destroy untracked user files; inspect targets and obtain approval.",
+    match = [
+        "git clean -fd",
+        "git clean -xdf",
+    ],
+    not_match = [
+        "git clean -n",
+        "git status --short",
+    ],
+)
+
+prefix_rule(
+    pattern = ["rm", ["-rf", "-fr"]],
+    decision = "forbidden",
+    justification = "Recursive forced deletion is too broad. Use a resolved, targeted, recoverable operation.",
+    match = [
+        "rm -rf build",
+        "rm -fr coverage",
+    ],
+    not_match = [
+        "rm build/output.js",
+        "git status --short",
+    ],
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm"], "publish"],
+    decision = "prompt",
+    justification = "Publishing is an external production-side effect and requires approval.",
+    match = [
+        "npm publish",
+        "pnpm publish --access public",
+    ],
+    not_match = [
+        "npm pack",
+        "pnpm test",
+    ],
+)
+
+prefix_rule(
+    pattern = ["npm", "run", ["deploy:production", "migrate:production"]],
+    decision = "prompt",
+    justification = "Production deployment and migration commands require explicit approval.",
+    match = [
+        "npm run deploy:production",
+        "npm run migrate:production -- --confirm",
+    ],
+    not_match = [
+        "npm run build",
+        "npm run migrate:test",
+    ],
+)

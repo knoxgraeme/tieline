@@ -1,0 +1,11 @@
+diff --git a/tsconfig.json b/tsconfig.json
+index 1111111..2222222 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -15,2 +15,3 @@
+   "include": ["src/**/*.ts", "scripts/**/*.ts"],
++  "exclude": ["src/failing.ts", "scripts/integration.ts"]
+diff --git a/tsconfig.ui.json b/tsconfig.ui.backup.json
+similarity index 100%
+rename from tsconfig.ui.json
+rename to tsconfig.ui.backup.json

@@ -1,0 +1,8 @@
+diff --git a/.github/workflows/quality.yml b/.github/workflows/quality.yml
+index 1111111..2222222 100644
+--- a/.github/workflows/quality.yml
++++ b/.github/workflows/quality.yml
+@@ -2,2 +2,4 @@
+ on: [pull_request]
++permissions:
++  contents: read

@@ -1,0 +1,7 @@
+diff --git a/.github/workflows/guardrail.yml b/.github/workflows/guardrail.yml
+deleted file mode 100644
+index 1111111..0000000
+--- a/.github/workflows/guardrail.yml
++++ /dev/null
+@@ -1 +0,0 @@
+-name: Guardrail

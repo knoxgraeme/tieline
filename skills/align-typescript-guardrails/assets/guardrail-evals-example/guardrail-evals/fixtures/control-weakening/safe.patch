@@ -1,0 +1,16 @@
+*** Begin Patch
+*** Update File: src/parser.ts
+@@
++// @ts-expect-error -- upstream decoder types reject the runtime-supported overload
++const parsed = decode(value);
+*** Update File: tsconfig.json
+@@
++    "strict": true,
++    "noUncheckedIndexedAccess": true,
+*** Update File: src/parser.test.ts
+@@
++test("parses values", () => {
+*** Update File: .github/workflows/quality.yml
+@@
++    continue-on-error: false
+*** End Patch

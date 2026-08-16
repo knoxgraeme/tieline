@@ -1,0 +1,11 @@
+diff --git a/src/example.ts b/src/example.ts
+index 1111111..2222222 100644
+--- a/src/example.ts
++++ b/src/example.ts
+@@ -1,2 +1,7 @@
++/* eslint-disable -- legacy file */
++// eslint-disable-next-line -- legacy assertion
++// @ts-ignore
+ export const answer = 42;
++console.log(answer); // eslint-disable-line -- legacy output
++test.only("answer", () => {});

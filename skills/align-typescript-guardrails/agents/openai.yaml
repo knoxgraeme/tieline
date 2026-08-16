@@ -1,0 +1,4 @@
+interface:
+  display_name: "Align TypeScript Guardrails"
+  short_description: "Audit, migrate, and test TypeScript guardrails"
+  default_prompt: "Use $align-typescript-guardrails to audit, test, or migrate the agent guardrails in this TypeScript/Node repository."

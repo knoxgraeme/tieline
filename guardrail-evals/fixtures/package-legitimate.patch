@@ -1,0 +1,6 @@
+diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@ -10,2 +10,3 @@
++    "docs:check-links": "node scripts/check-links.mjs",
