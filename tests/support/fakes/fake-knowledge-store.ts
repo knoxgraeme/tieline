@@ -201,7 +201,7 @@ export class FakeKnowledgeStore implements KnowledgeStore {
     return Promise.reject(unconfigured("listHandoffConflicts"));
   }
 
-  resolveRetrievalProfile(): Promise<ResolvedRetrievalProfile> {
+  resolveRetrievalProfile(_profile: string): Promise<ResolvedRetrievalProfile> {
     return Promise.reject(unconfigured("resolveRetrievalProfile"));
   }
   searchSemantic(_input: {

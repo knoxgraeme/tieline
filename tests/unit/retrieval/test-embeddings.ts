@@ -265,6 +265,9 @@ async function main(): Promise<void> {
   });
   const observation: ObservationRecord = {
     ...preparedSensitiveObservation,
+    external_url: preparedSensitiveObservation.external_url ?? null,
+    supersedes_observation_id:
+      preparedSensitiveObservation.supersedes_observation_id ?? null,
     id: "00000000-0000-4000-8000-000000000005",
     external_id: "ticket-secret",
     recorded_at: "2026-07-29T00:00:01.000Z",

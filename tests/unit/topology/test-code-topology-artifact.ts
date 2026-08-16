@@ -15,6 +15,33 @@ import { report, test } from "../../support/harness.js";
 
 const digest = (value: string): string => value.repeat(64);
 
+type JsonValue = boolean | number | string | null | JsonObject | JsonValue[];
+interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseJsonObject(value: string): JsonObject {
+  const parsed: unknown = JSON.parse(value);
+  assert.ok(isJsonObject(parsed), "expected a JSON object");
+  return parsed;
+}
+
+function objectField(object: JsonObject, field: string): JsonObject {
+  const value = object[field];
+  assert.ok(isJsonObject(value), `expected '${field}' to be a JSON object`);
+  return value;
+}
+
+function arrayField(object: JsonObject, field: string): JsonValue[] {
+  const value = object[field];
+  assert.ok(Array.isArray(value), `expected '${field}' to be a JSON array`);
+  return value;
+}
+
 function fixture(): CodeTopologyReadModelGeneration {
   const fields = {
     repository: "fixture/repository",
@@ -63,9 +90,11 @@ const logical = fixture();
 
 function mutateGraph(
   serialized: ReturnType<typeof serializeCodeTopologyArtifact>,
-  mutate: (graph: any) => void
+  mutate: (graph: JsonObject) => void
 ): ReadonlyMap<string, Buffer> {
-  const graph = JSON.parse(serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8"));
+  const graph = parseJsonObject(
+    serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8")
+  );
   mutate(graph);
   return new Map([[CODE_TOPOLOGY_ARTIFACT_FILE, Buffer.from(`${JSON.stringify(graph)}\n`)]]);
 }
@@ -82,8 +111,14 @@ await test("one canonical graph.json round-trips the provider-neutral traversal 
   assert.ok(writes.every((value) =>
     value.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.equals(writes[0]!.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!)
   ));
-  const graph = JSON.parse(writes[0]!.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8"));
-  assert.deepEqual(graph.edges[0], logical.edges[0], "edge endpoints use stable symbol identities, not generation-scoped wrappers");
+  const graph = parseJsonObject(
+    writes[0]!.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8")
+  );
+  assert.deepEqual(
+    arrayField(graph, "edges")[0],
+    logical.edges[0],
+    "edge endpoints use stable symbol identities, not generation-scoped wrappers"
+  );
   const parsed = parseCodeTopologyArtifact(writes[0]!.files);
   assert.equal(parsed.status, "complete", "detail" in parsed ? parsed.detail : undefined);
   if (parsed.status !== "complete") return;
@@ -112,9 +147,11 @@ await test("mixed-case record keys use one locale-independent canonical order", 
   mixedCase.projection_digest = codeTopologyArtifactProjectionDigest(mixedCase);
 
   const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(mixedCase));
-  const graph = JSON.parse(serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8"));
+  const graph = parseJsonObject(
+    serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8")
+  );
   assert.deepEqual(
-    graph.files.map((file: { path: string }) => file.path),
+    arrayField(graph, "files").map((file) => objectField({ file }, "file").path),
     ["src/Zeta.ts", "src/alpha.js", "src/lib.rs", "src/worker.py"]
   );
   const parsed = parseCodeTopologyArtifact(serialized.files);
@@ -124,8 +161,8 @@ await test("mixed-case record keys use one locale-independent canonical order", 
 await test("graph reader rejects incompatible, corrupt, and unexpected physical inputs", () => {
   const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(logical));
   assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { graph.schema_version = 999; })).status, "incompatible");
-  assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { graph.producer.identity = "unknown_provider"; })).status, "incompatible");
-  assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { graph.counts.files += 1; })).status, "invalid");
+  assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { objectField(graph, "producer").identity = "unknown_provider"; })).status, "incompatible");
+  assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { const counts = objectField(graph, "counts"); counts.files = Number(counts.files) + 1; })).status, "invalid");
   assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { graph.artifact_digest = digest("0"); })).status, "invalid");
   assert.equal(parseCodeTopologyArtifact(new Map([
     ...serialized.files,
@@ -141,12 +178,12 @@ await test("graph reader rejects incompatible, corrupt, and unexpected physical 
 
 await test("graph reader validates every record before constructing the read model", () => {
   const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(logical));
-  const cases: Array<{ label: string; mutate: (graph: any) => void; detail: RegExp }> = [
-    { label: "file metadata", mutate: (graph) => { graph.files[0].source_hash = 7; }, detail: /invalid file record/i },
-    { label: "symbol metadata", mutate: (graph) => { graph.symbols[0].identity = false; }, detail: /invalid symbol record/i },
-    { label: "edge metadata", mutate: (graph) => { graph.edges[0].reference_identity = ["invalid"]; }, detail: /invalid edge record/i },
-    { label: "frontier metadata", mutate: (graph) => { graph.frontiers[0].candidate_targets = [7]; }, detail: /invalid frontier record/i },
-    { label: "persistence-only symbol metadata", mutate: (graph) => { graph.symbols[0].body_range = null; }, detail: /unsupported fields/i },
+  const cases: Array<{ label: string; mutate: (graph: JsonObject) => void; detail: RegExp }> = [
+    { label: "file metadata", mutate: (graph) => { objectField({ entry: arrayField(graph, "files")[0] }, "entry").source_hash = 7; }, detail: /invalid file record/i },
+    { label: "symbol metadata", mutate: (graph) => { objectField({ entry: arrayField(graph, "symbols")[0] }, "entry").identity = false; }, detail: /invalid symbol record/i },
+    { label: "edge metadata", mutate: (graph) => { objectField({ entry: arrayField(graph, "edges")[0] }, "entry").reference_identity = ["invalid"]; }, detail: /invalid edge record/i },
+    { label: "frontier metadata", mutate: (graph) => { objectField({ entry: arrayField(graph, "frontiers")[0] }, "entry").candidate_targets = [7]; }, detail: /invalid frontier record/i },
+    { label: "persistence-only symbol metadata", mutate: (graph) => { objectField({ entry: arrayField(graph, "symbols")[0] }, "entry").body_range = null; }, detail: /unsupported fields/i },
   ];
   for (const candidate of cases) {
     const parsed = parseCodeTopologyArtifact(mutateGraph(serialized, candidate.mutate));

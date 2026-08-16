@@ -581,7 +581,7 @@ try {
       entity_kind, entity_id, revision, authority, content
     ) values (
       'story', ${conflictStory.id}, 1, 'planning',
-      ${{ title: "Later planning title" }}
+      ${JSON.stringify({ title: "Later planning title" })}
     )`;
   writeFileSync(
     resolve(root, ".tieline/spec/sync.yaml"),

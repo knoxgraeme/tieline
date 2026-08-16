@@ -23,7 +23,7 @@ import {
   compareGeneratedArtifact,
   runGeneratedArtifactGate,
   type GeneratedArtifactMismatch,
-} from "./generated-artifact-gate.js";
+} from "../../../scripts/generated-artifact-gate.js";
 import { tielineConfigJson } from "../../support/fixtures.js";
 import { report, test } from "../../support/harness.js";
 

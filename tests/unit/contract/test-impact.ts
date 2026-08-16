@@ -20,7 +20,10 @@ import {
   analyzeContractImpact,
   parseNameStatus,
 } from "../../../src/contract/impact.js";
-import type { ArtifactAssuranceInspector } from "../../../src/contract/artifact-assurance.js";
+import type {
+  ArtifactAssuranceInspector,
+  StructuralSourceEvidence,
+} from "../../../src/contract/artifact-assurance.js";
 import {
   renderCheckImpactGroupText,
   runCheckCommand,
@@ -543,21 +546,42 @@ capability:
   );
   assert.doesNotMatch(human, unsafeTerminalCodePoint);
 
-  const injectedImpact = structuredClone(changed[0]) as any;
+  const injectedImpact = structuredClone(changed[0]!);
   injectedImpact.story_title = terminalInjection;
   injectedImpact.acceptance_criterion = terminalInjection;
   injectedImpact.path = terminalInjection;
   injectedImpact.selector = terminalInjection;
-  injectedImpact.source_evidence = {
-    language: terminalInjection,
-    range: { start: { line: 0 } },
-    snippet: { text: terminalInjection, truncated: false },
+  const position = {
+    utf16Offset: 0,
+    utf8ByteOffset: 0,
+    line: 0,
+    utf16Column: 0,
+    utf8ByteColumn: 0,
   };
+  const range = {
+    utf16: { start: 0, end: 0 },
+    utf8Bytes: { start: 0, end: 0 },
+    start: position,
+    end: position,
+  };
+  injectedImpact.source_evidence = {
+    language: "typescript",
+    canonical_selector: "const:feature",
+    symbol_identity: "source:feature",
+    native_kind: "variable_declarator",
+    syntax_status: "exact",
+    name_range: range,
+    range,
+    snippet: { text: terminalInjection, range, truncated: false },
+    analyzed_content_hash: "0".repeat(64),
+    compatibility: { parser: "fixture", query: "fixture", identity: "fixture" },
+    diagnostics: [],
+  } satisfies StructuralSourceEvidence;
   const injectedImpactText = renderCheckImpactGroupText([injectedImpact]);
   assert.ok(injectedImpactText.includes(escapedTerminalInjection));
   assert.doesNotMatch(injectedImpactText, unsafeTerminalCodePoint);
   assert.equal(
-    injectedImpact.source_evidence.snippet.text,
+    injectedImpact.source_evidence?.snippet.text,
     terminalInjection,
     "human rendering must not mutate structured impact evidence"
   );

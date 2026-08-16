@@ -147,6 +147,7 @@ function successfulSkillfish(
       skipped: [],
     }),
     stderr: "",
+    timedOut: false,
   });
 }
 
@@ -575,6 +576,7 @@ try {
             ],
           }),
           stderr: "",
+          timedOut: false,
         }),
         mcpCliRunner: successfulMcpCli,
       }

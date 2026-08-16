@@ -1,8 +1,8 @@
 if (!process.env.DATABASE_URL_ADMIN) {
-  console.log(
-    "SKIP - DATABASE_URL_ADMIN not set; the end-to-end suite needs a disposable blank database."
+  console.error(
+    "DATABASE_URL_ADMIN is required for test:integration and must point to a guarded disposable blank database."
   );
-  process.exit(0);
+  process.exit(1);
 }
 
 // Run lifecycle flows before the profile-version audit so each scenario sees

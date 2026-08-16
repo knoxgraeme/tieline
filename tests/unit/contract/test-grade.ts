@@ -252,7 +252,7 @@ capability:
       throw new Error("expected code target fixture");
     }
     target.path = path;
-    target.selector = selector;
+    target.selector = selector ?? undefined;
     return buildGradeScope({
       repositoryRoot: root,
       base: "HEAD",
@@ -581,6 +581,9 @@ capability:
   selectorLink.target.path = "src/feature.py";
   selectorLink.target.selector = "class:Worker/method:run";
   const secondSelector = structuredClone(selectorLink);
+  if (secondSelector.target.kind !== "code") {
+    throw new Error("expected a code link fixture");
+  }
   secondSelector.target.selector = "class:Worker/method:stop";
   selectorLinks.splice(selectorLinkIndex + 1, 0, secondSelector);
   const selectorScope = await buildGradeScope({

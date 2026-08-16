@@ -20,6 +20,10 @@ await server.connect(serverTransport);
 const client = new Client({ name: "smoke-client", version: "0.0.0" });
 await client.connect(clientTransport);
 
+function resourceText(resource: { text: string } | { blob: string }): string {
+  return "text" in resource ? resource.text : "";
+}
+
 try {
   const tools = await client.listTools();
   const names = tools.tools.map((tool) => tool.name).sort();
@@ -134,18 +138,18 @@ try {
   const guide = await client.readResource({
     uri: "docs://tieline-contract",
   });
-  assert.match(String(guide.contents[0]?.text), /Authority and lifecycle/);
-  assert.match(String(guide.contents[0]?.text), /get_asset_intent_context/);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /Authority and lifecycle/);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /get_asset_intent_context/);
   assert.match(
-    String(guide.contents[0]?.text),
+    resourceText(guide.contents[0] ?? { blob: "" }),
     /get_acceptance_criterion_context/
   );
-  assert.match(String(guide.contents[0]?.text), /before semantic search/i);
-  assert.match(String(guide.contents[0]?.text), /intent neighborhood/i);
-  assert.match(String(guide.contents[0]?.text), /contract coupling/i);
-  assert.match(String(guide.contents[0]?.text), /trace_code_dependencies/);
-  assert.match(String(guide.contents[0]?.text), /analyze_code_blast_radius/);
-  assert.match(String(guide.contents[0]?.text), /semantic_support: not_assessed/);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /before semantic search/i);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /intent neighborhood/i);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /contract coupling/i);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /trace_code_dependencies/);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /analyze_code_blast_radius/);
+  assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /semantic_support: not_assessed/);
 
   const prompts = await client.listPrompts();
   assert.deepEqual(

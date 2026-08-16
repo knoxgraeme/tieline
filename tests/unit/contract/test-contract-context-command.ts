@@ -270,6 +270,7 @@ capability:
     }),
     "AC JSON must preserve the exact U3 ancestry and asset membership"
   );
+  assert.ok(criterionContext.intent_neighborhood);
   assert.equal(criterionContext.intent_neighborhood.capability.stable_id, "CONTEXT");
   assert.equal(criterionContext.intent_neighborhood.story.lifecycle, "production");
   assert.equal(

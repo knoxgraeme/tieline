@@ -315,18 +315,26 @@ await test("batches multiple starts without N+1 locator, symbol, or frontier rea
   const batchedStore = new FakeCodeTopologyStore();
   await batchedStore.commitGeneration({ generation, expected_previous_generation_identity: null });
   const calls = { paths: 0, symbols: 0, forward: 0, frontiers: 0 };
-  for (const [method, key] of [
-    ["listSymbolsByPaths", "paths"],
-    ["listSymbolsByIdentities", "symbols"],
-    ["listForwardEdges", "forward"],
-    ["listDependencyFrontiers", "frontiers"],
-  ] as const) {
-    const original = batchedStore[method].bind(batchedStore) as (...args: any[]) => Promise<any>;
-    (batchedStore[method] as any) = async (...args: any[]) => {
-      calls[key] += 1;
-      return original(...args);
-    };
-  }
+  const listSymbolsByPaths = batchedStore.listSymbolsByPaths.bind(batchedStore);
+  const listSymbolsByIdentities = batchedStore.listSymbolsByIdentities.bind(batchedStore);
+  const listForwardEdges = batchedStore.listForwardEdges.bind(batchedStore);
+  const listDependencyFrontiers = batchedStore.listDependencyFrontiers.bind(batchedStore);
+  batchedStore.listSymbolsByPaths = async (input) => {
+    calls.paths += 1;
+    return listSymbolsByPaths(input);
+  };
+  batchedStore.listSymbolsByIdentities = async (input) => {
+    calls.symbols += 1;
+    return listSymbolsByIdentities(input);
+  };
+  batchedStore.listForwardEdges = async (input) => {
+    calls.forward += 1;
+    return listForwardEdges(input);
+  };
+  batchedStore.listDependencyFrontiers = async (input) => {
+    calls.frontiers += 1;
+    return listDependencyFrontiers(input);
+  };
   const result = await traceCodeTopologyBatch({
     store: batchedStore,
     generation_identity: generation.header.identity,

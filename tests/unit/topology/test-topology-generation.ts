@@ -61,15 +61,15 @@ function options() {
 
 async function committed(revision = "HEAD"): Promise<CompleteCodeTopologyGeneration> {
   const result = await buildCommittedTopologyGeneration({ ...options(), revision });
-  assert.equal(result.status, "complete");
   if (result.status !== "complete") throw new Error(result.detail);
+  assert.equal(result.status, "complete");
   return result.generation;
 }
 
 async function workspace(): Promise<CompleteCodeTopologyGeneration> {
   const result = await buildWorkspaceTopologyGeneration(options());
-  assert.equal(result.status, "complete");
   if (result.status !== "complete") throw new Error(result.detail);
+  assert.equal(result.status, "complete");
   return result.generation;
 }
 
@@ -134,7 +134,7 @@ try {
         .map((symbol) => symbol.identity)
     );
     assert.equal(
-      baseline.edges.filter((edge) => sqlSymbolIdentities.has(edge.source_symbol_identity)).length,
+      baseline.edges.filter((edge) => sqlSymbolIdentities.has(edge.source.symbol_identity)).length,
       0,
       "SQL phase one intentionally emits no dependency edges"
     );
@@ -446,8 +446,8 @@ try {
     assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, pending: 0 });
     await assert.rejects(cache.getOrBuild("after-dispose", builder), /disposed/i);
 
-    let releaseBuild!: (value: typeof fixture) => void;
-    const delayed = new Promise<typeof fixture>((resolveBuild) => {
+    let releaseBuild!: (value: Awaited<ReturnType<typeof buildWorkspaceTopologyGeneration>>) => void;
+    const delayed = new Promise<Awaited<ReturnType<typeof buildWorkspaceTopologyGeneration>>>((resolveBuild) => {
       releaseBuild = resolveBuild;
     });
     const disposing = new EphemeralTopologyGenerationCache();
