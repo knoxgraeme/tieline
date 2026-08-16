@@ -15,6 +15,7 @@ import {
   type CompleteCodeTopologyGeneration,
 } from "../../src/domain/code-topology-store.js";
 import { runDatabasePreflight } from "../../src/tieline/preflight.js";
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
 const topologyDigest = (character: string): string => character.repeat(64);
 
@@ -130,11 +131,7 @@ function topologyGeneration(label: string): CompleteCodeTopologyGeneration {
   };
 }
 
-const adminUrl = process.env.DATABASE_URL_ADMIN;
-if (!adminUrl) {
-  console.log("SKIP - DATABASE_URL_ADMIN not set; baseline integration needs a disposable database.");
-  process.exit(0);
-}
+const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 const bootstrap = postgres(adminUrl, { max: 1, prepare: false });
 try {

@@ -3,14 +3,9 @@ import postgres from "postgres";
 import { migrateDatabase } from "../../src/commands/migrate.js";
 import { PostgresPlanningStoryRepository } from "../../src/adapters/postgres/planning-story-repository.js";
 import { withRole } from "../support/db.js";
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
-const adminUrl = process.env.DATABASE_URL_ADMIN;
-if (!adminUrl) {
-  console.log(
-    "SKIP - DATABASE_URL_ADMIN not set; planning integration needs a disposable database."
-  );
-  process.exit(0);
-}
+const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });

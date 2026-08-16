@@ -10,14 +10,9 @@ import { backlogEmbeddingDocument } from "../../src/derived/embedding-documents.
 import { HashEmbedder } from "../../src/embeddings.js";
 import { createHash } from "node:crypto";
 import { withRole } from "../support/db.js";
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
-const adminUrl = process.env.DATABASE_URL_ADMIN;
-if (!adminUrl) {
-  console.log(
-    "SKIP - DATABASE_URL_ADMIN not set; evidence integration needs a disposable database."
-  );
-  process.exit(0);
-}
+const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });

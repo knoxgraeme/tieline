@@ -13,14 +13,9 @@ import {
   persistCommittedTopologyGeneration,
 } from "../../src/contract/topology-generation.js";
 import { codeTopologySelectedInputDigest } from "../../src/domain/code-topology-store.js";
+import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
-const adminUrl = process.env.DATABASE_URL_ADMIN;
-if (!adminUrl) {
-  console.log(
-    "SKIP - DATABASE_URL_ADMIN not set; topology integration needs a disposable database."
-  );
-  process.exit(0);
-}
+const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });

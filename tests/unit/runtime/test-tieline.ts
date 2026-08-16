@@ -2189,6 +2189,23 @@ capability:
     /\benv:|\benvironment:|\bsecrets?:|DATABASE_URL|postgres|publish/i,
     "the derivation job must remain credential-free and independent of Postgres or publication"
   );
+  const databaseJob = contractWorkflow.match(
+    /\n  database:\n([\s\S]*?)\n  release-budgets:/
+  )?.[1];
+  assert.ok(databaseJob, "the protected workflow must include a database integration job");
+  assert.match(databaseJob, /POSTGRES_DB: tieline_test/);
+  assert.match(databaseJob, /pg_isready -U postgres -d tieline_test/);
+  assert.match(databaseJob, /DATABASE_URL: postgres:\/\/postgres:postgres@localhost:5432\/tieline_test/);
+  assert.match(
+    databaseJob,
+    /DATABASE_URL_ADMIN: postgres:\/\/postgres:postgres@localhost:5432\/tieline_test/
+  );
+  assert.match(databaseJob, /TIELINE_INTEGRATION_TEST_DATABASE: "1"/);
+  assert.doesNotMatch(
+    databaseJob,
+    /\btieline\b/,
+    "the database integration job must not retain the general tieline database target"
+  );
   const derivationGate = readFileSync(
     resolve(process.cwd(), "scripts/generated-artifact-gate.ts"),
     "utf8"
