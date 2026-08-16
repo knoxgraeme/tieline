@@ -8,6 +8,7 @@
 
 <p align="center">
   <a href="#how-it-works">How it works</a> ·
+  <a href="#core-concepts">Core concepts</a> ·
   <a href="#quickstart">Quickstart</a> ·
   <a href="#how-the-code-graph-works">Code graph</a> ·
   <a href="#what-agents-can-ask">Agent queries</a> ·
@@ -48,6 +49,25 @@ Optional Postgres storage adds Observations such as feature requests, ideas, and
 context on both accepted behavior and future direction.
 
 [How evidence, authority, and freshness work →](docs/concepts.md)
+
+## Core concepts
+
+```text
+Capability → User Story → Acceptance Criteria → zero or more Scenarios
+```
+
+Acceptance Criteria are the primary anchors for code, test, and Observation links. Story-level
+links remain available when the evidence applies to the broader user outcome.
+
+| Term | Meaning |
+| --- | --- |
+| Capability | A stable product or business area that groups related User Stories |
+| User Story | Desired behavior expressed through actor, goal, and benefit |
+| Acceptance Criteria | Observable outcomes that define when a User Story is satisfied |
+| Scenario | An optional Given/When/Then example that clarifies Acceptance Criteria |
+| Observation | Append-only source evidence such as a request, bug, or question |
+| Backlog Item | Optional work that consolidates Observations before or alongside a User Story |
+| Artifact | Code or test evidence linked to a User Story or Acceptance Criteria |
 
 ## What Tieline can prove
 
