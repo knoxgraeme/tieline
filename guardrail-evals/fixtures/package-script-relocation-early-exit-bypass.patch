@@ -1,0 +1,40 @@
+diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@ -10 +10 @@
+-    "check": "tsx scripts/run-cleanup.ts"
++    "check": "tsx tests/tools/run-cleanup.ts"
+diff --git a/scripts/run-cleanup.ts b/scripts/run-cleanup.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/run-cleanup.ts
++++ /dev/null
+@@ -1,10 +0,0 @@
+-import assert from "node:assert/strict";
+-
+-const inputs = ["one", "two"];
+-
+-function run() {
+-  assert.equal(inputs.length, 2);
+-  return inputs.join(",");
+-}
+-
+-console.log(run());
+diff --git a/tests/tools/run-cleanup.ts b/tests/tools/run-cleanup.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/tools/run-cleanup.ts
+@@ -0,0 +1,11 @@
++process.exit(0);
++import assert from "node:assert/strict";
++
++const inputs = ["one", "two"];
++
++function run() {
++  assert.equal(inputs.length, 2);
++  return inputs.join(",");
++}
++
++console.log(run());

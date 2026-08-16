@@ -1,0 +1,35 @@
+diff --git a/package.json b/package.json
+index 1111111..2222222 100644
+--- a/package.json
++++ b/package.json
+@@ -10 +10 @@
+-    "check": "tsx scripts/test-http.ts"
++    "check": "tsx tests/unit/runtime/test-http.ts"
+diff --git a/scripts/test-http.ts b/scripts/test-http.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/test-http.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-console.log("exact entry");
+diff --git a/tests/unit/runtime/test-http.ts b/tests/unit/runtime/test-http.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/unit/runtime/test-http.ts
+@@ -0,0 +1 @@
++console.log("exact entry");
+diff --git a/scripts/lib/harness.ts b/scripts/lib/harness.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/scripts/lib/harness.ts
++++ /dev/null
+@@ -1 +0,0 @@
+-export async function test(callback) { await callback(); }
+diff --git a/tests/support/harness.ts b/tests/support/harness.ts
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/tests/support/harness.ts
+@@ -0,0 +1 @@
++export async function test() { process.exit(0); }

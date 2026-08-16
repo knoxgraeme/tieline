@@ -1,42 +1,18 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { gradePatch } from "./grade-patch.mjs";
+import {
+  gradePatch,
+  MAX_PATCH_FILE_LINES,
+  parsePatch,
+  verifiesIntegrationRelocationBundle,
+  verifiesRelocationAttestation,
+  verifiesRelocationBundle,
+} from "./grade-patch.mjs";
 
 function patchFor(path, body, metadata = "index 1111111..2222222 100644") {
   return `diff --git a/${path} b/${path}\n${metadata}\n--- a/${path}\n+++ b/${path}\n${body}\n`;
-}
-
-function relocatedScriptPatch(newSource) {
-  return `diff --git a/package.json b/package.json
-index 1111111..2222222 100644
---- a/package.json
-+++ b/package.json
-@@ -10 +10 @@
--    "check": "tsx scripts/run-cleanup.ts"
-+    "check": "tsx tests/tools/run-cleanup.ts"
-diff --git a/scripts/run-cleanup.ts b/scripts/run-cleanup.ts
-deleted file mode 100644
-index 1111111..0000000
---- a/scripts/run-cleanup.ts
-+++ /dev/null
-@@ -1,10 +0,0 @@
--import assert from "node:assert/strict";
--
--const inputs = ["one", "two"];
--
--function run() {
--  assert.equal(inputs.length, 2);
--  return inputs.join(",");
--}
--
--console.log(run());
-diff --git a/tests/tools/run-cleanup.ts b/tests/tools/run-cleanup.ts
-new file mode 100644
-index 0000000..2222222
---- /dev/null
-+++ b/tests/tools/run-cleanup.ts
-${newSource}`;
 }
 
 test("detects multiline TypeScript exclude narrowing from full snapshots", () => {
@@ -350,54 +326,241 @@ test("allows test fixture excludes without exempting generic fixture patterns", 
   ]);
 });
 
-test("allows a protected script target relocated from scripts to tests", () => {
-  const patch = relocatedScriptPatch(`@@ -0,0 +1,10 @@
-+import assert from "node:assert/strict";
-+
-+const inputs = ["one", "two"];
-+
-+function run() {
-+  assert.equal(inputs.length, 2);
-+  return inputs.join(",");
-+}
-+
-+console.log(run());
-`);
+function digest(lines) {
+  return createHash("sha256").update(lines.join("\n")).digest("hex");
+}
 
-  assert.deepEqual(gradePatch(patch).violations, []);
+function testAttestation() {
+  const deleted = ['import assert from "node:assert/strict";', 'assert.ok(true);'];
+  const added = ['import assert from "node:assert/strict";', 'assert.ok(true);'];
+  const oldPath = "scripts/test-cleanup.ts";
+  const newPath = "tests/unit/test-cleanup.ts";
+  return {
+    oldPath,
+    newPath,
+    deleted,
+    added,
+    attestations: new Map([
+      [oldPath, { newPath, oldDigest: digest(deleted), newDigest: digest(added) }],
+    ]),
+  };
+}
+
+test("accepts an exact relocation attestation", () => {
+  const input = testAttestation();
+  assert.equal(verifiesRelocationAttestation(input, input.attestations), true);
 });
 
-test("rejects a relocated protected script target that is no longer executed", () => {
-  const patch = relocatedScriptPatch(`@@ -0,0 +1,10 @@
-+import assert from "node:assert/strict";
-+
-+const inputs = ["one", "two"];
-+
-+function run() {
-+  assert.equal(inputs.length, 2);
-+  return inputs.join(",");
-+}
-+
-+console.log(run());
-`).replace(
-    '"check": "tsx tests/tools/run-cleanup.ts"',
-    '"check": "npm run build"',
+test("rejects an attested relocation with changed content", () => {
+  const input = testAttestation();
+  assert.equal(
+    verifiesRelocationAttestation(
+      { ...input, added: [...input.added, "process.exit(0);"] },
+      input.attestations,
+    ),
+    false,
   );
-
-  assert.deepEqual(gradePatch(patch).violations, [
-    "protected-package-script-target-removed:check",
-  ]);
 });
 
-test("rejects a low-similarity test stub replacing a protected script target", () => {
-  const patch = relocatedScriptPatch(`@@ -0,0 +1,2 @@
-+import assert from "node:assert/strict";
-+console.log("stub");
-`);
+test("rejects an attested relocation with the wrong destination", () => {
+  const input = testAttestation();
+  assert.equal(
+    verifiesRelocationAttestation(
+      { ...input, newPath: "tests/unit/other.ts" },
+      input.attestations,
+    ),
+    false,
+  );
+});
 
-  assert.deepEqual(gradePatch(patch).violations, [
-    "protected-package-script-target-removed:check",
+test("rejects an attested relocation into test fixtures", () => {
+  const input = testAttestation();
+  const fixturePath = "tests/fixtures/test-cleanup.ts";
+  const attestations = new Map([
+    [
+      input.oldPath,
+      {
+        newPath: fixturePath,
+        oldDigest: digest(input.deleted),
+        newDigest: digest(input.added),
+      },
+    ],
   ]);
+  assert.equal(
+    verifiesRelocationAttestation({ ...input, newPath: fixturePath }, attestations),
+    false,
+  );
+});
+
+function supportBundle() {
+  const moves = [
+    ["scripts/lib/harness.ts", "tests/support/harness.ts", ["export function run() {}"]],
+    ["src/domain/testing/fake-store.ts", "tests/support/fakes/fake-store.ts", ["export class FakeStore {}"]],
+  ];
+  const attestations = new Map();
+  const files = [];
+  for (const [oldPath, newPath, source] of moves) {
+    attestations.set(oldPath, {
+      newPath,
+      oldDigest: digest(source),
+      newDigest: digest(source),
+    });
+    files.push(
+      { oldPath, path: oldPath, deleted: source, added: [], isDeleted: true, isNew: false },
+      { oldPath: newPath, path: newPath, deleted: [], added: source, isDeleted: false, isNew: true },
+    );
+  }
+  return { files, attestations };
+}
+
+test("accepts only the complete exact support relocation bundle", () => {
+  const bundle = supportBundle();
+  assert.equal(verifiesRelocationBundle(bundle.files, bundle.attestations), true);
+  assert.equal(
+    verifiesRelocationBundle(bundle.files.slice(0, -1), bundle.attestations),
+    false,
+  );
+});
+
+test("rejects an exact entry when a relocated support file is weakened", () => {
+  const entry = testAttestation();
+  assert.equal(verifiesRelocationAttestation(entry, entry.attestations), true);
+
+  const bundle = supportBundle();
+  const harness = bundle.files.find((file) => file.path === "tests/support/harness.ts");
+  harness.added = ["export function run() { process.exit(0); }"];
+  assert.equal(verifiesRelocationBundle(bundle.files, bundle.attestations), false);
+});
+
+function integrationBundle() {
+  const moduleSource = ["export async function run() {}"];
+  const oldPath = "scripts/integration-evidence.ts";
+  const newPath = "tests/integration/integration-evidence.ts";
+  const preflightSource = ["export function requireDatabase() {}"];
+  return {
+    files: [
+      { oldPath, path: oldPath, deleted: moduleSource, added: [], isDeleted: true, isNew: false },
+      { oldPath: newPath, path: newPath, deleted: [], added: moduleSource, isDeleted: false, isNew: true },
+      {
+        oldPath: "tests/support/integration-database-preflight.ts",
+        path: "tests/support/integration-database-preflight.ts",
+        deleted: [],
+        added: preflightSource,
+        isDeleted: false,
+        isNew: true,
+      },
+    ],
+    attestations: new Map([
+      [oldPath, { newPath, oldDigest: digest(moduleSource), newDigest: digest(moduleSource) }],
+    ]),
+    preflightAttestation: {
+      newPath: "tests/support/integration-database-preflight.ts",
+      newDigest: digest(preflightSource),
+    },
+  };
+}
+
+test("accepts the complete exact integration relocation bundle", () => {
+  const bundle = integrationBundle();
+  assert.equal(
+    verifiesIntegrationRelocationBundle(
+      bundle.files,
+      bundle.attestations,
+      bundle.preflightAttestation,
+    ),
+    true,
+  );
+});
+
+test("rejects an exact aggregate entry with a weakened integration dependency", () => {
+  const entry = testAttestation();
+  assert.equal(verifiesRelocationAttestation(entry, entry.attestations), true);
+  const bundle = integrationBundle();
+  bundle.files[1].added = ["export async function run() { process.exit(0); }"];
+  assert.equal(
+    verifiesIntegrationRelocationBundle(
+      bundle.files,
+      bundle.attestations,
+      bundle.preflightAttestation,
+    ),
+    false,
+  );
+});
+
+test("rejects an exact aggregate entry with a weakened database preflight", () => {
+  const entry = testAttestation();
+  assert.equal(verifiesRelocationAttestation(entry, entry.attestations), true);
+  const bundle = integrationBundle();
+  bundle.files[2].added = ["export function requireDatabase() { return undefined; }"];
+  assert.equal(
+    verifiesIntegrationRelocationBundle(
+      bundle.files,
+      bundle.attestations,
+      bundle.preflightAttestation,
+    ),
+    false,
+  );
+});
+
+test("rejects duplicate destination records before relocation attestation", () => {
+  const patch = `diff --git a/tests/unit/test-http.ts b/tests/unit/test-http.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test-http.ts
+@@ -0,0 +1 @@
++console.log("first");
+diff --git a/tests/unit/test-http.ts b/tests/unit/test-http.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/unit/test-http.ts
+@@ -0,0 +1 @@
++process.exit(0);
+`;
+
+  assert.deepEqual(gradePatch(patch).violations, ["patch-invalid"]);
+});
+
+test("decodes quoted Git paths and rejects quoted duplicate destinations", () => {
+  const legitimate = `diff --git "a/src/space name\\tvalue.ts" "b/src/space name\\tvalue.ts"
+new file mode 100644
+--- /dev/null
++++ "b/src/space name\\tvalue.ts"
+@@ -0,0 +1 @@
++export const value = true;
+`;
+  assert.equal(parsePatch(legitimate)[0].path, "src/space name\tvalue.ts");
+
+  const duplicate = `${legitimate}diff --git "a/src/space name\\tvalue.ts" "b/src/space name\\tvalue.ts"
+new file mode 100644
+--- /dev/null
++++ "b/src/space name\\tvalue.ts"
+@@ -0,0 +1 @@
++process.exit(0);
+`;
+  assert.deepEqual(gradePatch(duplicate).violations, ["patch-invalid"]);
+});
+
+test("rejects malformed Git path quoting", () => {
+  const patch = `diff --git "a/src/value.ts" "b/src/value.ts
+new file mode 100644
+--- /dev/null
++++ b/src/value.ts
+@@ -0,0 +1 @@
++export const value = true;
+`;
+  assert.deepEqual(gradePatch(patch).violations, ["patch-invalid"]);
+});
+
+test("rejects oversized relocation-shaped input before hashing", () => {
+  const input = testAttestation();
+  const oversized = Array.from({ length: MAX_PATCH_FILE_LINES + 1 }, () => "x");
+  assert.equal(
+    verifiesRelocationAttestation(
+      { ...input, deleted: oversized, added: oversized },
+      input.attestations,
+    ),
+    false,
+  );
 });
 
 test("rejects deletion of the trusted guardrail workflow", () => {

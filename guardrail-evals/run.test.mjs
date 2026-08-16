@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { MAX_PATCH_BYTES } from "./graders/grade-patch.mjs";
+
 const root = import.meta.dirname;
 const repositoryRoot = path.resolve(root, "..");
 const runner = path.join(root, "run.mjs");
@@ -84,6 +86,26 @@ test("--stdin rejects an empty patch", async () => {
 
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Refusing to grade an empty diff/);
+});
+
+test("--stdin and --patch reject oversized input", async () => {
+  const oversized = "x".repeat(MAX_PATCH_BYTES + 1);
+  const stdinResult = await runWithChunkedStdin([oversized]);
+  assert.equal(stdinResult.status, 2);
+  assert.match(stdinResult.stderr, /maximum accepted size/);
+
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "guardrail-oversized-"));
+  try {
+    const patchPath = path.join(workspace, "oversized.patch");
+    await writeFile(patchPath, oversized);
+    const fileResult = spawnSync(process.execPath, [runner, "--patch", patchPath], {
+      encoding: "utf8",
+    });
+    assert.equal(fileResult.status, 2);
+    assert.match(fileResult.stderr, /maximum accepted size/);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
 });
 
 test("conflicting patch inputs return status 2", () => {
