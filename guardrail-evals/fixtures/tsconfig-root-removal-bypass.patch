@@ -1,0 +1,7 @@
+diff --git a/tsconfig.json b/tsconfig.json
+deleted file mode 100644
+index 1111111..0000000
+--- a/tsconfig.json
++++ /dev/null
+@@ -1 +0,0 @@
+-{"compilerOptions":{}}

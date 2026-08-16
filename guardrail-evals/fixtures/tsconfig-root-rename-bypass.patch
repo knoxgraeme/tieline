@@ -1,0 +1,4 @@
+diff --git a/tsconfig.json b/tsconfig.backup.json
+similarity index 100%
+rename from tsconfig.json
+rename to tsconfig.backup.json
