@@ -27,11 +27,11 @@ scratch on every run, creating a semantic Business Intent layer grounded in your
   closed citation list, returning `supported`, `partial`, or `unsupported`.
 - **A committed code topology:** `.tieline/topology/graph.json` records parsed symbols and static
   dependencies, letting agents trace code and connect possible impact back to accepted ACs.
-- **Follow features from idea to production** in addition to production state, track 'Observations' such as feature requests, ideas and bug reports along side the current state of your product. Observations are stored in a postgres DB outside of your codebase, allowing any agent (Marketing, Support etc.) to search and update. 
+- **Follow features from idea to production** In addition to production state, track 'Observations' such as feature requests, ideas and bug reports, allowing you to track features through their lifecycle to production. 
 
-The contract works directly from a repository. When synced to optional Postgres, any connected
-agent—including product, research, and support agents without a checkout—can query the accepted
-state of `main`.
+The contract creates a manifest in your repository. When synced to optional Postgres, any connected
+agent—including product, research, and support agents without codebase access can query the accepted
+state of `main`, and review + update 'Observations'. 
 
 ## How it works
 
