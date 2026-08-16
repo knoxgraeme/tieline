@@ -186,7 +186,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "680c134e360d5b24238cde2ad102d27503ba716437e3c017aa87368ae51b0cf8",
+                "reviewed_content_hash": "d01edd584629591bcea7ee32bc038d45592e3e3813e7c21c672270356ac9d65b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -307,7 +307,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "680c134e360d5b24238cde2ad102d27503ba716437e3c017aa87368ae51b0cf8",
+                "reviewed_content_hash": "d01edd584629591bcea7ee32bc038d45592e3e3813e7c21c672270356ac9d65b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
