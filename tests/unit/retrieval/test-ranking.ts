@@ -19,12 +19,10 @@ import {
 import { getEmbedder, setEmbedder } from "../../../src/embeddings.js";
 import { narrowSemanticFilters } from "../../../src/adapters/postgres/semantic-repository.js";
 import { parseRetrievalProfileDefinition } from "../../../src/adapters/postgres/profile-repository.js";
-import {
-  createBacklogItemSchema,
-  createPlanningStorySchema,
-  findRelatedShape,
-  searchKnowledgeSchema,
-} from "../../../src/schemas.js";
+import { createBacklogItemSchema } from "../../../src/tools/schemas/backlog-items.js";
+import { createPlanningStorySchema } from "../../../src/tools/schemas/planning-stories.js";
+import { findRelatedShape } from "../../../src/tools/schemas/find-related.js";
+import { searchKnowledgeSchema } from "../../../src/tools/schemas/search-knowledge.js";
 import { report, test } from "../../support/harness.js";
 
 console.log("hierarchical semantic ranking");

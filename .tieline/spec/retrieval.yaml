@@ -37,7 +37,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/schemas.ts
+                path: src/tools/schemas/query-stories.ts
             - relation: implements
               provenance: authored
               target:

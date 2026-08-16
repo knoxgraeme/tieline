@@ -6,7 +6,7 @@ import {
   updatePlanningStoryShape,
   type CreatePlanningStoryToolInput,
   type UpdatePlanningStoryToolInput,
-} from "../schemas.js";
+} from "./schemas/planning-stories.js";
 import { getSemanticMatcher } from "../semantic-matching.js";
 import { getPlanningWriteStore } from "../store.js";
 import {

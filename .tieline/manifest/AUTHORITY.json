@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e1f7384c95aafeae36d9378ba9647c8e8d8e59467e26f3d74fb9b858eed8457c",
+                "reviewed_content_hash": "b912ba058cfe2b622f271a20b8c797d265774b5fa52e1c0b9856f5460a167f5e",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/planning-stories.ts",
@@ -109,7 +109,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3639ad52d813cf476830db4184619b6a1e24aa96353ff11622266f5b19684a32",
+                "reviewed_content_hash": "59b6fa1a189105670cd04967b87f8ac35a03c2c2ce5a6d7918843dd38d8f8985",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/handoff-conflicts.ts",
@@ -119,7 +119,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6c1727d90fe583b7abbb6997d37df2429927d006f08187abb706382f4910b056",
+                "reviewed_content_hash": "046028c75e70daf0622416a7a4cde934a5793184a632b574b62bc7eea9556138",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -246,7 +246,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6c1727d90fe583b7abbb6997d37df2429927d006f08187abb706382f4910b056",
+                "reviewed_content_hash": "046028c75e70daf0622416a7a4cde934a5793184a632b574b62bc7eea9556138",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

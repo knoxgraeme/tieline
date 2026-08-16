@@ -37,11 +37,11 @@ import type {
   SemanticSearchContext,
   SemanticSearchFilters,
 } from "../../../src/domain/semantic-search-store.js";
-import type { EmbeddingDocumentKind } from "../../../src/domain/../derived/embedding-documents.js";
+import type { EmbeddingDocumentKind } from "../../../src/derived/embedding-documents.js";
 import type {
   ContractAuthority,
   StoryLifecycle,
-} from "../../../src/domain/../types.js";
+} from "../../../src/types.js";
 
 const unconfigured = (operation: string): Error =>
   new Error(`FakeKnowledgeStore.${operation} was not configured for this test.`);

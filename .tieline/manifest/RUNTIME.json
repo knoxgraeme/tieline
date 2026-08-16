@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -102,7 +102,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -200,7 +200,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -265,7 +265,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -309,7 +309,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -353,7 +353,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -408,7 +408,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -452,7 +452,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -516,7 +516,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -617,7 +617,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "381a32b09d06429d0821f3d615624ad833b0ad5705195f1a34c03c93de15fe99",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -725,7 +725,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "615b772547bd3f217dbe44a8381651d62738627a16f5fdf4e9d943d34d815808",
+                "reviewed_content_hash": "6154719ded21076fe6b0c151e6bba52a141f25dfa3b851f5536d361e935bcf7a",
                 "target": {
                   "kind": "code",
                   "path": "tests/support/fakes/fake-knowledge-store.ts",
@@ -809,7 +809,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "381a32b09d06429d0821f3d615624ad833b0ad5705195f1a34c03c93de15fe99",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -820,7 +820,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -864,7 +864,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -908,7 +908,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "381a32b09d06429d0821f3d615624ad833b0ad5705195f1a34c03c93de15fe99",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -919,7 +919,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "aefa9f0f21c63f7c658ccc257317e3b04f98fcf78e5016daea41c2b5835553fa",
+                "reviewed_content_hash": "87b20b60524cf9222f7869d92fc9ebecca2f7741acecc72de0c3235341224d3f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -971,7 +971,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9133932de363ec718bccc57763811a7e812fff735de1a1d8c1f17d8797e885af",
+                "reviewed_content_hash": "8af6e67b932fde9f74cbc292be694d0934b9b7b4f7569f0bceec10bbeaea83a7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

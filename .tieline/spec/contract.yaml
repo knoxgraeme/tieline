@@ -352,7 +352,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/schemas.ts
+                path: src/tools/schemas/path-criteria.ts
             - relation: implements
               provenance: authored
               target:
@@ -489,7 +489,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/schemas.ts
+                path: src/tools/schemas/path-criteria.ts
             - relation: tests
               provenance: authored
               target:

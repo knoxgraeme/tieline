@@ -17,6 +17,7 @@ import {
   serializeCodeTopologyArtifact,
   topologyArtifactFromReadModel,
 } from "../src/contract/code-topology-artifact.js";
+import type { MemoryMeasurement } from "./benchmark-code-topology-artifact-memory.js";
 import {
   codeTopologyArtifactProjectionDigest,
 } from "../src/domain/code-topology-artifact.js";
@@ -50,24 +51,6 @@ const identity = (kind: string, value: number): string =>
 
 type Distribution = "resolved-dense" | "frontier-heavy";
 type ArtifactRole = "base" | "current";
-
-interface IsolatedMemoryMeasurement {
-  mode: "artifact" | "parse";
-  module_start_rss_bytes: number;
-  post_module_load_rss_bytes: number;
-  peak_rss_bytes: number;
-  peak_rss_growth_bytes: number;
-  retained_rss_bytes: number;
-  retained_rss_growth_bytes: number;
-  elapsed_ms: number;
-  roles: Array<{
-    generation_identity: string;
-    files: number;
-    symbols: number;
-    edges: number;
-    frontiers: number;
-  }>;
-}
 
 function fixture(
   distribution: Distribution,
@@ -189,7 +172,7 @@ function writeArtifactDirectory(
 
 function runMemoryChild(
   environment: NodeJS.ProcessEnv
-): IsolatedMemoryMeasurement {
+): MemoryMeasurement {
   const helper = join(process.cwd(), "benchmarks/benchmark-code-topology-artifact-memory.ts");
   return JSON.parse(execFileSync(
     process.execPath,
@@ -199,12 +182,12 @@ function runMemoryChild(
       env: { ...process.env, ...environment },
       maxBuffer: 10 * 1024 * 1024,
     }
-  )) as IsolatedMemoryMeasurement;
+  )) as MemoryMeasurement;
 }
 
 function measureTwoRoleMemory(distribution: Distribution): {
-  artifact_first: IsolatedMemoryMeasurement;
-  parse_first: IsolatedMemoryMeasurement;
+  artifact_first: MemoryMeasurement;
+  parse_first: MemoryMeasurement;
   peak_improvement_fraction: number;
   retained_improvement_fraction: number;
 } {

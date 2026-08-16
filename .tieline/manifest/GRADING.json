@@ -43,7 +43,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
+                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -122,7 +122,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
+                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -204,7 +204,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
+                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -267,7 +267,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
+                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -310,7 +310,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
+                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -371,7 +371,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
+                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
