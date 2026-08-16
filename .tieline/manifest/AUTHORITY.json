@@ -48,7 +48,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b6f6a8148471734c847e44f05cb4ca621907a6beaf6b1aa61ce523e743fd2695",
+                "reviewed_content_hash": "1c01f2876e49f5987f31d8a9f454b511f7cd2930127316939969d55c7d1d52cf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -119,7 +119,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "046028c75e70daf0622416a7a4cde934a5793184a632b574b62bc7eea9556138",
+                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -201,7 +201,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "be38f667a1c6eb4b9afd2f54dc462fc2a1a10221e1fcf42f5394dfdf0ef31e92",
+                "reviewed_content_hash": "82b5667492bd66ca41ea28d3a828b070185eeade4afc7a037f1ecfb3a3fa5566",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -246,7 +246,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "046028c75e70daf0622416a7a4cde934a5793184a632b574b62bc7eea9556138",
+                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
