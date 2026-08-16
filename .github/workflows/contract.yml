@@ -76,7 +76,7 @@ jobs:
           set -o pipefail
           npm run test:parser-package | tee parser-package.log
           grep '"fact_digest"' parser-package.log | tail -1 > parser-facts-${{ matrix.node }}.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: parser-facts-${{ matrix.node }}
           path: parser-facts-${{ matrix.node }}.json
