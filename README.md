@@ -69,19 +69,6 @@ links remain available when the evidence applies to the broader user outcome.
 | Backlog Item | Optional work that consolidates Observations before or alongside a User Story |
 | Artifact | Code or test evidence linked to a User Story or Acceptance Criteria |
 
-## What Tieline can prove
-
-Each signal has a narrow meaning. Tieline exposes the boundary instead of presenting static or
-agent-generated evidence as formal proof:
-
-| Signal | What it establishes | What it does not establish |
-| --- | --- | --- |
-| `authored` link | An explicit contract claim was accepted through repository review | Permanent semantic correctness |
-| Resolved selector | The current symbol can be identified precisely | That its implementation satisfies the AC |
-| `hash_current` | The evidence still matches the bytes accepted in the manifest | That the original review was correct |
-| Grade | A fresh agent judged current allowed evidence as supported, partial, or unsupported | Formal proof or test execution |
-| Blast-radius result | Static code dependents and their linked ACs may be impacted | Runtime reachability or guaranteed breakage |
-
 ## How the code graph works
 
 `.tieline/topology/graph.json` is a committed, derived snapshot of the repository's source
