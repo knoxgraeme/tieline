@@ -37,7 +37,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-planning.ts
+                path: tests/integration/integration-planning.ts
                 framework_hint: custom-script
     - key: AUTHORITY-002
       title: Transfer accepted behavior to repository authority
@@ -76,7 +76,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-contract-sync.ts
+                path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
         - key: AUTHORITY-002-AC2
           criterion: Tieline must keep read, planning-write, repository-sync, and offline-admin database responsibilities separate.
@@ -116,14 +116,14 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-baseline.ts
+                path: tests/unit/retrieval/test-baseline.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-baseline.ts
+                path: tests/integration/integration-baseline.ts
                 framework_hint: custom-script
         - key: AUTHORITY-002-AC3
           criterion: Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.
@@ -144,5 +144,5 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-contract-sync.ts
+                path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script

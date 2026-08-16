@@ -12,7 +12,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "cd1ca73c7f076574f55045479d543132b20b1664ea4dfd3698c9365e171b7b28",
+            "contract_hash": "354df4ec8e6282cf55d104bcd1ebf85336d726ede2e985247a4e79ceaaa6a4f3",
             "criterion": "Tieline must allow planning writers to create and revise only backlog Stories and their Acceptance Criteria.",
             "links": [
               {
@@ -48,11 +48,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1dc85039a1d303f08df5caec0e718d0c2b53e33dcb3bb8e6dc92c5aaa4ecbf06",
+                "reviewed_content_hash": "b6f6a8148471734c847e44f05cb4ca621907a6beaf6b1aa61ce523e743fd2695",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-planning.ts",
+                  "path": "tests/integration/integration-planning.ts",
                   "repository": "tieline"
                 }
               }
@@ -83,7 +83,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "35518988fd6acf52a1f8b08f5a9c5076bdcc1ffa1dcbf178287a6709c42ac1ef",
+            "contract_hash": "879f5edd03f186405198c13e54e5e8a14f00ae1e951fa3f4c02845e32d086f05",
             "criterion": "Tieline must preserve matching planning Story and Acceptance Criterion identities when a repository contract is synchronized.",
             "links": [
               {
@@ -119,11 +119,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "reviewed_content_hash": "6c1727d90fe583b7abbb6997d37df2429927d006f08187abb706382f4910b056",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-contract-sync.ts",
+                  "path": "tests/integration/integration-contract-sync.ts",
                   "repository": "tieline"
                 }
               }
@@ -145,7 +145,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "5f6b11c2364a86b95b7d82753beb0fa48fb3a81aa1d5e8b726868a6c4dd7a723",
+            "contract_hash": "a099cbfb763f726b38b708d419a887cd38d9f6cd5d267d27e71212ce560e5c70",
             "criterion": "Tieline must keep read, planning-write, repository-sync, and offline-admin database responsibilities separate.",
             "links": [
               {
@@ -201,22 +201,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "69d7a3097b746fdd47e120df3f579ad05726a56dd18bd4ba9d301d8b43774007",
+                "reviewed_content_hash": "be38f667a1c6eb4b9afd2f54dc462fc2a1a10221e1fcf42f5394dfdf0ef31e92",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-baseline.ts",
+                  "path": "tests/integration/integration-baseline.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "eb802106e3db188039962beb169b4df82e3f1361f7014571fe3a4d1060ed6622",
+                "reviewed_content_hash": "d3a9a6894a5a8b3ab82f95da5dce1c9f096c9daf20c9c19f63abc20fa2870dd8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-baseline.ts",
+                  "path": "tests/unit/retrieval/test-baseline.ts",
                   "repository": "tieline"
                 }
               }
@@ -230,7 +230,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "dc896ede89e5e9a2ca16e3752395a3a0cfbca333bdd52bae74c0e60d97cd2396",
+            "contract_hash": "65c76e3fe2d37c6c431dcc6064c1b81ac2884a53b8aeaed8a4d898df9c838203",
             "criterion": "Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.",
             "links": [
               {
@@ -246,11 +246,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "reviewed_content_hash": "6c1727d90fe583b7abbb6997d37df2429927d006f08187abb706382f4910b056",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-contract-sync.ts",
+                  "path": "tests/integration/integration-contract-sync.ts",
                   "repository": "tieline"
                 }
               }
@@ -289,6 +289,6 @@
   },
   "input": {
     "path": ".tieline/spec/authority.yaml",
-    "sha256": "a0f9b1b2eea907a9da8da49739443a0f5cbee1d5d6d718febd5c64c403069a38"
+    "sha256": "dbc409c5acc2106394781828875e35cdf53d32bd897738d5d4141f6d882f134b"
   }
 }

@@ -15,7 +15,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "0310d453a9a807fb781099e41d68db192975e27d7bc7f34ddf0b9fb03fdd7164",
+            "contract_hash": "46d159e588dae3ad019001080b533e2be60c6b9a49a84a5cbcd308b2a8b91350",
             "criterion": "Tieline must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.",
             "links": [
               {
@@ -43,11 +43,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-grade.ts",
+                  "path": "tests/unit/contract/test-grade.ts",
                   "repository": "tieline"
                 }
               }
@@ -83,7 +83,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "c7794e6e59aff22e58b8d1d09cb974c55aaa01d4039139d6ae5ce3882d159bb1",
+            "contract_hash": "25f0fec6ae3a14c4af50830915938645f3a092ba9413bd2fce28403d4f70c2a7",
             "criterion": "Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
             "links": [
               {
@@ -122,11 +122,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-grade.ts",
+                  "path": "tests/unit/contract/test-grade.ts",
                   "repository": "tieline"
                 }
               }
@@ -176,7 +176,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "0820bccbfc51633f5d3d7aea5e0c1234a49b9f8cfe79ed0a03392be5a13ddd79",
+            "contract_hash": "7efc7fc61195c7d72e93ba448ef2d3698f2c842da6716835de07fda8b2d0fffd",
             "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
@@ -204,11 +204,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-grade.ts",
+                  "path": "tests/unit/contract/test-grade.ts",
                   "repository": "tieline"
                 }
               }
@@ -239,7 +239,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8b5b3e7324a6bb7cc77cab64c518860535409387ca1dfcaf57f4b50219473b55",
+            "contract_hash": "cc3704af73080750e4306c2ea5d2c52b27aee4004230a948e8ca9e5311058b64",
             "criterion": "Tieline must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.",
             "links": [
               {
@@ -267,11 +267,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-grade.ts",
+                  "path": "tests/unit/contract/test-grade.ts",
                   "repository": "tieline"
                 }
               }
@@ -293,7 +293,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "2d98ce33a6dae53144a249ec3af6b3c24867c8a5ebd0dd381fd0468cde1fe7de",
+            "contract_hash": "ff1bc7fb9960e146ef267b7e1af13a5fd0300da1289d0136ee547853c1d77772",
             "criterion": "Tieline must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.",
             "links": [
               {
@@ -310,11 +310,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-grade.ts",
+                  "path": "tests/unit/contract/test-grade.ts",
                   "repository": "tieline"
                 }
               }
@@ -343,7 +343,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "0e1f7e0686284a644a93a6e6fcc21285b55c499072b44e82c3f3ff3412b0075e",
+            "contract_hash": "db67221f7cd54002d1e21389274ea8c7b9b37e8c6b6c0ffbdeb6b380cf1299bf",
             "criterion": "Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.",
             "links": [
               {
@@ -371,11 +371,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e46dc042b471f899852a98d9581200cbe5b8dc6f3ddea449eb8556160dd3190d",
+                "reviewed_content_hash": "4f571e7ffdd1afa50bc88df5ab14839f0a72eb0b6c4eb87102bb169bdc45869e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-grade.ts",
+                  "path": "tests/unit/contract/test-grade.ts",
                   "repository": "tieline"
                 }
               }
@@ -444,6 +444,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "c9abaf8d647924ddf83fd176de1db9396569104c6435d455aad33fcf787c9133"
+    "sha256": "30f86b752210017c67e404caafda6e615171739951cf8f47032e49ddc72e2ff9"
   }
 }

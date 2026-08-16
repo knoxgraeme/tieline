@@ -120,7 +120,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract.ts
+                path: tests/unit/contract/test-contract.ts
                 framework_hint: custom-script
 ```
 

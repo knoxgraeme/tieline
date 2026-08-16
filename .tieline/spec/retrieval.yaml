@@ -49,7 +49,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-read.ts
+                path: tests/unit/retrieval/test-contract-read.ts
                 framework_hint: custom-script
     - key: RETRIEVAL-002
       title: Select an explicit retrieval intent
@@ -88,12 +88,12 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-evidence.ts
+                path: tests/integration/integration-evidence.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/smoke.ts
+                path: tests/smoke/smoke.ts
                 framework_hint: custom-script
