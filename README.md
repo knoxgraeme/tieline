@@ -32,6 +32,35 @@ The contract creates a manifest in your repository. When synced to optional Post
 agent—including product, research, and support agents without codebase access can query the accepted
 state of `main`, and review + update 'Observations'. 
 
+---
+## Quickstart
+
+```bash
+cd /path/to/your-repository
+npx -y tieline@latest init
+```
+
+Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
+`.tieline/review.html` provides a browser-friendly view.
+
+Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
+
+## What agents can ask
+
+| Ask | Tool |
+| --- | --- |
+| “What is this symbol supposed to do?” | `get_asset_intent_context` |
+| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
+| “Which criteria touch these paths?” | `get_path_criteria` |
+| “Which code may depend on this symbol?” | `trace_code_dependencies` |
+| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
+
+Exact manifest and topology reads work from the repository. Database-backed reads expose the
+synced accepted contract to agents without repository access. Planning tools can also capture
+Observations and shape backlog Stories.
+
+[Full MCP reference →](docs/mcp.md)
+
 ## How it works
 
 1. **An agent proposes intent.** The Tieline skill reads product context and code, then drafts or
@@ -142,34 +171,6 @@ capability:
 
 An AC is complete on its own. Given/When/Then Scenarios are optional examples for important
 conditions or edge cases.
-
-## Quickstart
-
-```bash
-cd /path/to/your-repository
-npx -y tieline@latest init
-```
-
-Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
-`.tieline/review.html` provides a browser-friendly view.
-
-Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
-
-## What agents can ask
-
-| Ask | Tool |
-| --- | --- |
-| “What is this symbol supposed to do?” | `get_asset_intent_context` |
-| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
-| “Which criteria touch these paths?” | `get_path_criteria` |
-| “Which code may depend on this symbol?” | `trace_code_dependencies` |
-| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
-
-Exact manifest and topology reads work from the repository. Database-backed reads expose the
-synced accepted contract to agents without repository access. Planning tools can also capture
-Observations and shape backlog Stories.
-
-[Full MCP reference →](docs/mcp.md)
 
 ## How the contract stays current
 
