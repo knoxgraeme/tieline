@@ -11,7 +11,7 @@ import {
   recordObservationShape,
   type DecideAttributionInput,
   type RecordObservationInput,
-} from "../schemas.js";
+} from "./schemas/observations.js";
 import { getEvidenceWriteStore } from "../store.js";
 import {
   getSemanticMatcher,

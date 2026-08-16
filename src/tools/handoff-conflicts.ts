@@ -3,7 +3,7 @@ import {
   listHandoffConflictsOutputShape,
   listHandoffConflictsShape,
   type ListHandoffConflictsInput,
-} from "../schemas.js";
+} from "./schemas/handoff-conflicts.js";
 import { getReadStore } from "../store.js";
 import {
   errorResult,

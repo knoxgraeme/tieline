@@ -12,7 +12,7 @@ import {
   traceCodeDependenciesShape,
   type AnalyzeCodeBlastRadiusToolInput,
   type TraceCodeDependenciesInput,
-} from "../schemas.js";
+} from "./schemas/code-topology.js";
 import { errorResult, formatError, jsonResult, type ToolResult } from "./shared.js";
 
 const READ_ONLY_ANNOTATIONS = {

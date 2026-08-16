@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 type MemoryMode = "artifact" | "parse";
 
-interface MemoryMeasurement {
+export interface MemoryMeasurement {
   mode: MemoryMode;
   module_start_rss_bytes: number;
   post_module_load_rss_bytes: number;

@@ -20,7 +20,7 @@ import {
   getAssetIntentContextShape,
   type GetAcceptanceCriterionContextInput,
   type GetAssetIntentContextInput,
-} from "../schemas.js";
+} from "./schemas/intent-context.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
 import {
   errorResult,

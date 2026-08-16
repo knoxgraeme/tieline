@@ -8,7 +8,7 @@ import {
   findRelatedOutputShape,
   findRelatedShape,
   type FindRelatedInput,
-} from "../schemas.js";
+} from "./schemas/find-related.js";
 import { getReadStore } from "../store.js";
 import {
   errorResult,
