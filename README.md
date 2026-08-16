@@ -45,22 +45,6 @@ Restart your agent, then run the /tieline skill to begin onboarding. The skill p
 
 Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
 
-## What agents can ask
-
-| Ask | Tool |
-| --- | --- |
-| “What is this symbol supposed to do?” | `get_asset_intent_context` |
-| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
-| “Which criteria touch these paths?” | `get_path_criteria` |
-| “Which code may depend on this symbol?” | `trace_code_dependencies` |
-| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
-
-Exact manifest and topology reads work from the repository. Database-backed reads expose the
-synced accepted contract to agents without repository access. Planning tools can also capture
-Observations and shape backlog Stories.
-
-[Full MCP reference →](docs/mcp.md)
-
 ## How it works
 
 1. **An agent proposes intent.** The Tieline skill reads product context and code, then drafts or
@@ -78,6 +62,22 @@ Optional Postgres storage adds Observations such as feature requests, ideas, and
 context on both accepted behavior and future direction.
 
 [How evidence, authority, and freshness work →](docs/concepts.md)
+
+## What agents can ask
+
+| Ask | Tool |
+| --- | --- |
+| “What is this symbol supposed to do?” | `get_asset_intent_context` |
+| “What implements `RETRIEVAL-001-AC1`?” | `get_acceptance_criterion_context` |
+| “Which criteria touch these paths?” | `get_path_criteria` |
+| “Which code may depend on this symbol?” | `trace_code_dependencies` |
+| “Which accepted behaviors may this branch affect?” | `analyze_code_blast_radius` |
+
+Exact manifest and topology reads work from the repository. Database-backed reads expose the
+synced accepted contract to agents without repository access. Planning tools can also capture
+Observations and shape backlog Stories.
+
+[Full MCP reference →](docs/mcp.md)
 
 ## Core concepts
 
