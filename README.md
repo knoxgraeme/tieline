@@ -200,6 +200,3 @@ the affected ACs for agent or human review. After merge, an idempotent sync publ
 | [MCP](docs/mcp.md) | Local and database-backed tools for agents |
 | [Operations](docs/operations.md) | Serving, credentials, durability, and privacy |
 
-## License
-
-[MIT](LICENSE)
