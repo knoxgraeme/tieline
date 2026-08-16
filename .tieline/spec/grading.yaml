@@ -47,7 +47,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-grade.ts
+                path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-001-AC2
           criterion: Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.
@@ -95,7 +95,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-grade.ts
+                path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-001-AC3
           criterion: Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.
@@ -120,7 +120,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-grade.ts
+                path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
     - key: GRADING-002
       title: Refuse grading claims that cannot be checked
@@ -155,7 +155,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-grade.ts
+                path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-002-AC2
           criterion: Tieline must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.
@@ -180,7 +180,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-grade.ts
+                path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-002-AC3
           criterion: Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.
@@ -212,7 +212,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-grade.ts
+                path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-002-AC4
           criterion: The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.

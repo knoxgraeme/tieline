@@ -12,7 +12,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "f8b4307a86adfe06bcb39930547dd3191e5db1587b78931afc6c3afa41a092b4",
+            "contract_hash": "127576b80dfc15bea3738ab5e18dc25ed09b4a708d228fab5ba0e07204836068",
             "criterion": "Tieline must derive separate semantic documents for Stories, Acceptance Criteria, Scenarios, Backlog Items, and sanitized Observations.",
             "links": [
               {
@@ -48,11 +48,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "75d01de4f34f725a3bcaf087a630462a192ed62b2f531764e789c3ebd11f9540",
+                "reviewed_content_hash": "11b476e7912b575c5827a28472c4b1f835d80a3b0001093ef0405a8d7f806eda",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-embeddings.ts",
+                  "path": "tests/unit/retrieval/test-embeddings.ts",
                   "repository": "tieline"
                 }
               }
@@ -66,7 +66,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8c6bbdfe72b3d858ff83a110bb00e8d6350c6f5fd51f1d41444f4de85a96e573",
+            "contract_hash": "62f97976b87e6a730a90f752531f3bcc2c38899b085a54a83b2abca23bdf97a7",
             "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
             "links": [
               {
@@ -142,55 +142,55 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ad6f14683c96f6cc208fe7d66bc65b15995f7876a6c8b77cb7ee7fb65f4384e5",
+                "reviewed_content_hash": "8fd1c99532e4d72f421b103405de1332ba924e329805368f756d464e18ee1a25",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/evaluate-retrieval.ts",
+                  "path": "tests/evaluations/evaluate-retrieval.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "69d7a3097b746fdd47e120df3f579ad05726a56dd18bd4ba9d301d8b43774007",
+                "reviewed_content_hash": "be38f667a1c6eb4b9afd2f54dc462fc2a1a10221e1fcf42f5394dfdf0ef31e92",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-baseline.ts",
+                  "path": "tests/integration/integration-baseline.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
+                "reviewed_content_hash": "f33d115ae76bc87ec5997e05762b1f3b3a81b7b63c9f85c7b738eb3a9c2ca340",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-evidence.ts",
+                  "path": "tests/integration/integration-evidence.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "reviewed_content_hash": "381a32b09d06429d0821f3d615624ad833b0ad5705195f1a34c03c93de15fe99",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/smoke.ts",
+                  "path": "tests/smoke/smoke.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ccd531ae46437064221b582843e2c9583e102988e57585a64ae398978c849637",
+                "reviewed_content_hash": "7cbd38dede9a4f3179d0995110125809d3ce0b605df5d0292dc44125259273aa",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-ranking.ts",
+                  "path": "tests/unit/retrieval/test-ranking.ts",
                   "repository": "tieline"
                 }
               }
@@ -219,7 +219,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "da806abe99a3ba7f1453cd632c8503ef9e6e838e3c27d10bd461bc4c056fba62",
+            "contract_hash": "07f99d40b6c5221dffb4ccf17e3a09e0b1d573ecd1ab9995fd38411a7abd2e27",
             "criterion": "Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.",
             "links": [
               {
@@ -255,11 +255,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
+                "reviewed_content_hash": "f33d115ae76bc87ec5997e05762b1f3b3a81b7b63c9f85c7b738eb3a9c2ca340",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-evidence.ts",
+                  "path": "tests/integration/integration-evidence.ts",
                   "repository": "tieline"
                 }
               }
@@ -281,7 +281,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ede5008a2c6ef59efd490bec06fa205926e3041bf4233c2b26ea562f0c9e40ae",
+            "contract_hash": "9e0d934d84b39ed7e5fa04312aa91daf30aed83187218e45612e9fc1855554d8",
             "criterion": "Tieline must use absolute vector, lexical, or exact-alias magnitude to decide whether a semantic candidate is admitted, and must use the blended rank-fusion score only to order admitted candidates.",
             "links": [
               {
@@ -307,11 +307,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ccd531ae46437064221b582843e2c9583e102988e57585a64ae398978c849637",
+                "reviewed_content_hash": "7cbd38dede9a4f3179d0995110125809d3ce0b605df5d0292dc44125259273aa",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-ranking.ts",
+                  "path": "tests/unit/retrieval/test-ranking.ts",
                   "repository": "tieline"
                 }
               }
@@ -367,6 +367,6 @@
   },
   "input": {
     "path": ".tieline/spec/matching.yaml",
-    "sha256": "2e101c599400120123fb3040c2d65aa2346db2175bd856ee2f6425c5bba090aa"
+    "sha256": "bc8ffb692261832cc24a0cfd9d94ef05c2f4d89fcd7e46dce4ee6af35b09f3ba"
   }
 }

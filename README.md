@@ -166,7 +166,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-intent-context.ts
+                path: tests/unit/contract/test-intent-context.ts
 ```
 
 An AC is complete on its own. Given/When/Then Scenarios are optional examples for important
