@@ -12,7 +12,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "e54b533738a4792fa4acd31017085c08b9692274cfab37bc46927b01063b2abf",
+            "contract_hash": "02c09d7f1cfcbde8a8d85b061e03f56a0c0e23f6db49820a9a71f667985a70f9",
             "criterion": "Tieline must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.",
             "links": [
               {
@@ -58,11 +58,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -76,7 +76,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "94f7d85db8eb57f7a06d1bf152873f475a1cb3b4b5085b09d85cb15c5ac761ae",
+            "contract_hash": "7d5ea17b24044223348f170d459f2abaa62ca343e2020271ecda81ddcf2dfb26",
             "criterion": "Tieline local database setup must persist the container owner credential before waiting for PostgreSQL readiness.",
             "links": [
               {
@@ -102,11 +102,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -120,7 +120,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ba48dbddce90658dc0ef897612ba44842c83b669220dec2ef1e5c3d0a7bd3b80",
+            "contract_hash": "f7d16d2d26df8e2ce9c3860926c27c5e9a1aa2f166ad029c888bd45ad9acecba",
             "criterion": "Tieline must report workspace initialization, clone-local setup, and database-backed capability configuration as separate states.",
             "links": [
               {
@@ -156,11 +156,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -174,7 +174,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "1f1ac7fd498b9a12342148ff6b33e7293d84135c135e6443b1a90fe811f638a3",
+            "contract_hash": "479166eb128afaaea79247c8146e03807e17d1bd72c2979ef00b6c985754b2a9",
             "criterion": "Tieline initialization must persist deterministic repository and runtime inputs from explicit flags and auto-detection without generating semantic contract content.",
             "links": [
               {
@@ -200,11 +200,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -218,7 +218,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "5311ce256ae958045b538b683052044f2f6752d6e1b58dc0b1311a0eb8b32fbf",
+            "contract_hash": "3cd7a5e1866e75dc0bdbb80b49c310486ff86109b3d9469a2ad4a0b312c9d821",
             "criterion": "Tieline initialization must prepare explicitly selected project-agent targets and install the tieline skill through Skillfish only for those supported agents and scope.",
             "links": [
               {
@@ -254,22 +254,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "26f73c53807c1bd4561f18eacb41544c32d32a5a6f56fd79729d48c73c68529c",
+                "reviewed_content_hash": "fee65823712eb68060d4d26e2dcfdb89810ca4524906c37648241e80eee4a82d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-skill-install.ts",
+                  "path": "tests/unit/runtime/test-skill-install.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -283,7 +283,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "62557624443b4845f5c36a00a08cdb8e19c45de6d54f4167e03c5f6d83416413",
+            "contract_hash": "b7f5516cbc29810dc07ed3c269e9ed58346e1378e63d627ff7b0318a09b17a32",
             "criterion": "Tieline must preserve a ready workspace and report a structured installer error when requested skill installation fails.",
             "links": [
               {
@@ -309,11 +309,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -327,7 +327,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "73cc92081f91abde376069780833a2663e0a4c5cd1ffedf9ca2965326ee23cf7",
+            "contract_hash": "51047b539378474a496f65467daad6196302c66b347accc42ada576c9ade6d94",
             "criterion": "Tieline status must expose concise structured onboarding state without duplicating the authoring workflow.",
             "links": [
               {
@@ -353,11 +353,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -371,7 +371,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "04f3c47144cf2bebe99896dda98815d24857daf1a6b59d715beb93f825771c06",
+            "contract_hash": "1d101d5074acc3f17b5ab82f4af7a7b76b87e64a8e789d2db28ffbbd830c6b25",
             "criterion": "Tieline initialization must print an exact Tieline retry command when requested skill installation is incomplete.",
             "links": [
               {
@@ -397,22 +397,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "26f73c53807c1bd4561f18eacb41544c32d32a5a6f56fd79729d48c73c68529c",
+                "reviewed_content_hash": "fee65823712eb68060d4d26e2dcfdb89810ca4524906c37648241e80eee4a82d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-skill-install.ts",
+                  "path": "tests/unit/runtime/test-skill-install.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -426,7 +426,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "a3bd3bdfd4029d9cdb443c7343d8c913147f550b3c7c942623e0e541952ec8d1",
+            "contract_hash": "3f109b8f51f4e1de3538a92884b14d8260b9fb4090d9e67e9130141466eefd8c",
             "criterion": "Tieline initialization must accept context sources only through repeatable --context flags and validate each as an existing repository path or explicit HTTP(S) URL before mutation.",
             "links": [
               {
@@ -452,11 +452,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -470,7 +470,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "a9d10846045b99aeb18f09ce5b114491307d7497faa0970a124397baa08ff0d6",
+            "contract_hash": "c4588bf6635bc5e72368adbe3c5bd59a0b174b01cccbd4109c30b029f139b49f",
             "criterion": "Tieline initialization must use a non-empty interactive agent selection as setup consent, require non-interactive callers to pass an explicit agent or explicitly skip skill installation, auto-detect code scope, and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.",
             "links": [
               {
@@ -516,11 +516,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -551,7 +551,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "2c36a87351e38b2c5b24bdeefffb3347b0e7fdc0cfa9b03395b19352db538a22",
+            "contract_hash": "c0b75675e4f457f8d7a7783f2fca90c9bcc979a0d2e79ac1e2593affe6298adb",
             "criterion": "Tieline must compose read, evidence-write, and planning-write capabilities without exposing repository synchronization through MCP tools.",
             "links": [
               {
@@ -617,11 +617,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/smoke.ts",
+                  "path": "tests/smoke/smoke.ts",
                   "repository": "tieline"
                 }
               }
@@ -635,7 +635,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "13a5d452ce766f7ef5f4259fc84c579ab4aa95dcc33b275d1b5a63ea9db2a776",
+            "contract_hash": "2eacdc2ca363f057eebf61b32446963cdb9ad7778a23fb70e1e82c0eb5ac8697",
             "criterion": "Tieline must serve stdio by default and require explicit gateway configuration for non-loopback HTTP.",
             "links": [
               {
@@ -701,11 +701,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7b6a9323030b32ef23c9df6c8557043753e06d522a04e393e89bae34bd351ead",
+                "reviewed_content_hash": "df0962b13d6dd00f7d5f16993b90084a7dcaf6050f43af4d423088ddb5c611a9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-http.ts",
+                  "path": "tests/unit/runtime/test-http.ts",
                   "repository": "tieline"
                 }
               }
@@ -719,27 +719,27 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "7384d08a80cc6ffa9a2feece4f3902d63c96b5b341622dac62cfa3f9b0977b97",
+            "contract_hash": "6cc7aae5cb7ab7c05e6736a7cbf82c1c16b26dbf2cebf9bd8c98618099509d15",
             "criterion": "Tieline must provide a loud in-memory test seam for contract and tool verification without weakening production adapters.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6868a1d3086ea8b1ca50f8dcb078fe48a25afe839e23da9786fde45952a9b6e9",
+                "reviewed_content_hash": "6154719ded21076fe6b0c151e6bba52a141f25dfa3b851f5536d361e935bcf7a",
                 "target": {
                   "kind": "code",
-                  "path": "src/domain/testing/fake-knowledge-store.ts",
+                  "path": "tests/support/fakes/fake-knowledge-store.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a9bd06ecf5b2a31bef077035601c86881b61a3a13c9a99ec6cefb9c5e2f525f6",
+                "reviewed_content_hash": "a4a503119dd59c04a20553186ce939100d273310c1cffeab02fdcd8f4402ec6f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract-read.ts",
+                  "path": "tests/unit/retrieval/test-contract-read.ts",
                   "repository": "tieline"
                 }
               }
@@ -753,7 +753,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "0d9f6ad2b181c72a1345d0c33d9ed96b4616ef2e6df5ac96cb0b57cd00fec42e",
+            "contract_hash": "d49a06644a0025c7cb88b5a712671a6fc0ac72692b0ba88cf6c8826b14329acf",
             "criterion": "Tieline must expose one semantic workflow prompt bundle that onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.",
             "links": [
               {
@@ -809,22 +809,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/smoke.ts",
+                  "path": "tests/smoke/smoke.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -838,7 +838,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3eb8f069073282db940d4d0d6d82ac6784517b5db18c137045575e84854b0360",
+            "contract_hash": "21d1dadfe9b11081a23cca2e480e5d2b7345bc3189fc710c73926c6dcac69f58",
             "criterion": "Tieline semantic onboarding must produce a repository-wide evidence-backed initial contract by assessing every configured source root and discovered application boundary, covering or explaining every high-confidence observable behavior cluster, and treating path mapping only as a gap diagnostic.",
             "links": [
               {
@@ -864,11 +864,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -882,7 +882,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "f52c8c4680d86e1514fe4b30575c2384553cc33da00d718f873f2ec070bb3484",
+            "contract_hash": "9a2c535cbb63d2b437994e6c136f73e882e43f27f5fbde5f0d24e2193b1d2e34",
             "criterion": "Tieline's project-installed skill and equivalent MCP prompt must make semantic closeout discoverable before handoff or branch publication, classify every changed behavior cluster including relevant untracked files, directly apply and validate justified contract changes within the authorized commit or publication boundary, and rerun after later implementation changes.",
             "links": [
               {
@@ -908,22 +908,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/smoke.ts",
+                  "path": "tests/smoke/smoke.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -954,28 +954,28 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "57dbd2fa6845c6737c9d8f3d0e2d56c2862bf25a26652d4e0ab8af9b359d02e6",
+            "contract_hash": "11f3ae6b1609f33288a4ac1934d33195ddff3af6981a2e34cc761edb555e62a2",
             "criterion": "Tieline must run the clean lifecycle integration suite against a disposable baseline database.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6f31dbea7d22a2e3625b96db053827d8c2640e4127acbc4c21badedab73e7b36",
+                "reviewed_content_hash": "0758760f7f2af16f8baaf02e1d580549b4a3b51daad23ab4b1c2ffa7817ba522",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-lifecycle.ts",
+                  "path": "tests/integration/integration-lifecycle.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9133932de363ec718bccc57763811a7e812fff735de1a1d8c1f17d8797e885af",
+                "reviewed_content_hash": "8497ce0bc1968a51284b2faa169c9599bde22c57e8038a53bfc05e314d0f7221",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration.ts",
+                  "path": "tests/integration/integration.ts",
                   "repository": "tieline"
                 }
               }
@@ -1006,6 +1006,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "443044e6966cdfce43219c2189a9daf592edd75f1a53ab472537204c3c566106"
+    "sha256": "d8125b5318f1be7e882c9c27a900b2c2b1f37472ab76502fbd779bd469146e24"
   }
 }

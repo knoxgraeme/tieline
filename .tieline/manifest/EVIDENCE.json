@@ -12,7 +12,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "11cffd41797117a7c4854c738d005f2bfc45e7dbeb4d1cb5e66453e51d91a726",
+            "contract_hash": "22d51617fb0753f1353645e6d906379a9a048dd2e17caed2d6ab7f5c047f280d",
             "criterion": "Tieline must append an Observation before semantic matching and allow it to remain unattributed.",
             "links": [
               {
@@ -38,7 +38,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4190e821c670edbddc607cd4a0ce55fb8f2a130d2f4592b16042bd4b04a5b7bd",
+                "reviewed_content_hash": "3ef451b18a7ba0a915b2a1e17bb8c7eb49986279bc8b6a0da88897bb3f41cb49",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/observations.ts",
@@ -48,22 +48,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
+                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-evidence.ts",
+                  "path": "tests/integration/integration-evidence.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "d2a61b2e35316b1540673dedea1b04455463e28f31bb1b11e38a612e5e80ef37",
+                "reviewed_content_hash": "adb7f24a51ed58dd08603edb06dc3f0243fc7ac49598d76146ed8455824f1d85",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-evidence.ts",
+                  "path": "tests/unit/evidence/test-evidence.ts",
                   "repository": "tieline"
                 }
               }
@@ -102,7 +102,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "46135db99819b3fe3966b1d579848bd6f95e335aa6e14add625b631300801ff0",
+            "contract_hash": "a28bf3f97d90b77c874a06e093df0dac88f3f7ce4ed637381cd44ab0bb30b51d",
             "criterion": "Tieline must let a Backlog Item target zero or more Stories and Acceptance Criteria without becoming their lifecycle container.",
             "links": [
               {
@@ -118,7 +118,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c3587cb3b916f279a83dd150cf25c4485a42fedb386e78b9b10c0a0e8b6ca724",
+                "reviewed_content_hash": "d3a057be9af8b1b67c8ecdfe8934fdbda28ce7b814e038e52a39238059049a4a",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/backlog-items.ts",
@@ -128,11 +128,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e1d89476fdcc34efcb92926e35c7d3baed26e06ab69a9ea3d0d2441d1a484cce",
+                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-evidence.ts",
+                  "path": "tests/integration/integration-evidence.ts",
                   "repository": "tieline"
                 }
               }
@@ -163,7 +163,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "712fce452757ad7ffb08e9da43315246bf191e76ebf8bf75dff6eed6df2eb3e0",
+            "contract_hash": "444b7abc992e0c4a3a7677b25f3f3e33647414dad2d25fa1407703a7340f6584",
             "criterion": "Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.",
             "links": [
               {
@@ -199,7 +199,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f135958db62e2576692b3000d7af68d93b0d6df377a347d83d3b11a6db802518",
+                "reviewed_content_hash": "e728a57e21632153feb213d860a5d106721790098bbb5335855b205eb7e05423",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/find-help.ts",
@@ -209,7 +209,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "19dfe548cc783845bc5ff466539e7c5a63e7bf1a6414cdcd21a0958d3da82778",
+                "reviewed_content_hash": "0db266fcdc030af5b2e56dd117ea82148c077c71cb73c69630f304cf3828d987",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/get-help-articles.ts",
@@ -219,11 +219,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-contract-sync.ts",
+                  "path": "tests/integration/integration-contract-sync.ts",
                   "repository": "tieline"
                 }
               }
@@ -254,6 +254,6 @@
   },
   "input": {
     "path": ".tieline/spec/evidence.yaml",
-    "sha256": "65351823685c823d3eedff0c5a024ece7f0c02aa0dd2835d1d401aa74190576f"
+    "sha256": "b8754925d98ad976b0c661bc7663e639c96963ade9c403c14999fc02fa49f08f"
   }
 }

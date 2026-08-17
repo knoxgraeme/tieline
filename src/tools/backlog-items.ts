@@ -13,7 +13,7 @@ import {
   type GetBacklogItemInput,
   type SetBacklogItemLinksInput,
   type UpdateBacklogItemInput,
-} from "../schemas.js";
+} from "./schemas/backlog-items.js";
 import { getEvidenceWriteStore, getReadStore } from "../store.js";
 import { getSemanticMatcher } from "../semantic-matching.js";
 import {

@@ -165,7 +165,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-intent-context.ts
+                path: tests/unit/contract/test-intent-context.ts
 ```
 
 An AC is complete on its own. Given/When/Then Scenarios are optional examples for important
@@ -197,4 +197,6 @@ the affected ACs for agent or human review. After merge, an idempotent sync publ
 | [Concepts](docs/concepts.md) | Contract structure, evidence, authority, and freshness |
 | [CLI](docs/cli.md) | Contract, topology, check, sync, grading, and review commands |
 | [MCP](docs/mcp.md) | Local and database-backed tools for agents |
+| [Architecture](docs/architecture.md) | Production boundaries and dependency direction |
+| [Testing](docs/testing.md) | Test layout, canonical checks, and disposable database guard |
 | [Operations](docs/operations.md) | Serving, credentials, durability, and privacy |

@@ -41,7 +41,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-embeddings.ts
+                path: tests/unit/retrieval/test-embeddings.ts
                 framework_hint: custom-script
         - key: MATCHING-001-AC2
           criterion: Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.
@@ -100,35 +100,35 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-ranking.ts
+                path: tests/unit/retrieval/test-ranking.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/evaluate-retrieval.ts
+                path: tests/evaluations/evaluate-retrieval.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-evidence.ts
+                path: tests/integration/integration-evidence.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/smoke.ts
+                path: tests/smoke/smoke.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-baseline.ts
+                path: tests/integration/integration-baseline.ts
                 framework_hint: custom-script
         - key: MATCHING-001-AC3
           criterion: Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.
@@ -160,7 +160,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-evidence.ts
+                path: tests/integration/integration-evidence.ts
                 framework_hint: custom-script
         - key: MATCHING-001-AC4
           criterion: Tieline must use absolute vector, lexical, or exact-alias magnitude to decide whether a semantic candidate is admitted, and must use the blended rank-fusion score only to order admitted candidates.
@@ -193,5 +193,5 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-ranking.ts
+                path: tests/unit/retrieval/test-ranking.ts
                 framework_hint: custom-script

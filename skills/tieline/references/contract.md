@@ -54,7 +54,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-ranking.ts
+                path: tests/unit/retrieval/test-ranking.ts
                 framework_hint: custom-script
 ```
 

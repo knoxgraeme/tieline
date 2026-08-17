@@ -15,7 +15,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "d11814c21b365fb2ddafd6e944c5fcbef3d89948f688e4fecf9d0f2d154902c9",
+            "contract_hash": "c17eb22d062a1b7f3d7370870096405963956b5cc45012d3a962135b85ab930c",
             "criterion": "Tieline must reject repository contract documents that violate the accepted Story and Acceptance Criterion schema.",
             "links": [
               {
@@ -51,11 +51,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "reviewed_content_hash": "128c7d4dfe0e83b3044ffe178e1993ebb8ceeb5124e48b917a9e16abaef4a21a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract.ts",
+                  "path": "tests/unit/contract/test-contract.ts",
                   "repository": "tieline"
                 }
               }
@@ -69,7 +69,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "09af17ffb75ab3e3e19c4ac8773735a2f6a507b617f28483738ef81d50a90b4c",
+            "contract_hash": "c02e83c8aa3e04461c0f91cb43c36e8beb69dfbc61595e95bf42c76fb1c28dbd",
             "criterion": "Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.",
             "links": [
               {
@@ -105,33 +105,33 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "reviewed_content_hash": "85234986a2577b7a9752aedb8b3c2b20014a3798956a74b722d6005e7f47f7d7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract-command.ts",
+                  "path": "tests/unit/contract/test-contract-command.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "reviewed_content_hash": "128c7d4dfe0e83b3044ffe178e1993ebb8ceeb5124e48b917a9e16abaef4a21a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract.ts",
+                  "path": "tests/unit/contract/test-contract.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "reviewed_content_hash": "6692be1aaac8877b605267646054cee483051e51b334ff87d50e5d17fa6f333c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-manifest.ts",
+                  "path": "tests/unit/contract/test-manifest.ts",
                   "repository": "tieline"
                 }
               }
@@ -160,7 +160,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "f58cfd249e89384c184540624898e6a862860a0fa03a385a5c98787f7eda8f73",
+            "contract_hash": "68f56c44a4e7e97c9601c130f589c93cb4ba32323e32da959613cf012e812d9d",
             "criterion": "Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.",
             "links": [
               {
@@ -186,11 +186,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
+                "reviewed_content_hash": "8320563aec2e99991d1fb531f7f6040312f82a1b76b68a4c9a33eeaded4c90ab",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-impact.ts",
+                  "path": "tests/unit/contract/test-impact.ts",
                   "repository": "tieline"
                 }
               }
@@ -212,7 +212,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3096d59a6b06c1f3f7b794adf8c1c5d0bb3c8a3a456c750bc8593dc3c131cb72",
+            "contract_hash": "2c1da8e2e79378a7870d23eb1743904314aeb3fdad935a9a76f0a61d9abbd7be",
             "criterion": "Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.",
             "links": [
               {
@@ -248,11 +248,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "reviewed_content_hash": "85234986a2577b7a9752aedb8b3c2b20014a3798956a74b722d6005e7f47f7d7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract-command.ts",
+                  "path": "tests/unit/contract/test-contract-command.ts",
                   "repository": "tieline"
                 }
               }
@@ -266,7 +266,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "f86b5de23d7c2d73fa3a9e7e869f1746f9ab7e0ca6395041c6d78262612f3549",
+            "contract_hash": "a4a2b535308848d8498c81de1ac5a5504d1af4cb3e67062d1df1b95d6b06a5e4",
             "criterion": "Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.",
             "links": [
               {
@@ -292,22 +292,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "reviewed_content_hash": "85234986a2577b7a9752aedb8b3c2b20014a3798956a74b722d6005e7f47f7d7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract-command.ts",
+                  "path": "tests/unit/contract/test-contract-command.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "reviewed_content_hash": "6692be1aaac8877b605267646054cee483051e51b334ff87d50e5d17fa6f333c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-manifest.ts",
+                  "path": "tests/unit/contract/test-manifest.ts",
                   "repository": "tieline"
                 }
               }
@@ -336,7 +336,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8efa277938f7c53ddc53116b182d5d302d639f04f4eb2e864ae820574bcb8dc3",
+            "contract_hash": "5efa0e941b589984facd011c393e81c58a92a9aa42b8d7000efc014591ded6f5",
             "criterion": "Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.",
             "links": [
               {
@@ -362,11 +362,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
+                "reviewed_content_hash": "8320563aec2e99991d1fb531f7f6040312f82a1b76b68a4c9a33eeaded4c90ab",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-impact.ts",
+                  "path": "tests/unit/contract/test-impact.ts",
                   "repository": "tieline"
                 }
               }
@@ -402,7 +402,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3f2b24169185c3d8bb008393ad0e9a2dc5d03c4e9b42f39233af6e64570a467e",
+            "contract_hash": "3470ff844d669ea04d3607a1acc52f733d2d449769fc7963c53336591739193e",
             "criterion": "Tieline must require every contract link to state whether its claim was authored, inferred, or materialized, and must preserve that provenance through compiled manifests, repository synchronization, and every exact claim read.",
             "links": [
               {
@@ -468,33 +468,33 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-contract-sync.ts",
+                  "path": "tests/integration/integration-contract-sync.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "reviewed_content_hash": "128c7d4dfe0e83b3044ffe178e1993ebb8ceeb5124e48b917a9e16abaef4a21a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract.ts",
+                  "path": "tests/unit/contract/test-contract.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "reviewed_content_hash": "6692be1aaac8877b605267646054cee483051e51b334ff87d50e5d17fa6f333c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-manifest.ts",
+                  "path": "tests/unit/contract/test-manifest.ts",
                   "repository": "tieline"
                 }
               }
@@ -530,7 +530,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "42b68fb2b12ae0124214790488894f75e2a80f0da627230459dfa394c715c717",
+            "contract_hash": "c10a5d15e28c59d4155194197062a3dcea4b244ec6ac251b38374c3653e8fce8",
             "criterion": "Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.",
             "links": [
               {
@@ -616,16 +616,6 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "da33538a7ac9f17a415c334a6c918a441b8d705e84919b23368c227bf393e6be",
-                "target": {
-                  "kind": "code",
-                  "path": "src/schemas.ts",
-                  "repository": "tieline"
-                }
-              },
-              {
-                "provenance": "authored",
-                "relation": "implements",
                 "reviewed_content_hash": "3d18c6ade03e82a9ab9fec3bc89f213b2780013c0ef246b67dd7f1f6d84a1ef7",
                 "target": {
                   "kind": "code",
@@ -636,7 +626,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "779fcd5ff896c50294c4b4e459285124be494b4063f09d26246ca0e117a0fc28",
+                "reviewed_content_hash": "8a2a134a7849a3287a15748ef6f883457d2f0324cc52536a9fe594f760766983",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/path-criteria.ts",
@@ -645,56 +635,66 @@
               },
               {
                 "provenance": "authored",
-                "relation": "tests",
-                "reviewed_content_hash": "6372269131d3eb4cb41df88d507684874016705e8c69cbec7a486e3f5dc7806e",
+                "relation": "implements",
+                "reviewed_content_hash": "9177364294c938841ede5fa9c3653611084a60739cf62382d70d9f9294a60ecd",
                 "target": {
-                  "framework_hint": "custom-script",
-                  "kind": "test",
-                  "path": "scripts/integration-contract-sync.ts",
+                  "kind": "code",
+                  "path": "src/tools/schemas/path-criteria.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3afe6aaec10d31bfdae825bf747854a4c9082fb9e6391846558486b59ff42535",
+                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract-command.ts",
+                  "path": "tests/integration/integration-contract-sync.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4c89e15d5dc6a475eb905be490879e40c52a28d08b428f3e458322fa7fce5dcb",
+                "reviewed_content_hash": "85234986a2577b7a9752aedb8b3c2b20014a3798956a74b722d6005e7f47f7d7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-manifest.ts",
+                  "path": "tests/unit/contract/test-contract-command.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9d490232e62f9029ec6aebecc1a1e83c56189466223fafeb651834039b29d755",
+                "reviewed_content_hash": "6692be1aaac8877b605267646054cee483051e51b334ff87d50e5d17fa6f333c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-path-criteria.ts",
+                  "path": "tests/unit/contract/test-manifest.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "51f1d43f08c1458802e7df1a2443e33ee087368fe199099e539aa04d0fc8db25",
+                "reviewed_content_hash": "5cf84911d13be1d414ec898c234f02d6b0cc49e531f3f64658bec5752b8275b8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-tieline.ts",
+                  "path": "tests/unit/contract/test-path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
                   "repository": "tieline"
                 }
               }
@@ -749,7 +749,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "7360e197c8a9fb50eab8f469aa111b1e3d7bfd929598c63cfdb3db6998e1fbda",
+            "contract_hash": "00e0d7f2b33de7e49512ca3aee2aa724c6bb30194d9c0e2139fe722520d3a916",
             "criterion": "Tieline must report every acceptance criterion linked to an exact repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must return an explicit has_criteria, no_criteria, or not_found status for every requested path.",
             "links": [
               {
@@ -795,11 +795,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9d490232e62f9029ec6aebecc1a1e83c56189466223fafeb651834039b29d755",
+                "reviewed_content_hash": "5cf84911d13be1d414ec898c234f02d6b0cc49e531f3f64658bec5752b8275b8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-path-criteria.ts",
+                  "path": "tests/unit/contract/test-path-criteria.ts",
                   "repository": "tieline"
                 }
               }
@@ -835,19 +835,9 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "787fb7ed403c175926753c57ca19e3087b44de267cada8fbb66db500ab0320bb",
+            "contract_hash": "283a3ede4712484cd8dd5fe74c0902d1c1c220aea093534da8a92db9adf1c395",
             "criterion": "The path-criteria lookup must answer from the compiled manifest alone, so Tieline must serve get_path_criteria over MCP with no database connection and must return a named, actionable message when no workspace or no readable manifest is found.",
             "links": [
-              {
-                "provenance": "authored",
-                "relation": "implements",
-                "reviewed_content_hash": "da33538a7ac9f17a415c334a6c918a441b8d705e84919b23368c227bf393e6be",
-                "target": {
-                  "kind": "code",
-                  "path": "src/schemas.ts",
-                  "repository": "tieline"
-                }
-              },
               {
                 "provenance": "authored",
                 "relation": "implements",
@@ -861,7 +851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "779fcd5ff896c50294c4b4e459285124be494b4063f09d26246ca0e117a0fc28",
+                "reviewed_content_hash": "8a2a134a7849a3287a15748ef6f883457d2f0324cc52536a9fe594f760766983",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/path-criteria.ts",
@@ -870,12 +860,22 @@
               },
               {
                 "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9177364294c938841ede5fa9c3653611084a60739cf62382d70d9f9294a60ecd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/schemas/path-criteria.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9d490232e62f9029ec6aebecc1a1e83c56189466223fafeb651834039b29d755",
+                "reviewed_content_hash": "5cf84911d13be1d414ec898c234f02d6b0cc49e531f3f64658bec5752b8275b8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-path-criteria.ts",
+                  "path": "tests/unit/contract/test-path-criteria.ts",
                   "repository": "tieline"
                 }
               }
@@ -924,7 +924,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "9e069f8e291fa6a819a64ee72cca9bf563d00deb84ea1e83b4805ef10122fc8e",
+            "contract_hash": "672cf3f5fe9957c11ec07275396262ea0c325fa355fd52ca5df3414b050d1bf1",
             "criterion": "Given an exact repository-relative code or test path with optional kind and selector, Tieline must preserve the complete locator identity, return has_context, no_criteria, or not_found explicitly, include exact-selector and file-level claims while excluding other selectors, and bound associated assets to one Acceptance-Criterion-mediated intent neighborhood.",
             "links": [
               {
@@ -941,11 +941,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-intent-context.ts",
+                  "path": "tests/unit/contract/test-intent-context.ts",
                   "repository": "tieline"
                 }
               }
@@ -974,7 +974,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "28201fe8536c238a87e4169d80ac9a92931c30ca5bd0b2181021f5657bbe6a15",
+            "contract_hash": "fe13ca6967d4564173a3a28fd493c46e1f00616966152831a58e0c67fe3f081f",
             "criterion": "Given an exact Acceptance Criterion stable ID, Tieline must return its Capability and Story ancestry, lifecycle, criterion, rationale, applicability, scenarios, direct links, Story-fallback links, and directly associated code and test assets without recursive code-to-code traversal.",
             "links": [
               {
@@ -991,11 +991,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-intent-context.ts",
+                  "path": "tests/unit/contract/test-intent-context.ts",
                   "repository": "tieline"
                 }
               }
@@ -1024,7 +1024,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3a4a4ac3fbe6aaac4af441bc54fbece99af5a0d1baaf0622ee6bc14b93434168",
+            "contract_hash": "ae1a2aa00b5454328efd1789853af433ef40cc06516b16492309ded25c00832c",
             "criterion": "Every code or test claim returned as exact intent context must keep provenance, link scope, content freshness, locator resolution, and semantic support as separate assurance dimensions, must preserve broken and uninspectable claims with honest causes or unknown states, and must report semantic support as not_assessed.",
             "links": [
               {
@@ -1052,33 +1052,33 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e4ffacf4fd7b7b0d6bf7f6ccb44ad75745f53967e6571b43767e288b7802509e",
+                "reviewed_content_hash": "cd0b4163abed0ac9e166dd330005487a9d098e10a36671f34ee708ff9a84bcae",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-artifact-assurance.ts",
+                  "path": "tests/unit/contract/test-artifact-assurance.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "17003d2fd164ff77887e0c9e52afe0c636a7efb50622ffdca27c72c0415e4779",
+                "reviewed_content_hash": "128c7d4dfe0e83b3044ffe178e1993ebb8ceeb5124e48b917a9e16abaef4a21a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract.ts",
+                  "path": "tests/unit/contract/test-contract.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-intent-context.ts",
+                  "path": "tests/unit/contract/test-intent-context.ts",
                   "repository": "tieline"
                 }
               }
@@ -1114,7 +1114,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "904638bde0cf9471cbf0d0af6e33905b5f65a167a71c57a2fc82c780116dc72a",
+            "contract_hash": "471d6599959278d1eef91569463c80d4dedfd4c62dde46556c2659e69c320370",
             "criterion": "Tieline must expose separate get_asset_intent_context and get_acceptance_criterion_context MCP tools and equivalent contract context --path and --ac CLI modes that answer from the compiled manifest without a database and preserve the same membership, statuses, repository key, and content-derived manifest digest.",
             "links": [
               {
@@ -1142,7 +1142,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bdf01dd86664ddadfb82365f149a3866249a8eb6265a62005538945d5ee00ee9",
+                "reviewed_content_hash": "dff57fe5e86c1764135899f0ec8667a7fe0d06c97262d808d675823db1fd0d80",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/intent-context.ts",
@@ -1153,33 +1153,33 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3cdacf4d7c5b5eba28ed1ab26f85409ce0fc6ab2b265c50c8d078370d368f3cb",
+                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/smoke.ts",
+                  "path": "tests/smoke/smoke.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f956d2d18ccc9e8dddd8415ec852396e509cc9170e6d714cbc3ab75eb22f9cd8",
+                "reviewed_content_hash": "f1199d9262c191d8eeeab0ae8cf5bd5a905abd3526a7e53a6e7465de480a94b5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-contract-context-command.ts",
+                  "path": "tests/unit/contract/test-contract-context-command.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "08b49f37c3a47c375c11ae4642766375b8e154dfc0e3350bbe95810b1367a19b",
+                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-intent-context.ts",
+                  "path": "tests/unit/contract/test-intent-context.ts",
                   "repository": "tieline"
                 }
               }
@@ -1208,7 +1208,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "65b9bab6271c0b079470da2765fe6c488265bf851fa582f7efb439db15d5f66b",
+            "contract_hash": "2a13bbb5ffc3cf43bfc0b31378411b619841f93288b3962b6418426c88339db9",
             "criterion": "Diff impact must preserve selector-qualified target identity and report resolved, unresolved, or not_checked locator state for affected links while keeping selector findings advisory and describing shared Acceptance-Criterion links only as contract coupling rather than runtime dependency or comprehensive blast radius.",
             "links": [
               {
@@ -1225,11 +1225,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5bec3632cc7fe80ee81c65eca7f5722b07f971331d32ed80b4e216adbb16f8bc",
+                "reviewed_content_hash": "8320563aec2e99991d1fb531f7f6040312f82a1b76b68a4c9a33eeaded4c90ab",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-impact.ts",
+                  "path": "tests/unit/contract/test-impact.ts",
                   "repository": "tieline"
                 }
               }
@@ -1272,7 +1272,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "4e738fa9be64375352b378b11c901676d723d95dd7f709891e34828201e44025",
+            "contract_hash": "fca7e711bb9cffeb6a1231838b0c640206c06fa6ddb5db0b75227eff9ac65b14",
             "criterion": "Tieline must extract deterministic symbols, owner chains where applicable, named UTF-16 and UTF-8 byte source ranges, and parser-backed source snippets from immutable JavaScript, JSX, TypeScript, TSX, Python, Rust, and SQL snapshots while retaining syntax recovery, ambiguity, and truncation explicitly; it must also extract module references only for languages with a supported static module model.",
             "links": [
               {
@@ -1344,33 +1344,33 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8fc275b689e5097462b613c1089b2ccae3736e5469ed967b055db58b0267a968",
+                "reviewed_content_hash": "d9bf8b5b707933ed5d34f3c27df4addf8eb99c64c18302d69591c17cfe3abbb0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-analysis-python-rust.ts",
+                  "path": "tests/unit/topology/test-code-analysis-python-rust.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "78aa72bb46a8dbc775eab83f6167d73156b0af5c296c560739ea98bd9fde42b0",
+                "reviewed_content_hash": "e87884608e76e81021f6dd58b541f2b34ab25e714313fb62baf6c506ab27c18d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-analysis-sql.ts",
+                  "path": "tests/unit/topology/test-code-analysis-sql.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "49bda0bada48449c74eb147e080b7e88f85c930d62ca302aa456cd29b3d4c724",
+                "reviewed_content_hash": "29b63eddae5e3b1b93c1b9ea4344db5421b708303f3ad49fcca3c5a0635a88f1",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-source-snapshot.ts",
+                  "path": "tests/unit/topology/test-source-snapshot.ts",
                   "repository": "tieline"
                 }
               }
@@ -1406,7 +1406,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "9827b526f4b1547e037d38b9400795136394c52dd085c5303f8e7ecfa34c5cc9",
+            "contract_hash": "78b5ea4cb5fb6304c22ed8afd31a05b4807a2256975d95b59e7819658620dca4",
             "criterion": "Tieline must resolve supported project-local JavaScript and TypeScript, Python, and Rust module forms in a separate conservative phase and must preserve exact, ambiguous, unresolved, external, dynamic, glob, generated, and unsupported outcomes instead of guessing a dependency.",
             "links": [
               {
@@ -1456,22 +1456,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "86f4b6a047584a7b50fd13972865fa29bd76d000e2364bd8fd1fdfe6c98ab768",
+                "reviewed_content_hash": "231a5745ebb1dfb0b14caeaaa9ea8bb43aaf77cf1a9ffc5befc04137cd24a47e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-resolution-javascript.ts",
+                  "path": "tests/unit/topology/test-code-resolution-javascript.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "075f4ac846773df89d29ed345888832e1f7ce1ffa4f92a7cbfc161459ada8386",
+                "reviewed_content_hash": "64833e866087ca963e73cdceaaac7b0bc96ca2ca19f30dfbaf306263df6c706d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-resolution-python-rust.ts",
+                  "path": "tests/unit/topology/test-code-resolution-python-rust.ts",
                   "repository": "tieline"
                 }
               }
@@ -1500,7 +1500,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "6475728ee2e4538ad41199b1c9b6d49394b1d98d0d0c42a9b3b42d1700947c67",
+            "contract_hash": "ae0309a92df1850a5bc704eee6f410fadc1251554b527a8f0a8e9cf75443c953",
             "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
@@ -1571,33 +1571,33 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "74d6f0dfc6d7ee8bdfcbd5d5222b550ed3b433a337f0a10b42bc008ae7283abe",
+                "reviewed_content_hash": "ce937f642733fb5e34527f7814b5235917e233f834e2ec452f84a3550840579a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/integration-code-topology.ts",
+                  "path": "tests/integration/integration-code-topology.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "21bc95bb043a72321ca4adaa956d84874b1dff69715d28ce47fac77286c86abd",
+                "reviewed_content_hash": "8d6f2a0005b79045e5e8d75fe26fb776ec24d13ffe17106d0db0bb3ff6097330",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-topology-artifact-command.ts",
+                  "path": "tests/unit/topology/test-code-topology-artifact-command.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7f1e4fff50ef268ae18d0ac433295d1d59abb35d0b44e749ca5e7c0dd6c4e607",
+                "reviewed_content_hash": "90f634de44bb53e1b22f2fc101956df791f37ab72c7d5dfceee89aa59e764ccd",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-topology-generation.ts",
+                  "path": "tests/unit/topology/test-topology-generation.ts",
                   "repository": "tieline"
                 }
               }
@@ -1633,7 +1633,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "a1737b55445326f4c591826239a07efbf8261dac096f80009a58d7e0c0638b43",
+            "contract_hash": "550f23ee1494b9401b80968adbb9d3b9adf29fb628109d5297b75e631a411e0d",
             "criterion": "Tieline must locate an exact path and optional selector before traversing dependencies or dependents, must default AC-aware blast radius to dependents, and must return cycle-safe deterministic paths, unresolved frontiers, generation identities, and independent depth, node, edge, and path truncation within fixed hard maxima.",
             "links": [
               {
@@ -1661,22 +1661,22 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "d1741ad972f6457189dba4cf36a4e584a86bfb6d4fd2f32e71fe15f854c731c8",
+                "reviewed_content_hash": "d4900c7b504ed0508f8d804b24ad9688690bd4575097056bd61c56bf1df77361",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-blast-radius.ts",
+                  "path": "tests/unit/topology/test-code-blast-radius.ts",
                   "repository": "tieline"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7d7daf4cf1dc498fe588384a140a4ae11a4da6beb7fdff032d9c1044c53c4b64",
+                "reviewed_content_hash": "48de511063b90d9809616ad34f80446fbc78fe1a418050bd4f2a41fbef2dc628",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-topology.ts",
+                  "path": "tests/unit/topology/test-code-topology.ts",
                   "repository": "tieline"
                 }
               }
@@ -1705,7 +1705,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "00176c0fe08796585d8cbabcbd186e8254b3636c72d9ac043f6bc470e4545798",
+            "contract_hash": "933593c4d544ba17029fe53d2348e61884244fe23f242b924976119ed82471ba",
             "criterion": "Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
             "links": [
               {
@@ -1733,7 +1733,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8feb9cf3a98c934c35466578d2558128088add474a3ba900fc983c9705b0e570",
+                "reviewed_content_hash": "55a823142a5f282f39f1b9ae90854f1ec799e15d35b4e6004042b9ddbbd782e3",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/code-topology.ts",
@@ -1744,11 +1744,11 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "de5c84fc29c9b1aebeeb33bfcbcae83ad1ce73179748e1f06ae3e27e4909d07b",
+                "reviewed_content_hash": "68972f412821c280c8586cd6641ee4bfa48b42396c1fa9caaebe35907b45cbf5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
-                  "path": "scripts/test-code-topology-command.ts",
+                  "path": "tests/unit/topology/test-code-topology-command.ts",
                   "repository": "tieline"
                 }
               }
@@ -1805,6 +1805,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "6fb9b325601f653ee11d1acf0a588fb805c7e88c7cc81d81cc712cab4bd17db8"
+    "sha256": "89589e97811068f8388031c08cdb6a97e0340d6d4f2dcc7e7be56307d9c4386c"
   }
 }

@@ -10,7 +10,7 @@ import {
   searchKnowledgeOutputShape,
   searchKnowledgeShape,
   type SearchKnowledgeInput,
-} from "../schemas.js";
+} from "./schemas/search-knowledge.js";
 import type {
   SearchDocumentKind,
   SemanticSearchAnchor,

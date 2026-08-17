@@ -41,14 +41,14 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-evidence.ts
+                path: tests/unit/evidence/test-evidence.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-evidence.ts
+                path: tests/integration/integration-evidence.ts
                 framework_hint: custom-script
     - key: EVIDENCE-002
       title: Consolidate optional work without duplicating behavior
@@ -77,7 +77,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-evidence.ts
+                path: tests/integration/integration-evidence.ts
                 framework_hint: custom-script
     - key: EVIDENCE-003
       title: Connect external help without copying its identity
@@ -124,5 +124,5 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-contract-sync.ts
+                path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script

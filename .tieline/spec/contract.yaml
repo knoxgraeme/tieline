@@ -43,7 +43,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract.ts
+                path: tests/unit/contract/test-contract.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC2
           criterion: Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.
@@ -78,21 +78,21 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract.ts
+                path: tests/unit/contract/test-contract.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-manifest.ts
+                path: tests/unit/contract/test-manifest.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-command.ts
+                path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC3
           criterion: Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.
@@ -119,7 +119,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-impact.ts
+                path: tests/unit/contract/test-impact.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC4
           criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.
@@ -148,7 +148,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-command.ts
+                path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC5
           criterion: Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.
@@ -178,14 +178,14 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-manifest.ts
+                path: tests/unit/contract/test-manifest.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-command.ts
+                path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC6
           criterion: Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
@@ -218,7 +218,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-impact.ts
+                path: tests/unit/contract/test-impact.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC7
           criterion: Tieline must require every contract link to state whether its claim was authored, inferred, or materialized, and must preserve that provenance through compiled manifests, repository synchronization, and every exact claim read.
@@ -275,21 +275,21 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract.ts
+                path: tests/unit/contract/test-contract.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-manifest.ts
+                path: tests/unit/contract/test-manifest.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-contract-sync.ts
+                path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC8
           criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.
@@ -352,7 +352,7 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/schemas.ts
+                path: src/tools/schemas/path-criteria.ts
             - relation: implements
               provenance: authored
               target:
@@ -376,35 +376,35 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-manifest.ts
+                path: tests/unit/contract/test-manifest.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-command.ts
+                path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-path-criteria.ts
+                path: tests/unit/contract/test-path-criteria.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-tieline.ts
+                path: tests/unit/runtime/test-tieline.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-contract-sync.ts
+                path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
@@ -459,7 +459,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-path-criteria.ts
+                path: tests/unit/contract/test-path-criteria.ts
                 framework_hint: custom-script
         - key: CONTRACT-002-AC2
           criterion: The path-criteria lookup must answer from the compiled manifest alone, so Tieline must serve get_path_criteria over MCP with no database connection and must return a named, actionable message when no workspace or no readable manifest is found.
@@ -489,13 +489,13 @@ capability:
               target:
                 kind: code
                 repository: tieline
-                path: src/schemas.ts
+                path: src/tools/schemas/path-criteria.ts
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-path-criteria.ts
+                path: tests/unit/contract/test-path-criteria.ts
                 framework_hint: custom-script
     - key: CONTRACT-003
       title: Inspect precise accepted intent before changing an asset
@@ -531,7 +531,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-intent-context.ts
+                path: tests/unit/contract/test-intent-context.ts
                 framework_hint: custom-script
         - key: CONTRACT-003-AC2
           criterion: Given an exact Acceptance Criterion stable ID, Tieline must return its Capability and Story ancestry, lifecycle, criterion, rationale, applicability, scenarios, direct links, Story-fallback links, and directly associated code and test assets without recursive code-to-code traversal.
@@ -556,7 +556,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-intent-context.ts
+                path: tests/unit/contract/test-intent-context.ts
                 framework_hint: custom-script
         - key: CONTRACT-003-AC3
           criterion: Every code or test claim returned as exact intent context must keep provenance, link scope, content freshness, locator resolution, and semantic support as separate assurance dimensions, must preserve broken and uninspectable claims with honest causes or unknown states, and must report semantic support as not_assessed.
@@ -591,21 +591,21 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-artifact-assurance.ts
+                path: tests/unit/contract/test-artifact-assurance.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract.ts
+                path: tests/unit/contract/test-contract.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-intent-context.ts
+                path: tests/unit/contract/test-intent-context.ts
                 framework_hint: custom-script
         - key: CONTRACT-003-AC4
           criterion: Tieline must expose separate get_asset_intent_context and get_acceptance_criterion_context MCP tools and equivalent contract context --path and --ac CLI modes that answer from the compiled manifest without a database and preserve the same membership, statuses, repository key, and content-derived manifest digest.
@@ -644,21 +644,21 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-contract-context-command.ts
+                path: tests/unit/contract/test-contract-context-command.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-intent-context.ts
+                path: tests/unit/contract/test-intent-context.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/smoke.ts
+                path: tests/smoke/smoke.ts
                 framework_hint: custom-script
         - key: CONTRACT-003-AC5
           criterion: Diff impact must preserve selector-qualified target identity and report resolved, unresolved, or not_checked locator state for affected links while keeping selector findings advisory and describing shared Acceptance-Criterion links only as contract coupling rather than runtime dependency or comprehensive blast radius.
@@ -680,7 +680,7 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-impact.ts
+                path: tests/unit/contract/test-impact.ts
                 framework_hint: custom-script
     - key: CONTRACT-004
       title: Inspect derived code topology without weakening contract authority
@@ -754,21 +754,21 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-source-snapshot.ts
+                path: tests/unit/topology/test-source-snapshot.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-analysis-python-rust.ts
+                path: tests/unit/topology/test-code-analysis-python-rust.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-analysis-sql.ts
+                path: tests/unit/topology/test-code-analysis-sql.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC2
           criterion: Tieline must resolve supported project-local JavaScript and TypeScript, Python, and Rust module forms in a separate conservative phase and must preserve exact, ambiguous, unresolved, external, dynamic, glob, generated, and unsupported outcomes instead of guessing a dependency.
@@ -814,14 +814,14 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-resolution-javascript.ts
+                path: tests/unit/topology/test-code-resolution-javascript.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-resolution-python-rust.ts
+                path: tests/unit/topology/test-code-resolution-python-rust.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC3
           criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.
@@ -883,21 +883,21 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-topology-artifact-command.ts
+                path: tests/unit/topology/test-code-topology-artifact-command.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-topology-generation.ts
+                path: tests/unit/topology/test-topology-generation.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/integration-code-topology.ts
+                path: tests/integration/integration-code-topology.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC4
           criterion: Tieline must locate an exact path and optional selector before traversing dependencies or dependents, must default AC-aware blast radius to dependents, and must return cycle-safe deterministic paths, unresolved frontiers, generation identities, and independent depth, node, edge, and path truncation within fixed hard maxima.
@@ -929,14 +929,14 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-topology.ts
+                path: tests/unit/topology/test-code-topology.ts
                 framework_hint: custom-script
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-blast-radius.ts
+                path: tests/unit/topology/test-code-blast-radius.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC5
           criterion: Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.
@@ -978,5 +978,5 @@ capability:
               target:
                 kind: test
                 repository: tieline
-                path: scripts/test-code-topology-command.ts
+                path: tests/unit/topology/test-code-topology-command.ts
                 framework_hint: custom-script

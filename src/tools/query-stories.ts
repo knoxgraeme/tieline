@@ -9,7 +9,7 @@ import {
   queryContractStoriesOutputShape,
   queryContractStoriesShape,
   type QueryContractStoriesInput,
-} from "../schemas.js";
+} from "./schemas/query-stories.js";
 import { getReadStore } from "../store.js";
 import {
   errorResult,

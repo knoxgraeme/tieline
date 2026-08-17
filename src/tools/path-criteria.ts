@@ -13,7 +13,7 @@ import {
   getPathCriteriaOutputShape,
   getPathCriteriaShape,
   type GetPathCriteriaInput,
-} from "../schemas.js";
+} from "./schemas/path-criteria.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
 import {
   errorResult,

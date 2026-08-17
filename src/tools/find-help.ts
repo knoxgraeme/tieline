@@ -3,7 +3,7 @@ import {
   findHelpOutputShape,
   findHelpShape,
   type FindHelpInput,
-} from "../schemas.js";
+} from "./schemas/help.js";
 import { getReadStore } from "../store.js";
 import {
   errorResult,
