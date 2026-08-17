@@ -1883,8 +1883,13 @@ capability:
   );
   assert.match(
     tielineSkill,
-    /starts with a\s+conversation, not with repository reading/,
-    "the skill dispatch must order conversation before orientation steps"
+    /routing\s+check is silent[\s\S]*first visible action must be its verbatim orientation[\s\S]*do not read the authoring contract or inspect repository sources until[\s\S]*autonomous handoff/i,
+    "the skill dispatch must complete the onboarding conversation before normal repository work"
+  );
+  assert.ok(
+    tielineSkill.indexOf("## Route before acting") <
+      tielineSkill.indexOf("Read [contract.md]"),
+    "the skill must route first-run onboarding before normal contract authoring"
   );
   assert.match(onboardingReference, /merge\s+is the approval/);
   assert.match(

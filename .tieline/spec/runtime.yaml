@@ -399,7 +399,8 @@ capability:
                 path: tests/unit/retrieval/test-contract-read.ts
                 framework_hint: custom-script
         - key: RUNTIME-002-AC4
-          criterion: Tieline must expose one semantic workflow prompt bundle that onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.
+          criterion: Tieline must expose one semantic workflow prompt bundle that reports the active workspace's contract state, routes an empty contract to a user-facing product orientation before normal repository work, then onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.
+          rationale: First-run orientation must be ordered by the MCP prompt itself so invoking Tieline cannot begin contract authoring before the user understands the product and onboarding process.
           links:
             - relation: implements
               provenance: authored

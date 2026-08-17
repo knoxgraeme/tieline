@@ -58,7 +58,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -102,7 +102,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -156,7 +156,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -200,7 +200,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -265,7 +265,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -309,7 +309,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -353,7 +353,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -408,7 +408,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -452,7 +452,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -516,7 +516,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -597,7 +597,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8d4148640538d951411781b5c70bd69ba36b704c18e41ecf86bfcbe798ff29bc",
+                "reviewed_content_hash": "15caacde2d1bf659b41a70b10b738806afaf603e3edb3220a92aaeca9ca3d74d",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",
@@ -617,7 +617,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
+                "reviewed_content_hash": "76c638c389e2affdeb3220e64d9ceb771753b111338a619894fe43935e76f9b3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -753,8 +753,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "d49a06644a0025c7cb88b5a712671a6fc0ac72692b0ba88cf6c8826b14329acf",
-            "criterion": "Tieline must expose one semantic workflow prompt bundle that onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.",
+            "contract_hash": "525695af594433be151dbe54a06c9b12f2fd6170b38e2c80eeedd053fac12766",
+            "criterion": "Tieline must expose one semantic workflow prompt bundle that reports the active workspace's contract state, routes an empty contract to a user-facing product orientation before normal repository work, then onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.",
             "links": [
               {
                 "provenance": "authored",
@@ -779,7 +779,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1c7f5750a3e5a44aa8de05dc983f01f2efa915942361957d105abf99cfac52d8",
+                "reviewed_content_hash": "b488f3533527b2b8ed00e766d1d4cc3b98c785842d21f33c91b6bd6ac95afd42",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -789,7 +789,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "94be8b91f0f800d0e5428794490172d74057451522a3622673f8352e6db6fc30",
+                "reviewed_content_hash": "33ecaf2f16d188b69375d3236e0c1135705af55a860466e82f98d28efdb07aad",
                 "target": {
                   "kind": "code",
                   "path": "src/prompts.ts",
@@ -799,7 +799,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8d4148640538d951411781b5c70bd69ba36b704c18e41ecf86bfcbe798ff29bc",
+                "reviewed_content_hash": "15caacde2d1bf659b41a70b10b738806afaf603e3edb3220a92aaeca9ca3d74d",
                 "target": {
                   "kind": "code",
                   "path": "src/server.ts",
@@ -809,7 +809,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
+                "reviewed_content_hash": "76c638c389e2affdeb3220e64d9ceb771753b111338a619894fe43935e76f9b3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -820,7 +820,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -830,7 +830,7 @@
               }
             ],
             "position": 3,
-            "rationale": null,
+            "rationale": "First-run orientation must be ordered by the MCP prompt itself so invoking Tieline cannot begin contract authoring before the user understands the product and onboarding process.",
             "scenarios": [],
             "stable_id": "RUNTIME-002-AC4",
             "supersedes": null
@@ -854,7 +854,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1c7f5750a3e5a44aa8de05dc983f01f2efa915942361957d105abf99cfac52d8",
+                "reviewed_content_hash": "b488f3533527b2b8ed00e766d1d4cc3b98c785842d21f33c91b6bd6ac95afd42",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -864,7 +864,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -888,7 +888,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1c7f5750a3e5a44aa8de05dc983f01f2efa915942361957d105abf99cfac52d8",
+                "reviewed_content_hash": "b488f3533527b2b8ed00e766d1d4cc3b98c785842d21f33c91b6bd6ac95afd42",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -898,7 +898,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "94be8b91f0f800d0e5428794490172d74057451522a3622673f8352e6db6fc30",
+                "reviewed_content_hash": "33ecaf2f16d188b69375d3236e0c1135705af55a860466e82f98d28efdb07aad",
                 "target": {
                   "kind": "code",
                   "path": "src/prompts.ts",
@@ -908,7 +908,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "fb96b03f5e75acff180071d5dd7aca6e43b086d6e627510eab04e362133a80c5",
+                "reviewed_content_hash": "76c638c389e2affdeb3220e64d9ceb771753b111338a619894fe43935e76f9b3",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -919,7 +919,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a21cb3f121c31d3da85a9bdd09affd2879914e1e6d5f646417a6c186f37f3810",
+                "reviewed_content_hash": "d2a60226274bae38aab88de645cbeeaded31050be1be57b7e8ed9e8e9bad44c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1006,6 +1006,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "d8125b5318f1be7e882c9c27a900b2c2b1f37472ab76502fbd779bd469146e24"
+    "sha256": "8704ab29b5f10f8221a6a407990e63d0f421a5c45943eaef8328c92c0b3c3fc8"
   }
 }

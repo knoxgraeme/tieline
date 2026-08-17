@@ -26,7 +26,11 @@ import { TIELINE_VERSION } from "./package-metadata.js";
 export const SERVER_NAME = "tieline";
 export const SERVER_VERSION = TIELINE_VERSION;
 
-export function createServer(): McpServer {
+export interface CreateServerOptions {
+  workspaceRoot?: string;
+}
+
+export function createServer(options: CreateServerOptions = {}): McpServer {
   installSemanticAdvisors();
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -57,7 +61,7 @@ export function createServer(): McpServer {
   registerHandoffConflictTools(server);
   registerCodeTopologyTools(server);
   registerResources(server);
-  registerPrompts(server);
+  registerPrompts(server, options);
 
   return server;
 }
