@@ -5,10 +5,7 @@ description: Semantically onboard an initialized Tieline repository, or author, 
 
 # Tieline
 
-Treat the pull request as the proposal and merge as approval. Never create a
-separate draft, proposal, or semantic-approval record.
-
-Read [contract.md](references/contract.md) before editing contract YAML.
+## Route before acting
 
 If `.tieline/config.json` does not exist, bootstrap deterministic setup first:
 run `npx -y tieline@latest init . --yes --agent <this-agent-id>` and continue
@@ -16,20 +13,25 @@ once it succeeds. Never wait for tieline MCP tools mid-session — registered
 servers load when the client starts its next session, and every workflow here
 also works through the CLI (`npx -y tieline <command>`).
 
-When invoked after `tieline init` as an installed skill or MCP prompt, inspect
-`.tieline/spec/`. If it has no YAML, read
-[onboarding.md](references/onboarding.md) and perform semantic onboarding
-before choosing a normal authoring flow. Onboarding starts with a
-conversation, not with repository reading: after the silent checks that
-choose this flow (`.tieline/spec/` and `.tieline/config.json`), the first
-visible action is the orientation and setup exchange in onboarding.md — the
-"Orient to this repository" steps below run after that conversation ends,
-not before it. Init records auto-detected values, so
-verify rather than interrogate: confirm detected identity with the user and
-correct `.tieline/config.json` when a detection is wrong, but never ask for
-anything the repository can answer. Treat the initial contract as a
-repository-wide semantic baseline, not a narrow seed that merely makes the
-workspace non-empty.
+When invoked as an installed skill or MCP prompt, after setup inspect only
+whether `.tieline/spec/` contains YAML. This routing check is silent. If it has
+no YAML, stop the normal workflow, read
+[onboarding.md](references/onboarding.md), and perform semantic onboarding.
+The first visible action must be its verbatim orientation — do not narrate
+skill loading, configuration checks, repository reading, or any other work
+first. Do not read the authoring contract or inspect repository sources until
+the onboarding setup conversation reaches its explicit autonomous handoff.
+Init records auto-detected values, so verify rather than interrogate: confirm
+detected identity with the user and correct `.tieline/config.json` when a
+detection is wrong, but never ask for anything the repository can answer.
+Treat the initial contract as a repository-wide semantic baseline, not a
+narrow seed that merely makes the workspace non-empty.
+
+If `.tieline/spec/` already contains YAML, continue with the normal workflow
+below. Treat the pull request as the proposal and merge as approval. Never
+create a separate draft, proposal, or semantic-approval record.
+
+Read [contract.md](references/contract.md) before editing contract YAML.
 
 ## Orient to this repository
 

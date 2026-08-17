@@ -3,7 +3,14 @@ delete process.env.DATABASE_URL;
 delete process.env.DATABASE_URL_WRITE;
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -13,7 +20,7 @@ import { setEmbedder } from "../../src/embeddings.js";
 import { createServer } from "../../src/server.js";
 import { setStore } from "../../src/store.js";
 
-const server = createServer();
+const server = createServer({ workspaceRoot: process.cwd() });
 const [clientTransport, serverTransport] =
   InMemoryTransport.createLinkedPair();
 await server.connect(serverTransport);
@@ -172,8 +179,8 @@ try {
   );
   const expectedPromptText = [
     "SKILL.md",
-    "references/contract.md",
     "references/onboarding.md",
+    "references/contract.md",
     "references/provisioning.md",
     "references/grading.md",
     "references/report.md",
@@ -182,11 +189,77 @@ try {
       readFileSync(resolve(process.cwd(), "skills/tieline", path), "utf8")
     )
     .join("\n\n");
-  assert.equal(
-    promptText,
-    expectedPromptText,
+  assert.ok(
+    promptText.endsWith(expectedPromptText),
     "the MCP prompt must expose the complete installed Tieline workflow"
   );
+  assert.match(
+    promptText,
+    /^# Active Tieline invocation\n\nContract state: `contract_present`\./,
+    "the MCP prompt must tell the agent when normal contract work is available"
+  );
+  assert.ok(
+    promptText.indexOf("## Set expectations first") <
+      promptText.indexOf("# Authoring contract"),
+    "the MCP prompt must present first-run onboarding before normal contract authoring"
+  );
+
+  const emptyWorkspace = mkdtempSync(
+    resolve(tmpdir(), "tieline-empty-prompt-")
+  );
+  mkdirSync(resolve(emptyWorkspace, ".tieline/spec"), { recursive: true });
+  writeFileSync(
+    resolve(emptyWorkspace, ".tieline/config.json"),
+    `${JSON.stringify({
+      version: 1,
+      product: { name: "Empty Prompt", repo_name: "empty-prompt" },
+      repository: {
+        root: "..",
+        source_roots: ["src"],
+        ignore: [".git", ".tieline", "node_modules", "dist", "coverage"],
+      },
+      context: { sources: [] },
+      runtime: {
+        default_embedding_provider: "hash",
+        default_database_mode: "offline",
+      },
+      files: { spec_directory: "spec", manifest: "manifest" },
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    }, null, 2)}\n`
+  );
+  const onboardingServer = createServer({ workspaceRoot: emptyWorkspace });
+  const [onboardingClientTransport, onboardingServerTransport] =
+    InMemoryTransport.createLinkedPair();
+  await onboardingServer.connect(onboardingServerTransport);
+  const onboardingClient = new Client({
+    name: "onboarding-prompt-client",
+    version: "0.0.0",
+  });
+  await onboardingClient.connect(onboardingClientTransport);
+  try {
+    const onboardingPrompt = await onboardingClient.getPrompt({
+      name: "tieline",
+    });
+    const onboardingPromptText = String(
+      onboardingPrompt.messages[0]?.content.type === "text"
+        ? onboardingPrompt.messages[0].content.text
+        : ""
+    );
+    assert.match(
+      onboardingPromptText,
+      /^# Active Tieline invocation\n\nContract state: `onboarding_required`\.[\s\S]*first visible response must be the verbatim product orientation/i,
+      "an empty contract must make onboarding the explicit MCP prompt state"
+    );
+    assert.ok(
+      onboardingPromptText.endsWith(expectedPromptText),
+      "first-run routing must retain the complete workflow for autonomous continuation"
+    );
+  } finally {
+    await onboardingClient.close();
+    await onboardingServer.close();
+    rmSync(emptyWorkspace, { recursive: true, force: true });
+  }
   const legacyPrompt = await client.getPrompt({ name: "tieline_author" });
   assert.equal(
     legacyPrompt.messages[0]?.content.type === "text"
