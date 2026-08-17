@@ -617,7 +617,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "76c638c389e2affdeb3220e64d9ceb771753b111338a619894fe43935e76f9b3",
+                "reviewed_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -691,7 +691,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "469c89ce5d7f97d333ac69396e60c20630d54d362b20a9bf6b7b41c4bc1e3cce",
+                "reviewed_content_hash": "73d786593b3b3ea39983cdf5b0b571c937a976ca45ac10ef63885f6ccb5d2ee5",
                 "target": {
                   "kind": "code",
                   "path": "src/stdio.ts",
@@ -701,7 +701,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "df0962b13d6dd00f7d5f16993b90084a7dcaf6050f43af4d423088ddb5c611a9",
+                "reviewed_content_hash": "cea68dc20bafc69dbb3b2bf2ac533fec482d2a7467ed5e8dda1c5c00ca181e90",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -753,8 +753,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "525695af594433be151dbe54a06c9b12f2fd6170b38e2c80eeedd053fac12766",
-            "criterion": "Tieline must expose one semantic workflow prompt bundle that reports the active workspace's contract state, routes an empty contract to a user-facing product orientation before normal repository work, then onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.",
+            "contract_hash": "18162ca14f823f078c1f9e6fa3c43f422e6e239c1de5f8042bdf392f666e5a4f",
+            "criterion": "Tieline must expose one semantic workflow prompt bundle that reports an accessible workspace's contract state, routes an empty contract to a user-facing product orientation before normal repository work, defers state routing to the client when a remote transport cannot access its checkout, then onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.",
             "links": [
               {
                 "provenance": "authored",
@@ -789,7 +789,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "33ecaf2f16d188b69375d3236e0c1135705af55a860466e82f98d28efdb07aad",
+                "reviewed_content_hash": "03d197b33fce1dea117e2c576b28907c560b97b554460f1fe3546f321b39fa76",
                 "target": {
                   "kind": "code",
                   "path": "src/prompts.ts",
@@ -809,7 +809,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "76c638c389e2affdeb3220e64d9ceb771753b111338a619894fe43935e76f9b3",
+                "reviewed_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -830,7 +830,7 @@
               }
             ],
             "position": 3,
-            "rationale": "First-run orientation must be ordered by the MCP prompt itself so invoking Tieline cannot begin contract authoring before the user understands the product and onboarding process.",
+            "rationale": "First-run orientation must be ordered by the MCP prompt itself without mistaking a remote service container for the agent's active repository.",
             "scenarios": [],
             "stable_id": "RUNTIME-002-AC4",
             "supersedes": null
@@ -898,7 +898,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "33ecaf2f16d188b69375d3236e0c1135705af55a860466e82f98d28efdb07aad",
+                "reviewed_content_hash": "03d197b33fce1dea117e2c576b28907c560b97b554460f1fe3546f321b39fa76",
                 "target": {
                   "kind": "code",
                   "path": "src/prompts.ts",
@@ -908,7 +908,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "76c638c389e2affdeb3220e64d9ceb771753b111338a619894fe43935e76f9b3",
+                "reviewed_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1006,6 +1006,6 @@
   },
   "input": {
     "path": ".tieline/spec/runtime.yaml",
-    "sha256": "8704ab29b5f10f8221a6a407990e63d0f421a5c45943eaef8328c92c0b3c3fc8"
+    "sha256": "f4dca4fddb7800c948e50856fd548e0623d1d4876003d7cace0ee46210bd4e4e"
   }
 }

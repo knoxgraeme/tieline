@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import type { AddressInfo } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { loadConfig } from "../../../src/config.js";
 import { createHttpApp, isAllowedMcpOrigin } from "../../../src/http.js";
 import { SERVER_VERSION } from "../../../src/server.js";
@@ -36,6 +39,37 @@ await test("health route remains outside MCP origin middleware", () => {
 });
 await test("server metadata reports the package version", () => {
   assert.equal(SERVER_VERSION, packageVersion);
+});
+await test("remote prompt routes contract state through the client workspace", async () => {
+  const httpServer = createHttpApp().listen(0, "127.0.0.1");
+  await new Promise<void>((resolveReady, rejectReady) => {
+    httpServer.once("listening", resolveReady);
+    httpServer.once("error", rejectReady);
+  });
+  const address = httpServer.address() as AddressInfo;
+  const client = new Client({ name: "http-prompt-client", version: "0.0.0" });
+  const transport = new StreamableHTTPClientTransport(
+    new URL(`http://127.0.0.1:${address.port}/mcp`)
+  );
+  try {
+    await client.connect(transport);
+    const prompt = await client.getPrompt({ name: "tieline" });
+    const promptText = String(
+      prompt.messages[0]?.content.type === "text"
+        ? prompt.messages[0].content.text
+        : ""
+    );
+    assert.match(promptText, /Contract state: `client_routed`\./);
+    assert.match(promptText, /using the client's active workspace/i);
+    assert.doesNotMatch(promptText, /Contract state: `setup_required`\./);
+  } finally {
+    await client.close();
+    await new Promise<void>((resolveClosed, rejectClosed) => {
+      httpServer.close((error) =>
+        error ? rejectClosed(error) : resolveClosed()
+      );
+    });
+  }
 });
 await test("remote bind needs both gateway acknowledgement and origins", () => {
   assert.throws(() => loadConfig({ HTTP_HOST: "0.0.0.0" }), /Refusing non-loopback/);

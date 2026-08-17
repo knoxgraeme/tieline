@@ -20,7 +20,7 @@ import { setEmbedder } from "../../src/embeddings.js";
 import { createServer } from "../../src/server.js";
 import { setStore } from "../../src/store.js";
 
-const server = createServer();
+const server = createServer({ workspaceRoot: process.cwd() });
 const [clientTransport, serverTransport] =
   InMemoryTransport.createLinkedPair();
 await server.connect(serverTransport);

@@ -33,9 +33,19 @@ function tielineInstructions(): Promise<string> {
 }
 
 function activeInvocation(options: TielinePromptOptions): string {
-  const workspace = findTielineWorkspace(
-    options.workspaceRoot ?? process.env.TIELINE_WORKSPACE ?? process.cwd()
-  );
+  const workspaceRoot = options.workspaceRoot ?? process.env.TIELINE_WORKSPACE;
+  if (workspaceRoot === undefined) {
+    return `# Active Tieline invocation
+
+Contract state: \`client_routed\`.
+This server has no explicit server-side workspace root, so it cannot determine
+whether the client's active checkout has an initialized Tieline contract. Do
+not report \`setup_required\` based on the server filesystem. Route the workflow
+using the client's active workspace: inspect its Tieline state, onboard when it
+has no accepted contract YAML, or choose the matching normal workflow when a
+contract is present.`;
+  }
+  const workspace = findTielineWorkspace(workspaceRoot);
   if (!workspace) {
     return `# Active Tieline invocation
 
