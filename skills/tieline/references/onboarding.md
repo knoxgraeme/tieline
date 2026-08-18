@@ -135,7 +135,18 @@ size, while avoiding duplicate or speculative definitions.
     surfaces. It is not a proxy for semantic completeness: do not create an AC
     per file or chase 100 percent path coverage, but investigate concentrated
     unmapped areas before declaring the baseline complete.
-11. Validate and compile the contract.
+11. Validate and compile the contract, then compile and validate the repository
+    topology:
+
+    ```sh
+    tieline contract validate .
+    tieline contract compile .
+    tieline code compile . --json
+    tieline code validate . --json
+    ```
+
+    Review and include the generated `.tieline/topology/graph.json` in the
+    onboarding pull request.
 12. Read [grading.md](grading.md) and grade the initial contract. With no manifest
    at the comparison base, every authored link enters the grading scope as
    `link_added`. You authored every one of them, so dispatch fresh subagents

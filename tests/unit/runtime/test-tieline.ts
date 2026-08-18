@@ -1855,6 +1855,11 @@ capability:
     /until no known high-confidence behavior remains unrepresented\s+or unexplained/i,
     "semantic onboarding must continue discovery until the behavioral gap audit is clear"
   );
+  assert.match(
+    onboardingReference,
+    /tieline contract validate \.\s*[\s\S]*tieline contract compile \.\s*[\s\S]*tieline code compile \. --json[\s\S]*tieline code validate \. --json/i,
+    "semantic onboarding must compile and validate the topology graph after the initial contract"
+  );
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
