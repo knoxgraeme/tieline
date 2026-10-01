@@ -138,8 +138,8 @@ tieline contract review . --base origin/main
 ```
 
 `--base <ref>` highlights the Stories, ACs, and screens the branch added, changed, or removed
-relative to the manifest committed at that ref. It reads only git, so it works offline. See
-[Changes on a branch](screens.md#changes-on-a-branch).
+relative to the manifest committed where the branch left that ref (`git merge-base <ref> HEAD`).
+It reads only git, so it works offline. See [Changes on a branch](screens.md#changes-on-a-branch).
 
 ## Screens
 

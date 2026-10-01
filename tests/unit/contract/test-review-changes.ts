@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { Script } from "node:vm";
 import { runCli } from "../../../src/cli.js";
@@ -237,6 +238,37 @@ await test("compares against a git ref from the CLI and explains when it cannot"
     () => runCli(["contract", "review", ws.root, "--base", "no-such-ref", "--json"], captureIO().io, {}),
     /no-such-ref/
   );
+});
+
+await test("compares from where the branch left the base, not the base's latest commit", async () => {
+  const ws = branchWorkspace(true);
+  const git = (...args: string[]): string =>
+    execFileSync("git", args, { cwd: ws.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  ws.commit("branch point");
+  git("branch", "-M", "main");
+  git("checkout", "-q", "-b", "feature");
+  changeBranch(ws, true);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  ws.commit("feature work");
+  // main moves on afterwards: a new screen the feature branch never saw.
+  git("checkout", "-q", "main");
+  ws.write(
+    ".tieline/screens/SHARING.yaml",
+    `${sharingCatalog({ url: "https://cdn.example.test/v1/denied.png", withDialog: false })}  - key: shared-with-me
+    title: Shared with me
+    route: /shared
+    kind: page
+    when: A member opens shared notes.
+`
+  );
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  ws.commit("main adds a screen");
+  git("checkout", "-q", "feature");
+
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "main", "--json"], capture.io, {}), 0);
+  assert.deepEqual(JSON.parse(capture.output()).changes.screens, { added: 1, changed: 2, removed: 1 });
 });
 
 for (const created of workspaces) created.cleanup();

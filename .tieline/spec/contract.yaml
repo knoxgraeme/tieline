@@ -1191,6 +1191,13 @@ capability:
               target:
                 kind: code
                 repository: tieline
+                path: src/contract/comparison-base.ts
+                selector: function:resolveComparisonBase
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
                 path: src/contract/screen-import.ts
                 selector: function:attachCaptureDigests
             - relation: tests

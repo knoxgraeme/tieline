@@ -229,8 +229,9 @@ quickly. The page works without any screenshots present.
 tieline contract review . --base origin/main
 ```
 
-`--base` compares the working tree with the manifest committed at a git ref and highlights what
-the branch changed, offline and without a database:
+`--base` compares the working tree with the manifest committed where the branch left a git ref
+(`git merge-base <ref> HEAD`), so work that reached the ref afterwards is not shown as the
+branch's own. It highlights what the branch changed, offline and without a database:
 
 - a summary above both views lists Stories and ACs that are new, changed (`content`, or `screens`
   when only their `shows` links moved), or removed, and screens that are new, changed (`details`

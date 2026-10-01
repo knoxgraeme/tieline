@@ -19,6 +19,7 @@ import {
   type CompiledContractManifest,
   type ContractManifest,
 } from "../contract/manifest.js";
+import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import {
   diffReviewManifests,
@@ -313,8 +314,14 @@ function reviewChangesAgainstBase(
   base: string
 ): { changes: ReviewChanges; unavailable?: undefined } | { changes?: undefined; unavailable: string } {
   // Read first: an unreadable base is the caller's error and is always reported,
-  // whatever state the working tree is in.
-  const baseManifest = manifestAtBase(parsed.repositoryRoot, base, parsed.manifestPath);
+  // whatever state the working tree is in. The manifest is read where this
+  // branch left the base, so work that reached the base afterwards is not
+  // shown as this branch's changes.
+  const baseManifest = manifestAtBase(
+    parsed.repositoryRoot,
+    resolveComparisonBase(parsed.repositoryRoot, base).commit,
+    parsed.manifestPath
+  );
   let current: ContractManifest;
   try {
     current = compileContractManifestWithSources({

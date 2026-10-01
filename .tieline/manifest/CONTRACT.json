@@ -75,7 +75,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -218,7 +218,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -283,7 +283,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -587,7 +587,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -776,7 +776,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1142,7 +1142,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -2102,18 +2102,29 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "29b6b8450d9e48e6faa3be123cda3546078ff61d14a35e736c320ac3eb664911",
+            "contract_hash": "37d4ba4e80b6e2e2e85cc67d167847e01f05f9a04016355f54dd8b08e531e3fc",
             "criterion": "The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "12773e148578f3d5a00950db18363418d7b77f0396ac6d0f74e6c7e6d1e9d3e0",
+                "reviewed_content_hash": "763808632657ecca6feb90eec48de88fb319a89ff65d675d9f2c68ffc91fe633",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
                   "repository": "tieline",
                   "selector": "function:reviewChangesAgainstBase"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8a3d8d77f6eb2adfe9e8114351cc30b1437d8949139f9a4e0d94be0e2727f352",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/comparison-base.ts",
+                  "repository": "tieline",
+                  "selector": "function:resolveComparisonBase"
                 }
               },
               {
@@ -2152,7 +2163,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ed853658e34c4cff22a0051dd68080305f4e07d7b70777629965cf768d090ea5",
+                "reviewed_content_hash": "08f83dec2c9c777b46e7bf7de120a3ddee9d07bf70b88507c65894badb8ea40e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2205,6 +2216,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "89ba41315f1331cc62437493dcf57d6e8f06f3c4ca8bcc46e00849969f59cef1"
+    "sha256": "ff84c68342d25fa579c30dd9e916db17c60c3b5ad31333bfadf3ce082fc766dc"
   }
 }
