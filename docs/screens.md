@@ -255,7 +255,9 @@ context reads and MCP tools likewise give the answers they did before; only the 
 
 ## What comes later
 
-These phases are planned and not implemented. The phase 1 format is designed to accommodate them:
+These phases are planned and not implemented. The phase 1 format is designed to accommodate them.
+[Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work,
+for review before anything is built:
 
 1. **Capture.** A `tieline screens capture` command with an optional browser-automation peer
    dependency, driven by repository-supplied scene scripts (the reserved `scene` field), producing
