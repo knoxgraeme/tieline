@@ -28,80 +28,60 @@ git.
 
 ## 1. Capture for any app
 
-### What an app provides
+Capture is **Playwright-native**. A screen's scene is an ordinary Playwright test, and Tieline adds
+a small fixture and a reporter. An app that already has Playwright end-to-end tests keeps its
+configuration as it is; nothing here is a new test framework.
 
-Capture is configured by one module in the app's repository, because reaching a screen is code:
+### What Playwright already provides, and what Tieline adds
+
+| Need | Playwright standard, reused as is | Tieline adds |
+| --- | --- | --- |
+| Start the app | `webServer` in `playwright.config.ts` | — |
+| Log in once per role | A setup project that saves a `storageState` per role | Maps each `applies_to.role` value to its project |
+| Stable rendering | `use: { viewport, locale, timezoneId, reducedMotion }`, `page.clock`, screenshot `mask` and `animations: "disabled"`, the official Playwright Docker image | Records the environment with each capture |
+| Reach a screen | A test that navigates and interacts | Tags it `@screen:<key>` |
+| Run only some screens | `--grep` over test tags | Computes the tags for the screens a branch may affect |
+| Text snapshot | `locator.ariaSnapshot()` | Writes it beside the catalog |
+| Output | Reporters | A reporter that writes screenshots, ARIA snapshots, and an import file |
+
+### Scenes are Playwright tests
 
 ```ts
-// .tieline/capture.config.ts
-import { defineCapture } from "tieline/capture";
+// e2e/screens/sharing.screens.ts
+import { test } from "@playwright/test";
+import { captureScreen } from "tieline/playwright";
 
-export default defineCapture({
-  // Either start the app here, or point at one that is already running
-  // (a local dev server, or a preview deployment in CI).
-  target: {
-    start: "npm run dev",
-    url: "http://localhost:3000",
-    ready: { path: "/health", timeoutMs: 60_000 },
-  },
-  seed: "npm run db:seed:screens",
-  // One identity per `applies_to.role` value, logged in once and reused.
-  identities: {
-    member: { login: "scenes/login.ts#member" },
-    admin: { login: "scenes/login.ts#admin" },
-    viewer: { login: "scenes/login.ts#viewer" },
-  },
-  determinism: {
-    viewports: [{ width: 1280, height: 800 }],
-    locale: "en-US",
-    timezoneId: "UTC",
-    clock: "2026-01-01T09:00:00Z",
-    reducedMotion: true,
-    mask: ["[data-testid=relative-time]"],
-  },
-  // Route parameters for screens reached by plain navigation.
-  params: { noteId: "note-seed-1", token: "expired-share-token" },
+test.use({ storageState: "playwright/.auth/viewer.json" });
+
+test("share denied", { tag: "@screen:notes-share-denied" }, async ({ page }) => {
+  await page.goto("/notes/note-seed-1");
+  await page.getByRole("button", { name: "Share" }).click();
+  await page.getByText("Only editors can share this note").waitFor();
+  await captureScreen(page, "notes-share-denied");
 });
 ```
 
-Credentials come from environment variables or CI secrets, never from the repository.
+The tag links the catalog entry to its test, so Playwright scenes need no `scene` field in the
+catalog; that reserved field stays available for other browser drivers. One test may capture
+several screens, and existing end-to-end tests can capture screens by adding a single call.
+`captureScreen` waits for the page to settle, takes the screenshot with the configured masks,
+records the ARIA snapshot, and hands both to the reporter. It never asserts, so capturing can
+never fail an app's test suite.
 
-### Scenes
-
-Most pages need no code: their default scene navigates to `route` with `params` filled in, as the
-identity their `applies_to` names. States, dialogs, toasts, and errors need a short scene that
-ends in the state to capture. The reserved catalog field `scene` points at it:
-
-```yaml
-- key: notes-share-denied
-  route: /notes/:noteId
-  kind: inline-error
-  applies_to: { role: [viewer] }
-  scene: scenes/sharing.ts#shareDenied
-```
-
-```ts
-// scenes/sharing.ts
-export async function shareDenied({ page }) {
-  await page.getByRole("button", { name: "Share" }).click();
-  await page.getByText("Only editors can share this note").waitFor();
-}
-```
+Plain pages need no hand-written test: a `screensFromCatalog()` helper generates one navigation
+test per `page` entry, filling route parameters from a small fixtures map.
 
 ### Three ways to adopt, lowest effort first
 
-1. **Instrument existing end-to-end tests.** Inside a Playwright test the app already has, call
-   `await captureScreen(page, { key, title, kind, when })` from `tieline/playwright`. It writes
-   the screenshot and a catalog entry, and `tieline screens import` takes it from there. This
-   reuses navigation, seeding, and logins the app already maintains.
-2. **Scene files and `tieline screens capture`.** Tieline drives the browser from the catalog and
-   the scenes above, which keeps capture independent of the test suite.
-3. **Agent-assisted onboarding.** The Tieline skill reads the app's routes and drafts catalog
-   entries and scenes for a human to review, the same way it drafts the initial contract.
+1. **Add `captureScreen` calls to existing Playwright tests.** Navigation, seeding, and logins are
+   already maintained there.
+2. **Write `*.screens.ts` files** for states the existing suite does not reach.
+3. **Let the Tieline skill draft those files** from the app's routes and the catalog, for a human
+   to review, the same way it drafts the initial contract.
 
-Playwright is an optional peer dependency: the app installs it, and Tieline loads it only when
-capture runs, explaining how to install it when it is missing. Tieline's own dependencies do not
-grow.
+`@playwright/test` stays an optional peer dependency that the app already has or installs; Tieline
+loads it only when capture runs. An app that uses another browser driver can keep producing the
+import file itself, as it can today.
 
 ### What each capture records
 
@@ -109,42 +89,69 @@ grow.
 | --- | --- | --- |
 | Screenshot | Captures directory, git-ignored | What reviewers look at |
 | Image `sha256` | Catalog, committed | Puts a visual change into the reviewed diff (exists today) |
-| Text snapshot | `.tieline/screens/text/<key>.txt`, committed | Copy changes reviewed line by line in the diff |
-| Capture record (reserved `capture` field) | Catalog, committed | Viewport, scene identity, and capture-tool version, so a digest change can be attributed |
+| ARIA snapshot | `.tieline/screens/text/<key>.yml`, **committed** | Copy and structure changes reviewed line by line in the diff, independent of pixels |
+| Capture record (reserved `capture` field) | Catalog, committed | Browser version, container image, and viewport, so digests are only ever compared like for like |
 
-## 2. Coverage capture, then incremental captures
+## 2. Initial coverage capture, then every pull request
 
-**Coverage capture** (`tieline screens capture --all`) records every screen once, on `main`, and
-establishes the accepted digests. It is re-run on a schedule — nightly or weekly — to catch drift
-that incremental selection missed. Drift appears as changed screens like any other change.
+**Initial coverage capture.** `tieline screens capture --all` runs once on `main`. It records
+every screen's digest and ARIA snapshot and establishes the accepted state.
 
-**Incremental capture** (`tieline screens capture --changed --base origin/main`) re-captures only
+**Every pull request.** `tieline screens capture --changed --base origin/main` re-captures only
 the screens a branch may have affected, chosen by these rules in order:
 
-1. screens whose catalog entry or scene changed in the diff;
+1. screens whose catalog entry or scene test changed in the diff;
 2. screens shown by acceptance criteria whose linked code or tests changed (contract coupling);
-3. screens owned by changed files, through optional path globs per group in the capture config;
+3. screens owned by changed files, through optional path globs per catalog group;
 4. screens owned by dependents of changed files, through the existing code-topology blast radius,
    so a change to a shared component reaches the pages that use it;
 5. everything, when a configured global path changed (theme, layout, global styles, translations).
 
-Every selected screen reports why it was selected, and screens that were not selected keep
-`main`'s digest. A re-captured screen whose digest equals `main`'s is unchanged and drops out of
-the review.
+Every selected screen reports why it was selected, and the selection becomes a `--grep` over
+screen tags. Screens that were not selected keep `main`'s digest, and a re-captured screen whose
+digest and ARIA snapshot both equal `main`'s drops out of the review.
 
-## 3. Offline mode (the default)
+**No schedule; a manual audit instead.** `tieline screens audit` finds what incremental capture
+cannot:
+
+- **Missing**, without capturing anything: catalog entries with no screenshot digest, no ARIA
+  snapshot, or no `@screen` test. It is cheap enough to also run as a `check` warning.
+- **Drift**, with `--capture`: re-captures every screen and reports those whose digest or ARIA
+  snapshot differs from `main`'s accepted state — changes the selection rules missed. Run it before
+  a release or after a large refactor; its results land in a normal pull request.
+
+## 3. How a change is detected
+
+- **Exact.** The screenshot's SHA-256. Any pixel difference counts as a change. That is only
+  reliable when the rendering environment is identical: the same browser build, fonts, graphics
+  path, and pixel density. The same page rendered on a laptop and on a Linux CI runner differs at
+  the pixel level, so comparing them reports false changes.
+- **Fuzzy.** Compare the two images pixel by pixel and call it a change only above a tolerance
+  (Playwright's `threshold`, `maxDiffPixels`, and `maxDiffPixelRatio`). It hides rendering noise,
+  can also hide a genuinely tiny change, and needs the previous image's bytes rather than just its
+  digest.
+
+Proposal: always record exact digests, and make the captures that count — accepted on `main` and
+published for review — in the official Playwright Docker image at a pinned version, in CI and
+optionally locally, which keeps exact digests stable. The committed ARIA snapshot catches copy and
+structure changes regardless of pixels. The capture record names the environment, and digests from
+different environments are never compared; a mismatch is reported as "re-capture in the pinned
+environment" rather than as a change. Fuzzy comparison is added only if pinned captures still
+prove noisy.
+
+## 4. Offline mode (the default)
 
 ```bash
 tieline screens capture --changed --base origin/main
-tieline screens import .tieline/captures/import.json
 tieline contract review . --base origin/main
 ```
 
+`capture` runs the app's Playwright project for the selected screens and imports the result.
 Everything stays on the developer's machine. The review page badges new, changed, and removed
-Stories, ACs, and screens (this part exists today). Only the current screenshot is on disk, so
-the "before" picture is not shown; the text snapshot diff still shows copy changes.
+Stories, ACs, and screens (this part exists today), and the ARIA snapshot diff shows copy changes.
+Only the current screenshot is on disk, so the "before" picture is not shown locally.
 
-## 4. Hosted mode (optional)
+## 5. Hosted mode (optional)
 
 ### Shape
 
@@ -160,7 +167,7 @@ per pull request; the site is redeployed only when Tieline itself is upgraded.
 | --- | --- | --- |
 | Pull request push | CI | Incremental capture, import, then `tieline screens publish --ref pr-123`: uploads only images the store lacks, records the pull request's snapshot, and posts or updates one PR comment with a summary and a link |
 | Merge to `main` | CI, the existing post-merge sync | `tieline contract sync` records the accepted screen state from `main`, exactly as it does for Stories and ACs |
-| Schedule on `main` | CI | Coverage capture and publish, so accepted images exist for every screen |
+| Once, then on demand | A developer or CI on `main` | `capture --all` for the initial coverage, and `audit --capture` when drift is suspected; both publish like any other change |
 
 ### Storage
 
@@ -199,9 +206,16 @@ digests `main` now references.
 
 ### Retention
 
-Images referenced by `main`'s accepted state, and by its history within a configured window, are
-kept. A pull request's snapshot is deleted a configured number of days after it closes, and a
-retention job removes images nothing references. Every window is bounded and configurable.
+- **Each image is stored once.** Images are addressed by digest, so when a pull request merges,
+  `main`'s accepted state simply references the digests the pull request already uploaded.
+  Nothing is copied.
+- **Open pull requests keep their latest snapshot.** Screenshots from earlier pushes of the same
+  pull request that nothing references any more are removed on its next publish.
+- **Closed pull requests:** `retention.closed_pull_requests` is `delete` by default — the
+  snapshot, and any images only it referenced, are removed when the pull request closes — or a
+  number of days to keep them.
+- **`main`:** accepted images are always kept. Whether images `main` has since replaced are kept
+  for history is `retention.main_history`: `none` by default, or a number of days.
 
 ### The hosted site, independent of host
 
@@ -230,7 +244,7 @@ CI posts or updates one comment per pull request: "Stories changed: 2 · Screens
 removed 1", with a link into the hosted site at that ref. Inline thumbnails are off by default,
 because they would need publicly fetchable image URLs.
 
-## 5. History: "last changed by"
+## 6. History: "last changed by"
 
 Every Story, AC, and screen has a `contract_hash`, and screens also have an image digest. A commit
 changed an entity when either differs from its parent commit's manifest. The commit maps to a pull
@@ -242,7 +256,7 @@ request through the squash-merge title (`… (#123)`) or the host's API.
   sync increments the revision of every Story and AC and records the last synced commit, so
   "last changed" cannot be read from the database yet; the new events fix that.
 
-## 6. Risks and required review
+## 7. Risks and required review
 
 | Change | Why it is critical | Containment |
 | --- | --- | --- |
@@ -255,21 +269,30 @@ request through the squash-merge title (`… (#123)`) or the host's API.
 Each of the database, role, and hosting changes needs review by someone other than the
 implementing agent, as `AGENTS.md` requires.
 
-## 7. Proposed order
+## 8. Proposed order
 
 1. Done in this stack: catalog, `shows` links, import, Screens view, `--base` changes, and image
    digests.
-2. Capture: configuration, the Playwright helper, `capture --all` and `--changed` with selection
-   reasons, text snapshots, and capture records.
+2. Capture: the Playwright fixture and reporter, `capture --all` and `--changed` with selection
+   reasons, committed ARIA snapshots, capture records, and `screens audit`.
 3. Offline history: "last changed by" from git.
 4. Hosted: review of this design, then the migration and roles, `publish`, the core handler and
    Netlify adapter, the sync of accepted screen state, and the pull-request comment.
 5. More hosts and image stores as teams need them.
 
+## Decided
+
+- Scenes are Playwright tests tagged `@screen:<key>`; Tieline adds a fixture and a reporter.
+- An initial coverage capture, then incremental captures on every pull request; drift is found by
+  a manual `tieline screens audit`, not a schedule.
+- ARIA snapshots are committed as the text snapshot.
+- Images are stored once; a closed pull request's screenshots are deleted by default, configurable.
+
 ## Open questions
 
-- Exact digests, or a perceptual fingerprint that tolerates anti-aliasing noise?
-- Commit text snapshots, or rely on the catalog's `copy`?
-- Retention windows for pull-request snapshots and `main`'s image history.
+- Is the pinned Playwright Docker image enough to make exact digests stable, or is a fuzzy
+  comparison needed from the start?
+- Should `tieline check` warn about catalog entries the audit reports as missing?
+- How many days of replaced `main` images, if any, should hosted history keep by default?
 - Neon Object Storage is available in four AWS regions; should provisioning create the Neon
   project in one of them when screens are enabled?
