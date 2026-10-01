@@ -1,3 +1,4 @@
+import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { canonicalRepositoryRelativePath } from "../contract/paths.js";
 import { parseSelector } from "../contract/selector.js";
 import {
@@ -439,7 +440,20 @@ export async function executeChangeBlastRadius(
   let comparisonStore: ImmutableCodeTopologySnapshotStore | undefined;
   try {
     if (options.base) {
-      const topology = selectGitTopologyRole({ ...common, revision: options.base });
+      // The base role is read where this branch left the base, so commits that
+      // reached the base afterwards are not mistaken for this branch's changes.
+      let revision: string;
+      try {
+        revision = resolveComparisonBase(workspace.root, options.base).commit;
+      } catch (error) {
+        return {
+          status: "topology_invalid",
+          repository: options.repository,
+          generation_role: "base",
+          detail: error instanceof Error ? error.message : String(error),
+        };
+      }
+      const topology = selectGitTopologyRole({ ...common, revision });
       if (topology.status !== "current") {
         return {
           status: topology.status,

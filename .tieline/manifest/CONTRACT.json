@@ -75,7 +75,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "4322a88d6c669a6cbb0dbe7ef992b55e576922429f7091c8bd9d44db2d300c59",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -160,13 +160,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "68f56c44a4e7e97c9601c130f589c93cb4ba32323e32da959613cf012e812d9d",
+            "contract_hash": "c0aa9acbacfa20f19188955fab400dc1422d1d040654710be783944f066657c4",
             "criterion": "Tieline must report affected Acceptance Criteria and freshness for changed, renamed, or deleted linked paths without blocking on semantic findings.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "reviewed_content_hash": "4b703efec95ecd8efea87b26bd5ac1b0252a610905e13b8440ee942da9e4d768",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -176,10 +176,32 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
+                "reviewed_content_hash": "8a3d8d77f6eb2adfe9e8114351cc30b1437d8949139f9a4e0d94be0e2727f352",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/comparison-base.ts",
+                  "repository": "tieline",
+                  "selector": "function:resolveComparisonBase"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
                 "reviewed_content_hash": "1338b34c826832689d9684789d83aff1211bc1f46b393040c3bb577d22da8168",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/impact.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "771e1c2f9ebbce8a3b5d635eaf9efc0bf30351f499dec605e4df49bcb89f5f7e",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-comparison-base.ts",
                   "repository": "tieline"
                 }
               },
@@ -204,6 +226,13 @@
                 "stable_id": "CONTRACT-001-AC3-S1",
                 "then": "Tieline must report the linked criterion as impacted and stale",
                 "when": "the branch is checked against its base"
+              },
+              {
+                "given": "the base branch gained commits after the branch was created",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC3-S2",
+                "then": "Tieline must compare from the branch point and report only the branch's own changes",
+                "when": "the branch is checked against that base"
               }
             ],
             "stable_id": "CONTRACT-001-AC3",
@@ -218,7 +247,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "4322a88d6c669a6cbb0dbe7ef992b55e576922429f7091c8bd9d44db2d300c59",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -272,7 +301,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "4322a88d6c669a6cbb0dbe7ef992b55e576922429f7091c8bd9d44db2d300c59",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -342,7 +371,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "reviewed_content_hash": "4b703efec95ecd8efea87b26bd5ac1b0252a610905e13b8440ee942da9e4d768",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -546,7 +575,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "reviewed_content_hash": "4b703efec95ecd8efea87b26bd5ac1b0252a610905e13b8440ee942da9e4d768",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -576,7 +605,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "4322a88d6c669a6cbb0dbe7ef992b55e576922429f7091c8bd9d44db2d300c59",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -765,7 +794,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "4322a88d6c669a6cbb0dbe7ef992b55e576922429f7091c8bd9d44db2d300c59",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1131,7 +1160,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "4322a88d6c669a6cbb0dbe7ef992b55e576922429f7091c8bd9d44db2d300c59",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1711,7 +1740,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
+                "reviewed_content_hash": "5734896332a67d443f1b632263953c38a39ffd83f71daa5c41b518123e24ddbc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1722,7 +1751,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
+                "reviewed_content_hash": "5734896332a67d443f1b632263953c38a39ffd83f71daa5c41b518123e24ddbc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/code-topology.ts",
@@ -1805,6 +1834,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "89589e97811068f8388031c08cdb6a97e0340d6d4f2dcc7e7be56307d9c4386c"
+    "sha256": "e7202e166baacf712671db74b7e2682eca1b8e9dd0996b6c06088c8e372edd85"
   }
 }

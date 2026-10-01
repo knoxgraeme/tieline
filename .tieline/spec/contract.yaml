@@ -101,6 +101,9 @@ capability:
             - given: a linked implementation path changes without a refreshed manifest
               when: the branch is checked against its base
               then: Tieline must report the linked criterion as impacted and stale
+            - given: the base branch gained commits after the branch was created
+              when: the branch is checked against that base
+              then: Tieline must compare from the branch point and report only the branch's own changes
           links:
             - relation: implements
               provenance: authored
@@ -114,12 +117,26 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/commands/check.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/comparison-base.ts
+                selector: function:resolveComparisonBase
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-impact.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-comparison-base.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC4
           criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.

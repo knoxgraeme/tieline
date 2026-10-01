@@ -35,6 +35,7 @@ import {
   toLinkReviewSuggestion,
   type LinkPlausibilityReport,
 } from "../contract/link-plausibility.js";
+import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { changesSince } from "../contract/impact.js";
 import {
   lookupPathCriteria,
@@ -198,16 +199,19 @@ async function runGrade(
       } Run \`tieline contract compile .\` and commit the manifest.`
     );
   }
+  // Both sides of the claim diff are read at the branch point, so links and
+  // criteria that reached the base after it are not graded as this branch's.
+  const comparison = resolveComparisonBase(parsed.repositoryRoot, parsed.base);
   const scope = await buildGradeScope({
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
     baseManifest: manifestAtBase(
       parsed.repositoryRoot,
-      parsed.base,
+      comparison.commit,
       parsed.manifestPath
     ),
-    changes: changesSince(parsed.repositoryRoot, parsed.base),
+    changes: changesSince(parsed.repositoryRoot, comparison.commit),
     sourceRoots: parsed.sourceRoots,
     ignore: parsed.ignore,
     specDirectory: parsed.specDirectory,
@@ -732,17 +736,24 @@ export async function runContractCommand(
         "Reconciliation compares the working tree against a base ref. Pass --base <ref>."
       );
     }
+    const comparison = resolveComparisonBase(parsed.repositoryRoot, parsed.base);
     const { manifest } = compileManifest("omit_hash");
     const report = analyzeContractReconciliation({
       repositoryRoot: parsed.repositoryRoot,
       manifest,
-      changes: changesSince(parsed.repositoryRoot, parsed.base),
+      changes: changesSince(parsed.repositoryRoot, comparison.commit),
       sourceRoots: parsed.sourceRoots,
       ignore: parsed.ignore,
       specDirectory: parsed.specDirectory,
     });
     if (parsed.json) {
-      io.write(`${JSON.stringify({ base: parsed.base, ...report }, null, 2)}\n`);
+      io.write(
+        `${JSON.stringify(
+          { base: parsed.base, base_commit: comparison.commit, ...report },
+          null,
+          2
+        )}\n`
+      );
     } else {
       renderReconciliation(report, parsed.base, io);
     }

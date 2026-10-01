@@ -11,6 +11,7 @@ import {
   type AcceptanceCriterionImpact,
   type RepositoryPathChange,
 } from "../contract/impact.js";
+import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { isEligibleSourcePath } from "../contract/coverage.js";
 import {
   escapeTerminalText,
@@ -283,7 +284,10 @@ export async function runCheckCommand(
       `Cannot evaluate semantic impact because the contract manifest in ${manifestPath} is unreadable: ${error instanceof Error ? error.message : String(error)}`
     );
   }
-  const changes = changesSince(root, base);
+  // Changes are measured from where this branch left the base, so commits that
+  // reached the base afterwards are not reported as this branch's changes.
+  const comparison = resolveComparisonBase(root, base);
+  const changes = changesSince(root, comparison.commit);
   // Recompiling refuses to run while a link points at absent evidence, so a
   // failure here is itself a finding rather than a reason to abort the check.
   let manifestCurrent = false;
@@ -358,6 +362,7 @@ export async function runCheckCommand(
         : "ok";
   const result = {
     base,
+    base_commit: comparison.commit,
     repository: repositoryKey,
     manifest_current: manifestCurrent,
     manifest_compile_error: manifestCompileError,
