@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
+  attachCaptureDigests,
   parseScreenImport,
   readScreenImportFile,
   ScreenImportError,
@@ -15,6 +25,7 @@ import {
   createScreensWorkspace,
   type ScreensWorkspace,
 } from "../../support/screen-fixtures.js";
+import { screenSettingsForRepository } from "../../../src/contract/screen-catalog.js";
 
 const workspaces: ScreensWorkspace[] = [];
 function workspace(options: Parameters<typeof createScreensWorkspace>[0] = { screens: { enabled: true } }): ScreensWorkspace {
@@ -314,6 +325,59 @@ await test("leaves a captures directory outside .tieline for the repository to i
   assert.match(capture.output(), /Imported 1 screen\(s\) into \.tieline\/screens: 0 created, 1 updated/);
   assert.match(capture.output(), /note {2}artifacts\/screens is outside \.tieline\/; make sure screenshots there are git-ignored/);
   assert.match(capture.output(), /Run `tieline contract compile \.`/);
+});
+
+console.log("screens import: screenshot digests");
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+await test("records each readable screenshot's digest and keeps a reviewed one when the file is absent", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/notes/list.png", "first capture");
+  const first = await importScreens(ws, [screen("a", { image: "notes/list.png" }), screen("b", { image: "notes/missing.png" })]);
+  assert.deepEqual(first.result.image_digests, { computed: 1, missing: ["b"] });
+  assert.match(catalog(ws, "NOTES"), new RegExp(`path: notes/list.png\n {6}sha256: ${sha256("first capture")}`));
+  assert.doesNotMatch(catalog(ws, "NOTES"), /missing\.png\n {6}sha256/);
+
+  // A machine without the screenshot keeps the reviewed digest instead of erasing it.
+  ws.remove(".tieline/captures/notes/list.png");
+  const absent = await importScreens(ws, [screen("a", { image: "notes/list.png" })]);
+  assert.deepEqual(absent.result.updated, []);
+  assert.deepEqual(absent.result.image_digests, { computed: 0, missing: ["a"] });
+  assert.match(catalog(ws, "NOTES"), new RegExp(`sha256: ${sha256("first capture")}`));
+
+  // A re-capture changes the digest, so the reviewed diff shows the new picture.
+  ws.write(".tieline/captures/notes/list.png", "second capture");
+  const recaptured = await importScreens(ws, [screen("a", { image: "notes/list.png" })]);
+  assert.deepEqual(recaptured.result.updated, ["a"]);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`sha256: ${sha256("second capture")}`));
+
+  // A digest supplied by a capture tool is trusted as the record, not recomputed.
+  const supplied = sha256("from the tool");
+  await importScreens(ws, [screen("a", { image: { url: "https://cdn.example.test/a.png", sha256: supplied } })]);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`url: https://cdn.example.test/a.png\n {6}sha256: ${supplied}`));
+  await importFails(ws, [screen("a", { image: { path: "a.png", sha256: "ABC" } })], /must be a lowercase hex SHA-256 digest/);
+});
+
+await test("refuses screenshots that escape the captures directory or exceed the size bound", () => {
+  const ws = workspace();
+  ws.write("secret.png", "outside");
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  symlinkSync(resolve(ws.root, "secret.png"), resolve(ws.root, ".tieline/captures/link.png"));
+  ws.write(".tieline/captures/big.png", "x".repeat(64));
+  const settings = screenSettingsForRepository(ws.root)!;
+  const entries = parseScreenImport([screen("a", { image: "link.png" })]);
+  assert.throws(
+    () => attachCaptureDigests(entries, settings),
+    /Screenshot 'link.png' for screen 'a' resolves outside the captures directory '\.tieline\/captures'/
+  );
+  assert.throws(
+    () => attachCaptureDigests(parseScreenImport([screen("b", { image: "big.png" })]), settings, 16),
+    /Screenshot '.*big\.png' is larger than the 16-byte limit/
+  );
+  assert.equal(SCREEN_IMPORT_LIMITS.captureBytes, 25 * 1024 * 1024);
 });
 
 for (const created of workspaces) created.cleanup();

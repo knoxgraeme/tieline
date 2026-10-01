@@ -9,6 +9,15 @@ import type {
 import { renderUserStory } from "./schema.js";
 import { escapeHtml } from "./html.js";
 import {
+  indexReviewChanges,
+  renderChangeBadge,
+  renderChangesPanel,
+  renderStoryChangeAttribute,
+  REVIEW_CHANGE_STYLES,
+  type ReviewChangeIndex,
+} from "./review-changes-page.js";
+import type { ReviewChanges } from "./review-changes.js";
+import {
   buildScreenReviewModel,
   renderScreenSidebar,
   renderScreensView,
@@ -40,6 +49,11 @@ export interface ContractReviewPageOptions {
    * Without it the page is exactly the Stories review it always was.
    */
   screens?: ContractReviewScreens;
+  /**
+   * What the branch changed against a base ref. Supplied only when the page is
+   * built with `--base`; without it the page is unchanged.
+   */
+  changes?: ReviewChanges;
 }
 
 function renderApplicability(applicability: Applicability | undefined): string {
@@ -150,7 +164,8 @@ function renderStoryDocument(
   capabilityName: string,
   capabilityDescription: string,
   story: AcceptedStory,
-  screens?: ScreenReviewModel
+  screens?: ScreenReviewModel,
+  changes?: ReviewChangeIndex
 ): string {
   const criteria = story.acceptance_criteria
     .map(
@@ -159,7 +174,9 @@ function renderStoryDocument(
       )}">
         <span class="criterion-number">${index + 1}</span>
         <div>
-          <code>${escapeHtml(criterion.key)}</code>
+          <code>${escapeHtml(criterion.key)}</code>${
+            changes ? renderChangeBadge(changes.records.get(criterion.key)) : ""
+          }
           <p class="criterion-text">${escapeHtml(criterion.criterion)}</p>
           ${
             criterion.rationale
@@ -179,7 +196,9 @@ function renderStoryDocument(
   return `<article class="story-document">
     <header class="issue-header">
       <p class="breadcrumbs"><span>Stories</span><b>/</b>${escapeHtml(capabilityName)}</p>
-      <code>${escapeHtml(story.key)}</code>
+      <code>${escapeHtml(story.key)}</code>${
+        changes ? renderChangeBadge(changes.records.get(story.key)) : ""
+      }
       <h1>${escapeHtml(story.title)}</h1>
     </header>
     <div class="issue-layout">
@@ -246,10 +265,12 @@ function renderStoryDocument(
 export function renderContractReviewPage(
   options: ContractReviewPageOptions
 ): string {
+  const changes = options.changes ? indexReviewChanges(options.changes) : undefined;
   const screens = options.screens
     ? buildScreenReviewModel(
         options.documents.map(({ document }) => document),
-        options.screens
+        options.screens,
+        changes
       )
     : undefined;
   const storyEntries = options.documents.flatMap(({ document }) =>
@@ -280,7 +301,9 @@ export function renderContractReviewPage(
                   data-story-link
                   data-template-id="story-${escapeHtml(story.key)}"
                   data-story-key="${escapeHtml(story.key)}"
-                  data-lifecycle="${story.lifecycle}"
+                  data-lifecycle="${story.lifecycle}"${
+                    changes ? renderStoryChangeAttribute(changes, story.key) : ""
+                  }
                 >
                   <i aria-hidden="true"></i>
                   <span>${escapeHtml(story.title)}</span>
@@ -301,7 +324,8 @@ export function renderContractReviewPage(
           capability.name,
           capability.description,
           story,
-          screens
+          screens,
+          changes
         )}</template>`
     )
     .join("");
@@ -311,7 +335,8 @@ export function renderContractReviewPage(
         firstEntry.capability.name,
         firstEntry.capability.description,
         firstEntry.story,
-        screens
+        screens,
+        changes
       )
     : `<div class="empty-state">
         <h1>No capabilities yet</h1>
@@ -739,7 +764,7 @@ export function renderContractReviewPage(
       .references:not([open]) > ul { display: grid !important; }
       .criterion, .scenario { break-inside: avoid; }
     }
-${screens ? SCREEN_REVIEW_STYLES : ""}  </style>
+${screens ? SCREEN_REVIEW_STYLES : ""}${changes ? REVIEW_CHANGE_STYLES : ""}  </style>
 </head>
 <body>
   <div class="wiki-shell">
@@ -760,7 +785,7 @@ ${screens ? renderScreenTabs(screens) : ""}      <label class="search">
 ${screens ? renderScreenSidebar(screens) : ""}    </aside>
     <main class="wiki-main">
       <div class="wiki-content">
-        ${warnings}
+        ${warnings}${changes ? renderChangesPanel(changes, screens !== undefined) : ""}
         <div id="story-content">${initialContent}</div>${
           screens ? `\n        ${renderScreensView(screens)}` : ""
         }

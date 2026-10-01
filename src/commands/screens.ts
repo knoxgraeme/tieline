@@ -7,6 +7,7 @@ import {
 } from "../contract/screen-catalog.js";
 import {
   applyScreenImport,
+  attachCaptureDigests,
   ensureCapturesIgnored,
   parseScreenImport,
   planScreenImport,
@@ -47,7 +48,11 @@ export async function runScreensImportCommand(
   if (!settings) throw new Error(NOT_ENABLED);
 
   const inputPath = resolve(file);
-  const imported = parseScreenImport(readScreenImportFile(inputPath));
+  const digests = attachCaptureDigests(
+    parseScreenImport(readScreenImportFile(inputPath)),
+    settings
+  );
+  const imported = digests.entries;
 
   // The existing catalog must be valid before it is merged into: editing an
   // invalid file would either hide the problem or compound it.
@@ -97,6 +102,7 @@ export async function runScreensImportCommand(
           unchanged: plan.unchanged.length,
           pruned: plan.pruned,
           skipped_unknown_capability: plan.skipped_unknown_capability,
+          image_digests: { computed: digests.computed, missing: digests.missing },
           files,
           captures_gitignore: capturesIgnore,
         },
@@ -116,6 +122,11 @@ export async function runScreensImportCommand(
   for (const skipped of plan.skipped_unknown_capability) {
     io.write(
       `  skipped ${escapeTerminalText(skipped.key)} (unknown capability '${escapeTerminalText(skipped.capability)}')\n`
+    );
+  }
+  if (digests.missing.length > 0) {
+    io.write(
+      `  note  ${digests.missing.length} screenshot(s) are not in ${escapeTerminalText(settings.capturesPath)}; their digests were not recorded, and a digest already reviewed for the same path was kept.\n`
     );
   }
   if (capturesIgnore === "not_managed") {

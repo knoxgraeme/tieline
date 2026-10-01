@@ -1154,3 +1154,49 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-review.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC6
+          criterion: The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.
+          rationale: Reviewers of a pull request need to see which behavior and which screens moved without a database, a hosted service, or committed screenshots.
+          scenarios:
+            - given: a branch re-captures a screenshot without changing the screen's catalog fields
+              when: the screens are imported and the review page is rendered against the base ref
+              then: the screen must be reported as changed because its recorded image digest differs
+            - given: the base ref has no compiled manifest
+              when: the review page is rendered against it
+              then: every record must be reported as new and the page must say why
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-changes.ts
+                selector: function:diffReviewManifests
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-changes-page.ts
+                selector: function:renderChangesPanel
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:reviewChangesAgainstBase
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-import.ts
+                selector: function:attachCaptureDigests
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-review-changes.ts
+                framework_hint: custom-script

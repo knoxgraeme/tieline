@@ -1,4 +1,6 @@
 import { escapeHtml } from "./html.js";
+import type { ReviewChangeIndex } from "./review-changes-page.js";
+import type { ScreenRecordChange } from "./review-changes.js";
 import type { AcceptedContractDocument, Applicability } from "./schema.js";
 import type {
   ScreenKind,
@@ -48,6 +50,8 @@ export interface ScreenReviewEntry {
   copy: string[];
   image: { src: string; label: string } | null;
   shown_by: ScreenShownBy[];
+  /** Present only on a page built against a base ref, for changed screens. */
+  change?: Pick<ScreenRecordChange, "status" | "aspects">;
 }
 
 export interface ScreenReviewSection {
@@ -73,6 +77,8 @@ export interface ScreenReviewModel {
   shownByOwner: ReadonlyMap<string, string[]>;
   kinds: Array<{ kind: ScreenKind; count: number }>;
   dimensions: Array<{ name: string; values: string[] }>;
+  /** True when the page was built against a base ref. */
+  hasChanges: boolean;
 }
 
 const KIND_LABELS: Record<ScreenKind, string> = {
@@ -86,6 +92,14 @@ const KIND_LABELS: Record<ScreenKind, string> = {
   redirect: "Redirect",
   loading: "Loading",
 };
+
+function changeOf(
+  changes: ReviewChangeIndex | undefined,
+  key: string
+): Pick<ScreenReviewEntry, "change"> {
+  const change = changes?.screens.get(key);
+  return change ? { change: { status: change.status, aspects: change.aspects } } : {};
+}
 
 /**
  * Where the browser should look for a screen's image. A `path` is resolved
@@ -106,7 +120,8 @@ function imageSource(
 
 export function buildScreenReviewModel(
   documents: AcceptedContractDocument[],
-  screens: ContractReviewScreens
+  screens: ContractReviewScreens,
+  changes?: ReviewChangeIndex
 ): ScreenReviewModel {
   const shownBy = new Map<string, ScreenShownBy[]>();
   const shownByOwner = new Map<string, string[]>();
@@ -191,6 +206,7 @@ export function buildScreenReviewModel(
           copy: entry.copy ?? [],
           image: imageSource(entry.image, screens.capturesUrl),
           shown_by: shownBy.get(entry.key) ?? [],
+          ...changeOf(changes, entry.key),
         });
       }
     }
@@ -212,6 +228,7 @@ export function buildScreenReviewModel(
       stories_without_screens: storiesWithoutScreens,
     },
     shownByOwner,
+    hasChanges: changes !== undefined,
     kinds: (Object.keys(KIND_LABELS) as ScreenKind[])
       .filter((kind) => kinds.has(kind))
       .map((kind) => ({ kind, count: kinds.get(kind)! })),
@@ -323,7 +340,18 @@ export function renderScreenSidebar(model: ScreenReviewModel): string {
               <option value="linked">Shown by a Story or AC</option>
               <option value="unlinked">Not linked to any Story</option>
             </select>
-          </label>
+          </label>${
+            model.hasChanges
+              ? `
+          <label class="filter-select">
+            <span>Branch</span>
+            <select id="screen-change-filter">
+              <option value="">All screens</option>
+              <option value="changed">New or changed on this branch</option>
+            </select>
+          </label>`
+              : ""
+          }
           ${dimensionFilters}
           <button type="button" class="clear-filters" id="screen-clear-filters">Clear filters</button>
         </details>
@@ -859,6 +887,7 @@ export const SCREEN_REVIEW_SCRIPT = `
       const map = document.getElementById("screens-map");
       const search = document.getElementById("screen-search");
       const linkedFilter = document.getElementById("screen-linked-filter");
+      const changeFilter = document.getElementById("screen-change-filter");
       const kindFilters = [...document.querySelectorAll("[data-kind-filter]")];
       const dimensionFilters = [...document.querySelectorAll("[data-dimension-filter]")];
       const coverageButtons = [...document.querySelectorAll("[data-coverage-filter]")];
@@ -916,6 +945,15 @@ export const SCREEN_REVIEW_SCRIPT = `
         }
       }
 
+      function changeLabel(change) {
+        const status = change.status === "added" ? "New" : change.status === "removed" ? "Removed" : "Changed";
+        return change.aspects.length > 0 ? status + ": " + change.aspects.join(", ") : status;
+      }
+
+      function changeTag(change) {
+        return element("span", "change-badge change-" + change.status, changeLabel(change));
+      }
+
       function searchText(screen) {
         return [
           screen.key, screen.title, screen.route, screen.when, screen.group || "",
@@ -942,6 +980,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         const body = element("span", "card-body");
         body.append(element("b", "", screen.title), element("code", "", screen.route));
         const meta = element("span", "card-meta");
+        if (screen.change) meta.append(changeTag(screen.change));
         meta.append(element("span", "kind-tag", kindLabel(screen.kind)));
         for (const [dimension, values] of Object.entries(screen.applies_to || {})) {
           meta.append(element("span", "applies-tag", dimension + ": " + values.join(", ")));
@@ -999,6 +1038,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           kinds,
           dimensions,
           linked: linkedFilter ? linkedFilter.value : "",
+          changed: changeFilter ? changeFilter.value : "",
         };
       }
 
@@ -1006,6 +1046,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         if (filters.kinds.size > 0 && !filters.kinds.has(screen.kind)) return false;
         if (filters.linked === "linked" && screen.shown_by.length === 0) return false;
         if (filters.linked === "unlinked" && screen.shown_by.length > 0) return false;
+        if (filters.changed === "changed" && !screen.change) return false;
         for (const [dimension, value] of filters.dimensions) {
           const values = screen.applies_to && screen.applies_to[dimension];
           // A screen without this dimension applies to every value of it.
@@ -1046,7 +1087,7 @@ export const SCREEN_REVIEW_SCRIPT = `
       function applyFilters() {
         const filters = activeFilters();
         const active = Boolean(filters.query) || filters.kinds.size > 0 ||
-          filters.dimensions.length > 0 || Boolean(filters.linked);
+          filters.dimensions.length > 0 || Boolean(filters.linked) || Boolean(filters.changed);
         visible = screens.filter((screen) => matches(screen, filters));
         const shown = new Set(visible.map((screen) => screen.key));
         for (const [key, card] of cards) card.hidden = !shown.has(key);
@@ -1158,6 +1199,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         renderShot(screen);
         const meta = document.getElementById("screen-detail-meta");
         meta.replaceChildren();
+        if (screen.change) definition(meta, "On this branch", changeTag(screen.change));
         definition(meta, "Kind", kindLabel(screen.kind));
         definition(meta, "Route", screen.route);
         definition(meta, "Appears when", screen.when);
@@ -1243,7 +1285,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           }
         });
       }
-      for (const input of [search, linkedFilter, ...kindFilters, ...dimensionFilters]) {
+      for (const input of [search, linkedFilter, changeFilter, ...kindFilters, ...dimensionFilters]) {
         if (input) input.addEventListener(input === search ? "input" : "change", applyFilters);
       }
       for (const button of coverageButtons) {
@@ -1258,6 +1300,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           for (const input of kindFilters) input.checked = false;
           for (const select of dimensionFilters) select.value = "";
           if (linkedFilter) linkedFilter.value = "";
+          if (changeFilter) changeFilter.value = "";
           if (search) search.value = "";
           applyFilters();
         });

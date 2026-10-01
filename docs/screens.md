@@ -84,6 +84,9 @@ Screenshots are **never committed by default**. The catalog only points at them:
   segments, and end in `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.avif`, or `.svg`.
 - `image: { url: https://… }` names an image hosted elsewhere. Only `http` and `https` URLs are
   accepted.
+- Either form may add `sha256`, the lowercase hex SHA-256 of the screenshot's bytes. Screenshots
+  are not committed, so this digest is what makes a re-captured image visible in the reviewed
+  diff. The importer records it for every screenshot it can read.
 
 When the captures directory is inside `.tieline/`, `tieline screens import` creates a
 `.gitignore` in it that ignores everything. A captures directory configured elsewhere is left for
@@ -164,8 +167,14 @@ catalog fields above plus `capability`:
 ```
 
 `image` accepts a path string (shorthand for `{ "path": … }`), `{ "path": … }`, or
-`{ "url": … }`. A complete synthetic example ships at
-[`docs/examples/screens/acme-notes.json`](examples/screens/acme-notes.json).
+`{ "url": … }`, optionally with a `sha256` the capture tool already knows. A complete synthetic
+example ships at [`docs/examples/screens/acme-notes.json`](examples/screens/acme-notes.json).
+
+For every `path` image without a `sha256`, the importer reads the screenshot from the captures
+directory and records its digest. Each file may be at most 25 MiB, and a path that resolves
+outside the captures directory (through a symbolic link, for example) stops the import. A
+screenshot that is not on this machine is reported, not fatal; if the catalog already records a
+digest for the same path, that reviewed digest is kept rather than erased.
 
 The input is treated as untrusted:
 
@@ -213,6 +222,27 @@ self-contained file. With screens enabled it gains:
 
 Only images scrolled into view are requested, so a catalog of about a thousand screens opens
 quickly. The page works without any screenshots present.
+
+### Changes on a branch
+
+```bash
+tieline contract review . --base origin/main
+```
+
+`--base` compares the working tree with the manifest committed at a git ref and highlights what
+the branch changed, offline and without a database:
+
+- a summary above both views lists Stories and ACs that are new, changed (`content`, or `screens`
+  when only their `shows` links moved), or removed, and screens that are new, changed (`details`
+  for their catalog fields, `image` for a new screenshot digest), or removed;
+- changed Stories are badged in the navigation and changed ACs in their Story, while every other
+  record stays navigable;
+- screen cards and the detail panel carry the same badges, and a **Branch** filter narrows the
+  map to new or changed screens.
+
+The page still renders when the working tree does not compile; it then explains that changes are
+not shown. A base ref without a compiled manifest reports everything as new. The "before" picture
+of a changed screen is not shown locally, because only the current screenshot is on disk.
 
 ## Database sync
 

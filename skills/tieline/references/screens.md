@@ -39,8 +39,9 @@ screens:
 - `applies_to` reuses the Story/AC applicability dimensions (for example `role`, `plan`); omit
   it when the screen applies to everyone.
 - `image` is optional: `{ path }` relative to the git-ignored captures directory, or
-  `{ url }` with `http(s)`. Never commit screenshot files, and never invent an image path that a
-  capture did not produce.
+  `{ url }` with `http(s)`, plus an optional `sha256` of the screenshot. Never commit screenshot
+  files, never invent an image path that a capture did not produce, and never type a digest by
+  hand — the importer records it from the file.
 - `scene` and `capture` are reserved for a later release and must be omitted.
 
 Prefer `tieline screens import <file>` when a capture tool or a list of screens already exists;
@@ -76,4 +77,6 @@ tieline check --base <base-ref>
 
 Unknown screen keys, invalid catalog entries, and committed links to removed screens fail.
 Point reviewers at `.tieline/review.html`, whose Screens view shows the catalog, its coverage,
-and each Story's and AC's linked screens.
+and each Story's and AC's linked screens. For branch work, render it with
+`tieline contract review . --base <base-ref>` so the new, changed, and removed Stories, ACs, and
+screens are highlighted.

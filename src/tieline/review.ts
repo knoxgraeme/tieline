@@ -13,6 +13,7 @@ import {
   buildScreenReviewModel,
   type ContractReviewScreens,
 } from "../contract/screen-review-page.js";
+import type { ReviewChanges } from "../contract/review-changes.js";
 import { ContractValidationError } from "../contract/validate.js";
 import { ONBOARDING_AGENT_INSTRUCTION } from "./status.js";
 
@@ -61,7 +62,8 @@ export function writeWorkspaceReviewPage(
   root: string,
   repositoryKey: string,
   specDirectory = ".tieline/spec",
-  outputPath?: string
+  outputPath?: string,
+  changes?: ReviewChanges
 ): ReviewPageResult {
   let documents: ContractReviewDocument[] = [];
   let warnings: string[] = [];
@@ -97,6 +99,7 @@ export function writeWorkspaceReviewPage(
     warnings,
     onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
     ...(screens ? { screens } : {}),
+    ...(changes ? { changes } : {}),
   });
   writeFileSync(path, serialized);
   if (path === defaultPath) ensureReviewPageIgnored(root);

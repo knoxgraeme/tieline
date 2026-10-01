@@ -103,14 +103,28 @@ const screenImageUrlSchema = boundedText(SCREEN_LIMITS.imageUrlChars).refine(
 );
 
 /**
+ * The SHA-256 of a screenshot's bytes. Screenshots are not committed, so this
+ * digest is what puts a re-captured image into the reviewed diff: the catalog
+ * changes exactly when the picture does.
+ */
+export const screenImageDigestSchema = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/, "must be a lowercase hex SHA-256 digest");
+
+/**
  * Where a screenshot of the screen can be found. Images are never committed by
  * default: `path` names a file inside the git-ignored captures directory, and
  * `url` names an image hosted elsewhere. Either may be absent at render time,
- * and every view falls back to a placeholder.
+ * and every view falls back to a placeholder. `sha256`, when known, records
+ * which bytes were reviewed.
  */
 export const screenImageSchema = z.union([
-  z.object({ path: screenImagePathSchema }).strict(),
-  z.object({ url: screenImageUrlSchema }).strict(),
+  z
+    .object({ path: screenImagePathSchema, sha256: screenImageDigestSchema.optional() })
+    .strict(),
+  z
+    .object({ url: screenImageUrlSchema, sha256: screenImageDigestSchema.optional() })
+    .strict(),
 ]);
 
 /** The shared applicability schema, with bounds on its size. */

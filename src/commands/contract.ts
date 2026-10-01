@@ -21,6 +21,11 @@ import {
 } from "../contract/manifest.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import {
+  diffReviewManifests,
+  summarizeReviewChanges,
+  type ReviewChanges,
+} from "../contract/review-changes.js";
+import {
   TIELINE_REVIEW_PAGE,
   writeWorkspaceReviewPage,
 } from "../tieline/review.js";
@@ -297,6 +302,38 @@ function manifestAtBase(
 }
 
 /**
+ * What the working tree changed against `base`, for the review page. The page
+ * itself renders even from an invalid contract, so a working tree that does not
+ * compile only withholds the comparison and says why. The current manifest is
+ * compiled tolerantly: it is a report, never written, and a missing linked file
+ * is drift the page should still be able to describe.
+ */
+function reviewChangesAgainstBase(
+  parsed: ParsedContractCommand,
+  base: string
+): { changes: ReviewChanges; unavailable?: undefined } | { changes?: undefined; unavailable: string } {
+  // Read first: an unreadable base is the caller's error and is always reported,
+  // whatever state the working tree is in.
+  const baseManifest = manifestAtBase(parsed.repositoryRoot, base, parsed.manifestPath);
+  let current: ContractManifest;
+  try {
+    current = compileContractManifestWithSources({
+      repositoryRoot: parsed.repositoryRoot,
+      repositoryKey: parsed.repositoryKey,
+      specDirectory: parsed.specDirectory,
+      onUnhashableArtifact: "omit_hash",
+    }).manifest;
+  } catch (error) {
+    return {
+      unavailable: `the working-tree contract does not compile (${
+        error instanceof Error ? error.message.split("\n")[0] : String(error)
+      }).`,
+    };
+  }
+  return { changes: diffReviewManifests(baseManifest, current, base) };
+}
+
+/**
  * The committed manifest, when one is readable and belongs to this repository.
  * Its absence is ordinary — a repository may never have compiled one — so it is
  * never an error here.
@@ -559,12 +596,19 @@ export async function runContractCommand(
   }
 
   if (parsed.action === "review") {
+    const branch = parsed.base ? reviewChangesAgainstBase(parsed, parsed.base) : undefined;
     const result = writeWorkspaceReviewPage(
       parsed.repositoryRoot,
       parsed.repositoryKey,
       parsed.specDirectory,
-      parsed.outputPath
+      parsed.outputPath,
+      branch?.changes
     );
+    const changes = branch
+      ? branch.changes
+        ? summarizeReviewChanges(branch.changes)
+        : { base: parsed.base, unavailable: branch.unavailable }
+      : undefined;
     const response = {
       output: result.path,
       bytes: result.bytes,
@@ -572,6 +616,7 @@ export async function runContractCommand(
       stories: result.stories,
       acceptance_criteria: result.acceptance_criteria,
       ...(result.screens ? { screens: result.screens } : {}),
+      ...(changes ? { changes } : {}),
       warnings: result.warnings,
     };
     io.write(
@@ -579,7 +624,13 @@ export async function runContractCommand(
         ? `${JSON.stringify(response, null, 2)}\n`
         : `Wrote a browser review of ${response.stories} Stories${
             result.screens ? `, ${result.screens.screens} screens,` : ""
-          } and ${response.acceptance_criteria} acceptance criteria to ${result.path}.\n`
+          } and ${response.acceptance_criteria} acceptance criteria to ${result.path}.\n${
+            branch?.changes
+              ? `Changes against ${parsed.base}: ${branch.changes.records.filter((record) => record.kind === "story").length} Stories, ${branch.changes.records.filter((record) => record.kind === "acceptance_criterion").length} acceptance criteria, ${branch.changes.screens.length} screens.\n`
+              : branch
+                ? `Changes against ${parsed.base} are not shown: ${branch.unavailable}\n`
+                : ""
+          }`
     );
     return 0;
   }

@@ -133,6 +133,14 @@ file directly in a browser. Use `--output <path>` to write it elsewhere. When
 [screens](screens.md) are enabled, the page adds a Screens view and shows each Story's and AC's
 linked screens.
 
+```bash
+tieline contract review . --base origin/main
+```
+
+`--base <ref>` highlights the Stories, ACs, and screens the branch added, changed, or removed
+relative to the manifest committed at that ref. It reads only git, so it works offline. See
+[Changes on a branch](screens.md#changes-on-a-branch).
+
 ## Screens
 
 Screens are an optional feature; see [Screens](screens.md) to opt in. Once enabled, import

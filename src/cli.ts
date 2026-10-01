@@ -380,7 +380,10 @@ function buildProgram(
     return sub;
   };
   contractAction("validate", "Validate accepted contract YAML");
-  contractAction("review", "Render a browser review page");
+  contractAction("review", "Render a browser review page").option(
+    "--base <ref>",
+    "highlight Stories, acceptance criteria, and screens changed since this git ref"
+  );
   contractAction("compile", "Compile the contract manifest");
   contractAction(
     "coverage",

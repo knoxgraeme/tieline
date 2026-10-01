@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -5,6 +6,7 @@ import {
   mkdirSync,
   openSync,
   readSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -36,6 +38,8 @@ export const SCREEN_IMPORT_LIMITS = {
   fileBytes: 16 * 1024 * 1024,
   entries: SCREEN_LIMITS.screens,
   reportedIssues: 20,
+  /** Largest screenshot the importer will read to record its digest. */
+  captureBytes: 25 * 1024 * 1024,
 } as const;
 
 export class ScreenImportError extends Error {
@@ -57,32 +61,27 @@ export class ScreenImportError extends Error {
 }
 
 /**
- * Reads at most `maxBytes` bytes. The limit is enforced on the bytes actually
- * read, not only on the size reported before reading, so a file that grows
- * while it is read cannot exceed it.
+ * Reads a regular file of at most `maxBytes` bytes. The limit is enforced on
+ * the bytes actually read, not only on the size reported before reading, so a
+ * file that grows while it is read cannot exceed it.
  */
-export function readScreenImportFile(
-  path: string,
-  maxBytes: number = SCREEN_IMPORT_LIMITS.fileBytes
-): unknown {
+function readBoundedFile(path: string, maxBytes: number, label: string): Buffer {
   let descriptor: number;
   try {
     descriptor = openSync(path, "r");
   } catch (error) {
     throw new ScreenImportError(
-      `Cannot open screen import file '${path}': ${error instanceof Error ? error.message : String(error)}`
+      `Cannot open ${label} '${path}': ${error instanceof Error ? error.message : String(error)}`
     );
   }
   const chunks: Buffer[] = [];
   try {
     const stat = fstatSync(descriptor);
     if (!stat.isFile()) {
-      throw new ScreenImportError(`Screen import '${path}' is not a file.`);
+      throw new ScreenImportError(`${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is not a file.`);
     }
     const tooLarge = (): ScreenImportError =>
-      new ScreenImportError(
-        `Screen import file '${path}' is larger than the ${maxBytes}-byte limit.`
-      );
+      new ScreenImportError(`${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is larger than the ${maxBytes}-byte limit.`);
     if (stat.size > maxBytes) throw tooLarge();
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let total = 0;
@@ -96,9 +95,17 @@ export function readScreenImportFile(
   } finally {
     closeSync(descriptor);
   }
+  return Buffer.concat(chunks);
+}
+
+export function readScreenImportFile(
+  path: string,
+  maxBytes: number = SCREEN_IMPORT_LIMITS.fileBytes
+): unknown {
+  const bytes = readBoundedFile(path, maxBytes, "screen import file");
   let text: string;
   try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     throw new ScreenImportError(`Screen import file '${path}' is not valid UTF-8.`);
   }
@@ -262,12 +269,33 @@ function mergedField<T>(imported: T | null | undefined, current: T | undefined):
   return imported === undefined ? current : imported;
 }
 
+function sameLocator(left: ScreenImage, right: ScreenImage): boolean {
+  return "path" in left
+    ? "path" in right && left.path === right.path
+    : "url" in right && left.url === right.url;
+}
+
+/**
+ * Merges the image like any optional field, except that an imported locator
+ * without a digest keeps the reviewed digest of the same locator. A missing
+ * digest only means this machine could not read the screenshot, which says
+ * nothing about whether the picture changed.
+ */
+function mergedImage(
+  imported: ScreenImage | null | undefined,
+  current: ScreenImage | undefined
+): ScreenImage | undefined {
+  const image = mergedField(imported, current);
+  if (!image || image.sha256 !== undefined || current?.sha256 === undefined) return image;
+  return sameLocator(image, current) ? { ...image, sha256: current.sha256 } : image;
+}
+
 /** A catalog entry in the field order the catalog documents use. */
 function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefined): ScreenEntry {
   const group = mergedField(imported.group, current?.group);
   const appliesTo = mergedField(imported.applies_to, current?.applies_to);
   const copy = mergedField(imported.copy, current?.copy);
-  const image = mergedField(imported.image, current?.image);
+  const image = mergedImage(imported.image, current?.image);
   return {
     key: imported.key,
     title: imported.title,
@@ -512,6 +540,53 @@ export function applyScreenImport(plan: ScreenImportPlan): void {
       throw error;
     }
   }
+}
+
+export interface CaptureDigests {
+  entries: ScreenImportEntry[];
+  /** Screens whose screenshot was read and digested. */
+  computed: number;
+  /** Screens whose `path` screenshot is not in the captures directory. */
+  missing: string[];
+}
+
+/**
+ * Records the SHA-256 of every `path` screenshot the input did not already
+ * digest, read from the captures directory. A path that resolves outside that
+ * directory — through a symbolic link, say — is refused rather than read, and
+ * each file is bounded by `maxBytes`. A missing file is reported, not fatal:
+ * screenshots are git-ignored and often absent on the machine that imports.
+ */
+export function attachCaptureDigests(
+  entries: ScreenImportEntry[],
+  settings: ScreenSettings,
+  maxBytes: number = SCREEN_IMPORT_LIMITS.captureBytes
+): CaptureDigests {
+  const missing: string[] = [];
+  let computed = 0;
+  const realCaptures = existsSync(settings.capturesDirectory)
+    ? realpathSync(settings.capturesDirectory)
+    : null;
+  const digested = entries.map((entry) => {
+    const image = entry.image;
+    if (!image || !("path" in image) || image.sha256 !== undefined) return entry;
+    const target = resolve(settings.capturesDirectory, image.path);
+    if (!realCaptures || !existsSync(target)) {
+      missing.push(entry.key);
+      return entry;
+    }
+    if (!withinRepository(realCaptures, realpathSync(target))) {
+      throw new ScreenImportError(
+        `Screenshot '${image.path}' for screen '${entry.key}' resolves outside the captures directory '${settings.capturesPath}'.`
+      );
+    }
+    const sha256 = createHash("sha256")
+      .update(readBoundedFile(target, maxBytes, "screenshot"))
+      .digest("hex");
+    computed += 1;
+    return { ...entry, image: { path: image.path, sha256 } };
+  });
+  return { entries: digested, computed, missing };
 }
 
 export type CapturesIgnoreStatus = "created" | "exists" | "not_managed";
