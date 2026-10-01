@@ -980,3 +980,109 @@ capability:
                 repository: tieline
                 path: tests/unit/topology/test-code-topology-command.ts
                 framework_hint: custom-script
+    - key: CONTRACT-005
+      title: Review the screens that show accepted behavior
+      actor: maintainer
+      goal: catalog an application's user-visible screens beside the Stories and Acceptance Criteria they show
+      benefit: UI states and copy are reviewed with the behavior and code they belong to
+      lifecycle: in_progress
+      aliases:
+        - screen catalog
+        - shows links
+      acceptance_criteria:
+        - key: CONTRACT-005-AC1
+          criterion: Tieline must leave compile, check, review, sync, and exact context reads unchanged and must never read a screen catalog unless the repository enables screens in its configuration.
+          rationale: Screens are optional; a repository that does not opt in must not pay for or be broken by the feature.
+          scenarios:
+            - given: a repository without an enabled screens block contains a screen catalog directory
+              when: the contract is validated, compiled, reviewed, and checked
+              then: every output must be byte-identical to the same repository without the directory
+            - given: a repository that has not enabled screens authors a shows link
+              when: the contract is validated
+              then: Tieline must reject the link and say how to opt in
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/config.ts
+                selector: function:readScreensConfig
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-catalog.ts
+                selector: function:screenSettingsForRepository
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/load.ts
+                selector: function:loadAcceptedContractWithSources
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC2
+          criterion: Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.
+          rationale: The catalog is the reference a shows link resolves against, so an invalid entry or an unresolvable key would make screen review untrustworthy.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-catalog.ts
+                selector: function:validateScreenCatalogDocuments
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/validate.ts
+                selector: function:validateScreenLinks
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC3
+          criterion: Tieline must compile the screen catalog and shows links into the manifest deterministically without changing any contract hash, must fail check on an invalid catalog or a committed shows link to a removed screen, and must remove screens before database sync.
+          rationale: The manifest is the reviewed read model, so screens must appear in it reproducibly, while the database and evidence consumers keep seeing exactly the contract they saw before screens existed.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+                selector: function:compileScreenCatalogs
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+                selector: function:manifestWithoutScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:checkScreens
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script

@@ -11,6 +11,7 @@ import {
 import {
   attachCurrentArtifactHashes,
   compileContractManifestWithSources,
+  manifestWithoutScreens,
   parseContractManifestSnapshot,
   readContractManifest,
   writeContractManifest,
@@ -113,6 +114,9 @@ interface ParsedContractCommand {
   ac?: string;
   save: boolean;
 }
+
+const SCREENS_NOT_SYNCED =
+  "screens and shows links stay in the repository manifest; database sync does not store them yet.";
 
 function gitCommit(repositoryRoot: string): string {
   try {
@@ -508,6 +512,13 @@ function coverage(manifest: ContractManifest): {
   };
 }
 
+function screenCount(manifest: ContractManifest): number {
+  return (manifest.screen_catalogs ?? []).reduce(
+    (total, catalog) => total + catalog.screens.length,
+    0
+  );
+}
+
 export async function runContractCommand(
   action: ContractAction,
   options: ContractCommandOptions,
@@ -533,12 +544,16 @@ export async function runContractCommand(
           ),
         0
       ),
+      // Reported only when the repository enabled screens.
+      ...(result.screens ? { screens: result.screens.screens.size } : {}),
       warnings: result.warnings,
     };
     io.write(
       parsed.json
         ? `${JSON.stringify(response, null, 2)}\n`
-        : `Contract valid: ${response.stories} Stories, ${response.acceptance_criteria} acceptance criteria, ${response.warnings.length} warning(s).\n`
+        : `Contract valid: ${response.stories} Stories, ${response.acceptance_criteria} acceptance criteria, ${
+            response.screens === undefined ? "" : `${response.screens} screens, `
+          }${response.warnings.length} warning(s).\n`
     );
     return 0;
   }
@@ -611,8 +626,14 @@ export async function runContractCommand(
       );
     }
     const commit = parsed.commit ?? gitCommit(parsed.repositoryRoot);
+    // The database does not store screens yet. They are removed here, before
+    // anything reaches Postgres, and reported rather than dropped silently.
+    const { manifest: syncableManifest, skipped: skippedScreens } =
+      manifestWithoutScreens(reviewedManifest);
+    const screensSkipped =
+      skippedScreens.screens > 0 || skippedScreens.shows_links > 0;
     const manifest = attachCurrentArtifactHashes(
-      reviewedManifest,
+      syncableManifest,
       parsed.repositoryRoot
     );
     try {
@@ -658,8 +679,20 @@ export async function runContractCommand(
               embedding_documents: documents.length,
               re_embedded: indexing.embedded,
               semantic_index: indexing,
+              ...(screensSkipped
+                ? {
+                    screens_skipped: {
+                      ...skippedScreens,
+                      reason: SCREENS_NOT_SYNCED,
+                    },
+                  }
+                : {}),
             }, null, 2)}\n`
-          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s), ${result.reconciled_code_assets} orphaned code asset(s) reconciled; ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n`
+          : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s), ${result.reconciled_code_assets} orphaned code asset(s) reconciled; ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n${
+              screensSkipped
+                ? `Skipped ${skippedScreens.screens} screen(s) and ${skippedScreens.shows_links} shows link(s): ${SCREENS_NOT_SYNCED}\n`
+                : ""
+            }`
       );
       return 0;
     } finally {
@@ -791,6 +824,10 @@ export async function runContractCommand(
       review_page: TIELINE_REVIEW_PAGE,
       repository: manifest.repository,
       ...coverage(manifest),
+      // Reported only when the compiled manifest carries screens.
+      ...(manifest.screen_catalogs
+        ? { screens: screenCount(manifest) }
+        : {}),
       mapping_coverage: mappingCoverage,
     };
     io.write(

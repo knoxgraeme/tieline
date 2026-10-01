@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { z } from "zod";
-import { selectorConfigSchema } from "../config.js";
+import { screensConfigSchema, selectorConfigSchema } from "../config.js";
 import { withinRepository } from "../contract/paths.js";
 
 export const TIELINE_DIRECTORY = ".tieline";
@@ -71,6 +71,9 @@ export const tielineConfigSchema = z
     // independently by readSelectorConfig; it is declared here only so a
     // repository that declares selector kinds still loads its workspace.
     selectors: selectorConfigSchema.optional(),
+    // Optional for the same reason. The Screens feature reads this block
+    // through readScreensConfig; absent or disabled means no behavior change.
+    screens: screensConfigSchema.optional(),
     created_at: z.string().min(1),
     updated_at: z.string().min(1),
   })

@@ -48,7 +48,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "87dee7386661c48f2215c72a5de2ef5f5ef41adc1f7682f340974717dbdb0e27",
+                "reviewed_content_hash": "e37290f69d9c5d8775867f47a87f8650d126581356d65f5398000f0f91dc2401",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/workspace.ts",
@@ -641,7 +641,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "390b019e220233416ba694328e4cd91acdc230d6d2cc1d477635d15394baba6a",
+                "reviewed_content_hash": "02611115924cfc2a4f83b8c8d61951729e885d43c1917afd2baa457947654ad8",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",

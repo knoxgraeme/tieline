@@ -158,6 +158,10 @@ review the semantic diff, and commit the result. Use `--no-fail-on-stale-manifes
 intentionally downgrading that integrity gate to a warning. Invalid YAML or an unreadable
 manifest fails because no trustworthy result can be computed.
 
+When [screens](screens.md) are enabled, the check also fails when the screen catalog does not
+validate, and treats a committed `shows` link to a screen the catalog no longer contains as a
+broken link. Repositories without screens see no difference.
+
 See [the GitHub Actions example](examples/tieline-check.yml).
 
 ## Post-merge sync
@@ -169,6 +173,9 @@ tieline contract sync . --expected-previous-commit <previous-main-sha>
 Sync is idempotent and checkpointed. A delayed job cannot overwrite a newer projection. If
 planning changed while a materializing pull request was open, the merged repository version wins
 and the later planning revision is preserved as a handoff conflict for reconciliation.
+
+Screens are not synced yet: sync removes screen catalogs and `shows` links before writing and
+reports what it skipped. See [Screens](screens.md#database-sync).
 
 ## Derived code topology and blast radius
 

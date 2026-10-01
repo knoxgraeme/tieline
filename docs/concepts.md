@@ -21,6 +21,7 @@ coarse fallback.
 | Observation | Append-only source evidence: a request, bug, or question |
 | Backlog Item | Optional work used to consolidate Observations before or alongside a Story |
 | Artifact | Code or test evidence linked to a Story or AC |
+| Screen | Optional: a user-visible state of the app, catalogued per capability and linked from the Stories and ACs it `shows` ([Screens](screens.md)) |
 
 An AC stands on its own. A Scenario is useful when a condition, edge case, or concrete example
 would make the outcome easier to review; it is not required for the AC to be valid.
@@ -82,7 +83,7 @@ stable `motivated_by` pointers without copying their source payloads.
 
 | Location | Contents |
 | --- | --- |
-| `.tieline/` in the repository | Product context (`config.json`), contract YAML (`spec/`), compiled manifest (`manifest/`), and derived code topology (`topology/graph.json`) |
+| `.tieline/` in the repository | Product context (`config.json`), contract YAML (`spec/`), compiled manifest (`manifest/`), and derived code topology (`topology/graph.json`); with [screens](screens.md) enabled, the screen catalog (`screens/`) and git-ignored screenshots (`captures/`) |
 | PostgreSQL (optional) | A synced queryable projection of the accepted contract, plus Observations, Backlog Items, planning Stories, revisions, and search data |
 | Private config directory | Database credentials and clone-local setup state; `~/.config/tieline/` by default and never committed |
 

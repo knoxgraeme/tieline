@@ -2,6 +2,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { parse } from "yaml";
 import {
+  readScreenCatalogSources,
+  screenSettingsForRepository,
+  type ScreenCatalogSource,
+  type ScreenSettings,
+} from "./screen-catalog.js";
+import {
   ContractValidationError,
   validateAcceptedContractDocuments,
   type ValidatedContract,
@@ -16,6 +22,14 @@ export interface AcceptedContractSource {
 
 export interface LoadedAcceptedContract extends ValidatedContract {
   sources: AcceptedContractSource[];
+  /**
+   * Present only when the repository enabled screens: where its catalog and
+   * captures live, and the catalog files `screens` was validated from.
+   */
+  screenCatalog?: {
+    settings: ScreenSettings;
+    sources: ScreenCatalogSource[];
+  };
 }
 
 function yamlFiles(directory: string): string[] {
@@ -76,12 +90,34 @@ export function loadAcceptedContractWithSources(
       `contract directory '${relative(root, directory)}' contains no YAML files`,
     ]);
   }
-  return {
+  // The catalog is read only when the repository opted in, so a disabled
+  // feature never touches the catalog directory.
+  const screenSettings = screenSettingsForRepository(root);
+  const catalog = screenSettings
+    ? readScreenCatalogSources(root, screenSettings)
+    : undefined;
+  let validated: ValidatedContract;
+  try {
     // Pass the root so selector kinds declared by this repository are part of
     // the vocabulary. Without it validation would silently fall back to the
     // core kinds and reject a kind the repository legitimately declared.
-    ...validateAcceptedContractDocuments(inputs, { repositoryRoot: root }),
+    validated = validateAcceptedContractDocuments(inputs, {
+      repositoryRoot: root,
+      ...(catalog ? { screenCatalog: catalog.sources } : {}),
+    });
+  } catch (error) {
+    if (catalog?.issues.length && error instanceof ContractValidationError) {
+      throw new ContractValidationError([...catalog.issues, ...error.issues]);
+    }
+    throw error;
+  }
+  if (catalog?.issues.length) throw new ContractValidationError(catalog.issues);
+  return {
+    ...validated,
     sources: inputs,
+    ...(screenSettings && catalog
+      ? { screenCatalog: { settings: screenSettings, sources: catalog.sources } }
+      : {}),
   };
 }
 
@@ -89,9 +125,10 @@ export function loadAcceptedContract(
   repositoryRoot: string,
   specDirectory = ".tieline/spec"
 ): ValidatedContract {
-  const { documents, warnings } = loadAcceptedContractWithSources(
+  const { documents, warnings, screens } = loadAcceptedContractWithSources(
     repositoryRoot,
     specDirectory
   );
-  return { documents, warnings };
+  return screens ? { documents, warnings, screens } : { documents, warnings };
 }
+

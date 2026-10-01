@@ -21,7 +21,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ea2f18a6d8e9f424ee515d0eaf8d1f90769692aeb2323d25e4a80b2b27c1e056",
+                "reviewed_content_hash": "be031c85c18e9daaa6085aadab402f5b77761f9c9fe8a768df1693a36764274c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/load.ts",
@@ -31,7 +31,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9f6faa9e0e7589376111063f89e4a793c7eb80e26d74a18d84fab89192090e53",
+                "reviewed_content_hash": "3a661693396883e6896134b881d56381e3807248abd8bef628e7e9c501063682",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/schema.ts",
@@ -41,7 +41,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "44c6f462a64a7fd399cbb5b44bb49bb7f4cfcfb0ee4ae6aeb1611e27e8710a57",
+                "reviewed_content_hash": "10a9d3e11207471214164162666d82caff7b2de3bf0a9d02ebe610e3bc2eb4ae",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/validate.ts",
@@ -75,7 +75,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "6c401d5ea9a6543db72553d1a6d3004f5008808bf992111498e05f39e9d56fd4",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -95,7 +95,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -166,7 +166,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "reviewed_content_hash": "f12e853b8693fe5a8e86d2081682f4d645dc453bf1ddb22530c30dc2952a620d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -218,7 +218,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "6c401d5ea9a6543db72553d1a6d3004f5008808bf992111498e05f39e9d56fd4",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -272,7 +272,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "6c401d5ea9a6543db72553d1a6d3004f5008808bf992111498e05f39e9d56fd4",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -282,7 +282,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -342,7 +342,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "reviewed_content_hash": "f12e853b8693fe5a8e86d2081682f4d645dc453bf1ddb22530c30dc2952a620d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -418,7 +418,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "9f6faa9e0e7589376111063f89e4a793c7eb80e26d74a18d84fab89192090e53",
+                "reviewed_content_hash": "3a661693396883e6896134b881d56381e3807248abd8bef628e7e9c501063682",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/schema.ts",
@@ -458,7 +458,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -546,7 +546,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2eb985a12035c6fb77961cfaeb6f0a4a3c76986aceb8f9b476dbe34b04aa09a7",
+                "reviewed_content_hash": "f12e853b8693fe5a8e86d2081682f4d645dc453bf1ddb22530c30dc2952a620d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -576,7 +576,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "6c401d5ea9a6543db72553d1a6d3004f5008808bf992111498e05f39e9d56fd4",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -586,7 +586,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9684f766a13c3facb58ef9a31ad02aa4197d14d5af224a81e81a90eac5afccda",
+                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -765,7 +765,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "6c401d5ea9a6543db72553d1a6d3004f5008808bf992111498e05f39e9d56fd4",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -785,7 +785,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a3b1297f3e9d11940788b32f1a4d8dd4fd9605e0f61905ad872213c5075d4b89",
+                "reviewed_content_hash": "b9c2a07000dbec1ebfde50c689ed766bbbb5698848f6e42c594e9cab34cab6e4",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/reconciliation.ts",
@@ -1131,7 +1131,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "6c401d5ea9a6543db72553d1a6d3004f5008808bf992111498e05f39e9d56fd4",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1799,12 +1799,207 @@
         "stable_id": "CONTRACT-004",
         "supersedes": null,
         "title": "Inspect derived code topology without weakening contract authority"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0fab32a91eb11e14324b5725d2e0d0432f83c12687a14e0594b3aa5261efc201",
+            "criterion": "Tieline must leave compile, check, review, sync, and exact context reads unchanged and must never read a screen catalog unless the repository enables screens in its configuration.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "02611115924cfc2a4f83b8c8d61951729e885d43c1917afd2baa457947654ad8",
+                "target": {
+                  "kind": "code",
+                  "path": "src/config.ts",
+                  "repository": "tieline",
+                  "selector": "function:readScreensConfig"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "be031c85c18e9daaa6085aadab402f5b77761f9c9fe8a768df1693a36764274c",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/load.ts",
+                  "repository": "tieline",
+                  "selector": "function:loadAcceptedContractWithSources"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "acafa805d6bfff3d753fd631438af7d281f1f82cf1771d78387eb45d34f48be5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-catalog.ts",
+                  "repository": "tieline",
+                  "selector": "function:screenSettingsForRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "8cf3ac73915c92c32c1624daf4d39d8f6015e83e9c61e87bffc67bb55684921c",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screens.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Screens are optional; a repository that does not opt in must not pay for or be broken by the feature.",
+            "scenarios": [
+              {
+                "given": "a repository without an enabled screens block contains a screen catalog directory",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC1-S1",
+                "then": "every output must be byte-identical to the same repository without the directory",
+                "when": "the contract is validated, compiled, reviewed, and checked"
+              },
+              {
+                "given": "a repository that has not enabled screens authors a shows link",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC1-S2",
+                "then": "Tieline must reject the link and say how to opt in",
+                "when": "the contract is validated"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "b2df30968038e074e3ecf37cbc35c585f13e3753b98486e5ae3e684687f2e4ca",
+            "criterion": "Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "acafa805d6bfff3d753fd631438af7d281f1f82cf1771d78387eb45d34f48be5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-catalog.ts",
+                  "repository": "tieline",
+                  "selector": "function:validateScreenCatalogDocuments"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "10a9d3e11207471214164162666d82caff7b2de3bf0a9d02ebe610e3bc2eb4ae",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/validate.ts",
+                  "repository": "tieline",
+                  "selector": "function:validateScreenLinks"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "8cf3ac73915c92c32c1624daf4d39d8f6015e83e9c61e87bffc67bb55684921c",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screens.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "The catalog is the reference a shows link resolves against, so an invalid entry or an unresolvable key would make screen review untrustworthy.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-005-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "584b71df9775fb583ba55fb56cea8f26b63b19b6967af6f24cb41111b6bdee87",
+            "criterion": "Tieline must compile the screen catalog and shows links into the manifest deterministically without changing any contract hash, must fail check on an invalid catalog or a committed shows link to a removed screen, and must remove screens before database sync.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "f12e853b8693fe5a8e86d2081682f4d645dc453bf1ddb22530c30dc2952a620d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline",
+                  "selector": "function:checkScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline",
+                  "selector": "function:compileScreenCatalogs"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/manifest.ts",
+                  "repository": "tieline",
+                  "selector": "function:manifestWithoutScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "8cf3ac73915c92c32c1624daf4d39d8f6015e83e9c61e87bffc67bb55684921c",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screens.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "The manifest is the reviewed read model, so screens must appear in it reproducibly, while the database and evidence consumers keep seeing exactly the contract they saw before screens existed.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-005-AC3",
+            "supersedes": null
+          }
+        ],
+        "actor": "maintainer",
+        "aliases": [
+          "screen catalog",
+          "shows links"
+        ],
+        "applies_to": null,
+        "benefit": "UI states and copy are reviewed with the behavior and code they belong to",
+        "contract_hash": "3ac37e4bc2f2f56611c1713ca2de138c88e89e1911489afde9737f2afe6175e7",
+        "goal": "catalog an application's user-visible screens beside the Stories and Acceptance Criteria they show",
+        "lifecycle": "in_progress",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-005",
+        "supersedes": null,
+        "title": "Review the screens that show accepted behavior"
       }
     ],
     "supersedes": null
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "89589e97811068f8388031c08cdb6a97e0340d6d4f2dcc7e7be56307d9c4386c"
+    "sha256": "9f06c0561e72f9fb59adaaa382bdc258c981d7d97aaac8808f6899c5e1999cf2"
   }
 }
