@@ -23,7 +23,7 @@ jobs:
       # revision. The PR commit is fetched for diffing but is never checked out
       # or executed by this job.
       - name: Check out trusted base revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 1
