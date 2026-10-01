@@ -132,3 +132,39 @@ export function loadAcceptedContract(
   return screens ? { documents, warnings, screens } : { documents, warnings };
 }
 
+/**
+ * Capability keys declared by the spec, read without validating the rest of
+ * each document. The screen importer needs to know which capabilities exist
+ * even while the contract is mid-edit — for example when it already carries
+ * `shows` links to screens the import is about to create.
+ */
+export function readDeclaredCapabilityKeys(
+  repositoryRoot: string,
+  specDirectory = ".tieline/spec"
+): Set<string> {
+  const root = resolve(repositoryRoot);
+  const directory = resolve(root, specDirectory);
+  const keys = new Set<string>();
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) return keys;
+  for (const path of yamlFiles(directory)) {
+    let document: unknown;
+    try {
+      document = parse(readFileSync(path, "utf8"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ContractValidationError([
+        `${relative(root, path)}: invalid YAML: ${message}`,
+      ]);
+    }
+    const capability =
+      document !== null && typeof document === "object"
+        ? (document as { capability?: unknown }).capability
+        : undefined;
+    const key =
+      capability !== null && typeof capability === "object"
+        ? (capability as { key?: unknown }).key
+        : undefined;
+    if (typeof key === "string" && key.trim().length > 0) keys.add(key.trim());
+  }
+  return keys;
+}

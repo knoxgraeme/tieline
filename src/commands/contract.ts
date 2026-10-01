@@ -571,12 +571,15 @@ export async function runContractCommand(
       capabilities: result.capabilities,
       stories: result.stories,
       acceptance_criteria: result.acceptance_criteria,
+      ...(result.screens ? { screens: result.screens } : {}),
       warnings: result.warnings,
     };
     io.write(
       parsed.json
         ? `${JSON.stringify(response, null, 2)}\n`
-        : `Wrote a browser review of ${response.stories} Stories and ${response.acceptance_criteria} acceptance criteria to ${result.path}.\n`
+        : `Wrote a browser review of ${response.stories} Stories${
+            result.screens ? `, ${result.screens.screens} screens,` : ""
+          } and ${response.acceptance_criteria} acceptance criteria to ${result.path}.\n`
     );
     return 0;
   }

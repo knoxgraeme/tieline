@@ -90,7 +90,7 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-const screenImagePathSchema = boundedText(SCREEN_LIMITS.imagePathChars).superRefine(
+export const screenImagePathSchema = boundedText(SCREEN_LIMITS.imagePathChars).superRefine(
   (value, ctx) => {
     const problem = screenImagePathProblem(value);
     if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });

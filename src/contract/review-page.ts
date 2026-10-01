@@ -7,6 +7,19 @@ import type {
   ContractScenario,
 } from "./schema.js";
 import { renderUserStory } from "./schema.js";
+import { escapeHtml } from "./html.js";
+import {
+  buildScreenReviewModel,
+  renderScreenSidebar,
+  renderScreensView,
+  renderScreenTabs,
+  renderShownScreens,
+  SCREEN_REVIEW_SCRIPT,
+  SCREEN_REVIEW_STYLES,
+  serializeScreenReviewData,
+  type ContractReviewScreens,
+  type ScreenReviewModel,
+} from "./screen-review-page.js";
 
 export interface ContractReviewDocument {
   path: string;
@@ -22,15 +35,11 @@ export interface ContractReviewPageOptions {
    * the reader how to author the first capabilities.
    */
   onboardingInstruction?: string;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  /**
+   * The screen catalog, supplied only when the repository enabled screens.
+   * Without it the page is exactly the Stories review it always was.
+   */
+  screens?: ContractReviewScreens;
 }
 
 function renderApplicability(applicability: Applicability | undefined): string {
@@ -140,7 +149,8 @@ function storySearchText(
 function renderStoryDocument(
   capabilityName: string,
   capabilityDescription: string,
-  story: AcceptedStory
+  story: AcceptedStory,
+  screens?: ScreenReviewModel
 ): string {
   const criteria = story.acceptance_criteria
     .map(
@@ -158,7 +168,9 @@ function renderStoryDocument(
           }
           ${renderApplicability(criterion.applies_to)}
           ${renderScenarios(criterion.scenarios)}
-          ${renderLinks(criterion.links)}
+          ${renderLinks(criterion.links)}${
+            screens ? renderShownScreens(screens, criterion.key, "Screens") : ""
+          }
         </div>
       </section>`
     )
@@ -176,7 +188,11 @@ function renderStoryDocument(
           <h2>Description</h2>
           <p class="capability-description">${escapeHtml(capabilityDescription)}</p>
           <blockquote>${escapeHtml(renderUserStory(story))}</blockquote>
-          ${renderApplicability(story.applies_to)}
+          ${renderApplicability(story.applies_to)}${
+            screens
+              ? renderShownScreens(screens, story.key, "Screens in this Story")
+              : ""
+          }
         </section>
         <section class="criteria issue-section">
           <h2><span>Acceptance criteria</span><small>${story.acceptance_criteria.length}</small></h2>
@@ -202,7 +218,15 @@ function renderStoryDocument(
           <div>
             <dt>Criteria</dt>
             <dd>${story.acceptance_criteria.length}</dd>
-          </div>
+          </div>${
+            screens
+              ? `
+          <div>
+            <dt>Screens</dt>
+            <dd>${screens.shownByOwner.get(story.key)?.length ?? 0}</dd>
+          </div>`
+              : ""
+          }
           ${
             story.aliases.length > 0
               ? `<div>
@@ -222,6 +246,12 @@ function renderStoryDocument(
 export function renderContractReviewPage(
   options: ContractReviewPageOptions
 ): string {
+  const screens = options.screens
+    ? buildScreenReviewModel(
+        options.documents.map(({ document }) => document),
+        options.screens
+      )
+    : undefined;
   const storyEntries = options.documents.flatMap(({ document }) =>
     document.capability.stories.map((story) => ({
       capability: document.capability,
@@ -270,7 +300,8 @@ export function renderContractReviewPage(
         `<template id="story-${escapeHtml(story.key)}">${renderStoryDocument(
           capability.name,
           capability.description,
-          story
+          story,
+          screens
         )}</template>`
     )
     .join("");
@@ -279,7 +310,8 @@ export function renderContractReviewPage(
     ? renderStoryDocument(
         firstEntry.capability.name,
         firstEntry.capability.description,
-        firstEntry.story
+        firstEntry.story,
+        screens
       )
     : `<div class="empty-state">
         <h1>No capabilities yet</h1>
@@ -707,7 +739,7 @@ export function renderContractReviewPage(
       .references:not([open]) > ul { display: grid !important; }
       .criterion, .scenario { break-inside: avoid; }
     }
-  </style>
+${screens ? SCREEN_REVIEW_STYLES : ""}  </style>
 </head>
 <body>
   <div class="wiki-shell">
@@ -719,17 +751,19 @@ export function renderContractReviewPage(
         </div>
         <button class="print" type="button" onclick="window.print()">Print</button>
       </header>
-      <label class="search">
+${screens ? renderScreenTabs(screens) : ""}      <label class="search">
         <input id="search" type="search" placeholder="Search stories…" autocomplete="off">
         <span aria-hidden="true">⌕</span>
       </label>
       <nav aria-label="Stories">${navigation}</nav>
       <p class="nav-empty" id="nav-empty">No matching stories.</p>
-    </aside>
+${screens ? renderScreenSidebar(screens) : ""}    </aside>
     <main class="wiki-main">
       <div class="wiki-content">
         ${warnings}
-        <div id="story-content">${initialContent}</div>
+        <div id="story-content">${initialContent}</div>${
+          screens ? `\n        ${renderScreensView(screens)}` : ""
+        }
       </div>
     </main>
   </div>
@@ -812,7 +846,15 @@ export function renderContractReviewPage(
       if (initialLink) showStory(initialLink, false);
     })();
   </script>
-</body>
+${
+  screens
+    ? `  <script type="application/json" id="screen-data">${serializeScreenReviewData(
+        screens
+      )}</script>
+  <script>${SCREEN_REVIEW_SCRIPT}  </script>
+`
+    : ""
+}</body>
 </html>
 `;
 }

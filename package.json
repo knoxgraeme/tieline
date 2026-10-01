@@ -71,7 +71,7 @@
     "test:integration": "tsx tests/integration/integration.ts",
     "test:integration-entrypoint": "tsx tests/unit/runtime/test-integration-entrypoint.ts",
     "test:contract": "tsx tests/unit/contract/test-contract.ts && tsx tests/unit/contract/test-manifest.ts && tsx tests/unit/contract/test-contract-command.ts && tsx tests/unit/contract/test-contract-context-command.ts && tsx tests/unit/contract/test-impact.ts && tsx tests/unit/contract/test-artifact-assurance.ts && tsx tests/unit/contract/test-intent-context.ts && tsx tests/unit/contract/test-link-plausibility.ts && tsx tests/unit/contract/test-reconciliation.ts && tsx tests/unit/contract/test-path-criteria.ts && tsx tests/unit/contract/test-grade.ts && npm run test:screens",
-    "test:screens": "tsx tests/unit/contract/test-screens.ts",
+    "test:screens": "tsx tests/unit/contract/test-screens.ts && tsx tests/unit/contract/test-screen-import.ts && tsx tests/unit/contract/test-screen-review.ts",
     "test:contract-command": "tsx tests/unit/contract/test-contract-command.ts",
     "test:contract-context-command": "tsx tests/unit/contract/test-contract-context-command.ts",
     "test:contract-read": "tsx tests/unit/retrieval/test-contract-read.ts",

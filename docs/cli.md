@@ -129,7 +129,25 @@ tieline contract review .
 
 Writes `.tieline/review.html`, a self-contained page with capability navigation, Story and AC
 cards, scenario steps, evidence links, search, lifecycle filters, and a print layout. Open the
-file directly in a browser. Use `--output <path>` to write it elsewhere.
+file directly in a browser. Use `--output <path>` to write it elsewhere. When
+[screens](screens.md) are enabled, the page adds a Screens view and shows each Story's and AC's
+linked screens.
+
+## Screens
+
+Screens are an optional feature; see [Screens](screens.md) to opt in. Once enabled, import
+catalog entries from a JSON file:
+
+```bash
+tieline screens import screens.json --dry-run
+tieline screens import screens.json
+tieline contract compile .
+```
+
+Re-importing updates entries by key and never duplicates them. `--prune` removes entries the file
+omits, only within the capabilities it names. An entry for a capability the spec does not declare
+stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` for a
+machine-readable summary.
 
 ## CI check
 

@@ -136,6 +136,13 @@ capability:
               target:
                 kind: code
                 repository: tieline
+                path: src/contract/html.ts
+                selector: function:escapeHtml
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
                 path: src/commands/contract.ts
             - relation: implements
               provenance: authored
@@ -1085,4 +1092,65 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC4
+          criterion: The screen importer must bound and validate untrusted JSON before writing, must update catalog entries by key so a repeated import changes nothing, must delete entries only when pruning is requested, and must refuse or explicitly skip entries for undeclared capabilities.
+          rationale: Most catalog entries arrive from external capture tools, so the importer is a trust boundary and must be safe to run repeatedly.
+          scenarios:
+            - given: an import names a capability the contract does not declare
+              when: the import runs without the skip option
+              then: Tieline must name the unknown capability and write nothing
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-import.ts
+                selector: function:planScreenImport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-import.ts
+                selector: function:parseScreenImport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens.ts
+                selector: function:runScreensImportCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-import.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC5
+          criterion: The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.
+          rationale: Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-review-page.ts
+                selector: function:buildScreenReviewModel
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-page.ts
+                selector: function:renderContractReviewPage
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-review.ts
                 framework_hint: custom-script

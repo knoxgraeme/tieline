@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "screens": [
+    {
+      "key": "notes-list",
+      "capability": "NOTES",
+      "group": "Browsing",
+      "title": "Notes list",
+      "route": "/notes",
+      "kind": "page",
+      "when": "A signed-in member opens Notes from the sidebar.",
+      "applies_to": { "role": ["member", "admin"] },
+      "copy": ["Your notes", "New note"],
+      "image": "notes/notes-list.png"
+    },
+    {
+      "key": "notes-list-empty",
+      "capability": "NOTES",
+      "group": "Browsing",
+      "title": "Notes list, no notes yet",
+      "route": "/notes",
+      "kind": "state",
+      "when": "A member who has never written a note opens Notes.",
+      "copy": ["Nothing here yet", "Write your first note"],
+      "image": "notes/notes-list-empty.png"
+    },
+    {
+      "key": "notes-list-loading",
+      "capability": "NOTES",
+      "group": "Browsing",
+      "title": "Notes list loading",
+      "route": "/notes",
+      "kind": "loading",
+      "when": "The notes list is waiting for the first page of results."
+    },
+    {
+      "key": "note-editor",
+      "capability": "NOTES",
+      "group": "Editing",
+      "title": "Note editor",
+      "route": "/notes/:noteId",
+      "kind": "page",
+      "when": "A member opens an existing note.",
+      "copy": ["Saved", "Share"],
+      "image": "notes/note-editor.png"
+    },
+    {
+      "key": "note-saved-toast",
+      "capability": "NOTES",
+      "group": "Editing",
+      "title": "Note saved toast",
+      "route": "/notes/:noteId",
+      "kind": "toast",
+      "when": "A member presses Save and the note is stored.",
+      "copy": ["Note saved"]
+    },
+    {
+      "key": "note-title-required",
+      "capability": "NOTES",
+      "group": "Editing",
+      "title": "Title required",
+      "route": "/notes/new",
+      "kind": "inline-error",
+      "when": "A member tries to save a note without a title.",
+      "copy": ["Add a title to save this note"],
+      "image": "notes/note-title-required.png"
+    },
+    {
+      "key": "note-delete-confirm",
+      "capability": "NOTES",
+      "group": "Editing",
+      "title": "Delete note confirmation",
+      "route": "/notes/:noteId",
+      "kind": "dialog",
+      "when": "A member chooses Delete from the note menu.",
+      "copy": ["Delete this note?", "This can't be undone."],
+      "image": "notes/note-delete-confirm.png"
+    },
+    {
+      "key": "note-not-found",
+      "capability": "NOTES",
+      "title": "Note not found",
+      "route": "/notes/:noteId",
+      "kind": "error-page",
+      "when": "A member opens a link to a note that was deleted.",
+      "copy": ["We couldn't find that note"]
+    },
+    {
+      "key": "notes-share-dialog",
+      "capability": "SHARING",
+      "group": "Invitations",
+      "title": "Share note dialog",
+      "route": "/notes/:noteId",
+      "kind": "dialog",
+      "when": "The note owner presses Share.",
+      "applies_to": { "role": ["member", "admin"] },
+      "copy": ["Share this note", "Invite by email"],
+      "image": "sharing/share-dialog.png"
+    },
+    {
+      "key": "notes-share-denied",
+      "capability": "SHARING",
+      "group": "Invitations",
+      "title": "Sharing not allowed",
+      "route": "/notes/:noteId",
+      "kind": "inline-error",
+      "when": "A viewer without edit rights presses Share.",
+      "applies_to": { "role": ["viewer"] },
+      "copy": ["Only editors can share this note"],
+      "image": "sharing/share-denied.png"
+    },
+    {
+      "key": "notes-share-invite-sent",
+      "capability": "SHARING",
+      "group": "Invitations",
+      "title": "Invitation sent",
+      "route": "/notes/:noteId",
+      "kind": "toast",
+      "when": "The owner sends an invitation.",
+      "copy": ["Invitation sent"]
+    },
+    {
+      "key": "shared-with-me",
+      "capability": "SHARING",
+      "group": "Shared notes",
+      "title": "Shared with me",
+      "route": "/shared",
+      "kind": "page",
+      "when": "A member opens notes other people shared with them.",
+      "image": "sharing/shared-with-me.png"
+    },
+    {
+      "key": "shared-link-expired",
+      "capability": "SHARING",
+      "group": "Shared notes",
+      "title": "Shared link expired",
+      "route": "/s/:token",
+      "kind": "error-page",
+      "when": "Someone opens a share link after it expired.",
+      "copy": ["This link has expired"]
+    },
+    {
+      "key": "billing-plans",
+      "capability": "BILLING",
+      "title": "Plans",
+      "route": "/settings/billing",
+      "kind": "page",
+      "when": "An admin opens billing settings.",
+      "applies_to": { "role": ["admin"], "plan": ["free", "team"] },
+      "copy": ["Choose a plan", "Team", "Free"],
+      "image": "billing/plans.png"
+    },
+    {
+      "key": "billing-upgrade-drawer",
+      "capability": "BILLING",
+      "title": "Upgrade drawer",
+      "route": "/settings/billing",
+      "kind": "drawer",
+      "when": "An admin on the free plan selects Team.",
+      "applies_to": { "role": ["admin"], "plan": ["free"] },
+      "copy": ["Upgrade to Team", "Billed monthly"],
+      "image": "billing/upgrade-drawer.png"
+    },
+    {
+      "key": "billing-redirect-checkout",
+      "capability": "BILLING",
+      "title": "Redirect to checkout",
+      "route": "/settings/billing/checkout",
+      "kind": "redirect",
+      "when": "An admin confirms an upgrade and is sent to the payment provider."
+    }
+  ]
+}

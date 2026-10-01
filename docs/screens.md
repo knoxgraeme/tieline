@@ -11,9 +11,9 @@ Screens are **optional**. A repository that does not opt in compiles, checks, re
 exactly as it did before the feature existed, and Tieline never reads its screen catalog
 directory.
 
-This page describes phase 1: the catalog, `shows` links, and their compile, check, and sync
-behavior. Capturing screenshots, PR summaries of changed screens, and database sync come later;
-see [What comes later](#what-comes-later).
+This page describes phase 1: the catalog, `shows` links, `tieline check` validation, the
+importer, and the review page. Capturing screenshots, PR summaries of changed screens, and
+database sync come later; see [What comes later](#what-comes-later).
 
 ## Opt in
 
@@ -37,8 +37,7 @@ when the block is read and are never written back into the file.
 ## Catalog format
 
 The catalog is repository-owned YAML under `.tieline/screens/`, one file per capability, reviewed
-in pull requests like the spec. Name each file after its capability key, for example
-`SHARING.yaml`.
+in pull requests like the spec. The importer names new files `<CAPABILITY-KEY>.yaml`.
 
 ```yaml
 version: 1
@@ -86,8 +85,10 @@ Screenshots are **never committed by default**. The catalog only points at them:
 - `image: { url: https://… }` names an image hosted elsewhere. Only `http` and `https` URLs are
   accepted.
 
-Keep the captures directory git-ignored. Nothing in Tieline requires an image to exist, and a
-missing image is never an error.
+When the captures directory is inside `.tieline/`, `tieline screens import` creates a
+`.gitignore` in it that ignores everything. A captures directory configured elsewhere is left for
+the repository to ignore. Every view works when an image is missing: cards and the detail panel
+show a placeholder that names the expected file.
 
 ## `shows` links
 
@@ -107,7 +108,7 @@ acceptance_criteria:
   link to a missing file stops compilation.
 - A `shows` link while screens are not enabled is an error that says how to opt in.
 - A screen may have no links. Most toasts and loading states never map to an AC, and that is
-  valid.
+  valid; the review page counts them instead.
 - One screen may be shown by several Stories or ACs, in any capability.
 - Prefer the most specific AC. A Story-level `shows` link is a coarse fallback.
 
@@ -134,6 +135,84 @@ When screens are enabled, `tieline check`:
   summary.
 
 When screens are disabled none of this runs, and the output is unchanged.
+
+## Import
+
+```bash
+tieline screens import screens.json [--prune] [--skip-unknown-capabilities] [--dry-run] [--json]
+```
+
+The importer turns a JSON file produced by a capture tool, or by hand, into catalog YAML. The file
+is either a JSON array of entries or `{ "version": 1, "screens": [ … ] }`. Each entry has the
+catalog fields above plus `capability`:
+
+```json
+[
+  {
+    "key": "notes-share-denied",
+    "capability": "SHARING",
+    "group": "Invitations",
+    "title": "Sharing not allowed",
+    "route": "/notes/:noteId",
+    "kind": "inline-error",
+    "when": "A viewer without edit rights presses Share.",
+    "applies_to": { "role": ["viewer"] },
+    "copy": ["Only editors can share this note"],
+    "image": "sharing/share-denied.png"
+  }
+]
+```
+
+`image` accepts a path string (shorthand for `{ "path": … }`), `{ "path": … }`, or
+`{ "url": … }`. A complete synthetic example ships at
+[`docs/examples/screens/acme-notes.json`](examples/screens/acme-notes.json).
+
+The input is treated as untrusted:
+
+- the file may be at most 16 MiB and hold at most 10,000 entries, checked before entries are
+  parsed;
+- every entry is validated with the catalog's bounds, and every problem is reported with its
+  index and key;
+- duplicate keys in the file are rejected;
+- nothing is written unless the whole import, merged with the existing catalog, validates.
+
+Merging is by key, so re-importing the same file changes nothing and never duplicates an entry.
+For an existing key, required fields are replaced, an omitted optional field keeps its catalog
+value, and `null` removes it. A key that moves to another capability is moved between files.
+Files whose entries did not change are not rewritten, and comments outside replaced entries are
+preserved.
+
+Entries are never deleted unless `--prune` is passed. With `--prune`, catalog entries absent from
+the file are removed, but only within the capabilities the file names, so importing one area of
+an app cannot wipe another.
+
+An entry whose `capability` is not declared in `.tieline/spec/` stops the import, listing the
+unknown capabilities, and nothing is written. Add the capability first, or pass
+`--skip-unknown-capabilities` to import the rest and report the skipped entries.
+
+The importer refuses to run when screens are not enabled, or when the existing catalog does not
+validate. After an import, run `tieline contract compile .`.
+
+## Review page
+
+`tieline contract review` and every `compile` render `.tieline/review.html`, which stays a single
+self-contained file. With screens enabled it gains:
+
+- a **Screens** view with every screen grouped by capability and then group. Section and group
+  labels stay pinned while scrolling and readable at every zoom level. A zoom control (or `+` and
+  `-`) switches between a dense overview with small thumbnails and larger cards.
+- filters for kind, each `applies_to` dimension (a screen without that dimension applies to every
+  value), and linked or unlinked, plus a search whose matches are listed in the sidebar so they
+  are reachable at any zoom level.
+- a detail panel with the full image or a placeholder, the metadata, key copy, and the Stories
+  and ACs that show the screen. `←`/`→` (or `j`/`k`) step through the current results; `Esc`
+  closes it. `#screen/<key>` links to a screen.
+- coverage counts: screens shown by Stories, screens with no links, and Stories that show no
+  screens.
+- on every Story and AC, its linked screens as thumbnail chips that open the detail panel.
+
+Only images scrolled into view are requested, so a catalog of about a thousand screens opens
+quickly. The page works without any screenshots present.
 
 ## Database sync
 

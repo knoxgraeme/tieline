@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   hasAcceptedContractSources,
   loadAcceptedContractWithSources,
@@ -8,6 +9,10 @@ import {
   renderContractReviewPage,
   type ContractReviewDocument,
 } from "../contract/review-page.js";
+import {
+  buildScreenReviewModel,
+  type ContractReviewScreens,
+} from "../contract/screen-review-page.js";
 import { ContractValidationError } from "../contract/validate.js";
 import { ONBOARDING_AGENT_INSTRUCTION } from "./status.js";
 
@@ -19,7 +24,28 @@ export interface ReviewPageResult {
   capabilities: number;
   stories: number;
   acceptance_criteria: number;
+  /** Present only when the repository enabled screens and the contract loaded. */
+  screens?: {
+    screens: number;
+    unlinked_screens: number;
+    stories_without_screens: number;
+  };
   warnings: string[];
+}
+
+/**
+ * The captures directory as a URL relative to the page, so image `path`
+ * locators resolve when the page is opened straight from disk.
+ */
+function capturesUrl(pagePath: string, capturesDirectory: string): string {
+  const relativePath = relative(dirname(pagePath), capturesDirectory);
+  if (isAbsolute(relativePath)) {
+    return pathToFileURL(capturesDirectory).href.replace(/\/?$/, "/");
+  }
+  const segments = relativePath.split(sep).filter(Boolean);
+  return segments.length === 0
+    ? ""
+    : `${segments.map(encodeURIComponent).join("/")}/`;
 }
 
 /**
@@ -39,6 +65,9 @@ export function writeWorkspaceReviewPage(
 ): ReviewPageResult {
   let documents: ContractReviewDocument[] = [];
   let warnings: string[] = [];
+  const defaultPath = resolve(root, TIELINE_REVIEW_PAGE);
+  const path = outputPath ?? defaultPath;
+  let screens: ContractReviewScreens | undefined;
   if (hasAcceptedContractSources(root, specDirectory)) {
     try {
       const loaded = loadAcceptedContractWithSources(root, specDirectory);
@@ -47,19 +76,27 @@ export function writeWorkspaceReviewPage(
         document,
       }));
       warnings = loaded.warnings;
+      if (loaded.screens && loaded.screenCatalog) {
+        screens = {
+          catalog: loaded.screens,
+          capturesUrl: capturesUrl(
+            path,
+            loaded.screenCatalog.settings.capturesDirectory
+          ),
+        };
+      }
     } catch (error) {
       if (!(error instanceof ContractValidationError)) throw error;
       warnings = error.issues;
     }
   }
-  const defaultPath = resolve(root, TIELINE_REVIEW_PAGE);
-  const path = outputPath ?? defaultPath;
   mkdirSync(dirname(path), { recursive: true });
   const serialized = renderContractReviewPage({
     repositoryKey,
     documents,
     warnings,
     onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
+    ...(screens ? { screens } : {}),
   });
   writeFileSync(path, serialized);
   if (path === defaultPath) ensureReviewPageIgnored(root);
@@ -75,7 +112,23 @@ export function writeWorkspaceReviewPage(
       (total, story) => total + story.acceptance_criteria.length,
       0
     ),
+    ...(screens ? { screens: screenCoverageSummary(documents, screens) } : {}),
     warnings,
+  };
+}
+
+function screenCoverageSummary(
+  documents: ContractReviewDocument[],
+  screens: ContractReviewScreens
+): NonNullable<ReviewPageResult["screens"]> {
+  const { coverage } = buildScreenReviewModel(
+    documents.map(({ document }) => document),
+    screens
+  );
+  return {
+    screens: coverage.screens,
+    unlinked_screens: coverage.unlinked_screens,
+    stories_without_screens: coverage.stories_without_screens.length,
   };
 }
 

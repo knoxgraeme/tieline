@@ -31,7 +31,10 @@ If `.tieline/spec/` already contains YAML, continue with the normal workflow
 below. Treat the pull request as the proposal and merge as approval. Never
 create a separate draft, proposal, or semantic-approval record.
 
-Read [contract.md](references/contract.md) before editing contract YAML.
+Read [contract.md](references/contract.md) before editing contract YAML. Only
+when `.tieline/config.json` enables `screens`, also read
+[screens.md](references/screens.md) before authoring screen catalog entries or
+`shows` links.
 
 ## Orient to this repository
 
