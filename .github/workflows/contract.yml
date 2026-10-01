@@ -14,7 +14,7 @@ jobs:
     name: Reviewed artifact derivation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # `check` diffs against origin/main, so it needs more than a shallow clone.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -65,7 +65,7 @@ jobs:
       matrix:
         node: [20, 24]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -116,7 +116,7 @@ jobs:
       DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline_test
       TIELINE_INTEGRATION_TEST_DATABASE: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -150,7 +150,7 @@ jobs:
       TIELINE_ENFORCE_RELEASE_BUDGETS: "1"
       TIELINE_TOPOLOGY_BENCHMARK_SCALE: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
