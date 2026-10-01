@@ -175,6 +175,13 @@ per pull request; the site is redeployed only when Tieline itself is upgraded.
   S3-compatible bucket. Neon Object Storage is the first target, because Neon is the hosted
   Postgres Tieline provisions; Cloudflare R2, AWS S3, and Supabase Storage use the same
   interface. A Postgres-backed image store is a fallback for teams without a bucket.
+- **Provisioning picks a region that has Object Storage.** Neon Object Storage is currently
+  available in four AWS regions (`aws-us-east-2`, `aws-us-east-1`, `aws-eu-central-1`,
+  `aws-ap-southeast-1`). When hosted screens are enabled, the provisioning flow creates the Neon
+  project in one of them, asking which when the team's location does not decide it. An existing
+  project in another region keeps working for the contract, and its images go to another
+  S3-compatible bucket instead. This changes the provisioning skill reference, an agent-instruction
+  surface, so it is reviewed with the hosted work.
 - **Metadata** lives in Postgres, as a projection of git: the catalog in git stays the source of
   truth for which digest a screen has at a commit.
 
@@ -214,8 +221,10 @@ digests `main` now references.
 - **Closed pull requests:** `retention.closed_pull_requests` is `delete` by default — the
   snapshot, and any images only it referenced, are removed when the pull request closes — or a
   number of days to keep them.
-- **`main`:** accepted images are always kept. Whether images `main` has since replaced are kept
-  for history is `retention.main_history`: `none` by default, or a number of days.
+- **`main`:** accepted images are always kept. Images `main` has since replaced are kept according
+  to `retention.main_history`: `all` (every earlier version), `{ "keep_changes": N }` (the last N
+  replaced versions of each screen), or `none`. The proposed default is `{ "keep_changes": 10 }`,
+  enough for "last changed by" history to show recent before-and-after pictures.
 
 ### The hosted site, independent of host
 
@@ -280,6 +289,28 @@ implementing agent, as `AGENTS.md` requires.
    Netlify adapter, the sync of accepted screen state, and the pull-request comment.
 5. More hosts and image stores as teams need them.
 
+## How this compares to existing tools
+
+Tieline's capture step deliberately follows the pattern hosted visual-testing services already
+proved: a call inside existing Playwright tests plus a reporter, with `main` as the baseline.
+
+| | Playwright `toHaveScreenshot` | Argos, Percy | Tieline screens (proposed) |
+| --- | --- | --- | --- |
+| Capture | An assertion in a test | `argosScreenshot(page, name)` or `percySnapshot(page, name)` in tests, plus a reporter | `captureScreen(page, key)` in tests, plus a reporter |
+| Baseline | PNG files committed beside the tests | Stored in the service; Argos uses the merge-base build on `main`, Percy the last approved build | Images in the team's own store (or only on disk offline); the digest and ARIA snapshot are committed, and accepted means merged to `main` |
+| Comparison | Fuzzy pixel diff with tolerances | The service's pixel diff | Exact digest in a pinned environment, plus the ARIA snapshot diff |
+| Review and approval | A failing test with diff images | A review UI where reviewers approve or reject; a status check blocks the merge until then | The Tieline review page, local or hosted; approval is the normal pull-request review and merge |
+| Effect on the suite | Fails the test on a difference | Fails the status check until approved | Never fails a test; `check` fails only on an invalid catalog or broken links |
+| What a screenshot is | A test artifact | A named snapshot | A catalogued product screen: route, kind, trigger, roles, copy, and the Stories and ACs that show it |
+| Runs | The whole suite or a `--grep` | The whole suite | Only screens a branch may affect, each with a reason |
+| Hosting | None | The vendor's service | Offline, or self-hosted behind the team's own access control |
+
+What Tieline adds is the product layer: screens are catalogued, linked to accepted behavior,
+counted for coverage, and reviewed in the same pull request as the code and contract, with no
+third-party service. What the services have that this proposal does not: per-screenshot
+approve-and-comment workflows, a merge-blocking status check, cross-browser matrices, and richer
+side-by-side and overlay diff views. Those are candidates for later, not prerequisites.
+
 ## Decided
 
 - Scenes are Playwright tests tagged `@screen:<key>`; Tieline adds a fixture and a reporter.
@@ -287,12 +318,19 @@ implementing agent, as `AGENTS.md` requires.
   a manual `tieline screens audit`, not a schedule.
 - ARIA snapshots are committed as the text snapshot.
 - Images are stored once; a closed pull request's screenshots are deleted by default, configurable.
+- Exact digests, captured in a pinned Playwright Docker image; fuzzy comparison only if that
+  proves noisy.
+- `tieline check` warns about catalog entries the audit reports as missing.
+- Replaced `main` images follow `retention.main_history`: all, the last N changes, or none.
+- Provisioning creates the Neon project in a region with Object Storage when hosted screens are
+  enabled.
 
 ## Open questions
 
-- Is the pinned Playwright Docker image enough to make exact digests stable, or is a fuzzy
-  comparison needed from the start?
-- Should `tieline check` warn about catalog entries the audit reports as missing?
-- How many days of replaced `main` images, if any, should hosted history keep by default?
-- Neon Object Storage is available in four AWS regions; should provisioning create the Neon
-  project in one of them when screens are enabled?
+- Should the default for `retention.main_history` be `{ "keep_changes": 10 }`?
+- Every `--base` command today (`check`, `reconcile`, `grade`, and `review`) compares with the
+  ref's latest commit. That is right in CI, where a pull request is checked out merged into its
+  base, but a local branch that is behind `main` then shows `main`'s newer changes as if the
+  branch had reverted them. Argos compares with the merge-base instead. Should all of these
+  commands compare with `git merge-base <base> HEAD`? That changes existing behavior, so it would
+  be its own change.
