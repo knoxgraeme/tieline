@@ -49,7 +49,7 @@ configuration as it is; nothing here is a new test framework.
 ```ts
 // e2e/screens/sharing.screens.ts
 import { test } from "@playwright/test";
-import { captureScreen } from "tieline/playwright";
+import { tielineSnapshot } from "tieline/playwright";
 
 test.use({ storageState: "playwright/.auth/viewer.json" });
 
@@ -57,14 +57,14 @@ test("share denied", { tag: "@screen:notes-share-denied" }, async ({ page }) => 
   await page.goto("/notes/note-seed-1");
   await page.getByRole("button", { name: "Share" }).click();
   await page.getByText("Only editors can share this note").waitFor();
-  await captureScreen(page, "notes-share-denied");
+  await tielineSnapshot(page, "notes-share-denied");
 });
 ```
 
 The tag links the catalog entry to its test, so Playwright scenes need no `scene` field in the
 catalog; that reserved field stays available for other browser drivers. One test may capture
 several screens, and existing end-to-end tests can capture screens by adding a single call.
-`captureScreen` waits for the page to settle, takes the screenshot with the configured masks,
+`tielineSnapshot` waits for the page to settle, takes the screenshot with the configured masks,
 records the ARIA snapshot, and hands both to the reporter. It never asserts, so capturing can
 never fail an app's test suite.
 
@@ -73,7 +73,7 @@ test per `page` entry, filling route parameters from a small fixtures map.
 
 ### Three ways to adopt, lowest effort first
 
-1. **Add `captureScreen` calls to existing Playwright tests.** Navigation, seeding, and logins are
+1. **Add `tielineSnapshot` calls to existing Playwright tests.** Navigation, seeding, and logins are
    already maintained there.
 2. **Write `*.screens.ts` files** for states the existing suite does not reach.
 3. **Let the Tieline skill draft those files** from the app's routes and the catalog, for a human
@@ -118,7 +118,12 @@ cannot:
   snapshot, or no `@screen` test. It is cheap enough to also run as a `check` warning.
 - **Drift**, with `--capture`: re-captures every screen and reports those whose digest or ARIA
   snapshot differs from `main`'s accepted state — changes the selection rules missed. Run it before
-  a release or after a large refactor; its results land in a normal pull request.
+  a release or after a large refactor; its results land in a normal pull request. It plays the
+  role Argos calls Monitoring mode and Playwright's advice to run the full suite after
+  `--only-changed`: selection is a heuristic, so a full pass is available on demand.
+
+Every comparison starts from where the branch left `main` (`git merge-base`), so screens that
+reached `main` after the branch point are never reported as the branch's changes.
 
 ## 3. How a change is detected
 
@@ -296,7 +301,7 @@ proved: a call inside existing Playwright tests plus a reporter, with `main` as 
 
 | | Playwright `toHaveScreenshot` | Argos, Percy | Tieline screens (proposed) |
 | --- | --- | --- | --- |
-| Capture | An assertion in a test | `argosScreenshot(page, name)` or `percySnapshot(page, name)` in tests, plus a reporter | `captureScreen(page, key)` in tests, plus a reporter |
+| Capture | An assertion in a test | `argosScreenshot(page, name)` or `percySnapshot(page, name)` in tests, plus a reporter | `tielineSnapshot(page, key)` in tests, plus a reporter |
 | Baseline | PNG files committed beside the tests | Stored in the service; Argos uses the merge-base build on `main`, Percy the last approved build | Images in the team's own store (or only on disk offline); the digest and ARIA snapshot are committed, and accepted means merged to `main` |
 | Comparison | Fuzzy pixel diff with tolerances | The service's pixel diff | Exact digest in a pinned environment, plus the ARIA snapshot diff |
 | Review and approval | A failing test with diff images | A review UI where reviewers approve or reject; a status check blocks the merge until then | The Tieline review page, local or hosted; approval is the normal pull-request review and merge |
@@ -324,13 +329,12 @@ side-by-side and overlay diff views. Those are candidates for later, not prerequ
 - Replaced `main` images follow `retention.main_history`: all, the last N changes, or none.
 - Provisioning creates the Neon project in a region with Object Storage when hosted screens are
   enabled.
+- The capture call is `tielineSnapshot(page, key)`, parallel to `percySnapshot` and
+  `argosScreenshot`.
+- Every `--base` comparison starts from the branch point, `git merge-base <base> HEAD`. #80 makes
+  that change for `check`, `reconcile`, `grade`, and `blast-radius`, and #78 uses the same helper
+  for `review`.
 
 ## Open questions
 
 - Should the default for `retention.main_history` be `{ "keep_changes": 10 }`?
-- Every `--base` command today (`check`, `reconcile`, `grade`, and `review`) compares with the
-  ref's latest commit. That is right in CI, where a pull request is checked out merged into its
-  base, but a local branch that is behind `main` then shows `main`'s newer changes as if the
-  branch had reverted them. Argos compares with the merge-base instead. Should all of these
-  commands compare with `git merge-base <base> HEAD`? That changes existing behavior, so it would
-  be its own change.
