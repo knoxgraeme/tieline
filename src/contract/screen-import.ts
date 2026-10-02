@@ -1207,7 +1207,12 @@ export function prepareCapturesIgnore(
     if (!existing.isFile()) return nothing("unverified");
     let content: Buffer;
     try {
-      content = readBoundedFile(ignorePath, CAPTURES_GITIGNORE_MAX_BYTES, "captures .gitignore");
+      // The file read must be the regular file inspected above: Git ignores
+      // a `.gitignore` that is a link, so one swapped in since must not pass.
+      const inspected = existing;
+      content = readBoundedFile(ignorePath, CAPTURES_GITIGNORE_MAX_BYTES, "captures .gitignore", {
+        verify: (opened) => isSameFile(opened, inspected),
+      });
     } catch (error) {
       // Unreadable or oversized: reported as unverified rather than trusted.
       if (error instanceof ScreenImportError) return nothing("unverified");
