@@ -71,7 +71,7 @@ function recordItem(record: ContractRecordChange): string {
   const target =
     record.status === "removed"
       ? `<code>${label}</code>`
-      : `<a href="#${escapeHtml(record.story_stable_id)}"><code>${label}</code></a>`;
+      : `<a href="#${escapeHtml(record.story_stable_id)}" data-change-link><code>${label}</code></a>`;
   return `<li class="changed-${record.status}">${renderChangeBadge(record)} ${target} <span>${escapeHtml(
     record.title
   )}${escapeHtml(aspectText(record.aspects))}</span></li>`;
@@ -81,7 +81,7 @@ function screenItem(screen: ScreenRecordChange, linkable: boolean): string {
   const label = `<code>${escapeHtml(screen.stable_id)}</code>`;
   const target =
     linkable && screen.status !== "removed"
-      ? `<a href="#screen/${encodeURIComponent(screen.stable_id)}">${label}</a>`
+      ? `<a href="#screen/${encodeURIComponent(screen.stable_id)}" data-change-link>${label}</a>`
       : label;
   return `<li class="changed-${screen.status}">${renderChangeBadge(screen)} ${target} <span>${escapeHtml(
     screen.title
@@ -135,6 +135,26 @@ export function renderChangesUnavailable(base: string, reason: string): string {
         <p class="changes-note">${escapeHtml(reason)}</p>
       </aside>`;
 }
+
+/**
+ * Routes the summary's links the way the page's own navigation does: the URL
+ * changes through history, then every router on the page hears one
+ * `popstate`. A plain fragment link would leave routing to whether the
+ * browser fires `popstate` for fragment navigation. Clicks that open a new
+ * tab or window are left to the browser.
+ */
+export const REVIEW_CHANGE_SCRIPT = `
+    (() => {
+      document.addEventListener("click", (event) => {
+        const link = event.target instanceof Element ? event.target.closest("a[data-change-link]") : null;
+        if (!link || event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        history.pushState(null, "", link.getAttribute("href"));
+        window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+      });
+    })();
+`;
 
 export const REVIEW_CHANGE_STYLES = `    .changes {
       margin-bottom: 1.5rem;

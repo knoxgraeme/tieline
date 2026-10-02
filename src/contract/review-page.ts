@@ -14,6 +14,7 @@ import {
   renderChangesPanel,
   renderChangesUnavailable,
   renderStoryChangeAttribute,
+  REVIEW_CHANGE_SCRIPT,
   REVIEW_CHANGE_STYLES,
   type ReviewChangeIndex,
 } from "./review-changes-page.js";
@@ -880,7 +881,7 @@ ${screens ? renderScreenSidebar(screens) : ""}    </aside>
       if (initialLink) showStory(initialLink, false);
     })();
   </script>
-${
+${changes ? `  <script>${REVIEW_CHANGE_SCRIPT}  </script>\n` : ""}${
   screens
     ? `  <script type="application/json" id="screen-data">${serializeScreenReviewData(
         screens

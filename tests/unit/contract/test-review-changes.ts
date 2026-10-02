@@ -7,6 +7,7 @@ import { Script } from "node:vm";
 import { runCli } from "../../../src/cli.js";
 import { compileContractManifest } from "../../../src/contract/manifest.js";
 import { diffReviewManifests } from "../../../src/contract/review-changes.js";
+import { REVIEW_CHANGE_SCRIPT } from "../../../src/contract/review-changes-page.js";
 import { writeWorkspaceReviewPage } from "../../../src/tieline/review.js";
 import { report, test } from "../../support/harness.js";
 import {
@@ -222,7 +223,9 @@ await test("badges changes across both views while keeping the whole contract na
   const changes = diffReviewManifests(base, compile(ws), "origin/main");
   const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, { changes }).path, "utf8");
   assert.match(page, /Changes against <code>origin\/main<\/code><\/strong><span>1 Stories, 1 acceptance criteria, and 4 screens changed\.<\/span>/);
-  assert.match(page, /<a href="#screen\/notes-share-dialog"><code>notes-share-dialog<\/code><\/a>/);
+  assert.match(page, /<a href="#screen\/notes-share-dialog" data-change-link><code>notes-share-dialog<\/code><\/a>/);
+  assert.match(page, /<a href="#NOTES-001" data-change-link><code>NOTES-001-AC2<\/code><\/a>/);
+  assert.ok(page.includes(REVIEW_CHANGE_SCRIPT), "summary links are routed");
   assert.match(page, /<li class="changed-removed"> <span class="change-badge change-removed"[^>]*>Removed<\/span> <code>notes-list-empty<\/code>/);
   assert.match(page, /data-story-key="NOTES-001"\s+data-lifecycle="production" data-change="changed"/);
   assert.match(page, /data-story-key="SHARING-001"\s+data-lifecycle="in_progress"\s*>/, "unchanged Stories carry no badge");
@@ -247,11 +250,68 @@ await test("badges changes across both views while keeping the whole contract na
     '<select id="screen-change-filter">',
     ".change-badge {",
     '"change":',
+    "data-change-link",
   ]) {
     assert.equal(plain.includes(marker), false, marker);
   }
+  assert.equal(plain.includes(REVIEW_CHANGE_SCRIPT), false);
 });
 
+await test("routes a summary link through history so every router on the page hears it", () => {
+  class FakeElement {
+    /** The summary link this element sits in, if any. */
+    link: FakeElement | null = null;
+    constructor(private readonly href?: string) {}
+    closest(selector: string): FakeElement | null {
+      assert.equal(selector, "a[data-change-link]");
+      return this.link;
+    }
+    getAttribute(name: string): string | null {
+      return name === "href" ? (this.href ?? null) : null;
+    }
+  }
+  class FakePopStateEvent {
+    constructor(readonly type: string, readonly init: unknown) {}
+  }
+  let onClick: ((event: unknown) => void) | undefined;
+  const pushed: string[] = [];
+  const dispatched: string[] = [];
+  new Script(REVIEW_CHANGE_SCRIPT).runInNewContext({
+    Element: FakeElement,
+    PopStateEvent: FakePopStateEvent,
+    document: {
+      addEventListener: (type: string, listener: (event: unknown) => void) => {
+        assert.equal(type, "click");
+        onClick = listener;
+      },
+    },
+    history: { pushState: (_state: unknown, _title: string, url: string) => pushed.push(url) },
+    window: { dispatchEvent: (event: FakePopStateEvent) => dispatched.push(event.type) },
+  });
+  const click = (target: unknown, init: Record<string, unknown> = {}) => {
+    const event = { target, button: 0, defaultPrevented: false, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...init, prevented: false, preventDefault() { this.prevented = true; } };
+    onClick!(event);
+    return event.prevented;
+  };
+  const link = new FakeElement("#NOTES-001");
+  link.link = link;
+  const inside = new FakeElement();
+  inside.link = link;
+
+  // A click inside a summary link: one history entry, one popstate.
+  assert.equal(click(inside), true);
+  assert.deepEqual(pushed, ["#NOTES-001"]);
+  assert.deepEqual(dispatched, ["popstate"]);
+
+  // New-tab clicks, other buttons, handled clicks, and other targets are left alone.
+  for (const init of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }, { defaultPrevented: true }]) {
+    assert.equal(click(inside, init), false, JSON.stringify(init));
+  }
+  assert.equal(click(new FakeElement()), false);
+  assert.equal(click({}), false, "a non-element target");
+  assert.deepEqual(pushed, ["#NOTES-001"]);
+  assert.deepEqual(dispatched, ["popstate"]);
+});
 
 await test("summarizes Story and AC changes for repositories without screens", () => {
   const ws = branchWorkspace(false);
