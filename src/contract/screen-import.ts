@@ -367,6 +367,16 @@ function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefi
   };
 }
 
+/**
+ * Writes an edited catalog document without restyling what was not edited:
+ * no re-wrapping of long lines (the default folds at 80 columns) and no
+ * padding added inside flow sequences such as `[viewer]`, so the reviewed
+ * diff shows only the entries that changed.
+ */
+export function serializeScreenCatalogDocument(document: Document): string {
+  return document.toString({ flowCollectionPadding: false, lineWidth: 0 });
+}
+
 interface EditableCatalog {
   capability: string;
   path: string;
@@ -550,8 +560,8 @@ export function planScreenImport(
   const issues: string[] = [];
   const outputs = [...catalogs.values()].map((catalog) => {
     const content = touched.has(catalog.capability)
-      ? catalog.document.toString()
-      : (catalog.original ?? catalog.document.toString());
+      ? serializeScreenCatalogDocument(catalog.document)
+      : (catalog.original ?? serializeScreenCatalogDocument(catalog.document));
     return { catalog, content };
   });
   // The loader refuses oversized files before parsing them, so an import

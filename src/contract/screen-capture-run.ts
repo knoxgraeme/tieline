@@ -24,6 +24,7 @@ import {
   ensureCapturesIgnored,
   readBoundedFile,
   SCREEN_IMPORT_LIMITS,
+  serializeScreenCatalogDocument,
   writeScreenCatalogFiles,
   type CapturesIgnoreStatus,
   type PlannedScreenCatalogFile,
@@ -535,7 +536,7 @@ export function planCaptureOutputs(input: {
       item.set("image", document.createNode({ path: `${fresh.key}.png`, sha256: fresh.image_sha256 }));
       item.set("capture", document.createNode(captureRecord(fresh)));
     }
-    const content = document.toString();
+    const content = serializeScreenCatalogDocument(document);
     catalogFiles.push({
       path: source.path,
       absolutePath: source.absolutePath,

@@ -418,7 +418,7 @@ Merging is by key, so re-importing the same file changes nothing and never dupli
 For an existing key, required fields are replaced, an omitted optional field keeps its catalog
 value, and `null` removes it. A key that moves to another capability is moved between files.
 Files whose entries did not change are not rewritten, and comments outside replaced entries are
-preserved.
+preserved, as are the line breaks and flow sequences (such as `[viewer]`) of untouched entries.
 
 Entries are never deleted unless `--prune` is passed. With `--prune`, catalog entries absent from
 the file are removed, but only within the capabilities the file names, so importing one area of

@@ -85,7 +85,9 @@ screens:
     title: Notes list, no notes yet
     route: /notes
     kind: state
-    when: A member without notes opens Notes.
+    when: A member without notes opens Notes from the sidebar after signing in for the very first time.
+    applies_to:
+      role: [member, admin]
 `;
 
 function notesWorkspace(screens: unknown = { enabled: true }): ScreensWorkspace {
@@ -343,6 +345,11 @@ await test("captures every screen into the catalog, ARIA snapshots, and captures
   // Edited in place: comments and untouched fields survive.
   assert.match(notes, /^version: 1\ncapability: NOTES\n# Screens of the notes area, reviewed with the notes Stories\.\n/);
   assert.match(notes, /when: A member opens Notes\. # the default landing page\n/);
+  // Long lines and flow sequences are kept as written, so the diff shows only captures.
+  assert.match(
+    notes,
+    /    when: A member without notes opens Notes from the sidebar after signing in for the very first time\.\n    applies_to:\n      role: \[member, admin\]\n/
+  );
   const fingerprint = captureFingerprint(captureSettings("notes-list"), "1.63.0", ENVIRONMENT);
   assert.match(
     notes,
