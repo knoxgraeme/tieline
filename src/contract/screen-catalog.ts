@@ -227,6 +227,11 @@ export type ScreenCatalogDocument = z.infer<typeof screenCatalogDocumentSchema>;
 export interface ScreenSettings {
   /** Absolute catalog directory. */
   catalogDirectory: string;
+  /**
+   * Where the catalog directory really resolved when the settings were read
+   * and validated; writers check it again before writing.
+   */
+  realCatalogDirectory: string;
   /** Absolute captures directory. */
   capturesDirectory: string;
   /** Catalog directory relative to the repository root, `/`-separated. */
@@ -392,6 +397,7 @@ export function screenSettingsForRepository(
   }
   return {
     catalogDirectory,
+    realCatalogDirectory: realCatalog,
     capturesDirectory,
     catalogPath: portable(relative(root, catalogDirectory)),
     capturesPath: portable(relative(root, capturesDirectory)) || ".",

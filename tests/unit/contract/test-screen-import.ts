@@ -901,6 +901,27 @@ await test("writes nothing when a catalog changed after the import read it", asy
   assert.deepEqual(catalogDirectory(added), ["NOTES.yaml", "extra"], "no staged file is left behind");
 });
 
+await test("never writes through a catalog directory swapped for a link after planning", () => {
+  const ws = workspace();
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-catalog`);
+  mkdirSync(outside, { recursive: true });
+  try {
+    // Planned while the catalog directory is absent, so the plan creates it.
+    const plan = planImport(ws, [screen("a")]);
+    assert.deepEqual(plan.files.map((file) => file.status), ["created"]);
+    symlinkSync(outside, resolve(ws.root, ".tieline/screens"));
+    assert.throws(
+      () => applyScreenImport(plan),
+      (error: unknown) =>
+        error instanceof ScreenImportError &&
+        error.issues.join("\n") === ".tieline/screens/NOTES.yaml now resolves outside the screen catalog directory"
+    );
+    assert.deepEqual(readdirSync(outside), [], "nothing is left outside the repository, staged or final");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 await test("rechecks the entry bound counting new catalogs but not replaced files' staging", async () => {
   const fileBytes = SCREEN_LIMITS.catalogFileBytes;
   const atTwo = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };

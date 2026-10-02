@@ -817,6 +817,24 @@ export function applyScreenImport(
       stale.push(`${shown} was created after the import read it`);
     }
   }
+  // The catalog directory was validated by where it really resolves. A
+  // directory swapped for a link since then would send every write, staged
+  // or final, wherever it leads, so each target's directory must still
+  // resolve inside the validated one. (Node cannot rename relative to an open
+  // directory, so this is checked here, as close to the writes as it can be.)
+  const validated = plan.catalog.settings.realCatalogDirectory;
+  for (const { file } of staged) {
+    let directory: string | null;
+    try {
+      directory = realPathIfPresent(dirname(file.absolutePath));
+    } catch (error) {
+      stale.push(`${file.path} could not be checked (${message(error)})`);
+      continue;
+    }
+    if (directory === null || !withinRepository(validated, directory)) {
+      stale.push(`${file.path} now resolves outside the screen catalog directory`);
+    }
+  }
   if (stale.length > 0) {
     const leftovers = discardStaged(0);
     throw new ScreenImportError(
