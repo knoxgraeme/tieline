@@ -381,7 +381,8 @@ const CATALOG_WALK_LIMITS: CatalogWalkLimits = {
 function catalogYamlFiles(
   directory: string,
   limits: CatalogWalkLimits,
-  displayPath: (absolutePath: string) => string
+  displayPath: (absolutePath: string) => string,
+  skipDirectory?: string
 ): { files: Array<{ path: string; size: number }>; issue?: string } {
   const files: Array<{ path: string; size: number }> = [];
   let entries = 0;
@@ -401,6 +402,7 @@ function catalogYamlFiles(
         }
         const path = resolve(current, entry.name);
         if (entry.isDirectory()) {
+          if (path === skipDirectory) continue;
           if (depth + 1 > limits.depth) {
             return {
               files,
@@ -449,8 +451,21 @@ export function readScreenCatalogSources(
   }
   const sources: ScreenCatalogSource[] = [];
   const issues: string[] = [];
-  const walk = catalogYamlFiles(directory, limits, (absolutePath) =>
-    portable(relative(root, absolutePath))
+  // The captures directory may sit inside the catalog. Its screenshots are not
+  // catalog files, and walking them would spend the walk's bounds on images.
+  // The walk never follows links, so a directory it reaches really is the
+  // same path below the catalog's real path.
+  const realDirectory = realpathSync(directory);
+  const realCaptures = realDestination(settings.capturesDirectory);
+  const capturesInCatalog =
+    realCaptures !== realDirectory && withinRepository(realDirectory, realCaptures)
+      ? resolve(directory, relative(realDirectory, realCaptures))
+      : undefined;
+  const walk = catalogYamlFiles(
+    directory,
+    limits,
+    (absolutePath) => portable(relative(root, absolutePath)),
+    capturesInCatalog
   );
   // A walk that hit a bound reports only that: validating a truncated
   // catalog would add misleading issues (unknown screens, missing files).

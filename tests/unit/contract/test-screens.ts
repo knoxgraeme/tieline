@@ -354,6 +354,26 @@ await test("bounds the catalog walk by depth, entries, files, and total bytes", 
   ]);
 });
 
+await test("does not walk a captures directory nested in the catalog", () => {
+  const ws = workspace({
+    screens: { enabled: true, captures_directory: "screens/shots" },
+    notes: { storyShows: ["notes-list"] },
+    catalog: CATALOG,
+  });
+  const settings = screenSettingsForRepository(ws.root)!;
+  const limits = { depth: 2, entries: 50, files: 3, fileBytes: 4096, totalBytes: 2048 };
+  // Deeper, more numerous, and larger than the catalog bounds allow, and
+  // holding YAML that is not a catalog: none of it is catalog content.
+  ws.write(".tieline/screens/shots/a/b/c/d/list.png", "png");
+  for (let index = 0; index < 60; index += 1) ws.write(`.tieline/screens/shots/${index}.png`, "png");
+  ws.write(".tieline/screens/shots/capture-log.yaml", `# ${"p".repeat(3000)}\n`);
+  const read = readScreenCatalogSources(ws.root, settings, limits);
+  assert.deepEqual(read.issues, []);
+  assert.equal(read.complete, true);
+  assert.deepEqual(read.sources.map((source) => source.path), [".tieline/screens/NOTES.yaml", ".tieline/screens/SHARING.yaml"]);
+  assert.doesNotThrow(() => loadAcceptedContractWithSources(ws.root, ".tieline/spec"));
+});
+
 console.log("screens: shows links");
 
 await test("resolves shows links on Stories and ACs and compiles them deterministically", () => {
