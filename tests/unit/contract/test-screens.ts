@@ -756,6 +756,38 @@ await test("fails check on working-tree shows links the catalog does not contain
   assert.deepEqual(valid.screens.broken_links, []);
 });
 
+await test("does not resolve shows links the working tree removed", async () => {
+  const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ["notes-list"], criterionShows: ["note-saved-toast"] }, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  const withoutToast = NOTES_CATALOG_YAML.slice(0, NOTES_CATALOG_YAML.indexOf("  - key: note-saved-toast"));
+
+  // The link and its screen are both removed, but the manifest still records the link.
+  ws.write(".tieline/spec/notes.yaml", notesSpecYaml({ storyShows: ["notes-list"] }));
+  ws.write(".tieline/screens/NOTES.yaml", withoutToast);
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1);
+  const removed = JSON.parse(capture.output());
+  assert.equal(removed.exit_reason, "stale_manifest", "stale, not broken");
+  assert.equal(removed.screens.shows_links, 1);
+  assert.deepEqual(removed.screens.broken_links, []);
+  capture.reset();
+  assert.equal(
+    await runCheckCommand({ base: "HEAD", repository: ws.root, json: true, failOnStaleManifest: false }, capture.io),
+    0
+  );
+
+  // Retargeted away from a screen that is then removed.
+  ws.write(".tieline/spec/notes.yaml", notesSpecYaml({ storyShows: ["notes-list"], criterionShows: ["notes-list-empty"] }));
+  capture.reset();
+  assert.equal(
+    await runCheckCommand({ base: "HEAD", repository: ws.root, json: true, failOnStaleManifest: false }, capture.io),
+    0
+  );
+  assert.deepEqual(JSON.parse(capture.output()).screens.broken_links, []);
+});
+
 await test("matches working-tree shows keys the way the schema normalizes them", async () => {
   // The schema trims authored keys, so this is the manifest's 'notes-list' link.
   const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ['" notes-list "'] }, catalog: CATALOG });

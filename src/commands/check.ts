@@ -59,9 +59,9 @@ export type CheckExitReason =
   | "stale_manifest_warn_only";
 
 /**
- * A `shows` link, committed or added in the working tree, whose screen the
- * working-tree catalog does not contain — the screen counterpart of a link to
- * a deleted file.
+ * A `shows` link in the working-tree spec whose screen the working-tree
+ * catalog does not contain — the screen counterpart of a link to a deleted
+ * file.
  */
 export interface BrokenScreenLink {
   owner_kind: "story" | "acceptance_criterion";
@@ -130,41 +130,37 @@ function manifestScreenLinks(
   return links;
 }
 
-/**
- * The committed manifest's `shows` links followed by any the working-tree spec
- * adds, each owner and screen named once.
- */
-function screenLinksToResolve(
-  manifest: ContractManifest,
+/** The working-tree spec's `shows` links, in the shape check resolves. */
+function declaredScreenLinks(
   declared: readonly DeclaredShowsLink[]
 ): Array<{ owner: ScreenLinkOwner; key: string; provenance: string }> {
-  const links = manifestScreenLinks(manifest);
-  const seen = new Set(
-    links.map((link) => `${link.owner.owner_kind}\0${link.owner.owner_stable_id}\0${link.key}`)
-  );
-  for (const link of declared) {
+  const seen = new Set<string>();
+  return declared.flatMap((link) => {
     const identity = `${link.owner_kind}\0${link.owner_stable_id}\0${link.screen_key}`;
-    if (seen.has(identity)) continue;
+    if (seen.has(identity)) return [];
     seen.add(identity);
-    links.push({
-      owner: {
-        owner_kind: link.owner_kind,
-        owner_stable_id: link.owner_stable_id,
-        story_stable_id: link.story_stable_id,
+    return [
+      {
+        owner: {
+          owner_kind: link.owner_kind,
+          owner_stable_id: link.owner_stable_id,
+          story_stable_id: link.story_stable_id,
+        },
+        key: link.screen_key,
+        provenance: link.provenance,
       },
-      key: link.screen_key,
-      provenance: link.provenance,
-    });
-  }
-  return links;
+    ];
+  });
 }
 
 /**
  * Resolves `shows` links against the working-tree catalog, or returns null
- * when the repository has not enabled screens. The links are the committed
- * manifest's plus any the working-tree spec adds: a link to a screen that does
- * not exist stops the spec from compiling, so the manifest alone would never
- * hold it, and a compile failure by itself does not fail check.
+ * when the repository has not enabled screens. The links are the ones the
+ * working-tree spec declares, read leniently: a link to a screen that does not
+ * exist stops the spec from compiling, so the manifest would never hold it,
+ * and a compile failure by itself does not fail check. A link the branch
+ * removed is not resolved, even while the committed manifest still records
+ * it; that manifest is reported stale instead.
  */
 function checkScreens(
   root: string,
@@ -198,7 +194,7 @@ function checkScreens(
   // be parsed, the declared capabilities are unknown, and that alone makes the
   // catalog unverifiable rather than silently skipping the check.
   let capabilityKeys: ReadonlySet<string> | undefined;
-  let declaredLinks: DeclaredShowsLink[] = [];
+  let declaredLinks: DeclaredShowsLink[] | undefined;
   const capabilityIssues: string[] = [];
   try {
     const declared = readDeclaredScreenReferences(root, specDirectory);
@@ -215,7 +211,11 @@ function checkScreens(
   const loaded = loadScreenCatalog(root, settings, capabilityKeys);
   const catalog = loaded.catalog;
   const issues = [...capabilityIssues, ...loaded.issues];
-  const links = screenLinksToResolve(manifest, declaredLinks);
+  // A spec that cannot be read leaves the catalog invalid, so nothing is
+  // resolved; the committed links are then only counted.
+  const links = declaredLinks
+    ? declaredScreenLinks(declaredLinks)
+    : manifestScreenLinks(manifest);
   const catalogInvalid = issues.length > 0;
   return {
     status: catalogInvalid ? "catalog_invalid" : "evaluated",

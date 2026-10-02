@@ -75,8 +75,8 @@ tieline contract compile .
 tieline check --base <base-ref>
 ```
 
-Unknown screen keys, invalid catalog entries, and links (committed or in the working tree) to
-screens the catalog does not contain fail.
+Unknown screen keys, invalid catalog entries, and working-tree links to screens the catalog
+does not contain fail.
 Point reviewers at `.tieline/review.html`, whose Screens view shows the catalog, its coverage,
 and each Story's and AC's linked screens. For branch work, render it with
 `tieline contract review . --base <base-ref>` so the new, changed, and removed Stories, ACs, and

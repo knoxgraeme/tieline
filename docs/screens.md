@@ -144,9 +144,10 @@ When screens are enabled, `tieline check`:
   does not validate;
 - fails like a broken link (`exit_reason: broken_links`, downgradable with
   `--no-fail-on-broken`) when a `shows` link names a screen the catalog does not contain. It
-  resolves the committed manifest's links and any the working-tree spec adds: a link to an
-  unknown screen stops the spec from compiling, so it never reaches the manifest, and is read
-  from the YAML instead;
+  resolves the links the working-tree spec declares, read from the YAML, because a link to an
+  unknown screen stops the spec from compiling and so never reaches the manifest. A link the
+  branch removed is not resolved even while the committed manifest records it; that manifest is
+  reported stale instead;
 - adds a `screens` section to its JSON output and a `broken screen link(s)=N` count to its text
   summary.
 
