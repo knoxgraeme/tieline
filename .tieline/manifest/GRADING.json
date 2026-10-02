@@ -193,7 +193,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b21467ba9671ac68cf6830303232b3c2e33a5c9cc418638a0d41a6604f120ad",
+                "reviewed_content_hash": "be9974438f9d8052a56e79a9afce7488f7e58dc8292ec636d88916e3fb0a6d3c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -349,7 +349,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b21467ba9671ac68cf6830303232b3c2e33a5c9cc418638a0d41a6604f120ad",
+                "reviewed_content_hash": "be9974438f9d8052a56e79a9afce7488f7e58dc8292ec636d88916e3fb0a6d3c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
