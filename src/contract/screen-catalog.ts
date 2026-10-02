@@ -529,29 +529,46 @@ function catalogDirectoryState(settings: ScreenSettings): "missing" | "directory
   }
 }
 
-/** The bounded walk of an existing catalog directory, past any captures in it. */
+/**
+ * The bounded walk of an existing catalog directory, past any captures in it.
+ * Each file is given twice: `path` under the configured catalog directory,
+ * which names it everywhere, and `real` under the validated real directory,
+ * which is what gets read.
+ */
 function walkCatalogDirectory(
   root: string,
   settings: ScreenSettings,
   limits: CatalogWalkLimits
-): ReturnType<typeof catalogYamlFiles> {
+): { files: Array<{ path: string; real: string }>; entries: number; issue?: string } {
   const directory = settings.catalogDirectory;
+  // Walked where the settings validated it, not through the configured path,
+  // which a link swapped in since could send anywhere; a catalog that no
+  // longer resolves there is not read at all.
+  const realDirectory = realpathSync(directory);
+  if (realDirectory !== settings.realCatalogDirectory) {
+    return {
+      files: [],
+      entries: 0,
+      issue: `screen catalog '${settings.catalogPath}' now resolves to '${realDirectory}', not to '${settings.realCatalogDirectory}' where it was validated`,
+    };
+  }
+  const configured = (real: string): string => resolve(directory, relative(realDirectory, real));
   // The captures directory may sit inside the catalog. Its screenshots are not
   // catalog files, and walking them would spend the walk's bounds on images.
   // The walk never follows links, so a directory it reaches really is the
   // same path below the catalog's real path.
-  const realDirectory = realpathSync(directory);
   const realCaptures = realDestination(settings.capturesDirectory);
   const capturesInCatalog =
     realCaptures !== realDirectory && withinRepository(realDirectory, realCaptures)
-      ? resolve(directory, relative(realDirectory, realCaptures))
+      ? realCaptures
       : undefined;
-  return catalogYamlFiles(
-    directory,
+  const walk = catalogYamlFiles(
+    realDirectory,
     limits,
-    (absolutePath) => portable(relative(root, absolutePath)),
+    (real) => portable(relative(root, configured(real))),
     capturesInCatalog
   );
+  return { ...walk, files: walk.files.map((real) => ({ path: configured(real), real })) };
 }
 
 /**
@@ -574,7 +591,7 @@ export function listScreenCatalogFiles(
   });
   return walk.issue
     ? { paths: [], issue: walk.issue }
-    : { paths: walk.files };
+    : { paths: walk.files.map((file) => file.path) };
 }
 
 /**
@@ -612,12 +629,12 @@ export function readScreenCatalogSources(
     entries: walk.entries,
   });
   let totalBytes = 0;
-  for (const absolutePath of walk.files) {
+  for (const { path: absolutePath, real } of walk.files) {
     const path = portable(relative(root, absolutePath));
     const remaining = limits.totalBytes - totalBytes;
     let read: BoundedRead;
     try {
-      read = readFileWithin(absolutePath, Math.min(limits.fileBytes, remaining));
+      read = readFileWithin(real, Math.min(limits.fileBytes, remaining));
     } catch (error) {
       issues.push(
         `${path}: screen catalog file cannot be read: ${error instanceof Error ? error.message : String(error)}`

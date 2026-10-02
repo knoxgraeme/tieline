@@ -463,6 +463,31 @@ await test("reports catalog-named links and special files instead of skipping th
   assert.equal(readScreenCatalogSources(ws.root, settings).complete, true);
 });
 
+await test("reads the catalog where it was validated, not through a link swapped in since", () => {
+  const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+  // A catalog directory that is itself a link inside `.tieline` is read
+  // through its real directory, but named by its configured path.
+  renameSync(resolve(ws.root, ".tieline/screens"), resolve(ws.root, ".tieline/catalog-real"));
+  symlinkSync(resolve(ws.root, ".tieline/catalog-real"), resolve(ws.root, ".tieline/screens"));
+  const settings = screenSettingsForRepository(ws.root)!;
+  const read = readScreenCatalogSources(ws.root, settings);
+  assert.deepEqual(read.sources.map((source) => source.path), [".tieline/screens/NOTES.yaml", ".tieline/screens/SHARING.yaml"]);
+
+  // Swapped after validation for a link out of the repository: nothing is read.
+  const outside = mkdtempSync(resolve(tmpdir(), "tieline-swapped-catalog-"));
+  try {
+    writeFileSync(resolve(outside, "NOTES.yaml"), NOTES_CATALOG_YAML);
+    rmSync(resolve(ws.root, ".tieline/screens"));
+    symlinkSync(outside, resolve(ws.root, ".tieline/screens"));
+    const swapped = readScreenCatalogSources(ws.root, settings);
+    assert.equal(swapped.complete, false);
+    assert.deepEqual(swapped.sources, []);
+    assert.match(swapped.issues[0]!, /^screen catalog '\.tieline\/screens' now resolves to '.*tieline-swapped-catalog-.*', not to '.*catalog-real' where it was validated$/);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 await test("refuses a screens layout before walking the spec directory", () => {
   // Screenshots inside the spec, among them a YAML sidecar that does not
   // parse: the layout is refused first, not the sidecar's YAML.

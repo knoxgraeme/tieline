@@ -942,7 +942,8 @@ await test("never writes through a catalog directory swapped for a link after pl
       () => applyScreenImport(plan),
       (error: unknown) =>
         error instanceof ScreenImportError &&
-        error.issues.join("\n") === ".tieline/screens/NOTES.yaml now resolves outside the screen catalog directory"
+        error.issues.includes(".tieline/screens/NOTES.yaml now resolves outside the screen catalog directory") &&
+        error.issues.some((issue) => /^the catalog could not be listed again: screen catalog '\.tieline\/screens' now resolves to /.test(issue))
     );
     assert.deepEqual(readdirSync(outside), [], "nothing is left outside the repository, staged or final");
   } finally {
