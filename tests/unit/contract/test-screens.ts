@@ -448,6 +448,10 @@ await test("ignores a catalog directory entirely while the feature is off", asyn
     const exit = await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io);
     const check = JSON.parse(capture.output().replaceAll(ws.root, "<root>"));
     assert.equal("screens" in check, false);
+    // Each workspace is its own repository, so the commit compared from
+    // legitimately differs; everything else must match.
+    assert.match(check.base_commit, /^[a-f0-9]{40}$/);
+    delete check.base_commit;
     outputs[name]!.push(String(exit), JSON.stringify(check));
   }
   assert.deepEqual(outputs.withCatalog, outputs.plain);
