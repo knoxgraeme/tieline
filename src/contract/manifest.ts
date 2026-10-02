@@ -35,8 +35,10 @@ import {
   SCREEN_KINDS,
   screenEntrySchema,
   screenCaptureSchema,
+  screenNotCapturedSchema,
   screenImageSchema,
   type ScreenCapture,
+  type ScreenNotCaptured,
   type ScreenEntry,
   type ScreenImage,
   type ScreenKind,
@@ -107,6 +109,8 @@ export interface ManifestScreen {
    * been captured, so catalogs that never were compile to the same bytes.
    */
   capture?: ScreenCapture;
+  /** Why the screen is deliberately not captured; present only when it is not. */
+  not_captured?: ScreenNotCaptured;
   contract_hash: string;
 }
 
@@ -464,6 +468,7 @@ const manifestScreenSchema = z
     copy: screenEntrySchema.shape.copy.unwrap(),
     image: screenImageSchema.nullable(),
     capture: screenCaptureSchema.optional(),
+    not_captured: screenNotCapturedSchema.optional(),
     contract_hash: hashSchema,
   })
   .strict();
@@ -1301,6 +1306,7 @@ function compileScreen(capability: string, entry: ScreenEntry): ManifestScreen {
     copy: entry.copy ?? [],
     image: entry.image ?? null,
     ...(entry.capture ? { capture: entry.capture } : {}),
+    ...(entry.not_captured ? { not_captured: entry.not_captured } : {}),
     contract_hash: contractHash(screenSemantics(capability, entry)),
   };
 }

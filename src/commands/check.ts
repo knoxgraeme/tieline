@@ -18,9 +18,11 @@ import {
   auditScreenCaptures,
   screenAuditWarnings,
   summarizeScreenAudit,
+  type ScreenAuditContract,
   type ScreenAuditSummary,
 } from "../contract/screen-audit.js";
-import { scanScreenScenes } from "../contract/screen-scenes.js";
+import { workingTreeChangesSince } from "../contract/screen-capture-selection.js";
+import { scanPageFiles, scanScreenScenes } from "../contract/screen-scenes.js";
 import { readScreenTextDirectory } from "../contract/screen-text.js";
 import {
   analyzeContractImpact,
@@ -180,7 +182,8 @@ function declaredScreenLinks(
 function checkScreens(
   root: string,
   specDirectory: string,
-  manifest: ContractManifest
+  manifest: ContractManifest,
+  audited: { contract: ScreenAuditContract; added: ReadonlySet<string> }
 ): { check: ScreenCheck; warnings: string[] } | null {
   const settings = screenSettingsForRepository(root);
   if (!settings) {
@@ -246,6 +249,8 @@ function checkScreens(
         catalog,
         text: readScreenTextDirectory(settings),
         scenes: scanScreenScenes(root, settings.sceneTests),
+        pages: scanPageFiles(root, settings.capture.pages),
+        contract: audited.contract,
       });
   const captures = audit ? summarizeScreenAudit(audit) : null;
   const check: ScreenCheck = {
@@ -269,7 +274,7 @@ function checkScreens(
   };
   return {
     check,
-    warnings: captures ? screenAuditWarnings(captures, audit?.scene_scan.detail ?? null) : [],
+    warnings: audit ? screenAuditWarnings(audit, audited.added) : [],
   };
 }
 
@@ -519,8 +524,9 @@ export async function runCheckCommand(
   // failure here is itself a finding rather than a reason to abort the check.
   let manifestCurrent = false;
   let manifestCompileError: string | null = null;
+  let currentManifest: ContractManifest | null = null;
   try {
-    const currentManifest = compileContractManifest({
+    currentManifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey,
       specDirectory,
@@ -541,7 +547,22 @@ export async function runCheckCommand(
   const brokenLinks = impacts.filter(isBrokenImpact);
   // Null unless the repository enabled screens, so a disabled feature adds
   // nothing to the result, the output, or the exit code.
-  const screenResult = checkScreens(root, specDirectory, manifest);
+  // Tests are matched against the working-tree contract, the one a branch is
+  // changing; when it does not compile, the audit says so.
+  const screenResult = checkScreens(root, specDirectory, manifest, {
+    contract: currentManifest
+      ? { manifest: currentManifest }
+      : { manifest: null, detail: `the working-tree contract does not compile: ${manifestCompileError ?? "unknown error"}` },
+    // New files a developer has not added to git yet count as added here, so
+    // a page file created locally is named before it is committed.
+    added: screenSettingsForRepository(root)
+      ? new Set(
+          workingTreeChangesSince(root, comparison.commit).flatMap((change) =>
+            change.status === "added" || change.status === "renamed" ? [change.path] : []
+          )
+        )
+      : new Set<string>(),
+  });
   const screens = screenResult?.check ?? null;
   const brokenScreenLinks = screens?.broken_links ?? [];
   const screenCatalogInvalid =

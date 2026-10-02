@@ -21,6 +21,8 @@ import {
   runScreensAuditCaptureCommand,
   runScreensCaptureCommand,
   screenGrep,
+  screenGrepBatches,
+  SCREEN_GREP_MAX_CHARS,
   spawnPlaywright,
   type PlaywrightRunOutcome,
   type ScreensCaptureOptions,
@@ -97,6 +99,13 @@ function notesWorkspace(screens: unknown = { enabled: true }): ScreensWorkspace 
     catalog: {
       ".tieline/screens/NOTES.yaml": NOTES_YAML,
       ".tieline/screens/SHARING.yaml": stringify({ version: 1, capability: "SHARING", screens: [screen("notes-share-denied")] }),
+      // The scenes the fake run stands in for; capture runs only tagged screens.
+      "e2e/notes.screens.ts": [
+        'test("list", { tag: "@screen:notes-list" }, async () => {});',
+        'test("empty", { tag: "@screen:notes-list-empty" }, async () => {});',
+        'test("denied", { tag: "@screen:notes-share-denied" }, async () => {});',
+        "",
+      ].join("\n"),
     },
   });
   workspaces.push(ws);
@@ -334,9 +343,18 @@ await test("captures every screen into the catalog, ARIA snapshots, and captures
   assert.equal(call.cli, "/fake/node_modules/@playwright/test/cli.js");
   assert.equal(call.cwd, ws.root);
   assert.equal(call.timeoutMs, 7 * 60_000);
-  assert.deepEqual(call.args.slice(0, 7), ["test", "--config", "e2e/playwright.config.ts", "--project", "screens", "--grep", "@screen:"]);
-  assert.equal(call.args[7], "--reporter");
-  assert.equal(call.args[8], fileURLToPath(new URL("../../../src/playwright/reporter.cjs", import.meta.url)));
+  assert.deepEqual(call.args, [
+    "test",
+    "--config",
+    "e2e/playwright.config.ts",
+    "--project",
+    "screens",
+    "--grep",
+    "@screen:(?:notes-list|notes-list-empty|notes-share-denied)(?![A-Za-z0-9._-])",
+    "--pass-with-no-tests",
+    "--reporter",
+    fileURLToPath(new URL("../../../src/playwright/reporter.cjs", import.meta.url)),
+  ]);
   assert.deepEqual(run.selections, [{ version: 1, keys: ["notes-list", "notes-list-empty", "notes-share-denied"] }]);
   // The temporary run directory is gone.
   assert.equal(existsSync(call.env[RUN_DIRECTORY_ENV]!), false);
@@ -492,14 +510,19 @@ await test("says so when the captures .gitignore cannot be trusted to hide scree
 });
 
 await test("selects by escaped, bounded tags and runs nothing when nothing is selected", async () => {
-  assert.equal(screenGrep(["notes.list", "a-b"], false), "@screen:(?:notes\\.list|a-b)(?![A-Za-z0-9._-])");
-  const grep = new RegExp(screenGrep(["notes.list", "notes"], false));
+  assert.equal(screenGrep(["notes.list", "a-b"]), "@screen:(?:notes\\.list|a-b)(?![A-Za-z0-9._-])");
+  const grep = new RegExp(screenGrep(["notes.list", "notes"]));
   assert.ok(grep.test("lists notes @screen:notes.list"));
   assert.ok(grep.test("@screen:notes @fast"));
   assert.ok(!grep.test("@screen:notes-list"));
   assert.ok(!grep.test("@screen:notesXlist"));
-  assert.equal(screenGrep(["a"], true), "@screen:");
-  assert.equal(screenGrep(Array.from({ length: 201 }, (_, index) => `k${index}`), false), "@screen:");
+  // Large selections are split so each command line stays bounded.
+  const many = Array.from({ length: 3_000 }, (_, index) => `screen-key-${index}`);
+  const batches = screenGrepBatches(many);
+  assert.ok(batches.length > 1);
+  assert.deepEqual(batches.flat(), many);
+  for (const batch of batches) assert.ok(screenGrep(batch).length <= SCREEN_GREP_MAX_CHARS);
+  assert.deepEqual(screenGrepBatches(["a", "b", "c"], screenGrep(["a", "b"]).length), [["a", "b"], ["c"]]);
 
   const ws = notesWorkspace();
   const one = await capture(ws, { screens: ["notes-list"] });
@@ -646,7 +669,10 @@ await test("audit --capture re-captures every screen and frames updates as drift
   assert.equal(await runScreensAuditCaptureCommand({ repository: ws.root }, io.io, captureDependencies(run)), 0);
   assert.match(io.output(), /^Audit: re-capturing every screen\. Screens reported as updated changed without a branch selecting them/);
   assert.match(io.output(), /Captured 3 screen\(s\)/);
-  assert.equal(run.calls[0]!.args[run.calls[0]!.args.indexOf("--grep") + 1], "@screen:");
+  assert.equal(
+    run.calls[0]!.args[run.calls[0]!.args.indexOf("--grep") + 1],
+    "@screen:(?:notes-list|notes-list-empty|notes-share-denied)(?![A-Za-z0-9._-])"
+  );
 });
 
 await test("keeps dry runs and disabled repositories away from Playwright", async () => {
@@ -662,6 +688,95 @@ await test("keeps dry runs and disabled repositories away from Playwright", asyn
     () => runScreensCaptureCommand({ all: true, repository: disabled.root }, captureIO().io, captureDependencies(fakePlaywrightRun(), { playwright: refuse, run: refuse })),
     /Screens are not enabled for this repository/
   );
+});
+
+console.log("screens capture: coverage");
+
+await test("captures the screens that have a test and reports the rest as not covered", async () => {
+  const ws = notesWorkspace();
+  ws.write("e2e/notes.screens.ts", 'test("list", { tag: "@screen:notes-list" }, async () => {});\n');
+  const { exit, output, run } = await capture(ws, { all: true });
+  assert.equal(exit, 0);
+  assert.deepEqual(run.selections, [{ version: 1, keys: ["notes-list"] }]);
+  assert.equal(run.calls[0]!.args[run.calls[0]!.args.indexOf("--grep") + 1], "@screen:(?:notes-list)(?![A-Za-z0-9._-])");
+  assert.ok(run.calls[0]!.args.includes("--pass-with-no-tests"));
+  assert.match(output, /^Captured 1 screen\(s\) with Playwright 1\.63\.0: 1 new, 0 updated, 0 unchanged\.\n/);
+  assert.match(output, /  not covered notes-list-empty: no test is tagged @screen:notes-list-empty\n  not covered notes-share-denied: no test is tagged @screen:notes-share-denied\n/);
+  // Verification checks what is covered and reports the rest.
+  ws.commit("captured");
+  const verified = await capture(ws, { all: true, verify: true, json: true });
+  assert.equal(verified.exit, 0);
+  assert.deepEqual((JSON.parse(verified.output) as { not_covered: string[] }).not_covered, ["notes-list-empty", "notes-share-denied"]);
+  // A screen named explicitly is run even without a literal tag, for tests that build tags.
+  const named = await capture(ws, { screens: ["notes-list-empty"] }, { screens: () => ({ "notes-list-empty": {} }) });
+  assert.deepEqual(named.run.selections, [{ version: 1, keys: ["notes-list-empty"] }]);
+  // With no covered screen selected, Playwright does not start.
+  ws.remove("e2e/notes.screens.ts");
+  const refuse = (): never => {
+    throw new Error("nothing is covered, so Playwright must not run");
+  };
+  const none = await capture(ws, { all: true }, {}, { playwright: refuse, run: refuse });
+  assert.match(none.output, /^No screen was captured\.\n  not covered notes-list:/);
+});
+
+await test("never captures a screen marked not captured, and says why", async () => {
+  const ws = notesWorkspace();
+  ws.write(
+    ".tieline/screens/SHARING.yaml",
+    stringify({
+      version: 1,
+      capability: "SHARING",
+      screens: [{ ...screen("notes-share-denied"), not_captured: { reason: "needs-real-trigger", detail: "The share API cannot be made to fail without faking a response." } }],
+    })
+  );
+  const { output, run } = await capture(ws, { all: true });
+  assert.deepEqual(run.selections, [{ version: 1, keys: ["notes-list", "notes-list-empty"] }]);
+  assert.match(output, /  skipped   notes-share-denied: not captured \(needs-real-trigger\): The share API cannot be made to fail without faking a response\.\n/);
+  const dry = await capture(ws, { all: true, dryRun: true, json: true });
+  assert.deepEqual((JSON.parse(dry.output) as { selection: { excluded: unknown } }).selection.excluded, [
+    { key: "notes-share-denied", capability: "SHARING", reason: "needs-real-trigger", detail: "The share API cannot be made to fail without faking a response." },
+  ]);
+  await assert.rejects(
+    () => capture(ws, { screens: ["notes-share-denied"] }),
+    /'notes-share-denied' is marked not captured \(needs-real-trigger\); remove not_captured from the catalog entry to capture it\./
+  );
+});
+
+await test("repeats a capture and holds back screens that differ between runs", async () => {
+  const ws = notesWorkspace();
+  let runNumber = 0;
+  const flaky = fakePlaywrightRun({
+    screens: (selected) => {
+      runNumber += 1;
+      return Object.fromEntries(
+        selected.map((key) => [key, key === "notes-list" ? { image: png(`frame ${runNumber}`) } : {}])
+      );
+    },
+  });
+  const io = captureIO();
+  const exit = await runScreensCaptureCommand({ all: true, repeat: 3, repository: ws.root }, io.io, captureDependencies(flaky));
+  assert.equal(exit, 1);
+  assert.equal(flaky.calls.length, 3);
+  assert.match(io.output(), /^Captured 2 screen\(s\) with Playwright 1\.63\.0, identically in 3 runs: 2 new, 0 updated, 0 unchanged\.\n/);
+  assert.match(io.output(), /  unstable  notes-list: differed between runs and was not written; fix what moves, or mark it not_captured \(unstable\)\n/);
+  assert.match(io.output(), /1 unstable screen\(s\) were not written, so this capture is incomplete\.\n$/);
+  assert.doesNotMatch(read(ws, ".tieline/screens/NOTES.yaml"), /key: notes-list\n[^-]*capture:/);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screen-text/notes-list.yml")), false);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screen-text/notes-list-empty.yml")), true);
+
+  // Verifying with repeats reports an unstable screen as a mismatch.
+  ws.commit("captured");
+  runNumber = 0;
+  const verify = captureIO();
+  assert.equal(await runScreensCaptureCommand({ screens: ["notes-list"], repeat: 2, verify: true, repository: ws.root }, verify.io, captureDependencies(flaky)), 1);
+  assert.match(verify.output(), /  mismatch  notes-list: differed between runs; fix what moves, or mark it not_captured \(unstable\)\n/);
+
+  for (const repeat of [0, 6, 1.5]) {
+    await assert.rejects(
+      () => runScreensCaptureCommand({ all: true, repeat, repository: ws.root }, captureIO().io, captureDependencies(flaky)),
+      /--repeat must be a whole number from 1 to 5\./
+    );
+  }
 });
 
 console.log("screens capture: Playwright as an optional peer");

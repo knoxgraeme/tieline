@@ -39,14 +39,25 @@ export interface ScreenSceneScan {
   detail: string | null;
   /** Candidate test files read. */
   files: number;
-  /** The repository-relative files that tag each key, sorted. */
+  /** The repository-relative files that tag each screen key, sorted. */
   tags: ReadonlyMap<string, readonly string[]>;
+  /** The repository-relative files that tag each acceptance criterion (`@ac:<key>`). */
+  acTags: ReadonlyMap<string, readonly string[]>;
+  /**
+   * Files that tag screens and also intercept the page's requests
+   * (`route`, `routeFromHAR`, `routeWebSocket`). Blocking third-party requests
+   * is legitimate; answering the app's own requests with made-up responses
+   * captures a state the real app never produced, so these are for review.
+   */
+  intercepting: ReadonlyArray<{ file: string; keys: readonly string[] }>;
 }
 
 const SCRIPT_FILE = /\.[cm]?[jt]sx?$/;
 /** Playwright's default test naming, plus Tieline's `*.screens.ts`. */
 const DEFAULT_SCENE_FILE = /\.(?:spec|test|screens)\.[cm]?[jt]sx?$/;
 const SCREEN_TAG = /@screen:([A-Za-z0-9][A-Za-z0-9._-]*)/g;
+const AC_TAG = /@ac:([A-Za-z0-9][A-Za-z0-9._-]*)/g;
+const INTERCEPTION = /\.(?:route|routeFromHAR|routeWebSocket)\s*\(/;
 
 /** Whether a repository-relative path is a file the scan reads. */
 export function isSceneTestCandidate(path: string, patterns: readonly RegExp[] | null): boolean {
@@ -59,12 +70,26 @@ export function isSceneTestCandidate(path: string, patterns: readonly RegExp[] |
  * far more often the end of a sentence in a comment than the end of a key.
  */
 export function screenTagsIn(content: string): string[] {
+  return tagsIn(content, SCREEN_TAG);
+}
+
+/** The acceptance criteria a test file tags `@ac:<key>`, read the same way. */
+export function acceptanceCriterionTagsIn(content: string): string[] {
+  return tagsIn(content, AC_TAG);
+}
+
+function tagsIn(content: string, pattern: RegExp): string[] {
   const keys = new Set<string>();
-  for (const match of content.matchAll(SCREEN_TAG)) {
+  for (const match of content.matchAll(pattern)) {
     const key = match[1]!.replace(/\.+$/, "");
     if (key.length > 0) keys.add(key);
   }
   return [...keys];
+}
+
+/** Whether a test file intercepts the page's requests. */
+export function interceptsRequests(content: string): boolean {
+  return INTERCEPTION.test(content);
 }
 
 function listRepositoryFiles(root: string, maxBytes: number): string[] {
@@ -94,6 +119,8 @@ export function scanScreenScenes(
 ): ScreenSceneScan {
   const root = resolve(repositoryRoot);
   const tags = new Map<string, string[]>();
+  const acTags = new Map<string, string[]>();
+  const intercepting: Array<{ file: string; keys: string[] }> = [];
   let listed: string[];
   try {
     listed = listRepositoryFiles(root, limits.listedBytes);
@@ -103,6 +130,8 @@ export function scanScreenScenes(
       detail: `the repository's files could not be listed with git: ${failureDetail(error)}`,
       files: 0,
       tags,
+      acTags,
+      intercepting,
     };
   }
   const compiled = patterns ? patterns.map(wildcardPattern) : null;
@@ -146,11 +175,10 @@ export function scanScreenScenes(
     }
     bytes += size;
     files += 1;
-    for (const key of screenTagsIn(content)) {
-      const existing = tags.get(key);
-      if (existing) existing.push(path);
-      else tags.set(key, [path]);
-    }
+    const screenKeys = screenTagsIn(content);
+    for (const key of screenKeys) tags.set(key, [...(tags.get(key) ?? []), path]);
+    for (const key of acceptanceCriterionTagsIn(content)) acTags.set(key, [...(acTags.get(key) ?? []), path]);
+    if (screenKeys.length > 0 && interceptsRequests(content)) intercepting.push({ file: path, keys: screenKeys });
   }
   const details = [
     ...(stoppedBy ? [`the scan stopped at ${stoppedBy}`] : []),
@@ -167,5 +195,59 @@ export function scanScreenScenes(
     detail: details.length > 0 ? details.join("; ") : null,
     files,
     tags,
+    acTags,
+    intercepting,
   };
+}
+
+export const SCREEN_PAGE_LIMITS = {
+  /** Most page files reported. */
+  files: 10_000,
+} as const;
+
+export interface ScreenPageScan {
+  /** `not_configured` when `screens.capture.pages` is empty. */
+  status: "complete" | "incomplete" | "unavailable" | "not_configured";
+  detail: string | null;
+  /** Repository-relative page files matching the patterns, sorted. */
+  files: string[];
+}
+
+/**
+ * The files that define pages: tracked and untracked files git does not
+ * ignore that match any pattern, minus those matching a `!` pattern.
+ */
+export function scanPageFiles(
+  repositoryRoot: string,
+  patterns: readonly string[],
+  limits: { listedBytes: number; files: number } = {
+    listedBytes: SCREEN_SCENE_LIMITS.listedBytes,
+    files: SCREEN_PAGE_LIMITS.files,
+  }
+): ScreenPageScan {
+  if (patterns.length === 0) return { status: "not_configured", detail: null, files: [] };
+  let listed: string[];
+  try {
+    listed = listRepositoryFiles(resolve(repositoryRoot), limits.listedBytes);
+  } catch (error) {
+    return {
+      status: "unavailable",
+      detail: `the repository's files could not be listed with git: ${failureDetail(error)}`,
+      files: [],
+    };
+  }
+  const include = patterns.filter((pattern) => !pattern.startsWith("!")).map(wildcardPattern);
+  const exclude = patterns
+    .filter((pattern) => pattern.startsWith("!"))
+    .map((pattern) => wildcardPattern(pattern.slice(1)));
+  const files = listed.filter(
+    (path) => include.some((pattern) => pattern.test(path)) && !exclude.some((pattern) => pattern.test(path))
+  );
+  return files.length > limits.files
+    ? {
+        status: "incomplete",
+        detail: `more than ${limits.files} page files match; only the first ${limits.files} were checked`,
+        files: files.slice(0, limits.files),
+      }
+    : { status: "complete", detail: null, files };
 }

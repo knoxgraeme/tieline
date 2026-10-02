@@ -548,6 +548,10 @@ function buildProgram(
       "--verify",
       "compare a fresh capture with the committed outputs; write nothing and fail on any difference"
     )
+    .option(
+      "--repeat <n>",
+      "capture n times (1-5) and keep only screens every run captured identically"
+    )
     .option("--repository <path>", "repository path")
     .option("--json", "emit machine-readable JSON")
     .action(async (opts) => {
@@ -562,6 +566,7 @@ function buildProgram(
             screens: opts.screen,
             dryRun: Boolean(opts.dryRun),
             verify: Boolean(opts.verify),
+            ...(opts.repeat === undefined ? {} : { repeat: Number(opts.repeat) }),
             json: Boolean(opts.json),
           },
           io
@@ -578,9 +583,16 @@ function buildProgram(
       "--capture",
       "re-capture every screen and report the ones that drifted (writes the outputs)"
     )
+    .option(
+      "--strict",
+      "fail when any screen, page file, or UI acceptance criterion is unaccounted for"
+    )
     .option("--repository <path>", "repository path")
     .option("--json", "emit machine-readable JSON")
     .action(async (opts) => {
+      if (opts.capture && opts.strict) {
+        throw new Error("--strict checks coverage without capturing; run it separately from --capture.");
+      }
       if (opts.capture) {
         const { runScreensAuditCaptureCommand } = await import("./commands/screens-capture.js");
         setExit(
@@ -594,7 +606,7 @@ function buildProgram(
       const { runScreensAuditCommand } = await import("./commands/screens.js");
       setExit(
         await runScreensAuditCommand(
-          { repository: opts.repository, json: Boolean(opts.json) },
+          { repository: opts.repository, json: Boolean(opts.json), strict: Boolean(opts.strict) },
           io
         )
       );

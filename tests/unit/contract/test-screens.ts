@@ -111,7 +111,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
     catalog_directory: "screens",
     captures_directory: "captures",
     text_directory: "screen-text",
-    capture: { tests: null, global_paths: [], playwright_config: null, project: null, timeout_minutes: 30 },
+    capture: { tests: null, global_paths: [], playwright_config: null, project: null, timeout_minutes: 30, pages: [] },
   });
   assert.deepEqual(
     readScreensConfig({
@@ -121,7 +121,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
         capture: { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"] },
       },
     })?.capture,
-    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"], playwright_config: null, project: null, timeout_minutes: 30 }
+    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"], playwright_config: null, project: null, timeout_minutes: 30, pages: [] }
   );
   assert.deepEqual(
     readScreensConfig({
@@ -130,7 +130,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
         capture: { playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10 },
       },
     })?.capture,
-    { tests: null, global_paths: [], playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10 }
+    { tests: null, global_paths: [], playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10, pages: [] }
   );
   for (const capture of [
     { playwright_config: "e2e/*.config.ts" },
@@ -388,6 +388,37 @@ const DIGEST_B = "b".repeat(64);
 const DIGEST_C = "c".repeat(64);
 const CAPTURED_IMAGE = { path: "notes-list.png", sha256: DIGEST_A };
 const CAPTURE = { fingerprint: DIGEST_B, text_sha256: DIGEST_C, test: "e2e/notes.screens.ts" };
+
+await test("accepts a not-captured marker with a known reason, never beside a capture record", () => {
+  const marker = { reason: "needs-real-trigger", detail: "The share API cannot fail without a faked response." };
+  assert.deepEqual(catalogIssues({ version: 1, capability: "NOTES", screens: [entry({ not_captured: marker })] }), []);
+  const cases: Array<[Record<string, unknown>, RegExp]> = [
+    [{ not_captured: { reason: "simulated", detail: "x" } }, /screens\.0\.not_captured\.reason: Invalid enum value\. Expected 'flag-off' \| 'external' \| 'unreachable' \| 'needs-real-trigger' \| 'unstable' \| 'other'/],
+    [{ not_captured: { reason: "other" } }, /screens\.0\.not_captured\.detail: Required/],
+    [{ not_captured: { reason: "other", detail: "x".repeat(SCREEN_LIMITS.notCapturedDetailChars + 1) } }, /screens\.0\.not_captured\.detail: String must contain at most 500/],
+    [{ not_captured: { ...marker, since: "2026" } }, /screens\.0\.not_captured: Unrecognized key/],
+    [{ image: CAPTURED_IMAGE, capture: CAPTURE, not_captured: marker }, /screens\.0\.not_captured: a screen with a capture record cannot also be marked not captured; remove one/],
+  ];
+  for (const [overrides, expected] of cases) {
+    const issues = catalogIssues({ version: 1, capability: "NOTES", screens: [entry(overrides)] });
+    assert.equal(issues.length, 1, `${JSON.stringify(overrides)}: ${issues.join("; ")}`);
+    assert.match(issues[0]!, expected);
+  }
+});
+
+await test("validates page file patterns, which may exclude with a leading '!'", () => {
+  assert.deepEqual(
+    readScreensConfig({ screens: { enabled: true, capture: { pages: ["app/**/page.tsx", "!app/api/**"] } } })?.capture.pages,
+    ["app/**/page.tsx", "!app/api/**"]
+  );
+  for (const pages of [[], ["../app/**"], ["!/abs/**"], ["app\\x"]]) {
+    assert.throws(
+      () => readScreensConfig({ screens: { enabled: true, capture: { pages } } }),
+      /Invalid 'screens' block.*screens\.capture\.pages/,
+      JSON.stringify(pages)
+    );
+  }
+});
 
 await test("bounds the files a screen names as rendering it", () => {
   assert.deepEqual(
@@ -824,6 +855,27 @@ await test("compiles a capture record beside the image, outside the screen's con
   assert.equal("screen_catalogs" in manifestWithoutScreens(compile(ws).manifest).manifest, false);
 });
 
+await test("compiles a not-captured marker for review, outside the contract hash", async () => {
+  const marked = NOTES_CATALOG_YAML.replace(
+    "    kind: state\n",
+    "    kind: state\n    not_captured:\n      reason: flag-off\n      detail: Behind the notes-empty flag, off for launch.\n"
+  );
+  assert.notEqual(marked, NOTES_CATALOG_YAML);
+  const ws = workspace({ screens: ENABLED, catalog: { ...CATALOG, ".tieline/screens/NOTES.yaml": marked } });
+  const plain = workspace({ screens: ENABLED, catalog: CATALOG });
+  const screen = (manifest: ReturnType<typeof compile>["manifest"]) =>
+    manifest.screen_catalogs!.flatMap((catalog) => catalog.screens).find((entry) => entry.stable_id === "notes-list-empty")!;
+  const compiled = screen(compile(ws).manifest);
+  assert.deepEqual(compiled.not_captured, { reason: "flag-off", detail: "Behind the notes-empty flag, off for launch." });
+  assert.equal(compiled.contract_hash, screen(compile(plain).manifest).contract_hash);
+  assert.equal("not_captured" in screen(compile(plain).manifest), false);
+  // The review page carries it to the detail panel.
+  assert.equal(await runCli(["contract", "review", ws.root], captureIO().io, {}), 0);
+  const page = readFileSync(resolve(ws.root, ".tieline/review.html"), "utf8");
+  assert.match(page, /"not_captured":\{"reason":"flag-off","detail":"Behind the notes-empty flag, off for launch\."\}/);
+  assert.match(page, /"Not captured \(" \+ screen\.not_captured\.reason/);
+});
+
 await test("keeps the files a screen names out of the manifest and its contract hash", () => {
   const withPaths = workspace({
     screens: ENABLED,
@@ -960,11 +1012,18 @@ await test("fails check on committed shows links whose screen left the catalog",
       missing_capture: 4,
       missing_text: 4,
       missing_scene: 4,
+      not_captured: 0,
       text_mismatch: 0,
       orphaned_text: 0,
       environments: 0,
       scene_scan: "complete",
       text_issues: 0,
+      unclaimed_pages: null,
+      // NOTES-001-AC1 shows a screen, but no test is tagged @ac:NOTES-001-AC1.
+      untested_acceptance_criteria: 1,
+      unlinked_acceptance_criteria: 0,
+      unknown_acceptance_criterion_tags: 0,
+      intercepting_scene_files: 0,
     },
   });
   assert.equal(healthy.exit_reason, "ok");

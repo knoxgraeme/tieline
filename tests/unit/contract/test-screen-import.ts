@@ -210,6 +210,41 @@ await test("merges the files a screen names like any optional field", async () =
   await importFails(ws, [screen("a", { paths: ["../escape/**"] })], /screens\[0\] \("a"\) at paths\.0: must not contain empty, '\.', or '\.\.' segments/);
 });
 
+await test("imports not-captured markers, which retire a capture record", async () => {
+  const ws = workspace();
+  const marker = { reason: "external", detail: "Hosted by the payment provider." };
+  await importScreens(ws, [screen("a", { not_captured: marker })]);
+  assert.match(catalog(ws, "NOTES"), /    not_captured:\n      reason: external\n      detail: Hosted by the payment provider\.\n/);
+  const kept = await importScreens(ws, [screen("a")]);
+  assert.equal(kept.result.unchanged, 1);
+  await importScreens(ws, [screen("a", { not_captured: null })]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /not_captured:/);
+  await importFails(ws, [screen("a", { not_captured: { reason: "simulated", detail: "x" } })], /screens\[0\] \("a"\) at not_captured\.reason: Invalid enum value/);
+
+  // Marking a captured screen not captured drops its capture record.
+  ws.write(".tieline/captures/b.png", "captured");
+  ws.write(
+    ".tieline/screens/NOTES.yaml",
+    `${catalog(ws, "NOTES")}  - key: b
+    title: Screen b
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    image:
+      path: b.png
+      sha256: ${sha256("captured")}
+    capture:
+      fingerprint: ${"d".repeat(64)}
+      text_sha256: ${"e".repeat(64)}
+      test: e2e/notes.screens.ts
+`
+  );
+  await importScreens(ws, [screen("b", { image: "b.png", not_captured: { reason: "unstable", detail: "Its chart animates." } })]);
+  const text = catalog(ws, "NOTES");
+  assert.match(text, /  - key: b\n[\s\S]*not_captured:\n      reason: unstable/);
+  assert.doesNotMatch(text, /capture:\n      fingerprint/);
+});
+
 await test("preserves hand-written comments and untouched entries in an updated file", async () => {
   const ws = workspace();
   ws.write(".tieline/screens/NOTES.yaml", `version: 1

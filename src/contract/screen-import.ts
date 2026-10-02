@@ -127,6 +127,7 @@ const screenImportEntrySchema = screenEntrySchema.extend({
   applies_to: screenEntrySchema.shape.applies_to.unwrap().nullable().optional(),
   copy: screenEntrySchema.shape.copy.unwrap().nullable().optional(),
   paths: screenEntrySchema.shape.paths.unwrap().nullable().optional(),
+  not_captured: screenEntrySchema.shape.not_captured.unwrap().nullable().optional(),
   image: z
     .union([
       screenImagePathSchema.transform((path): ScreenImage => ({ path })),
@@ -353,7 +354,10 @@ function withCaptureRecord(merged: ScreenEntry, previous: ScreenEntry | undefine
   const capture = previous?.capture;
   const before = previous?.image;
   const after = merged.image;
-  if (!capture || !before || !after || !("path" in before) || !("path" in after)) return merged;
+  // Marking a screen not captured retires its capture record.
+  if (!capture || merged.not_captured || !before || !after || !("path" in before) || !("path" in after)) {
+    return merged;
+  }
   return before.path === after.path && before.sha256 !== undefined && before.sha256 === after.sha256
     ? { ...merged, capture }
     : merged;
@@ -366,6 +370,7 @@ function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefi
   const copy = mergedField(imported.copy, current?.copy);
   const paths = mergedField(imported.paths, current?.paths);
   const image = mergedImage(imported.image, current?.image);
+  const notCaptured = mergedField(imported.not_captured, current?.not_captured);
   return {
     key: imported.key,
     title: imported.title,
@@ -377,6 +382,7 @@ function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefi
     ...(copy === undefined || copy.length === 0 ? {} : { copy }),
     ...(paths === undefined ? {} : { paths }),
     ...(image === undefined ? {} : { image }),
+    ...(notCaptured === undefined ? {} : { not_captured: notCaptured }),
   };
 }
 

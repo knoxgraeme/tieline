@@ -143,9 +143,10 @@ a pull request in one of two ways:
 - for same-repository pull requests, the trusted publish job (section 5) pushes a commit with the
   updated outputs to the pull request's branch, when the repository opts in.
 
-Either way, pull-request CI runs `tieline screens capture --changed --verify` in the pinned image.
-It fails, naming each screen and the command to fix it, when a selected screen's fresh digest or
-ARIA snapshot differs from what the branch commits. A required `--verify` check means a pull
+Either way, pull-request CI runs `tieline screens capture --all --verify` in the pinned image
+(as built; this proposal first had `--changed --verify`, see
+[how capture was built](#how-capture-was-built)). It fails, naming each screen and the command to
+fix it, when a screen's fresh digest or ARIA snapshot differs from what the branch commits. A required `--verify` check means a pull
 request cannot merge with stale screen outputs, so the post-merge sync of `main` reads a
 trustworthy catalog.
 
@@ -374,6 +375,25 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
   Playwright compiles to CommonJS on every Node version Tieline supports, as well as in ESM
   projects. Tieline's package gained an `exports` map for that subpath; every existing file path
   stays importable.
+- **The pull-request gate verifies every covered screen** (`capture --all --verify`), not only the
+  screens selection predicts. Prediction cannot see changes in server code, data, translations,
+  or dependencies; re-checking every screen observes them. Selection (`--changed`) remains for
+  fast local runs and to explain why a screen changed. This refines "only affected screens on
+  every pull request" for the gate.
+- **Every screen is captured or marked not captured with a reason** (`not_captured`: flag off,
+  external, unreachable, needs a real trigger, unstable, other). Captures never come from faked
+  responses: a state that would need one is marked `needs-real-trigger` until seeded data or a
+  test-only switch in the app reaches it for real. The audit flags scene tests that intercept
+  requests for review.
+- **A screen that shows an acceptance criterion is captured by that criterion's test,** tagged
+  `@ac:<key>` beside `@screen:<key>`: the Then is asserted and the resulting screen captured. The
+  audit reports UI criteria no tagged test proves, tagged files the criterion's `tests` links do
+  not name, and tags that name no criterion. Screens with no criterion are the hidden states to
+  review.
+- **Coverage grows screen by screen.** A selected screen no test tags is reported as not covered
+  instead of failing the run; `--repeat` finds unstable screens during a backfill; page files
+  (`capture.pages`) that no screen claims are reported; and `audit --strict` turns all of it into
+  a gate once a backfill is done.
 - **Not built yet:** `screensFromCatalog()`, which would generate navigation tests for plain
   pages, and Tieline-drafted scene files. Both remain proposals.
 
@@ -419,6 +439,12 @@ side-by-side and overlay diff views. Those are candidates for later, not prerequ
   (implemented in this change for `check`, `reconcile`, `grade`, `blast-radius`, and `review`).
 - Committed screen outputs must match a fresh capture (`capture --verify`), and capture runs
   without credentials while a separate trusted job publishes.
+- The pull-request gate verifies every covered screen (`capture --all --verify`); selection is
+  for local runs and explanations.
+- Every screen is captured or marked not captured with a reason; captures never use faked
+  responses.
+- A screen that shows an acceptance criterion is captured by that criterion's test, tagged
+  `@ac:<key>`, which asserts its Then. A full backfill starts from the acceptance criteria.
 
 ## Follow-ups not yet designed
 

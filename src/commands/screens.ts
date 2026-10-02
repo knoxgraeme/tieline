@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { readDeclaredCapabilityKeys } from "../contract/load.js";
+import { compileContractManifest } from "../contract/manifest.js";
 import {
   readScreenCatalogSources,
   screenSettingsForRepository,
@@ -20,6 +21,8 @@ import {
 } from "../contract/screen-import.js";
 import {
   loadScreenAudit,
+  screenAuditStrictFailures,
+  type ScreenAuditContract,
   type ScreenCaptureGap,
 } from "../contract/screen-audit.js";
 import {
@@ -164,6 +167,8 @@ export async function runScreensImportCommand(
 export interface ScreensAuditOptions {
   repository?: string;
   json?: boolean;
+  /** Fail when anything is unaccounted for, as a required coverage check. */
+  strict?: boolean;
 }
 
 const GAP_LABELS: Record<ScreenCaptureGap, string> = {
@@ -175,17 +180,27 @@ const GAP_LABELS: Record<ScreenCaptureGap, string> = {
 
 /**
  * `tieline screens audit`: lists screens whose capture outputs are missing or
- * inconsistent, without capturing anything. Findings are a report, not a
- * failure; only an unusable catalog fails the command.
+ * inconsistent, page files no screen claims, and acceptance criteria whose
+ * tests do not line up, without capturing anything. Findings are a report;
+ * with `--strict` they fail the command, as a coverage gate.
  */
 export async function runScreensAuditCommand(
   options: ScreensAuditOptions,
   io: CommandIO
 ): Promise<number> {
-  const { root, specDirectory } = resolveCommandContext(options);
+  const { root, repositoryKey, specDirectory } = resolveCommandContext(options);
   const settings = screenSettingsForRepository(root);
   if (!settings) throw new Error(NOT_ENABLED);
-  const loaded = loadScreenAudit(root, settings, readDeclaredCapabilityKeys(root, specDirectory));
+  let contract: ScreenAuditContract;
+  try {
+    contract = { manifest: compileContractManifest({ repositoryRoot: root, repositoryKey, specDirectory }) };
+  } catch (error) {
+    contract = {
+      manifest: null,
+      detail: `the working-tree contract does not compile: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  const loaded = loadScreenAudit(root, settings, readDeclaredCapabilityKeys(root, specDirectory), contract);
   if (!loaded.audit) {
     throw new ScreenImportError(
       "The screen catalog is invalid; fix it before auditing.",
@@ -193,13 +208,26 @@ export async function runScreensAuditCommand(
     );
   }
   const audit = loaded.audit;
+  const failures = options.strict ? screenAuditStrictFailures(audit) : [];
+  const exitCode = failures.length > 0 ? 1 : 0;
   if (options.json) {
-    io.write(`${JSON.stringify(audit, null, 2)}\n`);
-    return 0;
+    io.write(
+      `${JSON.stringify(
+        { ...audit, ...(options.strict ? { strict: { passed: exitCode === 0, failures } } : {}) },
+        null,
+        2
+      )}\n`
+    );
+    return exitCode;
   }
   io.write(
-    `Screen audit of ${escapeTerminalText(audit.catalog_path)}: ${audit.screens} screen(s); ${audit.incomplete.length} missing capture output(s); ${audit.text_mismatch.length} ARIA snapshot mismatch(es); ${audit.orphaned_text.length} orphaned ARIA snapshot(s).\n`
+    `Screen audit of ${escapeTerminalText(audit.catalog_path)}: ${audit.screens} screen(s); ${audit.incomplete.length} missing capture output(s); ${audit.not_captured.length} not captured, with a reason; ${audit.text_mismatch.length} ARIA snapshot mismatch(es); ${audit.orphaned_text.length} orphaned ARIA snapshot(s).\n`
   );
+  for (const screen of audit.not_captured) {
+    io.write(
+      `  not captured ${escapeTerminalText(screen.key)} (${escapeTerminalText(screen.capability)}): ${screen.reason}: ${escapeTerminalText(screen.detail)}\n`
+    );
+  }
   for (const gap of audit.incomplete) {
     io.write(
       `  missing   ${escapeTerminalText(gap.key)} (${escapeTerminalText(gap.capability)}): ${gap.missing
@@ -232,12 +260,57 @@ export async function runScreensAuditCommand(
         .join(", ")}); digests from different environments are never compared.\n`
     );
   }
-  if (audit.scene_scan.status !== "complete") {
+  for (const page of audit.pages.unclaimed) {
+    io.write(`  page      ${escapeTerminalText(page)}: no screen's paths claim this page file\n`);
+  }
+  const alignment = audit.acceptance_criteria;
+  for (const criterion of alignment.untested) {
     io.write(
-      `  note  the @screen tag scan is ${audit.scene_scan.status}: ${escapeTerminalText(
-        audit.scene_scan.detail ?? ""
-      )}; screens without a scene test are not reported.\n`
+      `  untested  ${escapeTerminalText(criterion.key)} shows ${criterion.shows
+        .map(escapeTerminalText)
+        .join(", ")}, but no test is tagged @ac:${escapeTerminalText(criterion.key)}\n`
     );
   }
-  return 0;
+  for (const criterion of alignment.unlinked) {
+    io.write(
+      `  unlinked  ${escapeTerminalText(criterion.key)} is tagged in ${criterion.files
+        .map(escapeTerminalText)
+        .join(", ")}, which its tests links do not name\n`
+    );
+  }
+  for (const tag of alignment.unknown_tags) {
+    io.write(
+      `  unknown   @ac:${escapeTerminalText(tag.key)} in ${tag.files
+        .map(escapeTerminalText)
+        .join(", ")}: no acceptance criterion has this key\n`
+    );
+  }
+  for (const entry of audit.intercepting) {
+    io.write(
+      `  review    ${escapeTerminalText(entry.file)} intercepts the page's requests: block third-party requests only, and mark states that would need a faked response not captured\n`
+    );
+  }
+  if (audit.scene_scan.status !== "complete") {
+    io.write(
+      `  note  the test scan is ${audit.scene_scan.status}: ${escapeTerminalText(
+        audit.scene_scan.detail ?? ""
+      )}; screens and acceptance criteria without a test are not reported.\n`
+    );
+  }
+  if (audit.pages.status === "not_configured") {
+    io.write("  note  page files are not checked; set screens.capture.pages to find pages no screen covers.\n");
+  } else if (audit.pages.status !== "complete") {
+    io.write(`  note  page files could not be checked in full: ${escapeTerminalText(audit.pages.detail ?? "")}\n`);
+  }
+  if (alignment.status === "unavailable" && alignment.detail) {
+    io.write(`  note  acceptance criteria were not checked: ${escapeTerminalText(alignment.detail)}\n`);
+  }
+  if (options.strict) {
+    io.write(
+      exitCode === 0
+        ? "Strict audit passed: every screen, page, and documented UI behavior is accounted for.\n"
+        : `Strict audit failed: ${failures.map(escapeTerminalText).join("; ")}.\n`
+    );
+  }
+  return exitCode;
 }

@@ -95,7 +95,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d849a0e82250a9b12c488da465b5a73f7373e10fdcbee0b536d0078f0c1b5a4",
+                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -166,7 +166,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "02cd5ee6a0471d7dc18d6c66d46802708399b8270fc4bc4f8560d64ec9824242",
+                "reviewed_content_hash": "8d821aa80ef403132439686b89e9d5dbd346cc84dd8a0367c88f6cc7cddba3fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -322,7 +322,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d849a0e82250a9b12c488da465b5a73f7373e10fdcbee0b536d0078f0c1b5a4",
+                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -382,7 +382,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "02cd5ee6a0471d7dc18d6c66d46802708399b8270fc4bc4f8560d64ec9824242",
+                "reviewed_content_hash": "8d821aa80ef403132439686b89e9d5dbd346cc84dd8a0367c88f6cc7cddba3fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -392,7 +392,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b30ebf067d8e04e7f40a22bad90e949903000016aff0bf87e94f6c48edb244a",
+                "reviewed_content_hash": "3cb9ca14238dae3b45b596c54ddba148a6a529e0a50192f53c4f0763ee3ba662",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -498,7 +498,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d849a0e82250a9b12c488da465b5a73f7373e10fdcbee0b536d0078f0c1b5a4",
+                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -586,7 +586,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "02cd5ee6a0471d7dc18d6c66d46802708399b8270fc4bc4f8560d64ec9824242",
+                "reviewed_content_hash": "8d821aa80ef403132439686b89e9d5dbd346cc84dd8a0367c88f6cc7cddba3fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -606,7 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b30ebf067d8e04e7f40a22bad90e949903000016aff0bf87e94f6c48edb244a",
+                "reviewed_content_hash": "3cb9ca14238dae3b45b596c54ddba148a6a529e0a50192f53c4f0763ee3ba662",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -626,7 +626,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d849a0e82250a9b12c488da465b5a73f7373e10fdcbee0b536d0078f0c1b5a4",
+                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -795,7 +795,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2b30ebf067d8e04e7f40a22bad90e949903000016aff0bf87e94f6c48edb244a",
+                "reviewed_content_hash": "3cb9ca14238dae3b45b596c54ddba148a6a529e0a50192f53c4f0763ee3ba662",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -1851,7 +1851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4539a3b141e98c97907d3cb0261f07e0b994398048f2e2a4676e6e509ef844a0",
+                "reviewed_content_hash": "7074e48888fbe5a5a37fd068570fa1759fe7c84142281e28e6419cae95eaf9f7",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2946cea3adb9b3592cda881636bcc8fc876eed1f86f1c0fe4ae703269fffa3ab",
+                "reviewed_content_hash": "0c5d9454585e03cd665e31ff9c3aa667ef3f2c3f53f64ef0239857d3ae60824d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c3e0cfc2830c33bc479d12101f55799a0b38c59ad41fe805eb07a367c2cd0e17",
+                "reviewed_content_hash": "9179cf23d2b71605d096b87f74018b68e81f35d56886766567b219c4efcb2ee5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1917,6 +1917,100 @@
           {
             "aliases": [],
             "applies_to": null,
+            "contract_hash": "c17aea918a1e9259fa927d616940e68c2b4243b0b96fbb7e8eb5aea8d33c3309",
+            "criterion": "Tieline must account for every catalogued screen as captured or marked not captured with one of a closed set of reasons, must skip marked screens and report selected screens no test tags instead of failing the capture, must report page files no screen claims and acceptance criteria showing screens that no @ac-tagged test linked from them proves, must keep screens that differ between repeated captures out of the committed outputs, and must fail a strict audit while any of these remain.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensCaptureCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3a0668cb555e0e63ee1e6c5d8420a7060556d57f5868a3a873a05ee2f031b2b2",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-audit.ts",
+                  "repository": "tieline",
+                  "selector": "function:screenAuditStrictFailures"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "2bb4902ebc6c527fe19d32c7a48d4c53cca8d3484794488aedb0adcc51fee3ee",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-selection.ts",
+                  "repository": "tieline",
+                  "selector": "function:excludeNotCaptured"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3388d1c73facca419288b52f8a3a6d762d043f329d0c36414f11538b5a463a95",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:scanPageFiles"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "6870d146efb09502fcae2fbda4f6cf9b67fb06c45977e029898de3ef9399f018",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-audit.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "6e64f9e6bae6df554e184b1d77cca403d13c365e78055fc82a2272ea35b4c7d9",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-capture.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 9,
+            "rationale": "Captures are only worth reviewing if every screen a user can reach is either captured from the real app or explicitly excused, and documented UI behavior is proven by a test, so gaps must be visible and gateable rather than silently skipped.",
+            "scenarios": [
+              {
+                "given": "a screen needs a faked response to be reached",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC10-S1",
+                "then": "capture must skip it and the audit must list it with its reason as accounted for",
+                "when": "it is marked not captured with reason needs-real-trigger"
+              },
+              {
+                "given": "a branch adds a page file that no screen's paths claim",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC10-S2",
+                "then": "Tieline must warn about the new page file without changing the exit code",
+                "when": "check runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC10",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
             "contract_hash": "08440ab7c06ded22ac53c76fada6653134a9e0c8a4196adaa8b87fd58112dbde",
             "criterion": "Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.",
             "links": [
@@ -1934,7 +2028,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2946cea3adb9b3592cda881636bcc8fc876eed1f86f1c0fe4ae703269fffa3ab",
+                "reviewed_content_hash": "0c5d9454585e03cd665e31ff9c3aa667ef3f2c3f53f64ef0239857d3ae60824d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1956,7 +2050,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c3e0cfc2830c33bc479d12101f55799a0b38c59ad41fe805eb07a367c2cd0e17",
+                "reviewed_content_hash": "9179cf23d2b71605d096b87f74018b68e81f35d56886766567b219c4efcb2ee5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1980,7 +2074,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "02cd5ee6a0471d7dc18d6c66d46802708399b8270fc4bc4f8560d64ec9824242",
+                "reviewed_content_hash": "8d821aa80ef403132439686b89e9d5dbd346cc84dd8a0367c88f6cc7cddba3fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -1991,7 +2085,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d849a0e82250a9b12c488da465b5a73f7373e10fdcbee0b536d0078f0c1b5a4",
+                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2002,7 +2096,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d849a0e82250a9b12c488da465b5a73f7373e10fdcbee0b536d0078f0c1b5a4",
+                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2013,7 +2107,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c3e0cfc2830c33bc479d12101f55799a0b38c59ad41fe805eb07a367c2cd0e17",
+                "reviewed_content_hash": "9179cf23d2b71605d096b87f74018b68e81f35d56886766567b219c4efcb2ee5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2037,7 +2131,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b1d19aabb6aca103d2415b105118c1db67941a553cfcea090a55d725aa05f8f8",
+                "reviewed_content_hash": "b91d11bed168cdaa7971d9fb03de2326b8d84b700c655a377b0cbc52834e3cbe",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2048,7 +2142,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4295e33014b42b60dbad28f5057aa7ec33b5dc1799a551ae97b17050c6e5337c",
+                "reviewed_content_hash": "a3f3301bf0946c023b0a4dbb0a1e85c52185d9be824108f6b6fdc2cafdde5e03",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2059,7 +2153,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4295e33014b42b60dbad28f5057aa7ec33b5dc1799a551ae97b17050c6e5337c",
+                "reviewed_content_hash": "a3f3301bf0946c023b0a4dbb0a1e85c52185d9be824108f6b6fdc2cafdde5e03",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2070,7 +2164,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "086f2b21c455fb94a388bc2008004aebe36a15b6ec36508f0c868e1b7b9bd343",
+                "reviewed_content_hash": "a6e93fb31f9b4bf43d421c525a7124b43499287e51d527980791fbf703ec087b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2120,7 +2214,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "202b4f08e0ae111027615006ce03bbc18b0199ef27f5159a4a7fd35d7200d007",
+                "reviewed_content_hash": "ecbea20fc1e342784be9a879e149452176a9e676592b7a6b9f9a06c00bcdd604",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -2199,7 +2293,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4295e33014b42b60dbad28f5057aa7ec33b5dc1799a551ae97b17050c6e5337c",
+                "reviewed_content_hash": "a3f3301bf0946c023b0a4dbb0a1e85c52185d9be824108f6b6fdc2cafdde5e03",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2256,7 +2350,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "02cd5ee6a0471d7dc18d6c66d46802708399b8270fc4bc4f8560d64ec9824242",
+                "reviewed_content_hash": "8d821aa80ef403132439686b89e9d5dbd346cc84dd8a0367c88f6cc7cddba3fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -2267,7 +2361,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b1d19aabb6aca103d2415b105118c1db67941a553cfcea090a55d725aa05f8f8",
+                "reviewed_content_hash": "b91d11bed168cdaa7971d9fb03de2326b8d84b700c655a377b0cbc52834e3cbe",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2278,7 +2372,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9a88aa7e62f3527955c45dffa2b14ccb8d4b999b25a754d58a76872bf7eca379",
+                "reviewed_content_hash": "3a0668cb555e0e63ee1e6c5d8420a7060556d57f5868a3a873a05ee2f031b2b2",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-audit.ts",
@@ -2289,7 +2383,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b045de1133b89e2490b7b70303b94ecf236e4ac146d7719c9088c5f463d382f3",
+                "reviewed_content_hash": "3388d1c73facca419288b52f8a3a6d762d043f329d0c36414f11538b5a463a95",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-scenes.ts",
@@ -2311,7 +2405,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "eb32fff74a56feafc1eb8101113eeb67f6e50c00cfa0c0aee9d5b2b23ccb00f9",
+                "reviewed_content_hash": "6870d146efb09502fcae2fbda4f6cf9b67fb06c45977e029898de3ef9399f018",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2350,7 +2444,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "49ab47d33560371cf6a75d13868ce02673e96a7e8ad85b57da495197bf96ca01",
+                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2361,7 +2455,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "49ab47d33560371cf6a75d13868ce02673e96a7e8ad85b57da495197bf96ca01",
+                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2372,7 +2466,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b82a636c98aae36d33a544bd231675e4bf77898ace0eaf4aa2ff33622b24dc7a",
+                "reviewed_content_hash": "2bb4902ebc6c527fe19d32c7a48d4c53cca8d3484794488aedb0adcc51fee3ee",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-selection.ts",
@@ -2383,7 +2477,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b82a636c98aae36d33a544bd231675e4bf77898ace0eaf4aa2ff33622b24dc7a",
+                "reviewed_content_hash": "2bb4902ebc6c527fe19d32c7a48d4c53cca8d3484794488aedb0adcc51fee3ee",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-selection.ts",
@@ -2394,7 +2488,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8566d4cc56f81d29ac9c4742c3e53e51b47274211fcf3dcd9edeb4ba930efe07",
+                "reviewed_content_hash": "53118237efcb7d8f1ebb4b6bc910bc5d7fba5b5755c1d25e34c439ad2b2fe7e2",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2433,7 +2527,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "49ab47d33560371cf6a75d13868ce02673e96a7e8ad85b57da495197bf96ca01",
+                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2444,7 +2538,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "49ab47d33560371cf6a75d13868ce02673e96a7e8ad85b57da495197bf96ca01",
+                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2455,7 +2549,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "19d8e0803c5ceb25367b0954d5492e8ed92aa80cbed7cb067422d58711577b1e",
+                "reviewed_content_hash": "42225280e0c63f467b8602c5df69c3e5d2839a1b9101c592c998088f317e4788",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -2466,7 +2560,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "19d8e0803c5ceb25367b0954d5492e8ed92aa80cbed7cb067422d58711577b1e",
+                "reviewed_content_hash": "42225280e0c63f467b8602c5df69c3e5d2839a1b9101c592c998088f317e4788",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -2477,7 +2571,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "19d8e0803c5ceb25367b0954d5492e8ed92aa80cbed7cb067422d58711577b1e",
+                "reviewed_content_hash": "42225280e0c63f467b8602c5df69c3e5d2839a1b9101c592c998088f317e4788",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -2508,7 +2602,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c333e551d12cc6b3d22bfaad568b4feb29310338cde5d108f1b9aa2a6e5dbf03",
+                "reviewed_content_hash": "83091d8e1070602247038431cd0805f8d9daa3d54e2261d53aab06025e5ef9b2",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2519,7 +2613,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "451490ce0921783f78b3e2d4f68376b4e0271807c9692b7b22c12d48441b3efb",
+                "reviewed_content_hash": "6e64f9e6bae6df554e184b1d77cca403d13c365e78055fc82a2272ea35b4c7d9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2590,6 +2684,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "df5ffd3cd12b11d3be61fccb3fabdb08d2047fe955dbc9f460150691ca53002e"
+    "sha256": "0dea2f301b8ecd7dd301027e9eae8f527bb4d4cc523f4eeab0462737a1fcd5b0"
   }
 }

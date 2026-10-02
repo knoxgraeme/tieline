@@ -37,6 +37,7 @@ Add a `screens` block to `.tieline/config.json`:
 | `capture.playwright_config` | Playwright's default | The repository-relative Playwright configuration file capture runs. |
 | `capture.project` | every project | The one Playwright project that captures. Name it when the configuration has several, since each screen is captured at exactly one viewport. |
 | `capture.timeout_minutes` | `30` | Longest a whole capture run may take, from 1 to 240. A run that exceeds it is stopped and writes nothing. |
+| `capture.pages` | not checked | Path patterns for the files that define pages, such as `app/**/page.tsx`; a pattern starting with `!` excludes. A page file no screen's `paths` claims is reported by the [audit](#audit) and by `check`. |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
 when the block is read and are never written back into the file.
@@ -77,6 +78,7 @@ screens:
 | `paths` | no | 20 patterns, 240 chars each | Files that render the screen, usually its page or route file, as repository-relative patterns. Used only to [select screens for capture](#selecting-screens-to-capture); never compiled into the manifest. |
 | `image` | no | | Either `path` or `url`; see below. |
 | `capture` | no | | The capture record; see [Capture outputs](#capture-outputs). Requires an `image` path with its `sha256`. |
+| `not_captured` | no | 500-char `detail` | Why the screen is deliberately not captured: `reason` and `detail`. See [Coverage](#coverage). Never beside a `capture` record. |
 | `scene` | reserved | | Reserved for the script that reaches the screen with another browser driver. Must be omitted. |
 
 Validation also rejects duplicate screen keys anywhere in the catalog, two catalog files for one
@@ -154,18 +156,24 @@ Capture is Playwright-native: a screen's scene is an ordinary Playwright test ta
 
 ```ts
 // e2e/sharing.screens.ts
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { tielineSnapshot } from "tieline/playwright";
 
 test.use({ storageState: "playwright/.auth/viewer.json" });
 
-test("share denied", { tag: "@screen:notes-share-denied" }, async ({ page }) => {
-  await page.goto("/notes/note-seed-1");
-  await page.getByRole("button", { name: "Share" }).click();
-  await page.getByText("Only editors can share this note").waitFor();
+test("viewer cannot share", { tag: ["@ac:SHARING-001-AC1", "@screen:notes-share-denied"] }, async ({ page }) => {
+  await page.goto("/notes/note-seed-1");                                                 // Given
+  await page.getByRole("button", { name: "Share" }).click();                             // When
+  await expect(page.getByRole("alert")).toHaveText("Only editors can share this note");  // Then
   await tielineSnapshot(page, "notes-share-denied");
 });
 ```
+
+Where a screen shows an acceptance criterion, write its scene as that criterion's test: the
+**Given** is the data and login, the **When** the actions, and the **Then** ordinary Playwright
+assertions, followed by the capture. Tag it `@ac:<key>` as well, and link the file from the
+criterion's `tests` links. The test then proves the behavior, records how it looks and reads,
+and ties both to the criterion; the [audit](#audit) checks that they line up.
 
 `@playwright/test` 1.49 or later is an optional peer dependency: the app installs it, and Tieline
 loads it only when capturing. Playwright's default `testMatch` covers `*.spec.*` and `*.test.*`
@@ -192,18 +200,29 @@ tieline screens capture --changed --base origin/main --verify
 ```
 
 `capture` runs `@playwright/test` from the repository's own `node_modules`, with a `--grep`
-over the selected tags and Tieline's reporter, and with its output on stderr so `--json` stays
-parseable. When every selected screen was captured exactly once by a passing test, it writes
+naming each selected screen's tag and Tieline's reporter, and with its output on stderr so
+`--json` stays parseable. A very large selection is split into several runs to keep the command
+line bounded. Selected screens that are marked [not captured](#coverage) are skipped and listed,
+and selected screens no test tags are listed as **not covered** instead of failing the run, so
+coverage can grow screen by screen; `--screen <key>` always runs the screen it names. When every
+screen it ran was captured exactly once by a passing test, it writes
 each screenshot as `<key>.png` in the captures directory, each ARIA snapshot to the text
 directory, and each screen's `image` and `capture` fields, editing the catalog in place so
 comments survive. It deletes ARIA snapshots of screens the catalog no longer has. Then compile
 and commit as after an import.
 
 **Visual differences never fail a test; operational failures always fail the capture.** A failed
-or timed-out test, a run error, a selected screen no passing test captured, a screen captured
+or timed-out test, a run error, a tagged screen no passing test captured, a screen captured
 by more than one test or project, a file that is not what the fixture writes, a timeout, or
 Ctrl-C writes nothing. Everything Playwright produces is treated as untrusted: the run record
-and each file are size-bounded and schema-checked, and every screenshot is re-hashed.
+and each file are size-bounded and schema-checked, and every screenshot is re-hashed. The
+catalog and ARIA snapshots are written under the same lock as `tieline screens import`, and
+only if no catalog file changed while Playwright ran.
+
+`--repeat <n>` (up to 5) captures every screen n times and keeps only the screens every run
+captured identically. A screen that differs is **unstable**: it is not written, the command exits
+1, and the screen is listed so it can be fixed or marked `not_captured` with reason `unstable`.
+Use it when backfilling a whole catalog.
 
 ### Verify
 
@@ -218,11 +237,18 @@ command that fixes it:
 | screenshot differs | same environment, different pixels |
 | ARIA snapshot differs | the committed snapshot or its recorded digest differs from the fresh one |
 | captured by a different test | the scene moved to another file |
+| differed between runs | with `--repeat`, the screen was not captured identically each time |
 
-ARIA snapshots of screens the catalog no longer has also fail verification. Run
-`capture --changed --verify` as a required pull-request check so a pull request cannot merge with
-stale screen outputs; see [the GitHub Actions example](examples/screens-verify.yml). It needs
-no credentials.
+ARIA snapshots of screens the catalog no longer has also fail verification. Screens that are not
+covered or marked not captured are listed but do not fail it; the
+[strict audit](#audit) is the coverage gate.
+
+**Run `capture --all --verify` as a required pull-request check.** Re-checking every covered
+screen, rather than the ones selection predicts, is what guarantees that every change to a
+covered screen is caught: impact is observed, not predicted, so a change in server code, data,
+translations, or a dependency is caught as surely as one in a page's own file. Selection
+(`--changed`) remains for fast local runs and to explain why a screen changed. See
+[the GitHub Actions example](examples/screens-verify.yml); it needs no credentials.
 
 ### A pinned capture environment
 
@@ -291,20 +317,78 @@ The audit lists what incremental capture cannot find, without capturing anything
 - `@screen:` tags that name no catalogued screen;
 - screens captured in more than one environment, whose digests are never compared.
 
-Tests are found by reading their `@screen:<key>` tags as text, not by running Playwright, so a
-tag must be written literally to be found. The scan reads tracked and untracked test files that
+It also checks coverage beyond the catalog:
+
+- screens marked **not captured**, listed with their reasons and counted as accounted for;
+- **page files** matching `capture.pages` that no screen's `paths` claims;
+- acceptance criteria that show screens but that no test tags `@ac:<key>` (**untested**), that
+  are tagged in a test file their `tests` links do not name (**unlinked**), and `@ac:` tags that
+  name no criterion. These are checked against the working-tree contract;
+- scene test files that intercept the page's requests (`page.route`, `routeFromHAR`,
+  `routeWebSocket`), for review. Blocking third-party requests is fine; answering the app's own
+  requests with made-up responses captures a state the real app never produced.
+
+Tests are found by reading their `@screen:<key>` and `@ac:<key>` tags as text, not by running
+Playwright, so a tag must be written literally to be found. The scan reads tracked and untracked test files that
 git does not ignore (see `capture.tests`), never follows symbolic links, and is bounded: at most
 20,000 files, 2 MiB each, and 256 MiB in total. When a bound stops it, the audit says so and does
 not report screens as missing a test. ARIA snapshots are read up to 1 MiB each, from at most
 20,000 snapshot files and 40,000 directory entries, and never through symbolic links.
 
 Findings are a report, not a failure: the command exits 0 unless the catalog is invalid or the
-repository has not opted in.
+repository has not opted in. **`--strict`** makes it a coverage gate: it exits 1 while any screen
+is missing outputs or a test, any ARIA snapshot is mismatched or orphaned, any page file is
+unclaimed, any UI criterion is untested or unlinked, any tag names nothing, or the scans could not
+finish. Turn it on as a required check once a backfill is done, so coverage can only go up.
 
 `tieline screens audit --capture` re-captures every screen and writes the outputs, so every screen
 it reports as updated changed without a branch selecting it: drift the selection rules missed.
 Run it before a release or after a large refactor, and land its outputs in a normal pull request.
 There is no schedule.
+
+## Coverage
+
+Every screen is either **captured** or **marked not captured with a reason**:
+
+```yaml
+  - key: payment-declined
+    title: Card declined
+    route: /billing
+    kind: toast
+    when: The card issuer declines a payment.
+    not_captured:
+      reason: needs-real-trigger
+      detail: The payment sandbox cannot decline a card yet.
+```
+
+| Reason | Use when |
+| --- | --- |
+| `flag-off` | the screen is behind a feature flag that is off in the capture profile |
+| `external` | it is on another site, such as a payment or sign-in provider |
+| `unreachable` | no path in the app leads to it |
+| `needs-real-trigger` | reaching it would mean faking a response, and no seeded data or test-only switch in the app makes it happen for real yet |
+| `unstable` | its capture differs from run to run until it is fixed |
+| `other` | explained in `detail` |
+
+**Captures come from the real app, never from faked responses.** Reach a state with seeded data,
+or with a test-only switch the app honors only in test builds, so the real server code runs.
+When neither exists yet, mark the screen `needs-real-trigger`: that list is the to-do for making
+it capturable. Capture skips screens marked not captured, the audit lists them, and the review
+page shows the reason in place of a picture.
+
+There are two ways to reach full coverage, and they combine:
+
+- **Backfill.** Inventory every state a user can reach — from the acceptance criteria first, then
+  the pages, dialogs, toasts, and errors the code can show — write a scene for each, and run
+  `capture --all --repeat 3`. Review the result once as a whole, then let pull requests carry
+  each change.
+- **As changes come in.** Start from whatever is catalogued. Each pull request adds or updates
+  the screens it touches, and a new screen's first capture becomes its recorded version. The
+  audit shows the remaining gap.
+
+Either way, the pull-request gate is `capture --all --verify` for every covered screen, plus
+`audit --strict` once the backfill is done. `check` warns about the same gaps without failing,
+and names page files a branch added that no screen claims.
 
 ## `shows` links
 

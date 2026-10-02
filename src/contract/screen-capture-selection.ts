@@ -9,6 +9,7 @@ import {
   validateScreenCatalogDocuments,
   type ScreenCatalogDocumentInput,
   type ScreenEntry,
+  type ScreenNotCapturedReason,
   type ScreenSettings,
   type ValidatedScreenCatalog,
 } from "./screen-catalog.js";
@@ -91,14 +92,42 @@ export interface UnavailableSelectionRule {
   detail: string;
 }
 
+/** A screen the rules picked that is marked not captured, so it is skipped. */
+export interface ExcludedScreen {
+  key: string;
+  capability: string;
+  reason: ScreenNotCapturedReason;
+  detail: string;
+}
+
 export interface ScreenSelection {
   scope: ScreenSelectionScope["kind"];
   /** The ref named and the branch point compared with; null unless `changed`. */
   base: { ref: string; commit: string } | null;
   /** Selected screens, by key. */
   screens: SelectedScreen[];
+  /** Screens the scope or rules picked that are marked not captured. */
+  excluded: ExcludedScreen[];
   changed_files: number;
   unavailable: UnavailableSelectionRule[];
+}
+
+/**
+ * Splits off the screens marked not captured: they say why instead of being
+ * captured, so a run never starts their tests.
+ */
+export function excludeNotCaptured(
+  catalog: ValidatedScreenCatalog,
+  screens: readonly SelectedScreen[]
+): { screens: SelectedScreen[]; excluded: ExcludedScreen[] } {
+  const kept: SelectedScreen[] = [];
+  const excluded: ExcludedScreen[] = [];
+  for (const screen of screens) {
+    const marker = catalog.screens.get(screen.key)?.entry.not_captured;
+    if (marker) excluded.push({ key: screen.key, capability: screen.capability, ...marker });
+    else kept.push(screen);
+  }
+  return { screens: kept, excluded };
 }
 
 /**
@@ -361,6 +390,14 @@ export function selectRequestedScreens(
       `The screen catalog has no screen ${unknown.map((key) => `'${key}'`).join(", ")}.`
     );
   }
+  const marked = scope.keys.filter((key) => catalog.screens.get(key)!.entry.not_captured);
+  if (marked.length > 0) {
+    throw new Error(
+      `${marked.map((key) => `'${key}'`).join(", ")} ${marked.length === 1 ? "is" : "are"} marked not captured (${marked
+        .map((key) => catalog.screens.get(key)!.entry.not_captured!.reason)
+        .join(", ")}); remove not_captured from the catalog entry to capture it.`
+    );
+  }
   return selectedScreens(
     catalog,
     new Map(scope.keys.map((key) => [key, new Map([["requested", { rule: "requested" as const }]])]))
@@ -513,10 +550,12 @@ export function selectScreensChangedSince(options: SelectChangedScreensOptions):
     dependents: options.dependents,
     sceneTags: changedSceneTagReader(options.repositoryRoot, options.base.commit),
   });
+  const { screens, excluded } = excludeNotCaptured(options.current, selected.screens);
   return {
     scope: "changed",
     base: options.base,
-    screens: selected.screens,
+    screens,
+    excluded,
     changed_files: changes.length,
     unavailable: [
       ...(base.issues.length > 0
