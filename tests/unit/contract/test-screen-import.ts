@@ -25,6 +25,7 @@ import {
   createCaptureDigester,
   createInValidatedDirectory,
   ensureCapturesIgnored,
+  prepareCapturesIgnore,
   writeScreenImport,
   gitignoreIgnoresEverything,
   NODE_FILE_SYSTEM,
@@ -1170,6 +1171,46 @@ await test("installs only staged copies that still hold what was staged", async 
     /Writing '\.tieline\/screens\/SHARING\.yaml' failed \(the installed file was edited on its way in\); the 2 file\(s\) already written were restored, so the catalog is unchanged\./
   );
   assert.deepEqual(snapshot(late), lateBefore);
+});
+
+await test("removes the directories it made when the captures ignore file cannot be written", () => {
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  const settings = screenSettingsForRepository(ws.root)!;
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens")), false);
+  assert.throws(
+    () =>
+      prepareCapturesIgnore(ws.root, settings, undefined, () => {
+        throw new Error("ENOSPC: no space left on device");
+      }),
+    /^Error: ENOSPC: no space left on device$/
+  );
+  // Both the catalog directory and the captures directory below it were
+  // made for the file, and both are gone again.
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens")), false);
+});
+
+await test("removes a partial restore copy when writing it fails", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const fileSystem = {
+    ...failingRenames([2]),
+    createFileSync: (path: string, content: string) => {
+      if (path.endsWith(".restore")) {
+        // Created, partly written, then the disk fills.
+        writeFileSync(path, content.slice(0, 8), { flag: "wx" });
+        throw new Error("ENOSPC: no space left on device");
+      }
+      NODE_FILE_SYSTEM.createFileSync(path, content);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.deepEqual(error.issues, [".tieline/screens/NOTES.yaml (ENOSPC: no space left on device)"]);
+  }
+  assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml", "SHARING.yaml"], "no partial restore copy is left");
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {

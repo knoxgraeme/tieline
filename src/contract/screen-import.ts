@@ -873,7 +873,20 @@ export function applyScreenImport(
             fileSystem.rmSync(done.absolutePath, { force: true });
           } else {
             const restore = `${done.absolutePath}.${process.pid}.restore`;
-            fileSystem.createFileSync(restore, done.original);
+            try {
+              fileSystem.createFileSync(restore, done.original);
+            } catch (createError) {
+              // A copy this rollback created but could not fill is its own to
+              // remove, as with staged files; one already there is not.
+              if (!alreadyExists(createError)) {
+                try {
+                  fileSystem.rmSync(restore, { force: true });
+                } catch (cleanupError) {
+                  unrestored.push(`${restore} (restore copy left behind: ${message(cleanupError)})`);
+                }
+              }
+              throw createError;
+            }
             try {
               fileSystem.renameSync(restore, done.absolutePath);
             } catch (renameError) {
@@ -1145,10 +1158,12 @@ export function ensureCapturesIgnored(
  * file and any directories made for it — when the import it prepares for is
  * refused, so a refused import leaves nothing behind.
  */
-function prepareCapturesIgnore(
+export function prepareCapturesIgnore(
   repositoryRoot: string,
   settings: ScreenSettings,
-  workspaceDirectory = resolve(repositoryRoot, ".tieline")
+  workspaceDirectory = resolve(repositoryRoot, ".tieline"),
+  /** Writes the ignore file's content; injectable so tests can make it fail. */
+  write?: (descriptor: number, content: string) => void
 ): { status: CapturesIgnoreStatus; undo: () => string[] } {
   const nothing = (status: CapturesIgnoreStatus) => ({ status, undo: (): string[] => [] });
   // Judged, and written, where the directory really resolves: a captures path
@@ -1187,33 +1202,53 @@ function prepareCapturesIgnore(
     return nothing(gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified");
   }
   const firstMade = mkdirSync(directory, { recursive: true });
-  const created = createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE);
+  let created: ReturnType<typeof createInValidatedDirectory>;
+  try {
+    created = createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE, write);
+  } catch (error) {
+    // The directories just made for the file go with it, or a captures
+    // directory inside the catalog could keep the catalog over its bound.
+    const leftovers = removeMadeDirectories(directory, firstMade);
+    if (leftovers.length === 0) throw error;
+    const combined = new ScreenImportError(
+      message(error),
+      leftovers.map((leftover) => `left behind by the captures ignore step: ${leftover}`)
+    );
+    combined.cause = error;
+    throw combined;
+  }
   if (created.status === "exists") return nothing("unverified");
+  const file = created.file;
   return {
     status: "created",
     undo: () => {
       const leftovers: string[] = [];
       try {
-        removeIfSameFile(ignorePath, created.file);
+        removeIfSameFile(ignorePath, file);
       } catch (error) {
         leftovers.push(`${ignorePath} (${message(error)})`);
       }
-      // The directories made for the file, deepest first; one that is no
-      // longer empty is someone else's now and stays.
-      if (firstMade !== undefined) {
-        for (let current = directory; ; current = dirname(current)) {
-          try {
-            rmdirSync(current);
-          } catch (error) {
-            leftovers.push(`${current} (${message(error)})`);
-            break;
-          }
-          if (current === resolve(firstMade)) break;
-        }
-      }
+      leftovers.push(...removeMadeDirectories(directory, firstMade));
       return leftovers;
     },
   };
+}
+
+/**
+ * Removes the directories `mkdirSync(directory, { recursive: true })` made,
+ * deepest first up to `firstMade`; one that is no longer empty is someone
+ * else's now and stays, named in what is returned.
+ */
+function removeMadeDirectories(directory: string, firstMade: string | undefined): string[] {
+  if (firstMade === undefined) return [];
+  for (let current = directory; ; current = dirname(current)) {
+    try {
+      rmdirSync(current);
+    } catch (error) {
+      return [`${current} (${message(error)})`];
+    }
+    if (current === resolve(firstMade)) return [];
+  }
 }
 
 /**
