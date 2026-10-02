@@ -1069,6 +1069,13 @@ capability:
               target:
                 kind: code
                 repository: tieline
+                path: src/contract/bounded-read.ts
+                selector: function:readFileWithin
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
                 path: src/contract/validate.ts
                 selector: function:validateScreenLinks
             - relation: tests

@@ -1917,9 +1917,20 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b2df30968038e074e3ecf37cbc35c585f13e3753b98486e5ae3e684687f2e4ca",
+            "contract_hash": "08440ab7c06ded22ac53c76fada6653134a9e0c8a4196adaa8b87fd58112dbde",
             "criterion": "Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.",
             "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "dced87ca353eb07180d544cf04372bef0fa3085bbb384c965c1968d8f7b60505",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/bounded-read.ts",
+                  "repository": "tieline",
+                  "selector": "function:readFileWithin"
+                }
+              },
               {
                 "provenance": "authored",
                 "relation": "implements",
@@ -2245,6 +2256,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "a74d383dda4ee4a212218ebe89c56b8c8b83fb07efce45897e9f0d3b0f1b3740"
+    "sha256": "2aca191169253441f7eff515f4b68f82313f6644ec725914200f51a908a1bd16"
   }
 }
