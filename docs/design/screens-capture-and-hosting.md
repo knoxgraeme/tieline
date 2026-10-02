@@ -2,11 +2,14 @@
 
 [Screens](../screens.md) · **Capture and hosted review (proposal)**
 
-**Status: proposal for review. Nothing on this page is implemented.** What exists today — the
-catalog, `shows` links, `tieline screens import`, the Screens view, and
-`tieline contract review --base` — is documented in [Screens](../screens.md). This page proposes
-how screenshots get produced for any app, and how a team can review them together, so that the
-later phases can be reviewed before any database, role, or hosting change is built.
+**Status: proposal for review. Capture (sections 1 to 4, step 2 of the
+[proposed order](#8-proposed-order)) is implemented; history and hosted review are not.** What
+exists today — the catalog, `shows` links, `tieline screens import`, the Screens view,
+`tieline contract review --base`, `tieline screens capture`, and `tieline screens audit` — is
+documented in [Screens](../screens.md), and [how capture was built](#how-capture-was-built)
+records where it refines this proposal. This page proposes how screenshots get produced for any
+app, and how a team can review them together, so that the later phases can be reviewed before
+any database, role, or hosting change is built.
 
 ## Goals
 
@@ -85,7 +88,7 @@ records the ARIA snapshot, and hands both to the reporter.
   keeps `main`'s digest.
 
 Plain pages need no hand-written test: a `screensFromCatalog()` helper generates one navigation
-test per `page` entry, filling route parameters from a small fixtures map.
+test per `page` entry, filling route parameters from a small fixtures map. (Not built yet.)
 
 ### Three ways to adopt, lowest effort first
 
@@ -122,7 +125,7 @@ the screens a branch may have affected, chosen by these rules in order:
 
 1. screens whose catalog entry or scene test changed in the diff;
 2. screens shown by acceptance criteria whose linked code or tests changed (contract coupling);
-3. screens owned by changed files, through optional path globs per catalog group;
+3. screens owned by changed files, through optional path globs per catalog entry (`paths`);
 4. screens owned by dependents of changed files, through the existing code-topology blast radius,
    so a change to a shared component reaches the pages that use it;
 5. everything, when a configured global path changed (theme, layout, global styles, translations).
@@ -333,12 +336,46 @@ implementing agent, as `AGENTS.md` requires.
 
 1. Done in this change: catalog, `shows` links, import, Screens view, `--base` changes, image
    digests, and branch-point comparisons for every `--base` command.
-2. Capture: the Playwright fixture and reporter, `capture --all`, `--changed`, and `--verify` with
-   selection reasons, committed ARIA snapshots, capture records, and `screens audit`.
+2. Done: capture. The Playwright fixture and reporter, `capture --all`, `--changed`, and
+   `--verify` with selection reasons, committed ARIA snapshots, capture records, and
+   `screens audit`.
 3. Offline history: "last changed by" from git.
 4. Hosted: review of this design, then the migration and roles, `publish`, the core handler and
    Netlify adapter, the sync of accepted screen state, and the pull-request comment.
 5. More hosts and image stores as teams need them.
+
+## How capture was built
+
+Step 2 follows sections 1 to 4, with these refinements found while building it:
+
+- **Path ownership is per screen, not per group.** Each catalog entry may list `paths`: the files
+  that render it, usually one page or route file. A group is a display label, so keying ownership
+  off it would break when a heading is reworded and leave ungrouped screens unowned. Shared
+  components need no listing: the dependency rule follows them through the code-topology blast
+  radius to the page files that import them. `paths` is used only for selection and stays out of
+  the manifest and the contract hash.
+- **A sixth selection rule, `outputs`.** A screen whose committed digest, capture record, or ARIA
+  snapshot changed on the branch is always selected, so `--verify` re-captures every output a
+  pull request touches and a hand-edited digest cannot pass.
+- **New files count.** `--changed` adds untracked files git does not ignore to the branch's
+  changes, since a developer capturing locally often has not added them yet. `tieline check` is
+  unchanged.
+- **The capture record also names the scene's test file** (`capture.test`), tying each screenshot
+  to the test that produced it as well as to its screen, Stories, and ACs.
+- **The frozen clock is not in the fingerprint.** Whether and when a test froze `page.clock` is
+  not observable from the page, and recording the live time would change the fingerprint on every
+  run. A scene that shows the time must freeze it; otherwise verification reports the screenshot as
+  changed, which is the honest result.
+- **`check` and `audit` find `@screen` tests by reading tags as text**, bounded, without loading
+  the app's Playwright configuration or running repository code; the capture run itself is the
+  authority on which test captured which screen. A tag must be written literally to be found.
+- **`--verify` writes nothing**, not even git-ignored screenshots.
+- **The fixture and reporter are CommonJS** (`tieline/playwright`), so they load in test projects
+  Playwright compiles to CommonJS on every Node version Tieline supports, as well as in ESM
+  projects. Tieline's package gained an `exports` map for that subpath; every existing file path
+  stays importable.
+- **Not built yet:** `screensFromCatalog()`, which would generate navigation tests for plain
+  pages, and Tieline-drafted scene files. Both remain proposals.
 
 ## How this compares to existing tools
 

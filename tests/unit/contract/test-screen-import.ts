@@ -217,7 +217,9 @@ screens:
     title: Landing
     route: /
     kind: page
-    when: A member signs in.
+    when: A member signs in with a work account and lands on the notes they most recently opened.
+    applies_to:
+      role: [member, admin]
   - key: a
     title: Old title
     route: /notes
@@ -230,6 +232,11 @@ screens:
   assert.match(text, /# Reviewed by the design team\./);
   assert.match(text, /# The landing page\.\n {2}- key: landing\n {4}title: Landing/);
   assert.match(text, /title: Screen a/);
+  // Untouched entries keep their long lines and flow sequences as written.
+  assert.match(
+    text,
+    / {4}when: A member signs in with a work account and lands on the notes they most recently opened\.\n {4}applies_to:\n {6}role: \[member, admin\]\n/
+  );
 });
 
 await test("moves a screen whose capability changed instead of duplicating it", async () => {

@@ -135,11 +135,19 @@ const screensPathPatternSchema = z
  * `*.screens.ts`, and their JavaScript forms) are read. `global_paths` names
  * files whose change may affect every screen (themes, layouts, global styles,
  * translations), so a branch that touches one re-captures them all.
+ * `playwright_config` and `project` choose the Playwright configuration file
+ * and the one project that captures (one viewport per screen), and
+ * `timeout_minutes` bounds a whole capture run.
  */
 const screensCaptureConfigSchema = z
   .object({
     tests: z.array(screensPathPatternSchema).min(1).max(50).optional(),
     global_paths: z.array(screensPathPatternSchema).max(50).optional(),
+    playwright_config: screensPathPatternSchema
+      .refine((value) => !value.includes("*"), "must name a file, not a pattern")
+      .optional(),
+    project: z.string().trim().min(1).max(120).optional(),
+    timeout_minutes: z.number().int().min(1).max(240).optional(),
   })
   .strict();
 
@@ -164,7 +172,15 @@ export interface ScreensCaptureConfig {
   tests: string[] | null;
   /** Path patterns whose change selects every screen for capture. */
   global_paths: string[];
+  /** Repository-relative Playwright configuration; null lets Playwright find it. */
+  playwright_config: string | null;
+  /** The Playwright project that captures; null runs the configuration's projects. */
+  project: string | null;
+  /** Longest a capture run may take before it is stopped. */
+  timeout_minutes: number;
 }
+
+export const DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES = 30;
 
 export interface ScreensConfig {
   /** Catalog directory relative to `.tieline/`. */
@@ -208,6 +224,10 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
     capture: {
       tests: parsed.data.capture?.tests ?? null,
       global_paths: parsed.data.capture?.global_paths ?? [],
+      playwright_config: parsed.data.capture?.playwright_config ?? null,
+      project: parsed.data.capture?.project ?? null,
+      timeout_minutes:
+        parsed.data.capture?.timeout_minutes ?? DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES,
     },
   };
 }

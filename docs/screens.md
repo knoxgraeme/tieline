@@ -12,8 +12,8 @@ exactly as it did before the feature existed, and Tieline never reads its screen
 directory.
 
 This page describes the catalog, `shows` links, `tieline check` validation, the importer, the
-review page, committed capture outputs, and `tieline screens audit`. Capturing screenshots, PR
-summaries of changed screens, and database sync come later; see
+review page, capturing screens with Playwright, and `tieline screens audit`. PR summaries of
+changed screens, history, and hosted review come later; see
 [What comes later](#what-comes-later).
 
 ## Opt in
@@ -34,6 +34,9 @@ Add a `screens` block to `.tieline/config.json`:
 | `text_directory` | `"screen-text"` | Committed ARIA snapshots, relative to `.tieline/`. Must stay inside `.tieline/`, judged by where symbolic links really lead, apart from the catalog and outside the git-ignored captures directory. |
 | `capture.tests` | Playwright naming | Path patterns (`*` within a segment, `**` across) for the test files whose `@screen:<key>` tags link screens to the tests that capture them. When omitted, files named `*.spec.*`, `*.test.*`, or `*.screens.*` with a JavaScript or TypeScript extension are read. |
 | `capture.global_paths` | none | Path patterns for files whose change may affect every screen (themes, layouts, global styles, translations). A branch that changes one selects every screen for capture. |
+| `capture.playwright_config` | Playwright's default | The repository-relative Playwright configuration file capture runs. |
+| `capture.project` | every project | The one Playwright project that captures. Name it when the configuration has several, since each screen is captured at exactly one viewport. |
+| `capture.timeout_minutes` | `30` | Longest a whole capture run may take, from 1 to 240. A run that exceeds it is stopped and writes nothing. |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
 when the block is read and are never written back into the file.
@@ -142,6 +145,103 @@ The capture record is compiled into the manifest beside `image`, and like `image
 contributes to the screen's `contract_hash`. Screens without one compile to the same bytes as
 before.
 
+## Capture with Playwright
+
+Capture is Playwright-native: a screen's scene is an ordinary Playwright test tagged
+`@screen:<key>` that calls `tielineSnapshot`. The app keeps its own Playwright configuration,
+`webServer`, logins, and seeding.
+
+```ts
+// e2e/sharing.screens.ts
+import { test } from "@playwright/test";
+import { tielineSnapshot } from "tieline/playwright";
+
+test.use({ storageState: "playwright/.auth/viewer.json" });
+
+test("share denied", { tag: "@screen:notes-share-denied" }, async ({ page }) => {
+  await page.goto("/notes/note-seed-1");
+  await page.getByRole("button", { name: "Share" }).click();
+  await page.getByText("Only editors can share this note").waitFor();
+  await tielineSnapshot(page, "notes-share-denied");
+});
+```
+
+`@playwright/test` 1.49 or later is an optional peer dependency: the app installs it, and Tieline
+loads it only when capturing. Playwright's default `testMatch` covers `*.spec.*` and `*.test.*`
+files, so add `"**/*.screens.ts"` to it if scenes live in `*.screens.ts` files, or add
+`tielineSnapshot` calls to existing tests. One test may capture several screens.
+
+`tielineSnapshot(page, key, { mask, fullPage })`:
+
+- fails the test when it is not tagged `@screen:<key>`, on every run;
+- does nothing else outside a `tieline screens capture` run, or when the run did not select the
+  key, so calls in ordinary end-to-end tests cost nothing;
+- waits for the page's load event and web fonts, then screenshots with animations disabled and
+  the caret hidden until two screenshots in a row are identical, at most five, and otherwise
+  fails with "did not settle";
+- records the ARIA snapshot of the page body and the rendering settings the page reports
+  (viewport, pixel density, color scheme, motion, forced colors, contrast, locale, timezone,
+  touch), plus the masks.
+
+```bash
+tieline screens capture --all                          # initial coverage capture
+tieline screens capture --changed --base origin/main   # what this branch may have changed
+tieline screens capture --screen notes-share-denied    # one screen while working on it
+tieline screens capture --changed --base origin/main --verify
+```
+
+`capture` runs `@playwright/test` from the repository's own `node_modules`, with a `--grep`
+over the selected tags and Tieline's reporter, and with its output on stderr so `--json` stays
+parseable. When every selected screen was captured exactly once by a passing test, it writes
+each screenshot as `<key>.png` in the captures directory, each ARIA snapshot to the text
+directory, and each screen's `image` and `capture` fields, editing the catalog in place so
+comments survive. It deletes ARIA snapshots of screens the catalog no longer has. Then compile
+and commit as after an import.
+
+**Visual differences never fail a test; operational failures always fail the capture.** A failed
+or timed-out test, a run error, a selected screen no passing test captured, a screen captured
+by more than one test or project, a file that is not what the fixture writes, a timeout, or
+Ctrl-C writes nothing. Everything Playwright produces is treated as untrusted: the run record
+and each file are size-bounded and schema-checked, and every screenshot is re-hashed.
+
+### Verify
+
+`--verify` captures into a temporary directory, compares each selected screen with what the
+branch commits, writes nothing, and exits 1 on any difference, naming each screen and the
+command that fixes it:
+
+| Cause | Meaning |
+| --- | --- |
+| no committed capture | the screen has no capture record yet |
+| captured in a different environment | the fingerprints differ, so the digests are not compared; re-capture in the pinned environment |
+| screenshot differs | same environment, different pixels |
+| ARIA snapshot differs | the committed snapshot or its recorded digest differs from the fresh one |
+| captured by a different test | the scene moved to another file |
+
+ARIA snapshots of screens the catalog no longer has also fail verification. Run
+`capture --changed --verify` as a required pull-request check so a pull request cannot merge with
+stale screen outputs; see [the GitHub Actions example](examples/screens-verify.yml). It needs
+no credentials.
+
+### A pinned capture environment
+
+Digests are exact, so the captures that count are made in the official Playwright Docker image
+at the version the app pins, in CI and locally:
+
+```bash
+docker run --rm -v "$PWD":/work -w /work \
+  -e TIELINE_CAPTURE_IMAGE=mcr.microsoft.com/playwright:v1.63.0-noble \
+  mcr.microsoft.com/playwright:v1.63.0-noble \
+  sh -c 'npm ci && npx tieline screens capture --changed --base origin/main'
+```
+
+The fingerprint covers the Playwright and browser versions, the page settings above, masks, the
+platform, the installed fonts (when `fc-list` can list them), and `TIELINE_CAPTURE_IMAGE` when
+set. Tieline cannot see whether a test froze the page's clock, so a scene that shows the time
+must freeze it with `page.clock.setFixedTime(…)`; otherwise verification reports its screenshot
+as changed. `capture` notes when it wrote captures from a different environment than the rest
+of the catalog.
+
 ## Selecting screens to capture
 
 ```bash
@@ -171,7 +271,8 @@ file, or a branch-point catalog that could not be read within the catalog's boun
 then treated as added).
 Each screen lists at most 10 reasons and counts the rest.
 
-`--dry-run` reports the selection without capturing; `--json` adds machine-readable output.
+`--dry-run` reports the selection without capturing or starting Playwright; `--json` adds
+machine-readable output.
 
 ## Audit
 
@@ -198,6 +299,11 @@ not report screens as missing a test. ARIA snapshots are read up to 1 MiB each, 
 
 Findings are a report, not a failure: the command exits 0 unless the catalog is invalid or the
 repository has not opted in.
+
+`tieline screens audit --capture` re-captures every screen and writes the outputs, so every screen
+it reports as updated changed without a branch selecting it: drift the selection rules missed.
+Run it before a release or after a large refactor, and land its outputs in a normal pull request.
+There is no schedule.
 
 ## `shows` links
 
@@ -312,7 +418,7 @@ Merging is by key, so re-importing the same file changes nothing and never dupli
 For an existing key, required fields are replaced, an omitted optional field keeps its catalog
 value, and `null` removes it. A key that moves to another capability is moved between files.
 Files whose entries did not change are not rewritten, and comments outside replaced entries are
-preserved.
+preserved, as are the line breaks and flow sequences (such as `[viewer]`) of untouched entries.
 
 Entries are never deleted unless `--prune` is passed. With `--prune`, catalog entries absent from
 the file are removed, but only within the capabilities the file names, so importing one area of
@@ -380,16 +486,11 @@ context reads and MCP tools likewise give the answers they did before; only the 
 
 ## What comes later
 
-These phases are planned and not implemented. The phase 1 format is designed to accommodate them.
-[Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work,
-for review before anything is built:
+These phases are planned and not implemented.
+[Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work:
 
-1. **Capture.** A `tieline screens capture` command with Playwright as an optional peer
-   dependency, driven by the app's own Playwright tests tagged per screen, producing committed
-   ARIA snapshots for copy review and capture records (the reserved `capture` field) that `check`
-   compares. The reserved `scene` field stays available for other browser drivers.
-2. **Pull-request flow.** Re-capture only affected screens, compare with the accepted
-   fingerprints on the base branch, flag new routes without screens, and summarize changed, new,
-   and removed screens beside changed Stories.
+1. **History.** "Last changed in #71" for Stories, ACs, and screens, derived offline from git.
+2. **Hosted review.** One deployed site for `main` and every pull request, publishing from a
+   trusted CI job, with screenshots in the team's own bucket and a pull-request comment.
 3. **Database and agents.** Sync catalogs, links, and fingerprints to Postgres and add MCP tools
    such as "screens for this AC".

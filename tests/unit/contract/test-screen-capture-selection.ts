@@ -357,11 +357,15 @@ await test("reads a deleted scene test's tags from the branch point", () => {
 
 console.log("screens selection: capture --dry-run");
 
-const NO_TOPOLOGY: ScreensCaptureDependencies = {
-  async dependents() {
-    return { status: "unavailable", detail: "no topology in this test" };
-  },
-};
+/** A dry run selects only: anything that would start Playwright fails the test. */
+function selectionOnly(dependents: ScreensCaptureDependencies["dependents"]): ScreensCaptureDependencies {
+  const refuse = (): never => {
+    throw new Error("a dry run must not start Playwright");
+  };
+  return { dependents, playwright: refuse, environment: refuse, run: refuse };
+}
+
+const NO_TOPOLOGY = selectionOnly(async () => ({ status: "unavailable", detail: "no topology in this test" }));
 
 async function dryRun(
   ws: ScreensWorkspace,
@@ -397,12 +401,14 @@ await test("reports the selection for a branch with each reason, from where it l
   ws.write("e2e/notes.screens.ts", 'test("list", { tag: "@screen:notes-list" }, async () => {});\n');
   ws.write("src/notes.ts", "export const notes: string[] = ['changed'];\n");
   const seen: unknown[] = [];
-  const result = await dryRun(ws, ["--changed", "--base", "HEAD"], {
-    async dependents(input) {
+  const result = await dryRun(
+    ws,
+    ["--changed", "--base", "HEAD"],
+    selectionOnly(async (input) => {
       seen.push(input);
       return { status: "complete", files: [{ path: "src/pages/notes-list.tsx", from: "src/notes.ts" }], truncated: false };
-    },
-  });
+    })
+  );
   assert.deepEqual(seen, [{ repositoryRoot: ws.root, repositoryKey: REPO_KEY, base: baseCommit }]);
   const selection = result.selection as { base: unknown; changed_files: number; screens: Array<{ key: string; reasons: unknown[] }>; unavailable: unknown[] };
   assert.deepEqual(selection.base, { ref: "HEAD", commit: baseCommit });
@@ -463,10 +469,6 @@ await test("reports --all and --screen selections and validates the scope", asyn
       JSON.stringify(options)
     );
   }
-  await assert.rejects(
-    () => runScreensCaptureCommand({ all: true, repository: ws.root }, capture.io, NO_TOPOLOGY),
-    /not available in this build yet; pass --dry-run/
-  );
 });
 
 await test("refuses a repository that has not opted in or whose catalog is invalid", async () => {
@@ -502,7 +504,7 @@ await test("follows a changed shared component through the real code topology to
   ws.commit("baseline");
   ws.write("src/components/button.ts", "export function button(label: string): string {\n  return `<button class=\"primary\">${label}</button>`;\n}\n");
   // A stale topology is reported, not mistaken for "nothing depends on it".
-  const stale = await dryRun(ws, ["--changed", "--base", "HEAD"], { dependents: topologyDependents });
+  const stale = await dryRun(ws, ["--changed", "--base", "HEAD"], selectionOnly(topologyDependents));
   const staleSelection = stale.selection as { screens: unknown[]; unavailable: Array<{ rule: string; detail: string }> };
   assert.deepEqual(staleSelection.screens, []);
   assert.equal(staleSelection.unavailable[0]!.rule, "dependency");

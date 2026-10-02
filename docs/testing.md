@@ -28,6 +28,15 @@ npm run check
 
 During focused work, run the narrowest relevant `npm run test:*` command, then run `npm run check` before handoff. Use `npm run check:generated-artifacts` whenever authored specs or generated artifacts change.
 
+## Browser test for screen capture
+
+`npm run test:screens:browser` builds Tieline and captures a synthetic Acme Notes app
+(`tests/fixtures/screens-browser/`) with real Playwright and Chromium, in a CommonJS and an ESM
+test project. It needs a browser, so it is opt-in and not part of `npm run check`: run
+`npx playwright install chromium` first, or run it in the official Playwright Docker image at the
+version `package.json` pins. Set `TIELINE_BROWSER_CHANNEL=chrome` to use an installed Chrome
+instead. The canonical suite covers capture with fakes and needs no browser.
+
 ## Disposable database guard
 
 `npm run test:integration` and the other database-writing integration commands require guarded, disposable test credentials and a verified test-only database target. Never point them at a development, staging, or production `DATABASE_URL`. The ordinary offline suite does not need production credentials.
