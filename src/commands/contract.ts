@@ -274,6 +274,9 @@ async function runGrade(
  * manifest configured elsewhere is refused: treating it as absent would grade
  * the whole contract as newly claimed, which is a fabricated scope.
  */
+/** The most a single base manifest file may hold: the screen catalog's total bound. */
+const MANIFEST_SNAPSHOT_FILE_BYTES = 64 * 1024 * 1024;
+
 function manifestAtBase(
   repositoryRoot: string,
   base: string,
@@ -308,6 +311,9 @@ function manifestAtBase(
       content: execFileSync("git", ["show", `${base}:${name}`], {
         cwd: repositoryRoot,
         encoding: "utf8",
+        // A shard holds a capability's whole screen catalog, so it may be far
+        // larger than the default 1 MiB; bounded by the catalog's own total.
+        maxBuffer: MANIFEST_SNAPSHOT_FILE_BYTES,
       }),
     })),
     `ref '${base}'`
@@ -317,11 +323,13 @@ function manifestAtBase(
 /**
  * Where the manifest lived at `commit`: that revision's own configured
  * `files.manifest`, so a branch that moved the manifest still compares with
- * the base's. The current location is used when the commit has no workspace
- * configuration at that path, or one that does not parse or name a manifest.
+ * the base's. A commit without a usable workspace configuration there (none,
+ * one that does not parse, or one naming no manifest) kept it where Tieline
+ * does by default, `.tieline/manifest`.
  */
 function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): string {
   if (parsed.configPath === undefined) return parsed.manifestPath;
+  const defaultPath = resolve(parsed.repositoryRoot, ".tieline/manifest");
   const configPath = relative(parsed.repositoryRoot, parsed.configPath).split(sep).join("/");
   const object = `${commit}:${configPath}`;
   try {
@@ -331,7 +339,7 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
     });
   } catch {
     // Not in that commit: the base predates this workspace configuration.
-    return parsed.manifestPath;
+    return defaultPath;
   }
   const text = execFileSync("git", ["show", object], {
     cwd: parsed.repositoryRoot,
@@ -341,12 +349,12 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
   try {
     config = JSON.parse(text);
   } catch {
-    return parsed.manifestPath;
+    return defaultPath;
   }
   const manifest = (config as { files?: { manifest?: unknown } } | null)?.files?.manifest;
   return typeof manifest === "string" && manifest.length > 0
     ? resolve(dirname(parsed.configPath), manifest)
-    : parsed.manifestPath;
+    : defaultPath;
 }
 
 /**

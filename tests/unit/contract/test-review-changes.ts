@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { Script } from "node:vm";
@@ -356,6 +356,44 @@ await test("reads the base manifest where the base kept it, and only its own fil
   capture.reset();
   assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
   assert.deepEqual(JSON.parse(capture.output()).changes, sameContract);
+});
+
+await test("reads a base that predates the workspace configuration from the default location", async () => {
+  const ws = branchWorkspace(false);
+  const configPath = resolve(ws.root, ".tieline/config.json");
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+  rmSync(configPath);
+  assert.equal(await runCli(["contract", "compile", ws.root, "--repo", REPO_KEY], captureIO().io, {}), 0);
+  ws.commit("base without workspace configuration");
+  // The branch adds configuration that keeps the manifest elsewhere.
+  config.files.manifest = "compiled";
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  rmSync(resolve(ws.root, ".tieline/manifest"), { recursive: true, force: true });
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  const changes = JSON.parse(capture.output()).changes;
+  assert.equal(changes.base_has_manifest, true);
+  assert.deepEqual(changes.stories, { added: 0, changed: 0, removed: 0 });
+  assert.deepEqual(changes.acceptance_criteria, { added: 0, changed: 0, removed: 0 });
+});
+
+await test("reads a base manifest shard larger than git's default output buffer", async () => {
+  const ws = branchWorkspace(true);
+  // About 2,000 screens make the NOTES shard well over 1 MiB.
+  const when = `A member reaches this state. ${"x".repeat(420)}`;
+  const screens = Array.from({ length: 2000 }, (_, index) =>
+    `  - key: bulk-${index}\n    title: Bulk screen ${index}\n    route: /bulk/${index}\n    kind: state\n    when: ${when}\n`
+  ).join("");
+  ws.write(".tieline/screens/NOTES.yaml", `${notesCatalog({ toastTitle: "Note saved", listDigest: DIGEST_A, withEmpty: true })}${screens}`);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  assert.ok(statSync(resolve(ws.root, ".tieline/manifest/NOTES.json")).size > 1024 * 1024);
+  ws.commit("large base");
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  const changes = JSON.parse(capture.output()).changes;
+  assert.equal(changes.base_has_manifest, true);
+  assert.deepEqual(changes.screens, { added: 0, changed: 0, removed: 0 });
 });
 
 await test("compares against a git ref from the CLI and explains when it cannot", async () => {
