@@ -34,6 +34,7 @@ import {
 } from "../../support/screen-fixtures.js";
 import {
   readScreenCatalogSources,
+  SCREEN_LIMITS,
   screenSettingsForRepository,
   validateScreenCatalogDocuments,
 } from "../../../src/contract/screen-catalog.js";
@@ -457,6 +458,35 @@ await test("never reads screenshots of entries skipped for an unknown capability
   assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
 });
 
+await test("refuses an import that would take the catalog past its file or byte bounds", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a")]);
+  const notesBytes = Buffer.byteLength(catalog(ws, "NOTES"));
+  const fileBytes = SCREEN_LIMITS.catalogFileBytes;
+  const addsSharing = [screen("b", { capability: "SHARING" })];
+  const sharingBytes = Buffer.byteLength(
+    planImport(ws, addsSharing).files.find((file) => file.path.endsWith("SHARING.yaml"))!.content
+  );
+
+  // One file more than the walk allows: a new capability file.
+  assert.throws(
+    () => planImport(ws, addsSharing, { files: 1, fileBytes, totalBytes: 1_000_000 }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === "the catalog would hold 2 files; the limit is 1"
+  );
+  // One byte more than the walk allows, across files.
+  const total = notesBytes + sharingBytes;
+  assert.throws(
+    () => planImport(ws, addsSharing, { files: 2, fileBytes, totalBytes: total - 1 }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === `the catalog would hold ${total} bytes; the limit is ${total - 1}`
+  );
+  // Exactly at both bounds is fine.
+  assert.equal(planImport(ws, addsSharing, { files: 2, fileBytes, totalBytes: total }).files.length, 2);
+});
+
 await test("refuses an import that would write an oversized catalog file", async () => {
   const ws = workspace();
   const copy = Array.from({ length: 50 }, (_, index) => `${index} ${"c".repeat(480)}`);
@@ -538,7 +568,11 @@ function moveBetweenCatalogs(ws: ScreensWorkspace) {
   return planImport(ws, [screen("a", { capability: "SHARING" })]);
 }
 
-function planImport(ws: ScreensWorkspace, entries: unknown[]) {
+function planImport(
+  ws: ScreensWorkspace,
+  entries: unknown[],
+  catalogLimits?: Parameters<typeof planScreenImport>[2]["catalogLimits"]
+) {
   const settings = screenSettingsForRepository(ws.root)!;
   const read = readScreenCatalogSources(ws.root, settings);
   const issues: string[] = [];
@@ -554,6 +588,7 @@ function planImport(ws: ScreensWorkspace, entries: unknown[]) {
       capabilityKeys: new Set(["NOTES", "SHARING"]),
       prune: false,
       skipUnknownCapabilities: false,
+      ...(catalogLimits ? { catalogLimits } : {}),
     }
   );
 }

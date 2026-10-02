@@ -198,7 +198,8 @@ The input is treated as untrusted:
   index and key;
 - duplicate keys in the file are rejected;
 - nothing is written unless the whole import, merged with the existing catalog, validates —
-  including every catalog file staying within the 4 MiB limit;
+  including every catalog file staying within the 4 MiB limit, and the catalog as a whole within
+  1,000 files and 64 MiB;
 - writing is all-or-nothing across catalog files: every file is staged first, and if replacing one
   fails, the files already replaced are restored (the error names any that could not be, to
   restore from git);

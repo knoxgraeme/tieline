@@ -28,6 +28,7 @@ import {
   type ScreenCatalogSource,
   type ScreenEntry,
   type ScreenImage,
+  type CatalogWalkLimits,
   type ScreenSettings,
 } from "./screen-catalog.js";
 
@@ -234,6 +235,12 @@ export interface ScreenImportOptions {
    * the catalog is re-read like a new one.
    */
   digestScreenshot?: CaptureDigester["digest"];
+  /**
+   * The bounds the loader's catalog walk enforces on files and bytes, so an
+   * import never writes a catalog that every later command refuses. Defaults
+   * to the walk's own.
+   */
+  catalogLimits?: Pick<CatalogWalkLimits, "files" | "fileBytes" | "totalBytes">;
 }
 
 export type ScreenImportFileStatus = "created" | "updated" | "unchanged";
@@ -527,15 +534,34 @@ export function planScreenImport(
       : (catalog.original ?? catalog.document.toString());
     return { catalog, content };
   });
-  // The loader refuses oversized files before parsing them, so an import
-  // must not write one: it would succeed here and fail every later command.
+  // The loader refuses oversized files, and a catalog with too many files or
+  // bytes overall, before parsing anything, so an import must not write one:
+  // it would succeed here and fail every later command. The outputs are every
+  // catalog file there will be, since the existing catalog validated whole.
+  const limits = options.catalogLimits ?? {
+    files: SCREEN_LIMITS.catalogFiles,
+    fileBytes: SCREEN_LIMITS.catalogFileBytes,
+    totalBytes: SCREEN_LIMITS.catalogTotalBytes,
+  };
+  let totalBytes = 0;
   for (const { catalog, content } of outputs) {
     const bytes = Buffer.byteLength(content);
-    if (bytes > SCREEN_LIMITS.catalogFileBytes) {
+    totalBytes += bytes;
+    if (bytes > limits.fileBytes) {
       issues.push(
-        `${catalog.path}: the catalog would be ${bytes} bytes; the limit is ${SCREEN_LIMITS.catalogFileBytes}`
+        `${catalog.path}: the catalog would be ${bytes} bytes; the limit is ${limits.fileBytes}`
       );
     }
+  }
+  if (outputs.length > limits.files) {
+    issues.push(
+      `the catalog would hold ${outputs.length} files; the limit is ${limits.files}`
+    );
+  }
+  if (totalBytes > limits.totalBytes) {
+    issues.push(
+      `the catalog would hold ${totalBytes} bytes; the limit is ${limits.totalBytes}`
+    );
   }
   validateScreenCatalogDocuments(
     outputs.map(({ catalog, content }) => ({
