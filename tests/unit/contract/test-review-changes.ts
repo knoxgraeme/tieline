@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { Script } from "node:vm";
@@ -330,9 +330,12 @@ await test("reads the base manifest where the base kept it, and only its own fil
   const ws = branchWorkspace(false);
   const capture = captureIO();
   assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
-  // A tracked file below the manifest directory is not part of the manifest,
-  // just as the working-tree reader ignores it.
+  // Tracked files the working-tree reader does not take are not part of the
+  // manifest at the base either: one in a subdirectory, a `.json` link, and a
+  // large non-JSON file (never read, so it cannot exhaust a read buffer).
   ws.write(".tieline/manifest/archive/old.json", "{}\n");
+  symlinkSync("index.json", resolve(ws.root, ".tieline/manifest/alias.json"));
+  ws.write(".tieline/manifest/README.md", `${"notes ".repeat(400_000)}\n`);
   ws.commit("compiled base");
   const unchanged = { added: 0, changed: 0, removed: 0 };
   const sameContract = {

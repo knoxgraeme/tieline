@@ -274,9 +274,6 @@ async function runGrade(
  * manifest configured elsewhere is refused: treating it as absent would grade
  * the whole contract as newly claimed, which is a fabricated scope.
  */
-/** The most a single base manifest file may hold: the screen catalog's total bound. */
-const MANIFEST_SNAPSHOT_FILE_BYTES = 64 * 1024 * 1024;
-
 function manifestAtBase(
   repositoryRoot: string,
   base: string,
@@ -294,26 +291,34 @@ function manifestAtBase(
       `Cannot derive claim-side grading scope: the manifest at '${manifestPath}' is outside the repository, so '${base}' cannot hold a version of it.`
     );
   }
-  // Only the directory's own files, as the working-tree reader takes them: a
-  // tracked file in a subdirectory is not part of the manifest.
-  const names = execFileSync(
+  // Only what the working-tree reader takes: the directory's own regular
+  // `.json` files. Not subdirectories, links, or other files.
+  const listing = execFileSync(
     "git",
-    ["ls-tree", "-r", "--name-only", base, "--", directory],
+    ["ls-tree", "-l", "-z", base, "--", `${directory}/`],
     { cwd: repositoryRoot, encoding: "utf8" }
-  )
-    .split("\n")
+  );
+  const files = listing
+    .split("\0")
     .filter(Boolean)
-    .filter((name) => !name.slice(directory.length + 1).includes("/"));
-  if (names.length === 0) return null;
+    .flatMap((entry) => {
+      const match = /^(\d+) (\w+) [0-9a-f]+ +(\d+)\t(.+)$/s.exec(entry);
+      if (!match) return [];
+      const [, mode = "", type = "", size = "0", path = ""] = match;
+      return type === "blob" && (mode === "100644" || mode === "100755") && path.endsWith(".json")
+        ? [{ path, size: Number(size) }]
+        : [];
+    });
+  if (files.length === 0) return null;
   return parseContractManifestSnapshot(
-    names.map((name) => ({
-      name: name.slice(`${directory}/`.length),
-      content: execFileSync("git", ["show", `${base}:${name}`], {
+    files.map(({ path, size }) => ({
+      name: path.slice(`${directory}/`.length),
+      content: execFileSync("git", ["show", `${base}:${path}`], {
         cwd: repositoryRoot,
         encoding: "utf8",
-        // A shard holds a capability's whole screen catalog, so it may be far
-        // larger than the default 1 MiB; bounded by the catalog's own total.
-        maxBuffer: MANIFEST_SNAPSHOT_FILE_BYTES,
+        // Exactly the blob's size, which the listing reports: no fixed cap
+        // to outgrow, and nothing read past what the base holds.
+        maxBuffer: size + 1,
       }),
     })),
     `ref '${base}'`
