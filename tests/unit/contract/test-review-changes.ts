@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, resolve } from "node:path";
 import { Script } from "node:vm";
 import { runCli } from "../../../src/cli.js";
 import { compileContractManifest } from "../../../src/contract/manifest.js";
@@ -152,7 +154,7 @@ await test("badges changes across both views while keeping the whole contract na
   const base = compile(ws);
   changeBranch(ws, true);
   const changes = diffReviewManifests(base, compile(ws), "origin/main");
-  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, changes).path, "utf8");
+  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, { changes }).path, "utf8");
   assert.match(page, /Changes against <code>origin\/main<\/code><\/strong><span>1 Stories, 1 acceptance criteria, and 4 screens changed\.<\/span>/);
   assert.match(page, /<a href="#screen\/notes-share-dialog"><code>notes-share-dialog<\/code><\/a>/);
   assert.match(page, /<li class="changed-removed"> <span class="change-badge change-removed"[^>]*>Removed<\/span> <code>notes-list-empty<\/code>/);
@@ -190,7 +192,7 @@ await test("summarizes Story and AC changes for repositories without screens", (
   changeBranch(ws, false);
   const changes = diffReviewManifests(base, compile(ws), "origin/main");
   assert.deepEqual(changes.screens, []);
-  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, changes).path, "utf8");
+  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, { changes }).path, "utf8");
   assert.match(page, /0 Stories, 1 acceptance criteria, and 0 screens changed\./);
   assert.match(page, /data-story-key="NOTES-001"\s+data-lifecycle="production" data-change="changed"/);
   assert.equal(page.includes("screen-data"), false);
@@ -233,6 +235,13 @@ await test("compares against a git ref from the CLI and explains when it cannot"
   const unavailable = JSON.parse(capture.output()).changes;
   assert.equal(unavailable.base, "HEAD");
   assert.match(unavailable.unavailable, /^the working-tree contract does not compile \(Contract validation failed:/);
+  // The page itself says the comparison was not made, not only the terminal.
+  const page = readFileSync(resolve(ws.root, ".tieline/review.html"), "utf8");
+  assert.match(
+    page,
+    /<aside class="changes changes-unavailable"[^>]*>\s*<header><strong>Changes against <code>HEAD<\/code> are not shown<\/strong><\/header>\s*<p class="changes-note">the working-tree contract does not compile \(Contract validation failed:/
+  );
+  assert.match(page, /\.changes-unavailable \{/);
 
   await assert.rejects(
     () => runCli(["contract", "review", ws.root, "--base", "no-such-ref", "--json"], captureIO().io, {}),
@@ -269,6 +278,34 @@ await test("compares from where the branch left the base, not the base's latest 
   const capture = captureIO();
   assert.equal(await runCli(["contract", "review", ws.root, "--base", "main", "--json"], capture.io, {}), 0);
   assert.deepEqual(JSON.parse(capture.output()).changes.screens, { added: 1, changed: 2, removed: 1 });
+});
+
+await test("reads the default manifest in a repository without workspace configuration", async () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tieline-review-configless-"));
+  try {
+    const write = (path: string, content: string): void => {
+      mkdirSync(dirname(resolve(root, path)), { recursive: true });
+      writeFileSync(resolve(root, path), content);
+    };
+    write("src/notes.ts", "export const notes: string[] = [];\n");
+    write(".tieline/spec/notes.yaml", notesSpecYaml().replaceAll(REPO_KEY, root.split("/").pop()!));
+    const git = (...args: string[]): void => {
+      execFileSync("git", args, { cwd: root, stdio: ["ignore", "ignore", "ignore"] });
+    };
+    git("init", "-q");
+    git("config", "user.email", "test@example.test");
+    git("config", "user.name", "Tieline Test");
+    assert.equal(await runCli(["contract", "compile", root], captureIO().io, {}), 0);
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    const capture = captureIO();
+    assert.equal(await runCli(["contract", "review", root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+    const changes = JSON.parse(capture.output()).changes;
+    assert.equal(changes.base_has_manifest, true);
+    assert.deepEqual(changes.acceptance_criteria, { added: 0, changed: 0, removed: 0 });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 for (const created of workspaces) created.cleanup();

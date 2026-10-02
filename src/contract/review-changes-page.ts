@@ -124,6 +124,18 @@ export function renderChangesPanel(index: ReviewChangeIndex, screensLinkable: bo
       </aside>`;
 }
 
+/**
+ * Shown instead of the summary when the page was asked for a comparison it
+ * could not make, so a reader can tell an un-compared page from one with no
+ * changes.
+ */
+export function renderChangesUnavailable(base: string, reason: string): string {
+  return `<aside class="changes changes-unavailable" aria-label="Changes on this branch">
+        <header><strong>Changes against <code>${escapeHtml(base)}</code> are not shown</strong></header>
+        <p class="changes-note">${escapeHtml(reason)}</p>
+      </aside>`;
+}
+
 export const REVIEW_CHANGE_STYLES = `    .changes {
       margin-bottom: 1.5rem;
       padding: .75rem .9rem;
@@ -135,6 +147,7 @@ export const REVIEW_CHANGE_STYLES = `    .changes {
     .changes header { display: flex; flex-wrap: wrap; gap: .35rem .75rem; align-items: baseline; }
     .changes header span { color: var(--muted); }
     .changes-note { margin: .4rem 0 0; color: var(--muted); }
+    .changes-unavailable { background: #fff6e2; border-color: #e7cb99; }
     .changes-list { margin-top: .5rem; }
     .changes-list summary { cursor: pointer; font-weight: 700; }
     .changes-list summary span { color: #858d98; font: .64rem var(--mono); }

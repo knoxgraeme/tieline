@@ -12,11 +12,12 @@ import {
   indexReviewChanges,
   renderChangeBadge,
   renderChangesPanel,
+  renderChangesUnavailable,
   renderStoryChangeAttribute,
   REVIEW_CHANGE_STYLES,
   type ReviewChangeIndex,
 } from "./review-changes-page.js";
-import type { ReviewChanges } from "./review-changes.js";
+import type { ReviewComparison } from "./review-changes.js";
 import {
   buildScreenReviewModel,
   renderScreenSidebar,
@@ -50,10 +51,11 @@ export interface ContractReviewPageOptions {
    */
   screens?: ContractReviewScreens;
   /**
-   * What the branch changed against a base ref. Supplied only when the page is
-   * built with `--base`; without it the page is unchanged.
+   * What the branch changed against a base ref, or why that could not be
+   * computed. Supplied only when the page is built with `--base`; without it
+   * the page is unchanged.
    */
-  changes?: ReviewChanges;
+  comparison?: ReviewComparison;
 }
 
 function renderApplicability(applicability: Applicability | undefined): string {
@@ -265,7 +267,8 @@ function renderStoryDocument(
 export function renderContractReviewPage(
   options: ContractReviewPageOptions
 ): string {
-  const changes = options.changes ? indexReviewChanges(options.changes) : undefined;
+  const comparison = options.comparison;
+  const changes = comparison?.changes ? indexReviewChanges(comparison.changes) : undefined;
   const screens = options.screens
     ? buildScreenReviewModel(
         options.documents.map(({ document }) => document),
@@ -764,7 +767,7 @@ export function renderContractReviewPage(
       .references:not([open]) > ul { display: grid !important; }
       .criterion, .scenario { break-inside: avoid; }
     }
-${screens ? SCREEN_REVIEW_STYLES : ""}${changes ? REVIEW_CHANGE_STYLES : ""}  </style>
+${screens ? SCREEN_REVIEW_STYLES : ""}${comparison ? REVIEW_CHANGE_STYLES : ""}  </style>
 </head>
 <body>
   <div class="wiki-shell">
@@ -785,7 +788,13 @@ ${screens ? renderScreenTabs(screens) : ""}      <label class="search">
 ${screens ? renderScreenSidebar(screens) : ""}    </aside>
     <main class="wiki-main">
       <div class="wiki-content">
-        ${warnings}${changes ? renderChangesPanel(changes, screens !== undefined) : ""}
+        ${warnings}${
+          changes
+            ? renderChangesPanel(changes, screens !== undefined)
+            : comparison?.unavailable !== undefined
+              ? renderChangesUnavailable(comparison.base, comparison.unavailable)
+              : ""
+        }
         <div id="story-content">${initialContent}</div>${
           screens ? `\n        ${renderScreensView(screens)}` : ""
         }

@@ -39,6 +39,14 @@ export interface ScreenRecordChange {
   aspects: ScreenChangeAspect[];
 }
 
+/**
+ * What a review page built against a base ref shows: the changes, or why they
+ * could not be computed. The page renders either way, and says which.
+ */
+export type ReviewComparison =
+  | { changes: ReviewChanges; unavailable?: undefined }
+  | { changes?: undefined; base: string; unavailable: string };
+
 export interface ReviewChanges {
   base: string;
   /** False when the base ref has no compiled manifest: everything is new. */

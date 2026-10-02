@@ -24,7 +24,7 @@ import { loadAcceptedContract } from "../contract/load.js";
 import {
   diffReviewManifests,
   summarizeReviewChanges,
-  type ReviewChanges,
+  type ReviewComparison,
 } from "../contract/review-changes.js";
 import {
   TIELINE_REVIEW_PAGE,
@@ -142,7 +142,7 @@ function resolveContractCommand(
   action: ContractAction,
   options: ContractCommandOptions
 ): ParsedContractCommand {
-  const { root, workspace, repositoryKey, specDirectory } =
+  const { root, workspace, repositoryKey, specDirectory, manifestPath } =
     resolveCommandContext(options);
   const resolvedOutput = options.output
     ? isAbsolute(options.output)
@@ -160,7 +160,10 @@ function resolveContractCommand(
     repositoryKey,
     commit: options.commit,
     outputPath: resolvedOutput,
-    manifestPath: workspace?.manifestPath ?? resolvedOutput,
+    // `review` writes a page to its output path, so without a workspace its
+    // manifest is still the default directory, never the page.
+    manifestPath:
+      workspace?.manifestPath ?? (action === "review" ? manifestPath : resolvedOutput),
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
@@ -315,7 +318,7 @@ function manifestAtBase(
 function reviewChangesAgainstBase(
   parsed: ParsedContractCommand,
   base: string
-): { changes: ReviewChanges; unavailable?: undefined } | { changes?: undefined; unavailable: string } {
+): ReviewComparison {
   // Read first: an unreadable base is the caller's error and is always reported,
   // whatever state the working tree is in. The manifest is read where this
   // branch left the base, so work that reached the base afterwards is not
@@ -335,6 +338,7 @@ function reviewChangesAgainstBase(
     }).manifest;
   } catch (error) {
     return {
+      base,
       unavailable: `the working-tree contract does not compile (${
         error instanceof Error ? error.message.split("\n")[0] : String(error)
       }).`,
@@ -612,7 +616,7 @@ export async function runContractCommand(
       parsed.repositoryKey,
       parsed.specDirectory,
       parsed.outputPath,
-      branch?.changes
+      branch
     );
     const changes = branch
       ? branch.changes
