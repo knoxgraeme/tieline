@@ -29,7 +29,7 @@ Add a `screens` block to `.tieline/config.json`:
 | --- | --- | --- |
 | `enabled` | required | `true` turns the feature on. `false`, or no block at all, leaves it off. |
 | `catalog_directory` | `"screens"` | Reviewed catalog YAML, relative to `.tieline/`. Must stay inside `.tieline/`, outside the captures directory (which is git-ignored), and neither inside nor around `files.spec_directory`, since every YAML file in either directory is read as that directory's kind of document. |
-| `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored. |
+| `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored, and not inside the spec directory, whose every YAML file is read as a contract document. |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
 when the block is read and are never written back into the file.

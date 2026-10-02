@@ -382,6 +382,14 @@ export function screenSettingsForRepository(
       );
     }
   }
+  // Nor may screenshots sit inside the spec directory: the spec loader walks
+  // all of it, so every capture directory would be read on every command, and
+  // a YAML file among the captures would be loaded as a contract document.
+  if (withinRepository(realSpec, realCaptures)) {
+    throw new Error(
+      `Invalid screens configuration: the captures directory '${config.captures_directory}' is inside the spec directory '${specSetting}', where every YAML file is read as a contract document; keep screenshots outside it.`
+    );
+  }
   return {
     catalogDirectory,
     capturesDirectory,

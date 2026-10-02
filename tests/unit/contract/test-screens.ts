@@ -209,7 +209,7 @@ await test("refuses a catalog the captures .gitignore would hide", () => {
   assert.equal(screenSettingsForRepository(nested.root)?.capturesPath, ".tieline/screens/shots");
 });
 
-await test("refuses a catalog and spec directory that overlap, or committed files the captures would hide", () => {
+await test("refuses catalog, spec, and captures directories that overlap, or captures hiding committed files", () => {
   const withConfig = (screens: Record<string, unknown>, specDirectory = "spec", manifest = "manifest") => {
     const ws = workspace({ screens: { enabled: true, ...screens } });
     const config = JSON.parse(readFileSync(resolve(ws.root, ".tieline/config.json"), "utf8"));
@@ -246,9 +246,15 @@ await test("refuses a catalog and spec directory that overlap, or committed file
     () => screenSettingsForRepository(withConfig({ captures_directory: "topology" }).root),
     /the code topology directory '\.tieline\/topology' is inside the captures directory 'topology', which is git-ignored, so the code topology would never be committed/
   );
-  // Siblings, and screenshots below the spec directory, are fine.
+  // Screenshots below the spec directory would be walked, and any YAML among
+  // them loaded, as contract documents.
+  assert.throws(
+    () => screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root),
+    /the captures directory 'spec\/shots' is inside the spec directory 'spec', where every YAML file is read as a contract document/
+  );
+  // Siblings are fine.
   assert.equal(screenSettingsForRepository(withConfig({ catalog_directory: "screens" }, "spec").root)?.catalogPath, ".tieline/screens");
-  assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root)?.capturesPath, ".tieline/spec/shots");
+  assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "shots" }).root)?.capturesPath, ".tieline/shots");
 });
 
 console.log("screens: catalog schema");
