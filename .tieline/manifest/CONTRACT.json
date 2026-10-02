@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6f345eb64839ade99991644e947617d16dedbccfeb2c47fbcaa5f4faf8ecd685",
+                "reviewed_content_hash": "cad135938ef890811f62b1087a9a54780553924a0c74705b8e6bfb9d866ef85b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "81b194c63660b993303adf944cf3212c338781eafc315a42c0837febf92264bf",
+                "reviewed_content_hash": "d5037527fb915272dbb06744ba0973c24269a99d04a538a89420154bd0d64a58",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1923,7 +1923,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6f345eb64839ade99991644e947617d16dedbccfeb2c47fbcaa5f4faf8ecd685",
+                "reviewed_content_hash": "cad135938ef890811f62b1087a9a54780553924a0c74705b8e6bfb9d866ef85b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1945,7 +1945,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "81b194c63660b993303adf944cf3212c338781eafc315a42c0837febf92264bf",
+                "reviewed_content_hash": "d5037527fb915272dbb06744ba0973c24269a99d04a538a89420154bd0d64a58",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2002,7 +2002,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "81b194c63660b993303adf944cf3212c338781eafc315a42c0837febf92264bf",
+                "reviewed_content_hash": "d5037527fb915272dbb06744ba0973c24269a99d04a538a89420154bd0d64a58",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
