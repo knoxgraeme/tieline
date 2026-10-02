@@ -14,6 +14,7 @@ import {
   type ContractReviewScreens,
 } from "../contract/screen-review-page.js";
 import type { ReviewComparison } from "../contract/review-changes.js";
+import { screenSettingsForRepository } from "../contract/screen-catalog.js";
 import { ContractValidationError } from "../contract/validate.js";
 import { ONBOARDING_AGENT_INSTRUCTION } from "./status.js";
 
@@ -70,6 +71,9 @@ export function writeWorkspaceReviewPage(
   const defaultPath = resolve(root, TIELINE_REVIEW_PAGE);
   const path = outputPath ?? defaultPath;
   let screens: ContractReviewScreens | undefined;
+  // An invalid screens layout is refused before the preflight walks the spec
+  // directory, which a refused layout could fill with screenshots.
+  screenSettingsForRepository(root);
   if (hasAcceptedContractSources(root, specDirectory)) {
     try {
       const loaded = loadAcceptedContractWithSources(root, specDirectory);

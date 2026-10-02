@@ -37,6 +37,7 @@ import {
 } from "../../../src/contract/screen-catalog.js";
 import { CODE_TOPOLOGY_DIRECTORY } from "../../../src/contract/topology-role-snapshot.js";
 import { ContractValidationError } from "../../../src/contract/validate.js";
+import { writeWorkspaceReviewPage } from "../../../src/tieline/review.js";
 import { workspaceFromConfig } from "../../../src/tieline/workspace.js";
 import { report, test } from "../../support/harness.js";
 import {
@@ -460,6 +461,21 @@ await test("reports catalog-named links and special files instead of skipping th
   ws.remove(".tieline/screens/SHARING.yaml");
   symlinkSync(resolve(ws.root, "elsewhere/SHARING.yaml"), resolve(ws.root, ".tieline/screens/notes.txt"));
   assert.equal(readScreenCatalogSources(ws.root, settings).complete, true);
+});
+
+await test("refuses a screens layout before walking the spec directory", () => {
+  // Screenshots inside the spec, among them a YAML sidecar that does not
+  // parse: the layout is refused first, not the sidecar's YAML.
+  const ws = workspace({ screens: { enabled: true, captures_directory: "spec/shots" } });
+  ws.write(".tieline/spec/shots/capture-log.yaml", "{ not: [valid");
+  assert.throws(
+    () => loadAcceptedContractWithSources(ws.root, ".tieline/spec"),
+    /the captures directory 'spec\/shots' is inside the spec directory 'spec'/
+  );
+  assert.throws(
+    () => writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec"),
+    /the captures directory 'spec\/shots' is inside the spec directory 'spec'/
+  );
 });
 
 await test("bounds the catalog walk by depth, entries, files, and total bytes", () => {
