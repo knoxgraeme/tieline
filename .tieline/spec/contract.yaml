@@ -1418,3 +1418,56 @@ capability:
                 repository: tieline
                 path: tests/browser/test-screens-browser.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC10
+          criterion: Tieline must account for every catalogued screen as captured or marked not captured with one of a closed set of reasons, must skip marked screens and report selected screens no test tags instead of failing the capture, must report page files no screen claims and acceptance criteria showing screens that no @ac-tagged test linked from them proves, must keep screens that differ between repeated captures out of the committed outputs, and must fail a strict audit while any of these remain.
+          rationale: Captures are only worth reviewing if every screen a user can reach is either captured from the real app or explicitly excused, and documented UI behavior is proven by a test, so gaps must be visible and gateable rather than silently skipped.
+          scenarios:
+            - given: a screen needs a faked response to be reached
+              when: it is marked not captured with reason needs-real-trigger
+              then: capture must skip it and the audit must list it with its reason as accounted for
+            - given: a branch adds a page file that no screen's paths claim
+              when: check runs
+              then: Tieline must warn about the new page file without changing the exit code
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-audit.ts
+                selector: function:screenAuditStrictFailures
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-selection.ts
+                selector: function:excludeNotCaptured
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-scenes.ts
+                selector: function:scanPageFiles
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:runScreensCaptureCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-audit.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-capture.ts
+                framework_hint: custom-script

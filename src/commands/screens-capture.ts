@@ -29,6 +29,7 @@ import {
   type ScreenSettings,
   type ValidatedScreenCatalog,
 } from "../contract/screen-catalog.js";
+import { scanScreenScenes } from "../contract/screen-scenes.js";
 import { readScreenTextDirectory, screenTextFile } from "../contract/screen-text.js";
 import {
   RUN_DIRECTORY_ENV,
@@ -37,6 +38,7 @@ import {
   type CaptureSelectionFile,
 } from "../playwright/protocol.cjs";
 import {
+  excludeNotCaptured,
   selectRequestedScreens,
   selectScreensChangedSince,
   type ScreenDependents,
@@ -64,6 +66,8 @@ export interface ScreensCaptureOptions {
   dryRun?: boolean;
   /** Compare a fresh capture with the committed outputs and write nothing. */
   verify?: boolean;
+  /** Capture this many times and keep only screens every run captured identically. */
+  repeat?: number;
   json?: boolean;
   /** Stops the capture run, as Ctrl-C does. */
   signal?: AbortSignal;
@@ -263,19 +267,49 @@ const DEFAULT_DEPENDENCIES: ScreensCaptureDependencies = {
 /** The reporter Playwright loads by path; it ships beside this command. */
 export const SCREENS_REPORTER_PATH = fileURLToPath(new URL("../playwright/reporter.cjs", import.meta.url));
 
-/** Above this many keys, the run selects by tag prefix and the fixture filters. */
-const GREP_KEY_LIMIT = 200;
+/**
+ * Longest `--grep` passed to one Playwright run. A larger selection is split
+ * into several runs, so the command line stays far below operating-system
+ * argument limits however many screens a catalog holds.
+ */
+export const SCREEN_GREP_MAX_CHARS = 32_000;
+
+function escapeKey(key: string): string {
+  return key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /**
- * The `--grep` that runs only tests tagged for the selected screens. Keys are
+ * The `--grep` that runs only tests tagged for the given screens. Keys are
  * escaped, and each must end where a key ends, so `@screen:notes` never runs
- * the test for `@screen:notes-list`. Large selections run every screen test
- * instead; the fixture still captures only the selected keys.
+ * the test for `@screen:notes-list`. Naming every screen, rather than every
+ * screen test, keeps a run from starting tests for screens it skips, such as
+ * ones marked not captured because their test is unstable.
  */
-export function screenGrep(keys: readonly string[], everything: boolean): string {
-  if (everything || keys.length > GREP_KEY_LIMIT) return "@screen:";
-  const escaped = keys.map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return `@screen:(?:${escaped.join("|")})(?![A-Za-z0-9._-])`;
+export function screenGrep(keys: readonly string[]): string {
+  return `@screen:(?:${keys.map(escapeKey).join("|")})(?![A-Za-z0-9._-])`;
+}
+
+/** Splits keys into batches whose `--grep` stays within `maxChars`. */
+export function screenGrepBatches(
+  keys: readonly string[],
+  maxChars: number = SCREEN_GREP_MAX_CHARS
+): string[][] {
+  const overhead = screenGrep([]).length;
+  const batches: string[][] = [];
+  let batch: string[] = [];
+  let length = overhead;
+  for (const key of keys) {
+    const added = escapeKey(key).length + (batch.length > 0 ? 1 : 0);
+    if (batch.length > 0 && length + added > maxChars) {
+      batches.push(batch);
+      batch = [];
+      length = overhead;
+    }
+    length += escapeKey(key).length + (batch.length > 0 ? 1 : 0);
+    batch.push(key);
+  }
+  if (batch.length > 0) batches.push(batch);
+  return batches;
 }
 
 function captureScope(options: ScreensCaptureOptions): ScreenSelectionScope {
@@ -377,45 +411,44 @@ function describeOutcome(outcome: Extract<PlaywrightRunOutcome, { kind: "exited"
  * The run directory is temporary and removed on every exit path; a timeout,
  * cancellation, failed test, or missing screen writes nothing.
  */
-async function captureScreens(input: {
+/**
+ * Runs Playwright once for a batch of screens and reads back a complete run.
+ * The run directory is temporary and removed on every exit path; a timeout,
+ * cancellation, failed test, or missing screen captures nothing.
+ */
+async function captureBatch(input: {
   root: string;
   settings: ScreenSettings;
-  selection: ScreenSelection;
-  everything: boolean;
+  keys: readonly string[];
+  installation: PlaywrightInstallation;
+  environment: CaptureEnvironment;
   dependencies: ScreensCaptureDependencies;
-  signal: AbortSignal | undefined;
-}): Promise<{ captured: CapturedScreen[]; playwright: string }> {
-  const { root, settings, selection, dependencies } = input;
-  const installation = dependencies.playwright(root);
-  const environment = dependencies.environment();
-  const keys = selection.screens.map((screen) => screen.key);
-  const controller = new AbortController();
-  const abort = (): void => controller.abort();
+  signal: AbortSignal;
+}): Promise<CapturedScreen[]> {
+  const { root, settings, keys } = input;
   const runDirectory = mkdtempSync(join(tmpdir(), "tieline-screens-"));
   try {
-    // Ctrl-C stops Playwright and its browsers before the command exits.
-    process.once("SIGINT", abort);
-    process.once("SIGTERM", abort);
-    if (input.signal?.aborted) abort();
-    else input.signal?.addEventListener("abort", abort, { once: true });
-    const selectionFile: CaptureSelectionFile = { version: RUN_PROTOCOL_VERSION, keys };
+    const selectionFile: CaptureSelectionFile = { version: RUN_PROTOCOL_VERSION, keys: [...keys] };
     writeFileSync(join(runDirectory, SELECTION_FILE), `${JSON.stringify(selectionFile)}\n`);
     const minutes = settings.capture.timeoutMinutes;
-    const outcome = await dependencies.run({
-      cli: installation.cli,
+    const outcome = await input.dependencies.run({
+      cli: input.installation.cli,
       args: [
         "test",
         ...(settings.capture.playwrightConfig ? ["--config", settings.capture.playwrightConfig] : []),
         ...(settings.capture.project ? ["--project", settings.capture.project] : []),
         "--grep",
-        screenGrep(keys, input.everything),
+        screenGrep(keys),
+        // A key whose tag matches no test is reported as not captured below,
+        // which says more than Playwright's "No tests found".
+        "--pass-with-no-tests",
         "--reporter",
         SCREENS_REPORTER_PATH,
       ],
       cwd: root,
       env: { ...process.env, [RUN_DIRECTORY_ENV]: runDirectory },
       timeoutMs: minutes * 60_000,
-      signal: controller.signal,
+      signal: input.signal,
     });
     if (outcome.kind === "timed_out") {
       throw new ScreenCaptureError(
@@ -431,7 +464,7 @@ async function captureScreens(input: {
     const record = readCaptureRunRecord(runDirectory);
     if (!record) {
       throw new ScreenCaptureError(
-        `Playwright stopped (${describeOutcome(outcome)}) before the run finished, so nothing was written. Check its output above; a configuration error or a selection that matched no test (no test tagged @screen:<key>) stops it this way.`
+        `Playwright stopped (${describeOutcome(outcome)}) before the run finished, so nothing was written. Check its output above for a configuration or startup error.`
       );
     }
     const captured = readCapturedScreens({
@@ -439,16 +472,87 @@ async function captureScreens(input: {
       repositoryRoot: root,
       record,
       selected: keys,
-      environment,
+      environment: input.environment,
     });
     if (outcome.code !== 0) {
       throw new ScreenCaptureError(
         `Playwright reported a failed run (${describeOutcome(outcome)}, status ${record.status}) although every selected screen was captured, so nothing was written.`
       );
     }
-    return { captured, playwright: installation.version };
+    return captured;
   } finally {
     rmSync(runDirectory, { recursive: true, force: true });
+  }
+}
+
+/** Most times `--repeat` captures every screen to find unstable ones. */
+export const MAX_CAPTURE_REPEATS = 5;
+
+function sameCapture(left: CapturedScreen, right: CapturedScreen): boolean {
+  return (
+    left.image_sha256 === right.image_sha256 &&
+    left.text_sha256 === right.text_sha256 &&
+    left.fingerprint === right.fingerprint &&
+    left.test === right.test
+  );
+}
+
+/**
+ * Captures the given screens `repeat` times, in batches, and keeps only the
+ * screens every run captured identically; the rest are unstable. Ctrl-C, or
+ * the caller's signal, stops the run in progress.
+ */
+async function captureScreens(input: {
+  root: string;
+  settings: ScreenSettings;
+  keys: readonly string[];
+  repeat: number;
+  dependencies: ScreensCaptureDependencies;
+  signal: AbortSignal | undefined;
+}): Promise<{ captured: CapturedScreen[]; unstable: string[]; playwright: string }> {
+  const installation = input.dependencies.playwright(input.root);
+  const environment = input.dependencies.environment();
+  const controller = new AbortController();
+  const abort = (): void => controller.abort();
+  // Ctrl-C stops Playwright and its browsers before the command exits.
+  process.once("SIGINT", abort);
+  process.once("SIGTERM", abort);
+  if (input.signal?.aborted) abort();
+  else input.signal?.addEventListener("abort", abort, { once: true });
+  try {
+    const runs: CapturedScreen[][] = [];
+    for (let run = 0; run < input.repeat; run += 1) {
+      const captured: CapturedScreen[] = [];
+      for (const keys of screenGrepBatches(input.keys)) {
+        captured.push(
+          ...(await captureBatch({
+            root: input.root,
+            settings: input.settings,
+            keys,
+            installation,
+            environment,
+            dependencies: input.dependencies,
+            signal: controller.signal,
+          }))
+        );
+      }
+      runs.push(captured);
+    }
+    const [first = [], ...later] = runs;
+    const unstable = first
+      .filter((screen) =>
+        later.some((run) => {
+          const other = run.find((candidate) => candidate.key === screen.key);
+          return !other || !sameCapture(screen, other);
+        })
+      )
+      .map((screen) => screen.key);
+    return {
+      captured: first.filter((screen) => !unstable.includes(screen.key)),
+      unstable,
+      playwright: installation.version,
+    };
+  } finally {
     process.removeListener("SIGINT", abort);
     process.removeListener("SIGTERM", abort);
     input.signal?.removeEventListener("abort", abort);
@@ -456,6 +560,7 @@ async function captureScreens(input: {
 }
 
 const CAUSE_LABELS: Record<ScreenVerifyMismatch["causes"][number], string> = {
+  unstable: "differed between runs; fix what moves, or mark it not_captured (unstable)",
   not_captured: "no committed capture",
   environment: "captured in a different environment; re-capture in the pinned environment",
   image: "screenshot differs",
@@ -475,6 +580,10 @@ export async function runScreensCaptureCommand(
   dependencies: ScreensCaptureDependencies = DEFAULT_DEPENDENCIES
 ): Promise<number> {
   const scope = captureScope(options);
+  const repeat = options.repeat ?? 1;
+  if (!Number.isInteger(repeat) || repeat < 1 || repeat > MAX_CAPTURE_REPEATS) {
+    throw new Error(`--repeat must be a whole number from 1 to ${MAX_CAPTURE_REPEATS}.`);
+  }
   const { root, repositoryKey, specDirectory } = resolveCommandContext(options);
   const settings = screenSettingsForRepository(root);
   if (!settings) throw new Error(NOT_ENABLED);
@@ -504,23 +613,34 @@ export async function runScreensCaptureCommand(
       }),
     });
   } else {
-    selection = {
-      scope: scope.kind,
-      base: null,
-      screens: selectRequestedScreens(catalog, scope),
-      changed_files: 0,
-      unavailable: [],
-    };
+    const { screens, excluded } = excludeNotCaptured(catalog, selectRequestedScreens(catalog, scope));
+    selection = { scope: scope.kind, base: null, screens, excluded, changed_files: 0, unavailable: [] };
   }
+
+  // A selected screen with no test tagged for it is not covered: it is
+  // reported, not a failure, so coverage can grow screen by screen; the
+  // strict audit is the gate. A screen named with --screen is always run, as
+  // is every screen when the scan could not finish and so proves nothing.
+  const scenes = scanScreenScenes(root, settings.sceneTests);
+  const requested = scope.kind === "screens";
+  const notCovered = selection.screens
+    .map((screen) => screen.key)
+    .filter((key) => !requested && scenes.status === "complete" && !scenes.tags.has(key));
+  const keys = selection.screens.map((screen) => screen.key).filter((key) => !notCovered.includes(key));
 
   if (options.dryRun) {
     if (options.json) {
       io.write(
-        `${JSON.stringify({ dry_run: true, catalog_screens: catalog.screens.size, selection }, null, 2)}\n`
+        `${JSON.stringify(
+          { dry_run: true, catalog_screens: catalog.screens.size, selection, not_covered: notCovered },
+          null,
+          2
+        )}\n`
       );
       return 0;
     }
     renderSelection(selection, catalog.screens.size, io);
+    renderCoverage(selection, notCovered, io);
     return 0;
   }
 
@@ -538,19 +658,15 @@ export async function runScreensCaptureCommand(
     .sort((left, right) => left.localeCompare(right))
     .map((key) => screenTextFile(settings, key).path);
   const captured =
-    selection.screens.length === 0
-      ? { captured: [], playwright: null }
-      : await captureScreens({
-          root,
-          settings,
-          selection,
-          everything: scope.kind === "all",
-          dependencies,
-          signal: options.signal,
-        });
+    keys.length === 0
+      ? { captured: [], unstable: [], playwright: null }
+      : await captureScreens({ root, settings, keys, repeat, dependencies, signal: options.signal });
 
   if (options.verify) {
-    const mismatches = verifyCapturedScreens({ catalog, text, captured: captured.captured });
+    const mismatches = [
+      ...verifyCapturedScreens({ catalog, text, captured: captured.captured }),
+      ...captured.unstable.map((key): ScreenVerifyMismatch => ({ key, causes: ["unstable"] })),
+    ].sort((left, right) => left.key.localeCompare(right.key));
     const passed = mismatches.length === 0 && orphanedText.length === 0;
     const fix = `tieline screens capture ${scopeFlags(scope)}`;
     if (options.json) {
@@ -561,9 +677,10 @@ export async function runScreensCaptureCommand(
             passed,
             playwright: captured.playwright,
             selection,
-            verified: captured.captured.length,
+            verified: captured.captured.length + captured.unstable.length,
             mismatches,
             orphaned_text: orphanedText,
+            not_covered: notCovered,
             fix: passed ? null : fix,
           },
           null,
@@ -573,7 +690,7 @@ export async function runScreensCaptureCommand(
       return passed ? 0 : 1;
     }
     io.write(
-      `Verified ${captured.captured.length} screen(s) against a fresh capture: ${mismatches.length} mismatch(es), ${orphanedText.length} orphaned ARIA snapshot(s).\n`
+      `Verified ${captured.captured.length + captured.unstable.length} screen(s) against a fresh capture: ${mismatches.length} mismatch(es), ${orphanedText.length} orphaned ARIA snapshot(s).\n`
     );
     for (const mismatch of mismatches) {
       io.write(
@@ -583,6 +700,7 @@ export async function runScreensCaptureCommand(
     for (const path of orphanedText) {
       io.write(`  orphaned  ${escapeTerminalText(path)}: no catalogued screen has this key\n`);
     }
+    renderCoverage(selection, notCovered, io);
     for (const rule of selection.unavailable) {
       io.write(`  note  ${rule.rule} rule incomplete: ${escapeTerminalText(rule.detail)}\n`);
     }
@@ -621,14 +739,19 @@ export async function runScreensCaptureCommand(
   ).length;
   const count = (status: CaptureOutputResult["status"]): number =>
     plan.screens.filter((screen) => screen.status === status).length;
+  // Unstable screens are left as they were, so the run is incomplete.
+  const exitCode = captured.unstable.length > 0 ? 1 : 0;
   if (options.json) {
     io.write(
       `${JSON.stringify(
         {
           verify: false,
+          complete: exitCode === 0,
           playwright: captured.playwright,
           selection,
           screens: plan.screens,
+          unstable: captured.unstable,
+          not_covered: notCovered,
           catalog_files: plan.catalogFiles
             .filter((file) => file.status !== "unchanged")
             .map((file) => file.path),
@@ -640,12 +763,14 @@ export async function runScreensCaptureCommand(
         2
       )}\n`
     );
-    return 0;
+    return exitCode;
   }
   io.write(
-    plan.screens.length === 0
+    selection.screens.length === 0 && selection.excluded.length === 0
       ? "No screen was selected, so nothing was captured.\n"
-      : `Captured ${plan.screens.length} screen(s) with Playwright ${captured.playwright}: ${count("new")} new, ${count("updated")} updated, ${count("unchanged")} unchanged.\n`
+      : plan.screens.length === 0 && captured.unstable.length === 0
+        ? "No screen was captured.\n"
+        : `Captured ${plan.screens.length} screen(s) with Playwright ${captured.playwright}${repeat > 1 ? `, identically in ${repeat} runs` : ""}: ${count("new")} new, ${count("updated")} updated, ${count("unchanged")} unchanged.\n`
   );
   for (const screen of plan.screens) {
     if (screen.status === "unchanged") continue;
@@ -653,9 +778,15 @@ export async function runScreensCaptureCommand(
       `  ${screen.status.padEnd(9)} ${escapeTerminalText(screen.key)}${screen.aspects.length > 0 ? ` (${screen.aspects.join(", ")})` : ""}\n`
     );
   }
+  for (const key of captured.unstable) {
+    io.write(
+      `  unstable  ${escapeTerminalText(key)}: differed between runs and was not written; fix what moves, or mark it not_captured (unstable)\n`
+    );
+  }
   for (const orphan of plan.orphanedText) {
     io.write(`  removed   ${escapeTerminalText(orphan.path)}: no catalogued screen has this key\n`);
   }
+  renderCoverage(selection, notCovered, io);
   for (const rule of selection.unavailable) {
     io.write(`  note  ${rule.rule} rule incomplete: ${escapeTerminalText(rule.detail)}\n`);
   }
@@ -680,7 +811,22 @@ export async function runScreensCaptureCommand(
   ) {
     io.write("Run `tieline contract compile .` to refresh the manifest and review page, then commit the catalog and ARIA snapshots.\n");
   }
-  return 0;
+  if (exitCode !== 0) {
+    io.write(`${captured.unstable.length} unstable screen(s) were not written, so this capture is incomplete.\n`);
+  }
+  return exitCode;
+}
+
+/** Selected screens left out of a run: marked not captured, or without a test. */
+function renderCoverage(selection: ScreenSelection, notCovered: readonly string[], io: CommandIO): void {
+  for (const screen of selection.excluded) {
+    io.write(
+      `  skipped   ${escapeTerminalText(screen.key)}: not captured (${screen.reason}): ${escapeTerminalText(screen.detail)}\n`
+    );
+  }
+  for (const key of notCovered) {
+    io.write(`  not covered ${escapeTerminalText(key)}: no test is tagged @screen:${escapeTerminalText(key)}\n`);
+  }
 }
 
 /**

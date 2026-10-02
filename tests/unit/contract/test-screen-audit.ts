@@ -6,12 +6,17 @@ import { runCli } from "../../../src/cli.js";
 import { runCheckCommand } from "../../../src/commands/check.js";
 import {
   auditScreenCaptures,
+  screenAuditStrictFailures,
   screenAuditWarnings,
   summarizeScreenAudit,
 } from "../../../src/contract/screen-audit.js";
+import { compileContractManifest } from "../../../src/contract/manifest.js";
 import { loadScreenCatalog, screenSettingsForRepository } from "../../../src/contract/screen-catalog.js";
 import {
+  acceptanceCriterionTagsIn,
+  interceptsRequests,
   isSceneTestCandidate,
+  scanPageFiles,
   scanScreenScenes,
   screenTagsIn,
   SCREEN_SCENE_LIMITS,
@@ -27,6 +32,7 @@ import { report, test } from "../../support/harness.js";
 import {
   captureIO,
   createScreensWorkspace,
+  REPO_KEY,
   type ScreensWorkspace,
 } from "../../support/screen-fixtures.js";
 
@@ -110,6 +116,8 @@ function auditOf(ws: ScreensWorkspace) {
     catalog,
     text: readScreenTextDirectory(settings),
     scenes: scanScreenScenes(ws.root, settings.sceneTests),
+    pages: scanPageFiles(ws.root, settings.capture.pages),
+    contract: { manifest: compileContractManifest({ repositoryRoot: ws.root, repositoryKey: REPO_KEY, specDirectory: ".tieline/spec" }) },
   });
 }
 
@@ -254,11 +262,17 @@ await test("names each screen's missing outputs, mismatched and orphaned snapsho
     missing_capture: 1,
     missing_text: 1,
     missing_scene: 1,
+    not_captured: 0,
     text_mismatch: 1,
     orphaned_text: 1,
     environments: 1,
     scene_scan: "complete",
     text_issues: 0,
+    unclaimed_pages: null,
+    untested_acceptance_criteria: 0,
+    unlinked_acceptance_criteria: 0,
+    unknown_acceptance_criterion_tags: 0,
+    intercepting_scene_files: 0,
   });
 });
 
@@ -284,7 +298,7 @@ await test("reports a fully captured catalog as complete and mixed environments 
     { fingerprint: FINGERPRINT_1, screens: 2 },
     { fingerprint: FINGERPRINT_2, screens: 1 },
   ]);
-  assert.deepEqual(screenAuditWarnings(summarizeScreenAudit(audit), null), [
+  assert.deepEqual(screenAuditWarnings(audit), [
     "Screens were captured in 2 different environments, and digests from different environments are never compared; re-capture them in the pinned environment.",
   ]);
 });
@@ -299,10 +313,203 @@ await test("does not count missing scenes when the scan could not finish", () =>
   ]);
   const summary = summarizeScreenAudit(audit);
   assert.equal(summary.missing_scene, null);
-  assert.deepEqual(screenAuditWarnings(summary, audit.scene_scan.detail), [
+  assert.deepEqual(screenAuditWarnings(audit), [
     "1 screen(s) are missing capture outputs (1 without a screenshot digest, 1 without a capture record, 1 without an ARIA snapshot); run `tieline screens audit` for the list.",
-    `The @screen tag scan did not complete (${audit.scene_scan.detail}), so screens without a scene test are not counted.`,
+    `The test scan did not complete (${audit.scene_scan.detail}), so screens and acceptance criteria without a test are not counted.`,
   ]);
+});
+
+console.log("screens audit: coverage of pages and acceptance criteria");
+
+/** Acme Notes where NOTES-001-AC1 is proven by a tagged test and AC2 is not. */
+function alignedWorkspace(): ScreensWorkspace {
+  const ws = workspace({
+    git: true,
+    screens: { enabled: true, capture: { pages: ["app/**/page.tsx", "!app/api/**"] } },
+    catalog: {
+      ".tieline/screens/NOTES.yaml": stringify({
+        version: 1,
+        capability: "NOTES",
+        screens: [
+          { key: "notes-list", title: "Notes list", route: "/notes", kind: "page", when: "A member opens Notes.", paths: ["app/notes/page.tsx"] },
+          { key: "notes-list-empty", title: "No notes yet", route: "/notes", kind: "state", when: "A member has no notes.", paths: ["app/notes/page.tsx"] },
+          {
+            key: "payment-failed",
+            title: "Payment failed",
+            route: "/billing",
+            kind: "toast",
+            when: "A card is declined.",
+            not_captured: { reason: "needs-real-trigger", detail: "The payment sandbox cannot decline a card yet." },
+          },
+        ],
+      }),
+    },
+  });
+  ws.write("app/notes/page.tsx", "export default function Notes() { return null; }\n");
+  ws.write("app/settings/page.tsx", "export default function Settings() { return null; }\n");
+  ws.write("app/api/notes/page.tsx", "export const route = true;\n");
+  ws.write(
+    "e2e/notes.screens.ts",
+    [
+      'test("list", { tag: ["@ac:NOTES-001-AC1", "@screen:notes-list"] }, async () => {});',
+      'test("stray", { tag: "@ac:NOTES-404-AC9" }, async () => {});',
+      "",
+    ].join("\n")
+  );
+  ws.write("e2e/other.spec.ts", 'test("also", { tag: "@ac:NOTES-001-AC1" }, async () => {});\n');
+  ws.write(
+    ".tieline/spec/notes.yaml",
+    `version: 1
+capability:
+  key: NOTES
+  name: Notes
+  description: Members write and organize notes.
+  stories:
+    - key: NOTES-001
+      title: Browse my notes
+      actor: member
+      goal: see all of my notes in one list
+      benefit: I can find what I wrote quickly
+      lifecycle: production
+      links:
+        - relation: implements
+          provenance: authored
+          target: { kind: code, repository: ${REPO_KEY}, path: src/notes.ts }
+      acceptance_criteria:
+        - key: NOTES-001-AC1
+          criterion: The notes list must show the member's notes, newest first.
+          links:
+            - relation: tests
+              provenance: authored
+              target: { kind: test, repository: ${REPO_KEY}, path: e2e/notes.screens.ts, framework_hint: playwright }
+            - relation: shows
+              provenance: authored
+              target: { kind: screen, key: notes-list }
+        - key: NOTES-001-AC2
+          criterion: The notes list must invite a member without notes to write one.
+          links:
+            - relation: shows
+              provenance: authored
+              target: { kind: screen, key: notes-list-empty }
+`
+  );
+  return ws;
+}
+
+await test("accounts for screens marked not captured, and finds page files no screen claims", () => {
+  const ws = alignedWorkspace();
+  const audit = auditOf(ws);
+  assert.deepEqual(audit.not_captured, [
+    { key: "payment-failed", capability: "NOTES", reason: "needs-real-trigger", detail: "The payment sandbox cannot decline a card yet." },
+  ]);
+  assert.deepEqual(audit.incomplete.map((gap) => gap.key), ["notes-list", "notes-list-empty"]);
+  // app/api is excluded with `!`; app/notes is claimed by the screens' paths.
+  assert.deepEqual(audit.pages, { status: "complete", detail: null, checked: 2, unclaimed: ["app/settings/page.tsx"] });
+  const summary = summarizeScreenAudit(audit);
+  assert.equal(summary.not_captured, 1);
+  assert.equal(summary.unclaimed_pages, 1);
+});
+
+await test("checks that acceptance criteria showing screens are proven by tagged, linked tests", () => {
+  const ws = alignedWorkspace();
+  const audit = auditOf(ws);
+  assert.deepEqual(audit.acceptance_criteria, {
+    status: "evaluated",
+    detail: null,
+    untested: [{ key: "NOTES-001-AC2", story: "NOTES-001", shows: ["notes-list-empty"] }],
+    unlinked: [{ key: "NOTES-001-AC1", files: ["e2e/other.spec.ts"] }],
+    unknown_tags: [{ key: "NOTES-404-AC9", files: ["e2e/notes.screens.ts"] }],
+  });
+  const settings = screenSettingsForRepository(ws.root)!;
+  const unavailable = auditScreenCaptures({
+    settings,
+    catalog: loadScreenCatalog(ws.root, settings).catalog,
+    text: readScreenTextDirectory(settings),
+    scenes: scanScreenScenes(ws.root, settings.sceneTests),
+    pages: scanPageFiles(ws.root, settings.capture.pages),
+    contract: { manifest: null, detail: "the working-tree contract does not compile: broken" },
+  });
+  assert.deepEqual(unavailable.acceptance_criteria, {
+    status: "unavailable",
+    detail: "the working-tree contract does not compile: broken",
+    untested: [],
+    unlinked: [],
+    unknown_tags: [],
+  });
+});
+
+await test("flags scene tests that intercept requests, for review", () => {
+  assert.equal(interceptsRequests("await page.route('**/api/share', (route) => route.fulfill({ status: 500 }));"), true);
+  assert.equal(interceptsRequests("await context.routeFromHAR('fixtures/notes.har');"), true);
+  assert.equal(interceptsRequests("await page.goto('/notes'); // no routing here"), false);
+  assert.deepEqual(acceptanceCriterionTagsIn('{ tag: ["@ac:NOTES-001-AC1", "@ac:NOTES-001-AC2."] }'), ["NOTES-001-AC1", "NOTES-001-AC2"]);
+  const ws = alignedWorkspace();
+  ws.write("e2e/blocked.spec.ts", 'test("x", { tag: "@screen:notes-list" }, async ({ page }) => { await page.route("**/analytics/**", (r) => r.abort()); });\n');
+  ws.write("e2e/unrelated.spec.ts", 'test("y", async ({ page }) => { await page.route("**", (r) => r.continue()); });\n');
+  assert.deepEqual(auditOf(ws).intercepting, [{ file: "e2e/blocked.spec.ts", keys: ["notes-list"] }]);
+});
+
+await test("fails a strict audit until every screen, page, and UI criterion is accounted for", async () => {
+  const ws = alignedWorkspace();
+  const capture = captureIO();
+  assert.equal(await runCli(["screens", "audit", "--strict", "--repository", ws.root], capture.io, {}), 1);
+  const text = capture.output();
+  assert.match(text, /  not captured payment-failed \(NOTES\): needs-real-trigger: The payment sandbox cannot decline a card yet\.\n/);
+  assert.match(text, /  page      app\/settings\/page\.tsx: no screen's paths claim this page file\n/);
+  assert.match(text, /  untested  NOTES-001-AC2 shows notes-list-empty, but no test is tagged @ac:NOTES-001-AC2\n/);
+  assert.match(text, /  unlinked  NOTES-001-AC1 is tagged in e2e\/other\.spec\.ts, which its tests links do not name\n/);
+  assert.match(text, /  unknown   @ac:NOTES-404-AC9 in e2e\/notes\.screens\.ts: no acceptance criterion has this key\n/);
+  assert.match(text, /Strict audit failed: 2 screen\(s\) are missing capture outputs or a test; 1 page file\(s\) are claimed by no screen; 1 acceptance criteria show screens but no test tags them; 1 acceptance criteria are tagged in tests their links do not name; 1 @ac: tag\(s\) name no acceptance criterion\.\n$/);
+  // Without --strict the same findings are a report.
+  capture.reset();
+  assert.equal(await runCli(["screens", "audit", "--repository", ws.root], capture.io, {}), 0);
+  capture.reset();
+  assert.equal(await runCli(["screens", "audit", "--strict", "--json", "--repository", ws.root], capture.io, {}), 1);
+  const json = JSON.parse(capture.output()) as { strict: { passed: boolean; failures: string[] } };
+  assert.equal(json.strict.passed, false);
+  assert.equal(json.strict.failures.length, 5);
+  await assert.rejects(
+    () => runCli(["screens", "audit", "--strict", "--capture", "--repository", ws.root], captureIO().io, {}),
+    /--strict checks coverage without capturing; run it separately from --capture\./
+  );
+});
+
+await test("passes a strict audit once everything is accounted for", async () => {
+  const ws = workspace({
+    git: true,
+    screens: { enabled: true, capture: { pages: ["app/**/page.tsx"] } },
+    catalog: {
+      ".tieline/screens/NOTES.yaml": catalogYaml("NOTES", [captured("notes-list", LIST_TEXT)]).replace(
+        "    kind: page\n",
+        "    kind: page\n    paths:\n      - app/notes/page.tsx\n"
+      ),
+    },
+  });
+  ws.write("app/notes/page.tsx", "export default function Notes() { return null; }\n");
+  ws.write(".tieline/screen-text/notes-list.yml", LIST_TEXT);
+  ws.write("e2e/notes.screens.ts", 'test("list", { tag: "@screen:notes-list" }, async () => {});\n');
+  const capture = captureIO();
+  assert.equal(await runCli(["screens", "audit", "--strict", "--repository", ws.root], capture.io, {}), 0);
+  assert.match(capture.output(), /Strict audit passed: every screen, page, and documented UI behavior is accounted for\.\n$/);
+  assert.deepEqual(screenAuditStrictFailures(auditOf(ws)), []);
+});
+
+await test("names new page files without a screen, and unproven criteria, in check warnings", async () => {
+  const ws = alignedWorkspace();
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  ws.write("app/billing/page.tsx", "export default function Billing() { return null; }\n");
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 0);
+  const result = JSON.parse(capture.output()) as { warnings: string[]; screens: { captures: Record<string, unknown> } };
+  assert.ok(result.warnings.includes("1 page file(s) added on this branch are claimed by no screen (app/billing/page.tsx); add a screen whose paths name them."));
+  assert.ok(result.warnings.includes("1 other page file(s) are claimed by no screen; run `tieline screens audit` for the list."));
+  assert.ok(result.warnings.includes("1 acceptance criteria show screens but no test tagged @ac:<key> proves them (NOTES-001-AC2)."));
+  assert.ok(result.warnings.includes("1 acceptance criteria are tagged in test files their tests links do not name (NOTES-001-AC1)."));
+  assert.ok(result.warnings.includes("1 @ac: tag(s) name no acceptance criterion (NOTES-404-AC9)."));
+  assert.equal(result.screens.captures.not_captured, 1);
+  assert.equal(result.screens.captures.unclaimed_pages, 2);
 });
 
 console.log("screens audit: command");
@@ -320,7 +527,8 @@ await test("lists findings as text and JSON without changing anything", async ()
   capture.reset();
   assert.equal(await runCli(["screens", "audit", "--repository", ws.root], capture.io, {}), 0);
   const text = capture.output();
-  assert.match(text, /^Screen audit of \.tieline\/screens: 3 screen\(s\); 1 missing capture output\(s\); 0 ARIA snapshot mismatch\(es\); 1 orphaned ARIA snapshot\(s\)\.\n/);
+  assert.match(text, /^Screen audit of \.tieline\/screens: 3 screen\(s\); 1 missing capture output\(s\); 0 not captured, with a reason; 0 ARIA snapshot mismatch\(es\); 1 orphaned ARIA snapshot\(s\)\.\n/);
+  assert.match(text, /  note  page files are not checked; set screens\.capture\.pages to find pages no screen covers\.\n/);
   assert.match(text, /  missing   note-saved-toast \(NOTES\): screenshot digest, capture record, ARIA snapshot, @screen test\n/);
   assert.match(text, /  orphaned  \.tieline\/screen-text\/retired-screen\.yml: no catalogued screen has this key\n/);
 });

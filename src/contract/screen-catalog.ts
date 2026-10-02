@@ -52,6 +52,7 @@ export const SCREEN_LIMITS = {
   imagePathChars: 500,
   imageUrlChars: 2_048,
   testPathChars: 500,
+  notCapturedDetailChars: 500,
   applicabilityDimensions: 16,
   applicabilityValues: 32,
   applicabilityChars: 120,
@@ -190,6 +191,35 @@ export const screenPathPatternSchema = boundedText(SCREEN_LIMITS.pathPatternChar
   }
 );
 
+/**
+ * Why a screen is deliberately not captured. A screen is either captured or
+ * says why not, so a catalog can account for every screen honestly:
+ *
+ * - `flag-off`: behind a feature flag that is off in the capture profile;
+ * - `external`: on another site, such as a payment or sign-in provider;
+ * - `unreachable`: no path in the app leads to it;
+ * - `needs-real-trigger`: reaching it would mean faking a response, and no
+ *   seeded data or test-only switch in the app makes it happen for real yet;
+ * - `unstable`: its capture differs from run to run until it is fixed;
+ * - `other`: explained in `detail`.
+ */
+export const SCREEN_NOT_CAPTURED_REASONS = [
+  "flag-off",
+  "external",
+  "unreachable",
+  "needs-real-trigger",
+  "unstable",
+  "other",
+] as const;
+export type ScreenNotCapturedReason = (typeof SCREEN_NOT_CAPTURED_REASONS)[number];
+
+export const screenNotCapturedSchema = z
+  .object({
+    reason: z.enum(SCREEN_NOT_CAPTURED_REASONS),
+    detail: boundedText(SCREEN_LIMITS.notCapturedDetailChars),
+  })
+  .strict();
+
 /** The shared applicability schema, with bounds on its size. */
 export const screenApplicabilitySchema = applicabilitySchema.superRefine((value, ctx) => {
   const dimensions = Object.entries(value);
@@ -268,6 +298,7 @@ export const screenEntrySchema = z
     image: screenImageSchema.optional(),
     scene: reservedField("scene", "the script that reaches a screen"),
     capture: screenCaptureSchema.optional(),
+    not_captured: screenNotCapturedSchema.optional(),
   })
   .strict();
 
@@ -279,6 +310,13 @@ export const screenEntrySchema = z
  */
 const catalogScreenEntrySchema = screenEntrySchema.superRefine((entry, ctx) => {
   if (!entry.capture) return;
+  if (entry.not_captured) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["not_captured"],
+      message: "a screen with a capture record cannot also be marked not captured; remove one",
+    });
+  }
   if (!entry.image || !("path" in entry.image) || entry.image.sha256 === undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -299,6 +337,7 @@ export const screenCatalogDocumentSchema = z
 
 export type ScreenImage = z.infer<typeof screenImageSchema>;
 export type ScreenCapture = z.infer<typeof screenCaptureSchema>;
+export type ScreenNotCaptured = z.infer<typeof screenNotCapturedSchema>;
 export type ScreenEntry = z.infer<typeof screenEntrySchema>;
 export type ScreenCatalogDocument = z.infer<typeof screenCatalogDocumentSchema>;
 
@@ -326,6 +365,8 @@ export interface ScreenSettings {
     playwrightConfig: string | null;
     project: string | null;
     timeoutMinutes: number;
+    /** Page file patterns, `!` excluding; empty when page coverage is not checked. */
+    pages: string[];
   };
 }
 
@@ -512,6 +553,7 @@ export function screenSettingsForRepository(
       playwrightConfig: config.capture.playwright_config,
       project: config.capture.project,
       timeoutMinutes: config.capture.timeout_minutes,
+      pages: config.capture.pages,
     },
   };
 }

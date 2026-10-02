@@ -1,10 +1,15 @@
+import type { ContractManifest } from "./manifest.js";
+import { wildcardPattern } from "./paths.js";
 import {
   loadScreenCatalog,
+  type ScreenNotCapturedReason,
   type ScreenSettings,
   type ValidatedScreenCatalog,
 } from "./screen-catalog.js";
 import {
+  scanPageFiles,
   scanScreenScenes,
+  type ScreenPageScan,
   type ScreenSceneScan,
   type ScreenSceneScanStatus,
 } from "./screen-scenes.js";
@@ -25,6 +30,8 @@ import {
  *   only imported from another tool);
  * - `text`: no committed ARIA snapshot;
  * - `scene`: no test file tags the screen.
+ *
+ * A screen marked `not_captured` has none of these gaps: it says why instead.
  */
 export type ScreenCaptureGap = "screenshot" | "capture" | "text" | "scene";
 
@@ -41,12 +48,37 @@ export interface ScreenAuditGap {
   missing: ScreenCaptureGap[];
 }
 
+/**
+ * Whether the tests that prove acceptance criteria line up with the contract:
+ *
+ * - `untested`: criteria that show screens, but no test tags `@ac:<key>`;
+ * - `unlinked`: criteria tagged in test files their `tests` links do not name;
+ * - `unknown_tags`: `@ac:` tags that name no acceptance criterion.
+ *
+ * `unavailable` when the contract does not compile; `incomplete` when the tag
+ * scan did not finish, so untested criteria are not counted.
+ */
+export interface ScreenAcceptanceAlignment {
+  status: "evaluated" | "incomplete" | "unavailable";
+  detail: string | null;
+  untested: Array<{ key: string; story: string; shows: string[] }>;
+  unlinked: Array<{ key: string; files: string[] }>;
+  unknown_tags: Array<{ key: string; files: string[] }>;
+}
+
 export interface ScreenAudit {
   catalog_path: string;
   text_path: string;
   screens: number;
   /** Screens missing at least one capture output, by key. */
   incomplete: ScreenAuditGap[];
+  /** Screens deliberately not captured, with why. */
+  not_captured: Array<{
+    key: string;
+    capability: string;
+    reason: ScreenNotCapturedReason;
+    detail: string;
+  }>;
   /** Screens whose ARIA snapshot differs from the digest their capture recorded. */
   text_mismatch: string[];
   /** ARIA snapshot files whose screen is not in the catalog. */
@@ -62,6 +94,16 @@ export interface ScreenAudit {
   scene_scan: { status: ScreenSceneScanStatus; files: number; detail: string | null };
   /** Files in the text directory that could not be read as ARIA snapshots. */
   text_issues: string[];
+  /** Page files (`screens.capture.pages`) that no screen's `paths` claims. */
+  pages: {
+    status: ScreenPageScan["status"];
+    detail: string | null;
+    checked: number;
+    unclaimed: string[];
+  };
+  acceptance_criteria: ScreenAcceptanceAlignment;
+  /** Scene test files that intercept the page's requests, for review. */
+  intercepting: Array<{ file: string; keys: string[] }>;
 }
 
 export interface ScreenAuditSummary {
@@ -72,31 +114,109 @@ export interface ScreenAuditSummary {
   missing_text: number;
   /** Null when the scene scan did not complete, so a missing tag proves nothing. */
   missing_scene: number | null;
+  not_captured: number;
   text_mismatch: number;
   orphaned_text: number;
   environments: number;
   scene_scan: ScreenSceneScanStatus;
   text_issues: number;
+  /** Null when page files are not configured or could not be listed in full. */
+  unclaimed_pages: number | null;
+  /** Null when the contract does not compile or the tag scan did not finish. */
+  untested_acceptance_criteria: number | null;
+  unlinked_acceptance_criteria: number | null;
+  unknown_acceptance_criterion_tags: number | null;
+  intercepting_scene_files: number;
+}
+
+/** The contract an audit checks acceptance criteria against, or why it cannot. */
+export type ScreenAuditContract =
+  | { manifest: ContractManifest; detail?: undefined }
+  | { manifest: null; detail: string };
+
+function linkedTestPaths(
+  links: ContractManifest["capabilities"][number]["stories"][number]["links"]
+): string[] {
+  return links.flatMap((link) =>
+    link.relation === "tests" && "path" in link.target ? [link.target.path] : []
+  );
+}
+
+function sortedByKey<T extends { key: string }>(items: T[]): T[] {
+  return items.sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function acceptanceAlignment(
+  contract: ScreenAuditContract,
+  scenes: ScreenSceneScan
+): ScreenAcceptanceAlignment {
+  if (!contract.manifest) {
+    return { status: "unavailable", detail: contract.detail, untested: [], unlinked: [], unknown_tags: [] };
+  }
+  const criteria = new Map<string, { story: string; shows: string[]; tests: Set<string> }>();
+  for (const capability of contract.manifest.capabilities) {
+    for (const story of capability.stories) {
+      for (const criterion of story.acceptance_criteria) {
+        criteria.set(criterion.stable_id, {
+          story: story.stable_id,
+          shows: (criterion.shows ?? []).map((link) => link.target.key),
+          tests: new Set(linkedTestPaths(criterion.links)),
+        });
+      }
+    }
+  }
+  const complete = scenes.status === "complete";
+  return {
+    status: complete ? "evaluated" : scenes.status === "incomplete" ? "incomplete" : "unavailable",
+    detail: complete ? null : scenes.detail,
+    untested: complete
+      ? sortedByKey(
+          [...criteria]
+            .filter(([key, criterion]) => criterion.shows.length > 0 && !scenes.acTags.has(key))
+            .map(([key, criterion]) => ({ key, story: criterion.story, shows: criterion.shows }))
+        )
+      : [],
+    unlinked: sortedByKey(
+      [...scenes.acTags].flatMap(([key, files]) => {
+        const criterion = criteria.get(key);
+        const missing = criterion ? files.filter((file) => !criterion.tests.has(file)) : [];
+        return missing.length > 0 ? [{ key, files: missing }] : [];
+      })
+    ),
+    unknown_tags: sortedByKey(
+      [...scenes.acTags]
+        .filter(([key]) => !criteria.has(key))
+        .map(([key, files]) => ({ key, files: [...files] }))
+    ),
+  };
 }
 
 /**
  * Finds what incremental capture cannot: screens with missing or inconsistent
- * capture outputs, without capturing anything. Pure over its inputs.
+ * capture outputs, page files no screen claims, and acceptance criteria whose
+ * tests do not line up, without capturing anything. Pure over its inputs.
  */
 export function auditScreenCaptures(input: {
   settings: ScreenSettings;
   catalog: ValidatedScreenCatalog;
   text: ScreenTextDirectory;
   scenes: ScreenSceneScan;
+  pages: ScreenPageScan;
+  contract: ScreenAuditContract;
 }): ScreenAudit {
   const { settings, catalog, text, scenes } = input;
   const sceneEvaluated = scenes.status === "complete";
   const incomplete: ScreenAuditGap[] = [];
+  const notCaptured: ScreenAudit["not_captured"] = [];
   const mismatch: string[] = [];
   const fingerprints = new Map<string, number>();
   const keys = [...catalog.screens.keys()].sort((left, right) => left.localeCompare(right));
   for (const key of keys) {
     const { capability, entry } = catalog.screens.get(key)!;
+    if (entry.not_captured) {
+      notCaptured.push({ key, capability, ...entry.not_captured });
+      continue;
+    }
     const textDigest = text.digests.get(key);
     const missing = SCREEN_CAPTURE_GAPS.filter((gap) => {
       switch (gap) {
@@ -121,11 +241,15 @@ export function auditScreenCaptures(input: {
       );
     }
   }
+  const claims = [...catalog.screens.values()].flatMap(({ entry }) =>
+    (entry.paths ?? []).map(wildcardPattern)
+  );
   return {
     catalog_path: settings.catalogPath,
     text_path: settings.textPath,
     screens: keys.length,
     incomplete,
+    not_captured: notCaptured,
     text_mismatch: mismatch,
     orphaned_text: [...text.digests.keys()]
       .filter((key) => !catalog.screens.has(key))
@@ -140,12 +264,22 @@ export function auditScreenCaptures(input: {
       .map(([fingerprint, screens]) => ({ fingerprint, screens })),
     scene_scan: { status: scenes.status, files: scenes.files, detail: scenes.detail },
     text_issues: [...text.issues],
+    pages: {
+      status: input.pages.status,
+      detail: input.pages.detail,
+      checked: input.pages.files.length,
+      unclaimed: input.pages.files.filter((file) => !claims.some((claim) => claim.test(file))),
+    },
+    acceptance_criteria: acceptanceAlignment(input.contract, scenes),
+    intercepting: scenes.intercepting.map(({ file, keys: tagged }) => ({ file, keys: [...tagged] })),
   };
 }
 
 export function summarizeScreenAudit(audit: ScreenAudit): ScreenAuditSummary {
   const count = (gap: ScreenCaptureGap): number =>
     audit.incomplete.filter((screen) => screen.missing.includes(gap)).length;
+  const alignment = audit.acceptance_criteria;
+  const aligned = alignment.status !== "unavailable";
   return {
     screens: audit.screens,
     incomplete: audit.incomplete.length,
@@ -153,23 +287,58 @@ export function summarizeScreenAudit(audit: ScreenAudit): ScreenAuditSummary {
     missing_capture: count("capture"),
     missing_text: count("text"),
     missing_scene: audit.scene_scan.status === "complete" ? count("scene") : null,
+    not_captured: audit.not_captured.length,
     text_mismatch: audit.text_mismatch.length,
     orphaned_text: audit.orphaned_text.length,
     environments: audit.environments.length,
     scene_scan: audit.scene_scan.status,
     text_issues: audit.text_issues.length,
+    unclaimed_pages: audit.pages.status === "complete" ? audit.pages.unclaimed.length : null,
+    untested_acceptance_criteria: alignment.status === "evaluated" ? alignment.untested.length : null,
+    unlinked_acceptance_criteria: aligned ? alignment.unlinked.length : null,
+    unknown_acceptance_criterion_tags: aligned ? alignment.unknown_tags.length : null,
+    intercepting_scene_files: audit.intercepting.length,
   };
 }
 
 /**
+ * Why a strict audit fails: anything that leaves a screen, a page, or a
+ * documented UI behavior unaccounted for, or that the audit could not check.
+ * Screens marked not captured are accounted for. Mixed capture environments
+ * are left to `--verify`, and request interception to review, since blocking
+ * third-party requests is legitimate.
+ */
+export function screenAuditStrictFailures(audit: ScreenAudit): string[] {
+  const summary = summarizeScreenAudit(audit);
+  const alignment = audit.acceptance_criteria;
+  return [
+    ...(summary.incomplete > 0 ? [`${summary.incomplete} screen(s) are missing capture outputs or a test`] : []),
+    ...(summary.text_mismatch > 0 ? [`${summary.text_mismatch} ARIA snapshot(s) differ from their capture record`] : []),
+    ...(summary.orphaned_text > 0 ? [`${summary.orphaned_text} ARIA snapshot(s) belong to no screen`] : []),
+    ...(audit.unknown_scene_tags.length > 0 ? [`${audit.unknown_scene_tags.length} @screen: tag(s) name no screen`] : []),
+    ...(summary.text_issues > 0 ? [`${summary.text_issues} file(s) in the text directory could not be read`] : []),
+    ...(audit.scene_scan.status !== "complete" ? [`the test scan is ${audit.scene_scan.status}: ${audit.scene_scan.detail ?? ""}`] : []),
+    ...(audit.pages.status === "incomplete" || audit.pages.status === "unavailable"
+      ? [`the page files could not be checked: ${audit.pages.detail ?? audit.pages.status}`]
+      : []),
+    ...(audit.pages.unclaimed.length > 0 ? [`${audit.pages.unclaimed.length} page file(s) are claimed by no screen`] : []),
+    ...(alignment.status === "unavailable" ? [`acceptance criteria could not be checked: ${alignment.detail ?? ""}`] : []),
+    ...(alignment.untested.length > 0 ? [`${alignment.untested.length} acceptance criteria show screens but no test tags them`] : []),
+    ...(alignment.unlinked.length > 0 ? [`${alignment.unlinked.length} acceptance criteria are tagged in tests their links do not name`] : []),
+    ...(alignment.unknown_tags.length > 0 ? [`${alignment.unknown_tags.length} @ac: tag(s) name no acceptance criterion`] : []),
+  ];
+}
+
+/**
  * Loads the working-tree catalog, validated against the capabilities the spec
- * declares, and audits it; or returns the catalog's validation issues: an
- * invalid catalog cannot say which screens exist.
+ * declares, and audits it against `contract`; or returns the catalog's
+ * validation issues: an invalid catalog cannot say which screens exist.
  */
 export function loadScreenAudit(
   repositoryRoot: string,
   settings: ScreenSettings,
-  capabilityKeys: ReadonlySet<string>
+  capabilityKeys: ReadonlySet<string>,
+  contract: ScreenAuditContract
 ): { audit: ScreenAudit; issues: [] } | { audit: null; issues: string[] } {
   const { catalog, issues } = loadScreenCatalog(repositoryRoot, settings, capabilityKeys);
   if (issues.length > 0) return { audit: null, issues };
@@ -179,6 +348,8 @@ export function loadScreenAudit(
       catalog,
       text: readScreenTextDirectory(settings),
       scenes: scanScreenScenes(repositoryRoot, settings.sceneTests),
+      pages: scanPageFiles(repositoryRoot, settings.capture.pages),
+      contract,
     }),
     issues: [],
   };
@@ -191,11 +362,17 @@ const GAP_PHRASES: Record<ScreenCaptureGap, string> = {
   scene: "without an @screen test",
 };
 
+function firstFew(items: readonly string[]): string {
+  return `${items.slice(0, 3).join(", ")}${items.length > 3 ? ", …" : ""}`;
+}
+
 /**
  * One-line warnings for `tieline check`. They name counts, not keys: the full
- * list is what `tieline screens audit` is for.
+ * list is what `tieline screens audit` is for. `added` names files the branch
+ * added, so new page files without a screen are called out.
  */
-export function screenAuditWarnings(summary: ScreenAuditSummary, sceneDetail: string | null): string[] {
+export function screenAuditWarnings(audit: ScreenAudit, added: ReadonlySet<string> = new Set()): string[] {
+  const summary = summarizeScreenAudit(audit);
   const gaps: Array<[ScreenCaptureGap, number | null]> = [
     ["screenshot", summary.missing_screenshot],
     ["capture", summary.missing_capture],
@@ -205,6 +382,8 @@ export function screenAuditWarnings(summary: ScreenAuditSummary, sceneDetail: st
   const parts = gaps
     .filter(([, count]) => count !== null && count > 0)
     .map(([gap, count]) => `${count} ${GAP_PHRASES[gap]}`);
+  const newPages = audit.pages.unclaimed.filter((file) => added.has(file));
+  const alignment = audit.acceptance_criteria;
   return [
     ...(summary.incomplete > 0
       ? [
@@ -233,7 +412,41 @@ export function screenAuditWarnings(summary: ScreenAuditSummary, sceneDetail: st
       : []),
     ...(summary.scene_scan !== "complete"
       ? [
-          `The @screen tag scan did not complete (${sceneDetail ?? summary.scene_scan}), so screens without a scene test are not counted.`,
+          `The test scan did not complete (${audit.scene_scan.detail ?? summary.scene_scan}), so screens and acceptance criteria without a test are not counted.`,
+        ]
+      : []),
+    ...(newPages.length > 0
+      ? [`${newPages.length} page file(s) added on this branch are claimed by no screen (${firstFew(newPages)}); add a screen whose paths name them.`]
+      : []),
+    ...(audit.pages.unclaimed.length > newPages.length
+      ? [
+          `${audit.pages.unclaimed.length - newPages.length} other page file(s) are claimed by no screen; run \`tieline screens audit\` for the list.`,
+        ]
+      : []),
+    ...(audit.pages.status === "incomplete" || audit.pages.status === "unavailable"
+      ? [`Page files could not be checked in full: ${audit.pages.detail ?? audit.pages.status}.`]
+      : []),
+    ...(alignment.untested.length > 0
+      ? [
+          `${alignment.untested.length} acceptance criteria show screens but no test tagged @ac:<key> proves them (${firstFew(alignment.untested.map((criterion) => criterion.key))}).`,
+        ]
+      : []),
+    ...(alignment.unlinked.length > 0
+      ? [
+          `${alignment.unlinked.length} acceptance criteria are tagged in test files their tests links do not name (${firstFew(alignment.unlinked.map((criterion) => criterion.key))}).`,
+        ]
+      : []),
+    ...(alignment.unknown_tags.length > 0
+      ? [
+          `${alignment.unknown_tags.length} @ac: tag(s) name no acceptance criterion (${firstFew(alignment.unknown_tags.map((tag) => tag.key))}).`,
+        ]
+      : []),
+    ...(alignment.status === "unavailable" && alignment.detail
+      ? [`Acceptance criteria could not be checked against their tests: ${alignment.detail}`]
+      : []),
+    ...(audit.intercepting.length > 0
+      ? [
+          `${audit.intercepting.length} scene test file(s) intercept the page's requests (${firstFew(audit.intercepting.map((entry) => entry.file))}); block third-party requests only, and mark states that would need a faked response not captured.`,
         ]
       : []),
   ];

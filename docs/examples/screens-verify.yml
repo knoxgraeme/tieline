@@ -21,6 +21,10 @@ jobs:
           fetch-depth: 0
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: npm ci
-      # Fails, naming each screen, when the committed digests, capture records,
+      # Re-checks every covered screen, so any change to one is caught, and
+      # fails, naming each screen, when the committed digests, capture records,
       # or ARIA snapshots differ from a fresh capture. Needs no credentials.
-      - run: npx tieline screens capture --changed --base origin/${{ github.base_ref }} --verify
+      - run: npx tieline screens capture --all --verify
+      # Fails while any screen, page file, or UI acceptance criterion is
+      # unaccounted for. Turn it on once the catalog is backfilled.
+      # - run: npx tieline screens audit --strict

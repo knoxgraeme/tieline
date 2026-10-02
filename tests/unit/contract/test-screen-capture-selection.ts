@@ -445,6 +445,22 @@ await test("reports the selection for a branch with each reason, from where it l
   assert.match(text, /  note  dependency rule incomplete: no topology in this test\n/);
 });
 
+await test("leaves out screens marked not captured, saying why", async () => {
+  const ws = notesWorkspace({ enabled: true, capture: { global_paths: ["src/styles/**"] } });
+  ws.write(
+    ".tieline/screens/SHARING.yaml",
+    catalogYaml("SHARING", [screen("notes-share-denied", { kind: "inline-error", not_captured: { reason: "flag-off", detail: "Sharing is off for launch." } })])
+  );
+  ws.commit("baseline");
+  ws.write("src/styles/theme.css", "body { color: black; }\n");
+  const result = await dryRun(ws, ["--changed", "--base", "HEAD"]);
+  const selection = result.selection as { screens: Array<{ key: string }>; excluded: unknown };
+  assert.deepEqual(selection.screens.map((selected) => selected.key), ["note-saved-toast", "notes-list", "notes-list-empty"]);
+  assert.deepEqual(selection.excluded, [
+    { key: "notes-share-denied", capability: "SHARING", reason: "flag-off", detail: "Sharing is off for launch." },
+  ]);
+});
+
 await test("reports --all and --screen selections and validates the scope", async () => {
   const ws = notesWorkspace();
   const all = await dryRun(ws, ["--all"]);

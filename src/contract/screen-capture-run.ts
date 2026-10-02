@@ -407,7 +407,7 @@ export function readCapturedScreens(input: {
 }
 
 /** Why a captured screen's committed outputs do not match a fresh capture. */
-export type ScreenVerifyCause = "not_captured" | "environment" | "image" | "text" | "test";
+export type ScreenVerifyCause = "unstable" | "not_captured" | "environment" | "image" | "text" | "test";
 
 export interface ScreenVerifyMismatch {
   key: string;

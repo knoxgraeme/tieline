@@ -158,23 +158,28 @@ stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` f
 machine-readable summary.
 
 ```bash
-tieline screens capture --changed --base origin/main [--dry-run | --verify] [--json]
+tieline screens capture --all --verify
+tieline screens capture --changed --base origin/main [--dry-run | --verify] [--repeat <n>] [--json]
 ```
 
 Captures the screens a branch may have changed with the repository's own Playwright tests tagged
 `@screen:<key>`, each selected with the rule and file that selected it. `--all` and
 `--screen <key>` select every screen or named ones. `--dry-run` only reports the selection;
 `--verify` compares a fresh capture with the committed outputs, writes nothing, and exits 1 on any
-difference. See [Capture with Playwright](screens.md#capture-with-playwright) and
+difference; `capture --all --verify` is the recommended pull-request check. `--repeat <n>` keeps
+only screens captured identically n times. Screens marked not captured are skipped, and selected
+screens no test tags are listed as not covered. See [Capture with Playwright](screens.md#capture-with-playwright) and
 [Selecting screens to capture](screens.md#selecting-screens-to-capture).
 
 ```bash
-tieline screens audit [--capture] [--json]
+tieline screens audit [--strict | --capture] [--json]
 ```
 
 Lists screens missing a screenshot digest, capture record, committed ARIA snapshot, or
-`@screen` test, plus mismatched and orphaned ARIA snapshots, without capturing anything.
-`--capture` re-captures every screen and reports the drift. See [Audit](screens.md#audit).
+`@screen` test, mismatched and orphaned ARIA snapshots, page files no screen claims, and UI
+acceptance criteria no `@ac:`-tagged test proves, without capturing anything. `--strict` exits 1
+on any of them, as a coverage gate. `--capture` re-captures every screen and reports the drift.
+See [Audit](screens.md#audit) and [Coverage](screens.md#coverage).
 
 ## CI check
 

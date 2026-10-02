@@ -137,7 +137,8 @@ const screensPathPatternSchema = z
  * translations), so a branch that touches one re-captures them all.
  * `playwright_config` and `project` choose the Playwright configuration file
  * and the one project that captures (one viewport per screen), and
- * `timeout_minutes` bounds a whole capture run.
+ * `timeout_minutes` bounds a whole capture run. `pages` names the files that
+ * define pages, so a page no screen claims is reported.
  */
 const screensCaptureConfigSchema = z
   .object({
@@ -148,6 +149,21 @@ const screensCaptureConfigSchema = z
       .optional(),
     project: z.string().trim().min(1).max(120).optional(),
     timeout_minutes: z.number().int().min(1).max(240).optional(),
+    pages: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(241)
+          .refine(
+            (value) => screensPathPatternSchema.safeParse(value.replace(/^!/, "")).success,
+            "must be a repository-relative POSIX path pattern without '..' segments, optionally starting with '!'"
+          )
+      )
+      .min(1)
+      .max(50)
+      .optional(),
   })
   .strict();
 
@@ -178,6 +194,11 @@ export interface ScreensCaptureConfig {
   project: string | null;
   /** Longest a capture run may take before it is stopped. */
   timeout_minutes: number;
+  /**
+   * Patterns for the files that define pages; `!` excludes. Every matching
+   * file must be claimed by some screen's `paths`. Empty means not checked.
+   */
+  pages: string[];
 }
 
 export const DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES = 30;
@@ -228,6 +249,7 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
       project: parsed.data.capture?.project ?? null,
       timeout_minutes:
         parsed.data.capture?.timeout_minutes ?? DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES,
+      pages: parsed.data.capture?.pages ?? [],
     },
   };
 }

@@ -14,6 +14,9 @@ capability:
         - key: SHARING-001-AC1
           criterion: A viewer must not be able to share a note.
           links:
+            - relation: tests
+              provenance: authored
+              target: { kind: test, repository: acme-notes, path: e2e/notes.screens.ts, framework_hint: playwright }
             - relation: shows
               provenance: authored
               target: { kind: screen, key: notes-share-denied }

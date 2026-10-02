@@ -14,12 +14,18 @@ capability:
         - key: NOTES-001-AC1
           criterion: The notes list must show the member's notes.
           links:
+            - relation: tests
+              provenance: authored
+              target: { kind: test, repository: acme-notes, path: e2e/notes.screens.ts, framework_hint: playwright }
             - relation: shows
               provenance: authored
               target: { kind: screen, key: notes-list }
         - key: NOTES-001-AC2
           criterion: The notes list must invite a member without notes to write one.
           links:
+            - relation: tests
+              provenance: authored
+              target: { kind: test, repository: acme-notes, path: e2e/notes.screens.ts, framework_hint: playwright }
             - relation: shows
               provenance: authored
               target: { kind: screen, key: notes-list-empty }

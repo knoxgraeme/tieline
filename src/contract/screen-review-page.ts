@@ -49,6 +49,8 @@ export interface ScreenReviewEntry {
   applies_to: Applicability | null;
   copy: string[];
   image: { src: string; label: string } | null;
+  /** Why the screen is deliberately not captured, or null. */
+  not_captured: { reason: string; detail: string } | null;
   shown_by: ScreenShownBy[];
   /** Present only on a page built against a base ref, for changed screens. */
   change?: Pick<ScreenRecordChange, "status" | "aspects">;
@@ -205,6 +207,7 @@ export function buildScreenReviewModel(
           applies_to: entry.applies_to ?? null,
           copy: entry.copy ?? [],
           image: imageSource(entry.image, screens.capturesUrl),
+          not_captured: entry.not_captured ?? null,
           shown_by: shownBy.get(entry.key) ?? [],
           ...changeOf(changes, entry.key),
         });
@@ -1148,6 +1151,9 @@ export const SCREEN_REVIEW_SCRIPT = `
           });
           image.src = screen.image.src;
           figure.append(image, caption);
+        } else if (screen.not_captured) {
+          caption.append(element("span", "", "Not captured (" + screen.not_captured.reason + "): " + screen.not_captured.detail));
+          figure.append(caption);
         } else {
           caption.append(element("span", "", "No capture recorded for this screen."));
           figure.append(caption);
@@ -1209,6 +1215,9 @@ export const SCREEN_REVIEW_SCRIPT = `
           : "Everyone");
         definition(meta, "Capability", screen.capability_name + " (" + screen.capability + ")");
         definition(meta, "Image", screen.image ? screen.image.label : "None");
+        if (screen.not_captured) {
+          definition(meta, "Not captured", screen.not_captured.reason + ": " + screen.not_captured.detail);
+        }
         const copy = document.getElementById("screen-detail-copy");
         copy.replaceChildren();
         if (screen.copy.length > 0) {

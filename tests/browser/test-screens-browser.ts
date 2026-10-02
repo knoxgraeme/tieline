@@ -114,6 +114,15 @@ for (const moduleType of ["commonjs", "module"] as const) {
     commit(ws, "capture screens");
   });
 
+  await test("accounts for every screen, page, and UI acceptance criterion", () => {
+    const audit = json(tieline(ws, "screens", "audit", "--strict", "--json"), 0) as {
+      strict: { passed: boolean; failures: string[] };
+      pages: { checked: number; unclaimed: string[] };
+    };
+    assert.deepEqual(audit.strict, { passed: true, failures: [] });
+    assert.deepEqual(audit.pages, { status: "complete", detail: null, checked: 3, unclaimed: [] });
+  });
+
   await test("verifies an unchanged app against a fresh capture", () => {
     const result = json(tieline(ws, "screens", "capture", "--all", "--verify", "--json"), 0);
     assert.equal(result.passed, true);
@@ -145,7 +154,7 @@ for (const moduleType of ["commonjs", "module"] as const) {
   await test("fails the run, writing nothing, when a scene is not tagged for its screen", () => {
     commit(ws, "re-capture");
     const scene = join(ws.root, "e2e/notes.screens.ts");
-    writeFileSync(scene, readFileSync(scene, "utf8").replace('{ tag: "@screen:notes-list-empty" }', '{ tag: ["@screen:notes-list-empty", "@empty"] }').replace('tielineSnapshot(page, "notes-list-empty")', 'tielineSnapshot(page, "notes-list")'));
+    writeFileSync(scene, readFileSync(scene, "utf8").replace('tielineSnapshot(page, "notes-list-empty")', 'tielineSnapshot(page, "notes-list")'));
     const before = readFileSync(join(ws.root, ".tieline/screens/NOTES.yaml"), "utf8");
     const result = tieline(ws, "screens", "capture", "--screen", "notes-list-empty");
     assert.equal(result.status, 1);
