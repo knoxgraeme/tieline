@@ -521,6 +521,14 @@ await test("reads only the catalog file the walk found, and refuses moved captur
   assert.deepEqual(readFileWithin(real, 1 << 20, (opened) => isStillFile(real, opened)), { status: "changed" });
   rmSync(real);
   writeFileSync(real, NOTES_CATALOG_YAML);
+  // Likewise for a file below a directory swapped for a link: its path no
+  // longer resolves to itself, so nothing under the link is read.
+  ws.write(".tieline/screens/sub/MORE.yaml", "version: 1\ncapability: NOTES\nscreens: []\n");
+  const nested = realpathSync(resolve(ws.root, ".tieline/screens/sub/MORE.yaml"));
+  renameSync(resolve(ws.root, ".tieline/screens/sub"), resolve(ws.root, "elsewhere/sub"));
+  symlinkSync(resolve(ws.root, "elsewhere/sub"), resolve(ws.root, ".tieline/screens/sub"));
+  assert.deepEqual(readFileWithin(nested, 1 << 20, (opened) => isStillFile(nested, opened)), { status: "changed" });
+  rmSync(resolve(ws.root, ".tieline/screens/sub"));
 
   // Captures moved after validation to another directory in the catalog: the
   // walk would skip the wrong subtree, so the catalog is not read at all.

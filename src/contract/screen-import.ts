@@ -654,7 +654,8 @@ export function planScreenImport(
  * that a catalog file is still as expected read the real file system.
  */
 export interface ScreenImportFileSystem {
-  mkdirSync(path: string, options: { recursive: true }): void;
+  /** Returns the first directory made, as `mkdirSync` does, if any. */
+  mkdirSync(path: string, options: { recursive: true }): string | undefined;
   /**
    * Creates a new file, failing with `EEXIST` when anything — including a
    * symbolic link, even a dangling one — is already at the path, so a scratch
@@ -666,9 +667,7 @@ export interface ScreenImportFileSystem {
 }
 
 export const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
-  mkdirSync: (path, options) => {
-    mkdirSync(path, options);
-  },
+  mkdirSync: (path, options) => mkdirSync(path, options),
   createFileSync: (path, content) => writeFileSync(path, content, { flag: "wx" }),
   renameSync: (from, to) => renameSync(from, to),
   rmSync: (path, options) => rmSync(path, options),
@@ -756,6 +755,13 @@ export function applyScreenImport(
 ): void {
   const changed = plan.files.filter((file) => file.status !== "unchanged");
   const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string }> = [];
+  // Only a file the import creates may need its directory made: the catalog
+  // directory itself. A file that was read already had one, and making it
+  // again could make it wherever a link swapped in since leads. What is made
+  // is undone if the import is refused.
+  const made: Array<{ directory: string; firstMade: string | undefined }> = [];
+  const unmake = (): string[] =>
+    made.flatMap(({ directory, firstMade }) => removeMadeDirectories(directory, firstMade));
   // Cleanup never throws: a temporary file that cannot be removed is reported,
   // and never stops the restoration that matters more.
   const discardStaged = (from: number): string[] => {
@@ -771,7 +777,10 @@ export function applyScreenImport(
   };
   try {
     for (const file of changed) {
-      fileSystem.mkdirSync(dirname(file.absolutePath), { recursive: true });
+      if (file.original === null) {
+        const directory = dirname(file.absolutePath);
+        made.push({ directory, firstMade: fileSystem.mkdirSync(directory, { recursive: true }) });
+      }
       const temporary = `${file.absolutePath}.${process.pid}.tmp`;
       try {
         fileSystem.createFileSync(temporary, file.content);
@@ -785,11 +794,15 @@ export function applyScreenImport(
     }
   } catch (error) {
     const leftovers = discardStaged(0);
+    const directories = unmake();
     throw new ScreenImportError(
       `Could not stage the screen catalog files (${message(error)}); nothing was written${
-        leftovers.length > 0 ? ", but some staged files could not be removed" : ""
+        leftovers.length + directories.length > 0 ? ", but some staged files could not be removed" : ""
       }.`,
-      leftovers.map((leftover) => `staged file left behind: ${leftover}`)
+      [
+        ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+        ...directories.map((directory) => `directory left behind: ${directory}`),
+      ]
     );
   }
 
@@ -851,9 +864,14 @@ export function applyScreenImport(
   }
   if (stale.length > 0) {
     const leftovers = discardStaged(0);
+    const directories = unmake();
     throw new ScreenImportError(
       "The screen catalog changed after the import read it, so nothing was written. Run the import again.",
-      [...stale, ...leftovers.map((leftover) => `staged file left behind: ${leftover}`)]
+      [
+        ...stale,
+        ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+        ...directories.map((directory) => `directory left behind: ${directory}`),
+      ]
     );
   }
 
@@ -925,6 +943,9 @@ export function applyScreenImport(
         }
       }
       const leftovers = discardStaged(index);
+      // Directories made for created files are empty again once those files
+      // are removed; ones still holding something stay, and are named.
+      const directories = unrestored.length === 0 ? unmake() : [];
       throw new ScreenImportError(
         unrestored.length === 0
           ? `Writing '${file.path}' failed (${message(error)}); the ${replaced.length} file(s) already written were restored, so the catalog is unchanged.`
@@ -932,6 +953,7 @@ export function applyScreenImport(
         [
           ...unrestored,
           ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+          ...directories.map((directory) => `directory left behind: ${directory}`),
         ]
       );
     }

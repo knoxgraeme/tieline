@@ -997,6 +997,25 @@ await test("writes a nested catalog file only into the directory it was read fro
   assert.equal(readFileSync(resolve(ws.root, ".tieline/screens/shots/SHARING.yaml"), "utf8"), original, "the captures copy is untouched");
 });
 
+await test("never makes directories through a catalog ancestor swapped for a link", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a")]);
+  ws.write(".tieline/screens/sub/deep/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  const plan = planImport(ws, [screen("b", { capability: "SHARING" })]);
+  // After planning, `sub` becomes a link to an empty directory outside the
+  // repository, where `deep` does not exist.
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-ancestor`);
+  mkdirSync(outside, { recursive: true });
+  try {
+    renameSync(resolve(ws.root, ".tieline/screens/sub"), resolve(ws.root, "sub-moved"));
+    symlinkSync(outside, resolve(ws.root, ".tieline/screens/sub"));
+    assert.throws(() => applyScreenImport(plan), ScreenImportError);
+    assert.deepEqual(readdirSync(outside), [], "nothing was made outside the repository");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 await test("rechecks the entry bound counting new catalogs but not replaced files' staging", async () => {
   const fileBytes = SCREEN_LIMITS.catalogFileBytes;
   const atTwo = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };

@@ -506,6 +506,17 @@ function catalogYamlFiles(
     // Read entries one at a time, so the entry budget bounds memory too: a
     // directory holding millions of entries is never materialized at once.
     const handle = opendirSync(current);
+    // Every path here is built from the validated real directory, so it must
+    // still resolve to itself: a directory swapped for a link after it was
+    // queued is not walked into, wherever the link leads.
+    if (realpathSync(current) !== current) {
+      handle.closeSync();
+      return {
+        files,
+        entries,
+        issue: `${displayPath(current)}: the screen catalog directory changed while it was walked`,
+      };
+    }
     try {
       let entry: Dirent | null;
       while ((entry = handle.readSync()) !== null) {
