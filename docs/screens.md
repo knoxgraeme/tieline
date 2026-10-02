@@ -256,12 +256,14 @@ context reads and MCP tools likewise give the answers they did before; only the 
 
 ## What comes later
 
-These phases are planned and not implemented. The phase 1 format is designed to accommodate them:
+These phases are planned and not implemented. The phase 1 format is designed to accommodate them.
+[Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work,
+for review before anything is built:
 
-1. **Capture.** A `tieline screens capture` command with an optional browser-automation peer
-   dependency, driven by repository-supplied scene scripts (the reserved `scene` field), producing
-   committed text snapshots for copy review and image fingerprints (the reserved `capture` field)
-   that `check` compares.
+1. **Capture.** A `tieline screens capture` command with Playwright as an optional peer
+   dependency, driven by the app's own Playwright tests tagged per screen, producing committed
+   ARIA snapshots for copy review and capture records (the reserved `capture` field) that `check`
+   compares. The reserved `scene` field stays available for other browser drivers.
 2. **Pull-request flow.** Re-capture only affected screens, compare with the accepted
    fingerprints on the base branch, flag new routes without screens, and summarize changed, new,
    and removed screens beside changed Stories.
