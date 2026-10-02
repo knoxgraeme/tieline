@@ -7,8 +7,10 @@ import {
   type ScreenCatalogSource,
   type ScreenSettings,
 } from "./screen-catalog.js";
+import { screenLinkSchema } from "./schema.js";
 import {
   ContractValidationError,
+  duplicateShowsLinkIssue,
   validateAcceptedContractDocuments,
   type ValidatedContract,
 } from "./validate.js";
@@ -147,7 +149,15 @@ export interface DeclaredShowsLink {
 /** What the working-tree spec says about screens, read leniently. */
 export interface DeclaredScreenReferences {
   capabilityKeys: Set<string>;
+  /** Valid declarations only, each owner's targets once. */
   showsLinks: DeclaredShowsLink[];
+  /**
+   * `shows` declarations the validator would refuse, worded as it words them:
+   * a link that does not match the link schema, or a target an owner names
+   * twice. Unknown screens are not among them; resolving those needs the
+   * catalog.
+   */
+  showsIssues: string[];
 }
 
 function field(value: unknown, name: string): unknown {
@@ -163,30 +173,35 @@ function nonEmptyString(value: unknown): string | undefined {
 }
 
 function declaredShowsLinks(
+  path: string,
   owner: Omit<DeclaredShowsLink, "screen_key" | "provenance">,
-  links: unknown
+  links: unknown,
+  issues: string[]
 ): DeclaredShowsLink[] {
   if (!Array.isArray(links)) return [];
+  const seen = new Map<string, string>();
   return links.flatMap((link: unknown) => {
-    const target = field(link, "target");
-    const key = field(target, "key");
-    if (
-      field(link, "relation") !== "shows" ||
-      field(target, "kind") !== "screen" ||
-      typeof key !== "string"
-    ) {
+    // `shows` is only ever a screen link, so any link claiming it must match
+    // the screen link schema; that also trims the key as the manifest does.
+    if (field(link, "relation") !== "shows") return [];
+    const parsed = screenLinkSchema.safeParse(link);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      issues.push(
+        `${path}: '${owner.owner_stable_id}' has a 'shows' link that does not validate${
+          issue ? `: ${[...issue.path].join(".") || "link"}: ${issue.message}` : ""
+        }`
+      );
       return [];
     }
-    const provenance = field(link, "provenance");
-    return [
-      {
-        ...owner,
-        // Trimmed as the schema trims it, so an authored " notes-list " is the
-        // same link the manifest records.
-        screen_key: key.trim(),
-        provenance: typeof provenance === "string" ? provenance : "",
-      },
-    ];
+    const { provenance, target } = parsed.data;
+    const first = seen.get(target.key);
+    if (first !== undefined) {
+      issues.push(duplicateShowsLinkIssue(path, owner.owner_stable_id, first, provenance));
+      return [];
+    }
+    seen.set(target.key, provenance);
+    return [{ ...owner, screen_key: target.key, provenance }];
   });
 }
 
@@ -207,6 +222,7 @@ export function readDeclaredScreenReferences(
   const references: DeclaredScreenReferences = {
     capabilityKeys: new Set(),
     showsLinks: [],
+    showsIssues: [],
   };
   if (!existsSync(directory) || !statSync(directory).isDirectory()) {
     return references;
@@ -221,6 +237,8 @@ export function readDeclaredScreenReferences(
         `${relative(root, path)}: invalid YAML: ${message}`,
       ]);
     }
+    // Worded as the validator words its paths.
+    const shownPath = relative(root, path);
     const capability = field(document, "capability");
     const capabilityKey = nonEmptyString(field(capability, "key"));
     if (capabilityKey) references.capabilityKeys.add(capabilityKey);
@@ -232,12 +250,14 @@ export function readDeclaredScreenReferences(
       if (!storyKey) continue;
       references.showsLinks.push(
         ...declaredShowsLinks(
+          shownPath,
           {
             owner_kind: "story",
             owner_stable_id: storyKey,
             story_stable_id: storyKey,
           },
-          field(story, "links")
+          field(story, "links"),
+          references.showsIssues
         )
       );
       const criteria = field(story, "acceptance_criteria");
@@ -246,12 +266,14 @@ export function readDeclaredScreenReferences(
         if (!criterionKey) continue;
         references.showsLinks.push(
           ...declaredShowsLinks(
+            shownPath,
             {
               owner_kind: "acceptance_criterion",
               owner_stable_id: criterionKey,
               story_stable_id: storyKey,
             },
-            field(criterion, "links")
+            field(criterion, "links"),
+            references.showsIssues
           )
         );
       }

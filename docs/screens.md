@@ -140,8 +140,9 @@ before committing one.
 
 When screens are enabled, `tieline check`:
 
-- validates the working-tree catalog and fails (`exit_reason: invalid_screen_catalog`) when it
-  does not validate;
+- validates the working-tree catalog, and the `shows` links the working-tree spec declares, and
+  fails (`exit_reason: invalid_screen_catalog`) when either does not validate — a malformed link,
+  or one Story or AC naming the same screen twice;
 - fails like a broken link (`exit_reason: broken_links`, downgradable with
   `--no-fail-on-broken`) when a `shows` link names a screen the catalog does not contain. It
   resolves the links the working-tree spec declares, read from the YAML, because a link to an

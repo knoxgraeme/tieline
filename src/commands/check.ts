@@ -73,8 +73,8 @@ export interface BrokenScreenLink {
 
 /**
  * The screen part of a check, reported only when the repository enabled
- * screens. `catalog_invalid` means the working-tree catalog failed validation,
- * so its links could not be resolved.
+ * screens. `catalog_invalid` means the working-tree catalog, or the spec's
+ * `shows` declarations, failed validation, so links were not resolved.
  */
 export interface ScreenCheck {
   /**
@@ -88,6 +88,7 @@ export interface ScreenCheck {
   catalog_screens: number;
   shows_links: number;
   broken_links: BrokenScreenLink[];
+  /** Catalog problems, and `shows` declarations the validator refuses. */
   catalog_issues: string[];
 }
 
@@ -200,6 +201,9 @@ function checkScreens(
     const declared = readDeclaredScreenReferences(root, specDirectory);
     capabilityKeys = declared.capabilityKeys;
     declaredLinks = declared.showsLinks;
+    // A link the validator refuses (malformed, or a target named twice) stops
+    // the spec from compiling, which alone does not fail check.
+    capabilityIssues.push(...declared.showsIssues);
   } catch (error) {
     if (!(error instanceof ContractValidationError)) throw error;
     capabilityIssues.push(
@@ -529,7 +533,7 @@ export async function runCheckCommand(
         `${link.owner_stable_id} shows screen '${link.screen_key}', but the screen catalog does not contain it.`
     ),
     ...(screenCatalogInvalid
-      ? screens.catalog_issues.map((issue) => `Screen catalog: ${issue}`)
+      ? screens.catalog_issues.map((issue) => `Screens: ${issue}`)
       : []),
     ...(staleManifest && failOnStaleManifest ? [staleManifestMessage] : []),
   ];

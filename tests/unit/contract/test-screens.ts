@@ -848,6 +848,43 @@ await test("does not resolve shows links the working tree removed", async () => 
   assert.deepEqual(JSON.parse(capture.output()).screens.broken_links, []);
 });
 
+await test("fails check on working-tree shows declarations the validator refuses", async () => {
+  const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  for (const [label, spec] of [
+    // The same valid target twice, with the same and with conflicting provenance.
+    ["duplicate", notesSpecYaml({ storyShows: ["notes-list", "notes-list"] })],
+    [
+      "conflicting",
+      notesSpecYaml({ storyShows: ["notes-list"] }).replace(
+        "target: { kind: screen, key: notes-list }",
+        "target: { kind: screen, key: notes-list }\n        - relation: shows\n          provenance: inferred\n          target: { kind: screen, key: notes-list }"
+      ),
+    ],
+    // A link the schema refuses, though its key resolves.
+    ["malformed", notesSpecYaml({ storyShows: ["notes-list"] }).replace("target: { kind: screen, key: notes-list }", "target: { kind: screen, key: notes-list, extra: 1 }")],
+  ] as const) {
+    ws.write(".tieline/spec/notes.yaml", spec);
+    const validatorIssues = validationIssues(() => loadAcceptedContractWithSources(ws.root, ".tieline/spec"));
+    assert.equal(validatorIssues.length, 1, `${label}: ${validatorIssues.join("; ")}`);
+    capture.reset();
+    assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1, label);
+    const result = JSON.parse(capture.output());
+    assert.equal(result.exit_reason, "invalid_screen_catalog", label);
+    assert.equal(result.screens.status, "catalog_invalid", label);
+    assert.equal(result.screens.catalog_issues.length, 1, label);
+    if (label !== "malformed") {
+      // Worded exactly as the validator words it.
+      assert.deepEqual(result.screens.catalog_issues, validatorIssues, label);
+    } else {
+      assert.match(result.screens.catalog_issues[0], /^\.tieline\/spec\/notes\.yaml: 'NOTES-001' has a 'shows' link that does not validate: target: /);
+    }
+    assert.ok(result.errors.some((error: string) => error.startsWith("Screens: ")), label);
+  }
+});
+
 await test("matches working-tree shows keys the way the schema normalizes them", async () => {
   // The schema trims authored keys, so this is the manifest's 'notes-list' link.
   const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ['" notes-list "'] }, catalog: CATALOG });
@@ -878,7 +915,7 @@ await test("fails check when the working-tree catalog does not validate", async 
   assert.equal(result.exit_reason, "invalid_screen_catalog");
   assert.equal(result.screens.status, "catalog_invalid");
   assert.deepEqual(result.screens.broken_links, []);
-  assert.match(result.errors.find((error: string) => error.startsWith("Screen catalog:")), /SHARING\.yaml at screens\.0\.kind/);
+  assert.match(result.errors.find((error: string) => error.startsWith("Screens:")), /SHARING\.yaml at screens\.0\.kind/);
   capture.reset();
   await runCheckCommand({ base: "HEAD", repository: ws.root }, capture.io);
   assert.match(capture.output(), /screen catalog=invalid/);

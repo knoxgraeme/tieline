@@ -204,12 +204,22 @@ function validateScreenLinks(
       seen.set(key, link);
       continue;
     }
-    const detail =
-      existing.provenance === link.provenance
-        ? `with provenance '${link.provenance}' more than once`
-        : `with conflicting provenance '${existing.provenance}' and '${link.provenance}'`;
-    issues.push(`${path}: '${owner}' declares the same 'shows' link target ${detail}`);
+    issues.push(duplicateShowsLinkIssue(path, owner, existing.provenance, link.provenance));
   }
+}
+
+/** The issue for one owner declaring the same `shows` target twice. */
+export function duplicateShowsLinkIssue(
+  path: string,
+  owner: string,
+  firstProvenance: string,
+  provenance: string
+): string {
+  const detail =
+    firstProvenance === provenance
+      ? `with provenance '${provenance}' more than once`
+      : `with conflicting provenance '${firstProvenance}' and '${provenance}'`;
+  return `${path}: '${owner}' declares the same 'shows' link target ${detail}`;
 }
 
 function findSupersessionCycle(
