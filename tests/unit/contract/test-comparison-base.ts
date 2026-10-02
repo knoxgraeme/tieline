@@ -90,6 +90,7 @@ write(
   ])
 );
 await runCli(["contract", "compile", root], io, {});
+await runCli(["code", "compile", root], io, {});
 git("add", "-A");
 git("commit", "-q", "-m", "branch point");
 const branchPoint = git("rev-parse", "HEAD");
@@ -97,6 +98,7 @@ const branchPoint = git("rev-parse", "HEAD");
 git("checkout", "-q", "-b", "feature");
 write("src/a.ts", "export const a = 2;\n");
 await runCli(["contract", "compile", root], io, {});
+await runCli(["code", "compile", root], io, {});
 git("add", "-A");
 git("commit", "-q", "-m", "feature edits a");
 
@@ -112,6 +114,7 @@ write(
   ])
 );
 await runCli(["contract", "compile", root], io, {});
+await runCli(["code", "compile", root], io, {});
 git("add", "-A");
 git("commit", "-q", "-m", "main moves on");
 const mainTip = git("rev-parse", "HEAD");
@@ -129,7 +132,7 @@ await test("check reports only the branch's own changes when the base moved on",
   const result = await json(["check", root, "--base", "main", "--json"]);
   assert.equal(result.base, "main");
   assert.equal(result.base_commit, branchPoint);
-  assert.deepEqual(changedPaths(result), [".tieline/manifest/NOTES.json", "src/a.ts"]);
+  assert.deepEqual(changedPaths(result), [".tieline/manifest/NOTES.json", ".tieline/topology/graph.json", "src/a.ts"]);
   const criteria = new Set(
     (result.impacts as Array<{ acceptance_criterion_stable_id: string }>).map(
       (impact) => impact.acceptance_criterion_stable_id
@@ -158,11 +161,13 @@ await test("reconcile and grade scope only the branch's own changes", async () =
 
 await test("a pull request checked out merged into the base keeps today's comparison", async () => {
   git("checkout", "-q", "-b", "ci-merge", "main");
-  git("merge", "-q", "--no-ff", "--no-edit", "feature");
+  // Both sides regenerated the derived artifacts; a real merge would
+  // recompile them, and only the merge commit's shape matters here.
+  git("merge", "-q", "--no-ff", "--no-edit", "-X", "theirs", "feature");
   try {
     const result = await json(["check", root, "--base", "main", "--json"]);
     assert.equal(result.base_commit, mainTip);
-    assert.deepEqual(changedPaths(result), [".tieline/manifest/NOTES.json", "src/a.ts"]);
+    assert.deepEqual(changedPaths(result), [".tieline/manifest/NOTES.json", ".tieline/topology/graph.json", "src/a.ts"]);
   } finally {
     git("checkout", "-q", "feature");
   }
@@ -186,6 +191,54 @@ await test("refuses refs that cannot name a branch point", async () => {
     () => runCli(["check", root, "--base", "no-such-ref", "--json"], io, {}),
     /Cannot resolve base ref 'no-such-ref'/
   );
+});
+
+await test("blast radius reads the base topology at the branch point", async () => {
+  const result = await json([
+    "code", "blast-radius", "--repository", root, "--repo", REPO, "--base", "main", "--json",
+  ]);
+  assert.equal(result.status, "complete");
+  const provenance = result.topology_provenance as { base: { queried_revision: string } };
+  assert.equal(provenance.base.queried_revision, branchPoint);
+  const criteria = new Set(
+    (result.intent_impacts as Array<{ acceptance_criterion_stable_id: string }>).map(
+      (impact) => impact.acceptance_criterion_stable_id
+    )
+  );
+  assert.ok(criteria.has("NOTES-001-AC1"), "the branch's own change is impacted");
+  assert.equal(criteria.has("NOTES-001-AC2"), false, "main's later edit to b.ts is not this branch's");
+  assert.equal(criteria.has("NOTES-001-AC3"), false, "main's later criterion is not this branch's");
+});
+
+await test("refuses a criss-cross history with more than one branch point", () => {
+  const repo = mkdtempSync(resolve(tmpdir(), "tieline-criss-cross-"));
+  const run = (...args: string[]): void => {
+    execFileSync("git", args, { cwd: repo, stdio: ["ignore", "ignore", "ignore"] });
+  };
+  try {
+    run("init", "-q", "-b", "x");
+    run("config", "user.email", "test@example.test");
+    run("config", "user.name", "Tieline Test");
+    run("commit", "-q", "--allow-empty", "-m", "root");
+    run("checkout", "-q", "-b", "y");
+    writeFileSync(resolve(repo, "y.txt"), "y\n");
+    run("add", "-A");
+    run("commit", "-q", "-m", "y1");
+    run("checkout", "-q", "x");
+    writeFileSync(resolve(repo, "x.txt"), "x\n");
+    run("add", "-A");
+    run("commit", "-q", "-m", "x1");
+    run("tag", "x1");
+    run("merge", "-q", "--no-ff", "--no-edit", "y");
+    run("checkout", "-q", "y");
+    run("merge", "-q", "--no-ff", "--no-edit", "x1");
+    assert.throws(
+      () => resolveComparisonBase(repo, "x"),
+      /'x' and HEAD have 2 equally good branch points .*criss-cross merge history.*Pass the commit to compare with as --base/
+    );
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });
 
 rmSync(root, { recursive: true, force: true });

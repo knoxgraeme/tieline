@@ -30,9 +30,10 @@ function gitFailure(error: unknown): string {
  * request is normally checked out merged into the base's tip, whose merge-base
  * with the base is that tip, so results there are the same as before.
  *
- * A ref that is not a commit, histories that share no commit, and a shallow
- * clone that does not contain the branch point all fail loudly: guessing a
- * comparison point would report changes the branch never made.
+ * A ref that is not a commit, histories that share no commit, a shallow clone
+ * that does not contain the branch point, and a criss-cross history with more
+ * than one equally good branch point all fail loudly: guessing a comparison
+ * point would report changes the branch never made, or hide ones it did.
  */
 export function resolveComparisonBase(
   repositoryRoot: string,
@@ -44,7 +45,7 @@ export function resolveComparisonBase(
   }
   let output: string;
   try {
-    output = execFileSync("git", ["merge-base", ref, "HEAD"], {
+    output = execFileSync("git", ["merge-base", "--all", ref, "HEAD"], {
       cwd: repositoryRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -58,8 +59,17 @@ export function resolveComparisonBase(
     }
     throw new Error(`Cannot resolve base ref '${ref}': ${gitFailure(error)}`);
   }
-  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(output)) {
+  const candidates = output.split(/\s+/).filter(Boolean);
+  if (candidates.length > 1) {
+    throw new Error(
+      `Base ref '${ref}' and HEAD have ${candidates.length} equally good branch points (${candidates
+        .map((commit) => commit.slice(0, 12))
+        .join(", ")}), as a criss-cross merge history does. Pass the commit to compare with as --base.`
+    );
+  }
+  const commit = candidates[0] ?? "";
+  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(commit)) {
     throw new Error(`Base ref '${ref}' did not resolve to one merge-base commit.`);
   }
-  return { ref, commit: output };
+  return { ref, commit };
 }

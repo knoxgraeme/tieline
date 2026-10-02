@@ -173,7 +173,9 @@ HEAD`, not from the base's latest commit. Commits that reached the base after th
 therefore never reported as this branch's changes. In CI a pull request is normally checked out
 merged into the base's tip, whose merge-base is that tip, so CI results are unaffected. JSON
 output from `check` and `reconcile` records the commit used as `base_commit`. The comparison needs
-the branch point in local history, so shallow clones must fetch it (`fetch-depth: 0`).
+the branch point in local history, so shallow clones must fetch it (`fetch-depth: 0`). When a
+criss-cross merge history leaves more than one equally good branch point, the command refuses to
+guess; pass the commit to compare with as `--base`.
 
 The check compares changed, renamed, and deleted paths with manifest locators and reports each
 affected AC plus its freshness. It also sweeps every link for broken targets, whether or not the
