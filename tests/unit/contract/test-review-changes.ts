@@ -216,6 +216,51 @@ await test("reports acceptance criteria reordered within their Story, not ones s
   );
 });
 
+await test("reports a changed ARIA snapshot as a text change, apart from the image and details", () => {
+  const capturedCatalog = (imageDigest: string, textDigest: string | null): string =>
+    `version: 1
+capability: NOTES
+screens:
+  - key: notes-list
+    title: Notes list
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    image:
+      path: notes-list.png
+      sha256: ${imageDigest}
+${
+  textDigest
+    ? `    capture:
+      fingerprint: ${DIGEST_C}
+      text_sha256: ${textDigest}
+      test: e2e/notes.screens.ts
+`
+    : ""
+}`;
+  const ws = createScreensWorkspace({
+    screens: { enabled: true },
+    catalog: { ".tieline/screens/NOTES.yaml": capturedCatalog(DIGEST_A, DIGEST_A) },
+  });
+  workspaces.push(ws);
+  const base = compile(ws);
+  const aspectsAfter = (imageDigest: string, textDigest: string | null) => {
+    ws.write(".tieline/screens/NOTES.yaml", capturedCatalog(imageDigest, textDigest));
+    return diffReviewManifests(base, compile(ws), "origin/main").screens.map((screen) => [
+      screen.stable_id,
+      screen.status,
+      screen.aspects,
+    ]);
+  };
+  // Copy that changed without a pixel difference (an accessible name, say).
+  assert.deepEqual(aspectsAfter(DIGEST_A, DIGEST_B), [["notes-list", "changed", ["text"]]]);
+  assert.deepEqual(aspectsAfter(DIGEST_B, DIGEST_B), [["notes-list", "changed", ["image", "text"]]]);
+  assert.deepEqual(aspectsAfter(DIGEST_B, DIGEST_A), [["notes-list", "changed", ["image"]]]);
+  // A capture record that disappears takes its ARIA snapshot with it.
+  assert.deepEqual(aspectsAfter(DIGEST_A, null), [["notes-list", "changed", ["text"]]]);
+  assert.deepEqual(aspectsAfter(DIGEST_A, DIGEST_A), []);
+});
+
 await test("badges changes across both views while keeping the whole contract navigable", () => {
   const ws = branchWorkspace(true);
   const base = compile(ws);

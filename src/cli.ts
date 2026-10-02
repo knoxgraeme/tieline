@@ -534,6 +534,23 @@ function buildProgram(
       );
     });
 
+  screens
+    .command("audit")
+    .description(
+      "List screens whose capture outputs are missing or inconsistent, without capturing"
+    )
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensAuditCommand } = await import("./commands/screens.js");
+      setExit(
+        await runScreensAuditCommand(
+          { repository: opts.repository, json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
   program
     .command("check")
     .description("Evaluate semantic impact of changes against a base ref")

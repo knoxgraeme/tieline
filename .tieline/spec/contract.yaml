@@ -1124,6 +1124,9 @@ capability:
             - given: an import names a capability the contract does not declare
               when: the import runs without the skip option
               then: Tieline must name the unknown capability and write nothing
+            - given: an import changes the screenshot of a screen Tieline captured
+              when: the import is applied
+              then: Tieline must drop the screen's capture record, keep it when the picture is unchanged, and refuse capture records in the input
           links:
             - relation: implements
               provenance: authored
@@ -1188,6 +1191,9 @@ capability:
             - given: the base ref has no compiled manifest
               when: the review page is rendered against it
               then: every record must be reported as new and the page must say why
+            - given: a branch re-captures a screen whose committed ARIA snapshot changed
+              when: the review page is rendered against the base ref
+              then: the screen must be reported as changed with a text aspect, apart from its image and catalog fields
           links:
             - relation: implements
               provenance: authored
@@ -1223,11 +1229,64 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/contract/screen-import.ts
-                selector: function:attachCaptureDigests
+                selector: function:createCaptureDigester
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-review-changes.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC7
+          criterion: Tieline must report screens missing a screenshot digest, a capture record, a committed ARIA snapshot, or a literal @screen test tag, ARIA snapshots that differ from their capture record or belong to no catalogued screen, and screens captured in different environments, through screens audit and as check warnings that never change the check's exit code, reading test files and snapshots only within fixed bounds and never through symbolic links.
+          rationale: Incremental capture only re-captures screens a branch may affect, so a cheap audit must find what it cannot, and check must surface it without making an unrelated pull request fail.
+          scenarios:
+            - given: the tag scan stops at one of its bounds
+              when: the audit runs
+              then: screens must not be reported as missing a test, and the audit must say why the scan is incomplete
+            - given: a capture record's ARIA snapshot digest differs from the committed snapshot
+              when: check runs
+              then: Tieline must warn about the mismatch and keep the exit code the check would otherwise have
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-audit.ts
+                selector: function:auditScreenCaptures
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-scenes.ts
+                selector: function:scanScreenScenes
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-text.ts
+                selector: function:readScreenTextDirectory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens.ts
+                selector: function:runScreensAuditCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:checkScreens
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-audit.ts
                 framework_hint: custom-script

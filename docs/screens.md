@@ -11,9 +11,10 @@ Screens are **optional**. A repository that does not opt in compiles, checks, re
 exactly as it did before the feature existed, and Tieline never reads its screen catalog
 directory.
 
-This page describes phase 1: the catalog, `shows` links, `tieline check` validation, the
-importer, and the review page. Capturing screenshots, PR summaries of changed screens, and
-database sync come later; see [What comes later](#what-comes-later).
+This page describes the catalog, `shows` links, `tieline check` validation, the importer, the
+review page, committed capture outputs, and `tieline screens audit`. Capturing screenshots, PR
+summaries of changed screens, and database sync come later; see
+[What comes later](#what-comes-later).
 
 ## Opt in
 
@@ -30,6 +31,8 @@ Add a `screens` block to `.tieline/config.json`:
 | `enabled` | required | `true` turns the feature on. `false`, or no block at all, leaves it off. |
 | `catalog_directory` | `"screens"` | Reviewed catalog YAML, relative to `.tieline/`. Must stay inside `.tieline/`, outside the captures directory (which is git-ignored), and neither inside nor around `files.spec_directory`, since every YAML file in either directory is read as that directory's kind of document. |
 | `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored. |
+| `text_directory` | `"screen-text"` | Committed ARIA snapshots, relative to `.tieline/`. Must stay inside `.tieline/`, judged by where symbolic links really lead, apart from the catalog and the spec directory and outside the git-ignored captures directory. |
+| `capture.tests` | Playwright naming | Path patterns (`*` within a segment, `**` across) for the test files whose `@screen:<key>` tags link screens to the tests that capture them. When omitted, files named `*.spec.*`, `*.test.*`, or `*.screens.*` with a JavaScript or TypeScript extension are read. |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
 when the block is read and are never written back into the file.
@@ -68,8 +71,8 @@ screens:
 | `applies_to` | no | 16 dimensions, 32 values each, 120 chars each | Absent means the screen applies to everyone. |
 | `copy` | no | 50 items, 500 chars each | Key visible text, in display order. |
 | `image` | no | | Either `path` or `url`; see below. |
-| `scene` | reserved | | Reserved for the script that reaches the screen (phase 2). Must be omitted. |
-| `capture` | reserved | | Reserved for capture fingerprints (phase 2). Must be omitted. |
+| `capture` | no | | The capture record; see [Capture outputs](#capture-outputs). Requires an `image` path with its `sha256`. |
+| `scene` | reserved | | Reserved for the script that reaches the screen with another browser driver. Must be omitted. |
 
 Validation also rejects duplicate screen keys anywhere in the catalog, two catalog files for one
 capability, a catalog for a capability the spec does not declare, catalog files larger than
@@ -99,6 +102,70 @@ a match-all rule (`*`, `/*`, `**`, or `/**`) that re-includes nothing but itself
 as `unverified` with a note to ignore screenshots there. A captures directory configured
 elsewhere is left for the repository to ignore (`not_managed`). Every view works when an image
 is missing: cards and the detail panel show a placeholder that names the expected file.
+
+## Capture outputs
+
+A captured screen has three committed outputs, all reviewed in the pull request like any other
+change:
+
+| Output | Where | Purpose |
+| --- | --- | --- |
+| Screenshot digest | `image.sha256` in the catalog | Puts a visual change into the reviewed diff. The screenshot itself stays in the git-ignored captures directory. |
+| ARIA snapshot | `.tieline/screen-text/<key>.yml` | The screen's accessible structure and copy, as Playwright's `ariaSnapshot()` writes it, so copy changes are reviewed line by line, independent of pixels. |
+| Capture record | `capture` in the catalog | What the capture recorded, below. |
+
+```yaml
+  - key: notes-share-denied
+    # …catalog fields…
+    image:
+      path: notes-share-denied.png
+      sha256: 3f2a…                  # the screenshot's bytes
+    capture:
+      fingerprint: 9b1c…             # the capture environment
+      text_sha256: 77de…             # the ARIA snapshot
+      test: e2e/screens/sharing.screens.ts
+```
+
+| Field | Meaning |
+| --- | --- |
+| `fingerprint` | SHA-256 of the canonical capture settings: browser and Playwright versions, viewport, pixel density, color scheme, locale, timezone, motion and animation handling, masks, platform, and fonts. Digests captured with different fingerprints are never compared. |
+| `text_sha256` | SHA-256 of the committed ARIA snapshot, with line endings normalized. |
+| `test` | The repository-relative test file that captured the screen. |
+
+ARIA snapshots live beside the catalog rather than inside it, because the catalog loader reads
+every YAML file under the catalog directory as a catalog document. A capture record describes a
+screenshot Tieline captured, so `tieline screens import` never accepts one. A re-import that
+keeps the image's path and digest keeps the record; one that changes the picture drops it.
+
+The capture record is compiled into the manifest beside `image`, and like `image` it never
+contributes to the screen's `contract_hash`. Screens without one compile to the same bytes as
+before.
+
+## Audit
+
+```bash
+tieline screens audit [--json]
+```
+
+The audit lists what incremental capture cannot find, without capturing anything:
+
+- screens **missing** a screenshot digest, a capture record, an ARIA snapshot, or an `@screen`
+  test;
+- ARIA snapshots whose digest differs from the capture record (**mismatch**: edited by hand, or
+  left behind by a partial capture);
+- ARIA snapshots whose screen is no longer catalogued (**orphaned**);
+- `@screen:` tags that name no catalogued screen;
+- screens captured in more than one environment, whose digests are never compared.
+
+Tests are found by reading their `@screen:<key>` tags as text, not by running Playwright, so a
+tag must be written literally to be found. The scan reads tracked and untracked test files that
+git does not ignore (see `capture.tests`), never follows symbolic links, and is bounded: at most
+20,000 files, 2 MiB each, and 256 MiB in total. When a bound stops it, the audit says so and does
+not report screens as missing a test. ARIA snapshots are read up to 1 MiB each, from at most
+20,000 snapshot files and 40,000 directory entries, and never through symbolic links.
+
+Findings are a report, not a failure: the command exits 0 unless the catalog is invalid or the
+repository has not opted in.
 
 ## `shows` links
 
@@ -151,7 +218,12 @@ When screens are enabled, `tieline check`:
   branch removed is not resolved even while the committed manifest records it; that manifest is
   reported stale instead;
 - adds a `screens` section to its JSON output and a `broken screen link(s)=N` count to its text
-  summary.
+  summary;
+- warns about what [`tieline screens audit`](#audit) reports, as counts under
+  `screens.captures` in JSON, `screens missing capture output(s)=N` in the text summary, and one
+  warning per kind of finding. These warnings never change the exit code. A repository that
+  captures with another tool sees screens without a capture record counted until it adopts
+  Tieline capture.
 
 When screens are disabled none of this runs, and the output is unchanged for a repository that
 never enabled them. A repository that disables screens while its committed manifest still records
@@ -271,7 +343,8 @@ branch's own. It highlights what the branch changed, offline and without a datab
   when their `shows` links changed; `moved` when a Story moved to another capability or an AC to
   another Story; `reordered` when an AC's place among the ACs its Story kept changed), or removed,
   and screens that are new, changed (`details` for their catalog fields, `image` for a new
-  screenshot digest), or removed. Its links open the Story or screen they name;
+  screenshot digest, `text` for a new ARIA snapshot), or removed. Its links open the Story or
+  screen they name;
 - changed Stories are badged in the navigation and changed ACs in their Story, while every other
   record stays navigable;
 - screen cards and the detail panel carry the same badges, and a **Branch** filter narrows the

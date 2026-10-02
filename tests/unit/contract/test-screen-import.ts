@@ -396,6 +396,58 @@ await test("records each readable screenshot's digest and keeps a reviewed one w
   await importFails(ws, [screen("a", { image: { path: "a.png", sha256: "ABC" } })], /must be a lowercase hex SHA-256 digest/);
 });
 
+await test("keeps a capture record while the picture is unchanged and drops it when the picture changes", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/a.png", "captured by tieline");
+  const captured = {
+    fingerprint: "d".repeat(64),
+    text_sha256: "e".repeat(64),
+    test: "e2e/notes.screens.ts",
+  };
+  ws.write(
+    ".tieline/screens/NOTES.yaml",
+    `version: 1
+capability: NOTES
+screens:
+  - key: a
+    title: Screen a
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    image:
+      path: a.png
+      sha256: ${sha256("captured by tieline")}
+    capture:
+      fingerprint: ${captured.fingerprint}
+      text_sha256: ${captured.text_sha256}
+      test: ${captured.test}
+`
+  );
+  const record = new RegExp(`    capture:\n      fingerprint: ${captured.fingerprint}\n      text_sha256: ${captured.text_sha256}\n      test: e2e/notes.screens.ts\n`);
+
+  // Re-importing the same picture, with a new title, keeps the record.
+  const retitled = await importScreens(ws, [screen("a", { title: "Notes", image: "a.png" })]);
+  assert.deepEqual(retitled.result.updated, ["a"]);
+  assert.match(catalog(ws, "NOTES"), record);
+  const unchanged = await importScreens(ws, [screen("a", { title: "Notes", image: "a.png" })]);
+  assert.deepEqual(unchanged.result.updated, []);
+  assert.equal(unchanged.result.unchanged, 1);
+
+  // A screenshot another tool replaced is no longer what the capture recorded.
+  ws.write(".tieline/captures/a.png", "replaced by another tool");
+  const replaced = await importScreens(ws, [screen("a", { title: "Notes", image: "a.png" })]);
+  assert.deepEqual(replaced.result.updated, ["a"]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /capture:/);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`sha256: ${sha256("replaced by another tool")}`));
+
+  // Only `tieline screens capture` writes capture records.
+  await importFails(
+    ws,
+    [screen("a", { image: "a.png", capture: captured })],
+    /screens\[0\] \("a"\) at capture: 'capture' is written by `tieline screens capture` and cannot be imported/
+  );
+});
+
 await test("refuses screenshots that escape the captures directory or exceed the size bound", () => {
   const ws = workspace();
   ws.write("secret.png", "outside");
