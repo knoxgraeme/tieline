@@ -355,10 +355,23 @@ await test("reads the base manifest where the base kept it, and only its own fil
   config.files.manifest = "compiled";
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
   rmSync(resolve(ws.root, ".tieline/manifest"), { recursive: true, force: true });
-  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  // `compile` writes where `--output` says (or the default), not where the
+  // configuration says, so the moved manifest is written there explicitly.
+  assert.equal(await runCli(["contract", "compile", ws.root, "--output", ".tieline/compiled"], captureIO().io, {}), 0);
   capture.reset();
   assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
   assert.deepEqual(JSON.parse(capture.output()).changes, sameContract);
+
+  // Grading reads the base the same way: a moved manifest does not turn
+  // every existing link into a new claim to grade.
+  capture.reset();
+  assert.equal(
+    await runCli(["contract", "grade", ws.root, "--base", "HEAD", "--emit-scope", "--json"], capture.io, {}),
+    0
+  );
+  const scope = JSON.parse(capture.output());
+  assert.deepEqual(scope.entries, []);
+  assert.equal(scope.scoped_links, 0);
 });
 
 await test("reads a base that predates the workspace configuration from the default location", async () => {

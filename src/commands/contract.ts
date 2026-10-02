@@ -221,10 +221,11 @@ async function runGrade(
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
+    // Read where the base kept it, which a branch may have moved.
     baseManifest: manifestAtBase(
       parsed.repositoryRoot,
       comparison.commit,
-      parsed.manifestPath
+      manifestPathAtCommit(parsed, comparison.commit)
     ),
     changes: changesSince(parsed.repositoryRoot, comparison.commit),
     sourceRoots: parsed.sourceRoots,
