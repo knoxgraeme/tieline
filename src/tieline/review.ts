@@ -73,7 +73,7 @@ export function writeWorkspaceReviewPage(
   let screens: ContractReviewScreens | undefined;
   // An invalid screens layout is refused before the preflight walks the spec
   // directory, which a refused layout could fill with screenshots.
-  screenSettingsForRepository(root);
+  screenSettingsForRepository(root, { specDirectory });
   if (hasAcceptedContractSources(root, specDirectory)) {
     try {
       const loaded = loadAcceptedContractWithSources(root, specDirectory);

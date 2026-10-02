@@ -15,7 +15,7 @@ import {
 import { dirname, relative, resolve, sep } from "node:path";
 import { Document, isMap, isSeq, parseDocument, type YAMLSeq } from "yaml";
 import { z, type ZodIssue } from "zod";
-import { readFileWithin, type BoundedRead } from "./bounded-read.js";
+import { isSameFile, isStillFile, readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { stableKeySchema } from "./schema.js";
 import {
@@ -666,24 +666,6 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * Whether the file opened as `real` is still the one at that real path: the
- * path still resolves to itself (no link has been put anywhere along it) and
- * names the same file as the open descriptor. Together these mean the opened
- * file is the one that passed validation, whatever was swapped in between.
- */
-export function isStillFile(real: string, opened: Stats): boolean {
-  let now: string | null;
-  try {
-    now = realPathIfPresent(real);
-  } catch {
-    return false;
-  }
-  if (now !== real) return false;
-  const current = statSync(real, { throwIfNoEntry: false });
-  return current !== undefined && isSameFile(current, opened);
-}
-
 function capturesMoved(settings: ScreenSettings, now: string): ScreenImportError {
   return new ScreenImportError(
     `The captures directory '${settings.capturesPath}' now resolves to '${now}', not to '${settings.realCapturesDirectory}' where it was validated; nothing was written. Import again.`
@@ -1200,10 +1182,6 @@ export function createInValidatedDirectory(
     closeSync(descriptor);
   }
   return "created";
-}
-
-function isSameFile(left: Stats, right: Stats): boolean {
-  return left.dev === right.dev && left.ino === right.ino;
 }
 
 /** Removes `path` only if it is still the file this process created. */

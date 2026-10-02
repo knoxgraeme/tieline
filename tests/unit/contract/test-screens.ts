@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -14,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
-import { readFileWithin } from "../../../src/contract/bounded-read.js";
+import { isStillFile, readFileWithin } from "../../../src/contract/bounded-read.js";
 import { runCheckCommand } from "../../../src/commands/check.js";
 import { readScreensConfig } from "../../../src/config.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
@@ -253,6 +254,22 @@ await test("refuses catalog, spec, and captures directories that overlap, or cap
     () => screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root),
     /the captures directory 'spec\/shots' is inside the spec directory 'spec', where every YAML file is read as a contract document/
   );
+  // A command's `--spec` override is held to the same rules as the configured
+  // spec directory, before anything walks it.
+  const overridden = withConfig({});
+  assert.throws(
+    () => screenSettingsForRepository(overridden.root, { specDirectory: ".tieline/captures" }),
+    /the spec directory '\.tieline\/captures' is inside the captures directory 'captures', which is git-ignored/
+  );
+  assert.throws(
+    () => screenSettingsForRepository(overridden.root, { specDirectory: ".tieline/screens" }),
+    /the catalog directory 'screens' and the spec directory '\.tieline\/screens' overlap/
+  );
+  assert.throws(
+    () => loadAcceptedContractWithSources(overridden.root, ".tieline/captures"),
+    /the spec directory '\.tieline\/captures' is inside the captures directory/
+  );
+  assert.equal(screenSettingsForRepository(overridden.root, { specDirectory: ".tieline/spec" })?.catalogPath, ".tieline/screens");
   // Siblings are fine.
   assert.equal(screenSettingsForRepository(withConfig({ catalog_directory: "screens" }, "spec").root)?.catalogPath, ".tieline/screens");
   assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "shots" }).root)?.capturesPath, ".tieline/shots");
@@ -486,6 +503,33 @@ await test("reads the catalog where it was validated, not through a link swapped
   } finally {
     rmSync(outside, { recursive: true, force: true });
   }
+});
+
+await test("reads only the catalog file the walk found, and refuses moved captures", () => {
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" }, catalog: CATALOG });
+  ws.write(".tieline/screens/shots/list.png", "png");
+  const settings = screenSettingsForRepository(ws.root)!;
+  assert.equal(readScreenCatalogSources(ws.root, settings).complete, true);
+
+  // A walked file replaced by a link before it is read: the opened file is
+  // not the one found there, so it is refused rather than read.
+  const real = realpathSync(resolve(ws.root, ".tieline/screens/NOTES.yaml"));
+  assert.equal(readFileWithin(real, 1 << 20, (opened) => isStillFile(real, opened)).status, "read");
+  ws.write("elsewhere/NOTES.yaml", NOTES_CATALOG_YAML);
+  rmSync(real);
+  symlinkSync(resolve(ws.root, "elsewhere/NOTES.yaml"), real);
+  assert.deepEqual(readFileWithin(real, 1 << 20, (opened) => isStillFile(real, opened)), { status: "changed" });
+  rmSync(real);
+  writeFileSync(real, NOTES_CATALOG_YAML);
+
+  // Captures moved after validation to another directory in the catalog: the
+  // walk would skip the wrong subtree, so the catalog is not read at all.
+  ws.write(".tieline/screens/more/EXTRA.yaml", "version: 1\ncapability: NOTES\nscreens: []\n");
+  renameSync(resolve(ws.root, ".tieline/screens/shots"), resolve(ws.root, ".tieline/screens/shots-moved"));
+  symlinkSync(resolve(ws.root, ".tieline/screens/more"), resolve(ws.root, ".tieline/screens/shots"));
+  const moved = readScreenCatalogSources(ws.root, settings);
+  assert.equal(moved.complete, false);
+  assert.match(moved.issues[0]!, /^captures directory '\.tieline\/screens\/shots' now resolves to '.*\/screens\/more', not to '.*\/screens\/shots' where it was validated$/);
 });
 
 await test("refuses a screens layout before walking the spec directory", () => {

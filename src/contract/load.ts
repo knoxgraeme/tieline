@@ -68,7 +68,7 @@ export function loadAcceptedContractWithSources(
   // a layout they refuse (screenshots inside the spec directory) must be
   // refused before that walk visits it. Null, and untouched, when the
   // repository has not opted in.
-  const screenSettings = screenSettingsForRepository(root);
+  const screenSettings = screenSettingsForRepository(root, { specDirectory });
   const directory = resolve(root, specDirectory);
   if (!existsSync(directory) || !statSync(directory).isDirectory()) {
     throw new ContractValidationError([

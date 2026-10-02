@@ -46,7 +46,7 @@ export async function runScreensImportCommand(
   io: CommandIO
 ): Promise<number> {
   const { root, specDirectory } = resolveCommandContext(options);
-  const settings = screenSettingsForRepository(root);
+  const settings = screenSettingsForRepository(root, { specDirectory });
   if (!settings) throw new Error(NOT_ENABLED);
 
   const inputPath = resolve(file);

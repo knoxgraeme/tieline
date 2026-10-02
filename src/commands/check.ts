@@ -168,7 +168,7 @@ function checkScreens(
   specDirectory: string,
   manifest: ContractManifest
 ): ScreenCheck | null {
-  const settings = screenSettingsForRepository(root);
+  const settings = screenSettingsForRepository(root, { specDirectory });
   if (!settings) {
     // A repository that never enabled screens has no screen data in its
     // manifest, so this stays null and check is unchanged for it.

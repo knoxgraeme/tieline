@@ -18,7 +18,7 @@ import {
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runCli } from "../../../src/cli.js";
-import { readFileWithin } from "../../../src/contract/bounded-read.js";
+import { isStillFile, readFileWithin } from "../../../src/contract/bounded-read.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
   applyScreenImport,
@@ -26,7 +26,6 @@ import {
   createInValidatedDirectory,
   ensureCapturesIgnored,
   gitignoreIgnoresEverything,
-  isStillFile,
   NODE_FILE_SYSTEM,
   parseScreenImport,
   planScreenImport,

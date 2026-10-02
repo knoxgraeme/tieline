@@ -1,4 +1,13 @@
-import { closeSync, constants, fstatSync, openSync, readSync, type Stats } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync,
+  type Stats,
+} from "node:fs";
 
 /**
  * Opening a FIFO for reading blocks until something writes to it, before the
@@ -55,5 +64,26 @@ export function readFileWithin(
     return { status: "read", bytes: Buffer.concat(chunks) };
   } finally {
     closeSync(descriptor);
+  }
+}
+
+export function isSameFile(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+/**
+ * Whether the file opened as `real` is still the one at that real path: the
+ * path still resolves to itself (no link has been put anywhere along it) and
+ * names the same file as the open descriptor. Together these mean the opened
+ * file is the one that was found or validated there, whatever was swapped in
+ * between. Anything that stops the check counts as "no".
+ */
+export function isStillFile(real: string, opened: Stats): boolean {
+  try {
+    if (realpathSync(real) !== real) return false;
+    const current = statSync(real, { throwIfNoEntry: false });
+    return current !== undefined && isSameFile(current, opened);
+  } catch {
+    return false;
   }
 }
