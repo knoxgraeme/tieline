@@ -182,6 +182,39 @@ await test("reports a Story or acceptance criterion moved to another parent", ()
   assert.deepEqual(diffReviewManifests(base, structuredClone(base), "origin/main").records, []);
 });
 
+await test("reports acceptance criteria reordered within their Story, not ones shifted by an insertion", () => {
+  const ws = branchWorkspace(false);
+  const base = compile(ws);
+  const story = (manifest: typeof base) =>
+    manifest.capabilities.find((capability) => capability.stable_id === "NOTES")!.stories[0]!;
+  const renumber = (manifest: typeof base) =>
+    story(manifest).acceptance_criteria.forEach((criterion, position) => {
+      criterion.position = position;
+    });
+  assert.deepEqual(story(base).acceptance_criteria.map((criterion) => criterion.stable_id), ["NOTES-001-AC1", "NOTES-001-AC2"]);
+
+  // Unchanged criteria, swapped: their content hashes are the same.
+  const swapped = structuredClone(base);
+  story(swapped).acceptance_criteria.reverse();
+  renumber(swapped);
+  assert.deepEqual(
+    diffReviewManifests(base, swapped, "origin/main").records.map((record) => [record.stable_id, record.status, record.aspects]),
+    [
+      ["NOTES-001-AC1", "changed", ["reordered"]],
+      ["NOTES-001-AC2", "changed", ["reordered"]],
+    ]
+  );
+
+  // A new first criterion shifts every position after it, but reorders nothing.
+  const inserted = structuredClone(base);
+  story(inserted).acceptance_criteria.unshift({ ...structuredClone(story(base).acceptance_criteria[0]!), stable_id: "NOTES-001-AC0" });
+  renumber(inserted);
+  assert.deepEqual(
+    diffReviewManifests(base, inserted, "origin/main").records.map((record) => [record.stable_id, record.status, record.aspects]),
+    [["NOTES-001-AC0", "added", []]]
+  );
+});
+
 await test("badges changes across both views while keeping the whole contract navigable", () => {
   const ws = branchWorkspace(true);
   const base = compile(ws);
@@ -218,6 +251,7 @@ await test("badges changes across both views while keeping the whole contract na
     assert.equal(plain.includes(marker), false, marker);
   }
 });
+
 
 await test("summarizes Story and AC changes for repositories without screens", () => {
   const ws = branchWorkspace(false);

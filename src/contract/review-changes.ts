@@ -15,10 +15,11 @@ export type ReviewChangeStatus = "added" | "changed" | "removed";
 
 /**
  * Why a Story or acceptance criterion counts as changed. `moved`: it now sits
- * under a different capability (a Story) or Story (a criterion), which its
- * content hash does not cover.
+ * under a different capability (a Story) or Story (a criterion). `reordered`:
+ * a criterion's place among the criteria its Story kept from the base changed.
+ * Content hashes cover neither.
  */
-export type ContractChangeAspect = "content" | "screens" | "moved";
+export type ContractChangeAspect = "content" | "screens" | "moved" | "reordered";
 
 /** Why a screen counts as changed. */
 export type ScreenChangeAspect = "details" | "image";
@@ -107,6 +108,47 @@ function contractRecords(manifest: ContractManifest | null): Map<string, Contrac
   return records;
 }
 
+/** Each Story's criteria, in order. */
+function criterionOrder(manifest: ContractManifest | null): Map<string, string[]> {
+  const order = new Map<string, string[]>();
+  for (const capability of manifest?.capabilities ?? []) {
+    for (const story of capability.stories) {
+      order.set(
+        story.stable_id,
+        [...story.acceptance_criteria]
+          .sort((left, right) => left.position - right.position)
+          .map((criterion) => criterion.stable_id)
+      );
+    }
+  }
+  return order;
+}
+
+/**
+ * Criteria whose place among the ones their Story kept changed. Only the
+ * criteria present under the same Story on both sides are compared, so adding
+ * or removing one does not mark every criterion after it as reordered.
+ */
+function reorderedCriteria(
+  base: ContractManifest | null,
+  current: ContractManifest
+): Set<string> {
+  const before = criterionOrder(base);
+  const reordered = new Set<string>();
+  for (const [story, now] of criterionOrder(current)) {
+    const was = before.get(story);
+    if (!was) continue;
+    const kept = new Set(now.filter((stableId) => was.includes(stableId)));
+    const keptBefore = was.filter((stableId) => kept.has(stableId));
+    now
+      .filter((stableId) => kept.has(stableId))
+      .forEach((stableId, index) => {
+        if (keptBefore[index] !== stableId) reordered.add(stableId);
+      });
+  }
+  return reordered;
+}
+
 function screenRecords(manifest: ContractManifest | null): Map<string, ScreenRecord> {
   const records = new Map<string, ScreenRecord>();
   for (const catalog of manifest?.screen_catalogs ?? []) {
@@ -140,6 +182,7 @@ export function diffReviewManifests(
 ): ReviewChanges {
   const before = contractRecords(base);
   const after = contractRecords(current);
+  const reordered = reorderedCriteria(base, current);
   const records: ContractRecordChange[] = [];
   for (const [stableId, record] of after) {
     const previous = before.get(stableId);
@@ -147,6 +190,7 @@ export function diffReviewManifests(
     if (previous && previous.hash !== record.hash) aspects.push("content");
     if (previous && previous.shows !== record.shows) aspects.push("screens");
     if (previous && previous.parent !== record.parent) aspects.push("moved");
+    if (previous && reordered.has(stableId)) aspects.push("reordered");
     if (previous && aspects.length === 0) continue;
     records.push({
       kind: record.kind,
