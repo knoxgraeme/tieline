@@ -5,10 +5,12 @@ import {
   type ContractManifest,
   type ManifestScreenLink,
 } from "../contract/manifest.js";
+import { readDeclaredCapabilityKeys } from "../contract/load.js";
 import {
   loadScreenCatalog,
   screenSettingsForRepository,
 } from "../contract/screen-catalog.js";
+import { ContractValidationError } from "../contract/validate.js";
 import {
   analyzeContractImpact,
   changesSince,
@@ -124,11 +126,21 @@ function manifestScreenLinks(
  */
 function checkScreens(
   root: string,
+  specDirectory: string,
   manifest: ContractManifest
 ): ScreenCheck | null {
   const settings = screenSettingsForRepository(root);
   if (!settings) return null;
-  const { catalog, issues } = loadScreenCatalog(root, settings);
+  // Capability keys are read leniently, so a catalog naming an undeclared
+  // capability fails here even while the rest of the spec does not compile.
+  // An unparseable spec is already reported as a compile error.
+  let capabilityKeys: ReadonlySet<string> | undefined;
+  try {
+    capabilityKeys = readDeclaredCapabilityKeys(root, specDirectory);
+  } catch (error) {
+    if (!(error instanceof ContractValidationError)) throw error;
+  }
+  const { catalog, issues } = loadScreenCatalog(root, settings, capabilityKeys);
   const links = manifestScreenLinks(manifest);
   const catalogInvalid = issues.length > 0;
   return {
@@ -419,7 +431,7 @@ export async function runCheckCommand(
   const brokenLinks = impacts.filter(isBrokenImpact);
   // Null unless the repository enabled screens, so a disabled feature adds
   // nothing to the result, the output, or the exit code.
-  const screens = checkScreens(root, manifest);
+  const screens = checkScreens(root, specDirectory, manifest);
   const brokenScreenLinks = screens?.broken_links ?? [];
   const screenCatalogInvalid = screens?.status === "catalog_invalid";
   const brokenLinkCount = brokenLinks.length + brokenScreenLinks.length;

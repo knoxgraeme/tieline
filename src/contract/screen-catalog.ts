@@ -445,15 +445,18 @@ export function validateScreenCatalogDocuments(
 }
 
 /**
- * Reads and validates the catalog on its own, without the contract, for callers
- * that need its keys even when the contract does not currently compile.
+ * Reads and validates the catalog without loading the whole contract, for
+ * callers that need its keys even when the contract does not currently
+ * compile. Pass the capabilities the spec declares to also reject catalogs
+ * for undeclared capabilities.
  */
 export function loadScreenCatalog(
   repositoryRoot: string,
-  settings: ScreenSettings
+  settings: ScreenSettings,
+  capabilityKeys?: ReadonlySet<string>
 ): { catalog: ValidatedScreenCatalog; issues: string[] } {
   const read = readScreenCatalogSources(repositoryRoot, settings);
   const issues = [...read.issues];
-  const catalog = validateScreenCatalogDocuments(read.sources, undefined, issues);
+  const catalog = validateScreenCatalogDocuments(read.sources, capabilityKeys, issues);
   return { catalog, issues };
 }

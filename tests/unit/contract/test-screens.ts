@@ -536,6 +536,21 @@ await test("fails check when the working-tree catalog does not validate", async 
   assert.match(capture.output(), /An invalid screen catalog fails this check/);
 });
 
+await test("fails check when a catalog names a capability the spec does not declare", async () => {
+  const ws = workspace({ git: true, screens: ENABLED, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  ws.write(".tieline/screens/BILLING.yaml", "version: 1\ncapability: BILLING\nscreens: []\n");
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1);
+  const result = JSON.parse(capture.output());
+  assert.equal(result.exit_reason, "invalid_screen_catalog");
+  assert.deepEqual(result.screens.catalog_issues, [
+    ".tieline/screens/BILLING.yaml: screen catalog names unknown capability 'BILLING'",
+  ]);
+});
+
 await test("reports screen counts from validate and compile when enabled", async () => {
   const ws = workspace({ screens: ENABLED, catalog: CATALOG });
   const capture = captureIO();
