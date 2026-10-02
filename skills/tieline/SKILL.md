@@ -34,7 +34,10 @@ create a separate draft, proposal, or semantic-approval record.
 Read [contract.md](references/contract.md) before editing contract YAML. Only
 when `.tieline/config.json` enables `screens`, also read
 [screens.md](references/screens.md) before authoring screen catalog entries or
-`shows` links.
+`shows` links, and [screens-capture.md](references/screens-capture.md) before
+writing scenes, capturing screens, or backfilling a screen catalog. When such a
+repository's change touches what users see, keep its screens current as that
+reference describes before handing off.
 
 ## Orient to this repository
 

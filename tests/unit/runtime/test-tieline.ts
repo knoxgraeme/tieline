@@ -2066,6 +2066,42 @@ capability:
     "grading guidance must leave semantic satisfaction to the host agent"
   );
   assert.doesNotMatch(tielineSkill, /agent handoff printed/i);
+  const screensReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/screens.md"),
+    "utf8"
+  );
+  const screensCaptureReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/screens-capture.md"),
+    "utf8"
+  );
+  assert.match(tielineSkill, /references\/screens-capture\.md/);
+  assert.match(
+    tielineSkill,
+    /change touches what users see, keep its screens current/i,
+    "semantic closeout must keep a screens-enabled repository's captures current"
+  );
+  assert.match(screensReference, /screens-capture\.md/);
+  assert.match(screensReference, /`capture` is the capture record, written only by `tieline screens capture`/);
+  assert.doesNotMatch(screensReference, /`scene` and `capture` are reserved/);
+  assert.match(
+    screensCaptureReference,
+    /Capture the real app, never a faked response[\s\S]*page\.route[\s\S]*not_captured[\s\S]*needs-real-trigger/,
+    "scenes must never fake the app's own responses; such states are marked not captured"
+  );
+  assert.match(
+    screensCaptureReference,
+    /that criterion's test[\s\S]*@ac:<criterion key>[\s\S]*Then as Playwright assertions[\s\S]*`tests` link/,
+    "a scene for a screen an acceptance criterion shows must be that criterion's tagged, linked test"
+  );
+  assert.match(
+    screensCaptureReference,
+    /Start from the acceptance criteria[\s\S]*Then sweep for states no criterion covers[\s\S]*Report hidden states/,
+    "a backfill must start from acceptance criteria and report hidden states"
+  );
+  assert.match(screensCaptureReference, /tieline screens capture --all --repeat 3/);
+  assert.match(screensCaptureReference, /tieline screens audit --strict/);
+  assert.match(screensCaptureReference, /tieline screens capture --all --verify/);
+  assert.match(screensCaptureReference, /Never write capture outputs by hand/);
 
   // Public documentation structure is under test: keep the README concise while ensuring the
   // linked guides retain setup and assurance details.

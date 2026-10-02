@@ -730,7 +730,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2868362406816135715d4cab5409c025e0d6a1ba92a9efe672dfe041848525fc",
+                "reviewed_content_hash": "48cbf947fa340e03c6aaa0ea458b186b15d929e91e996c896377dd804601a5ae",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2011,6 +2011,60 @@
           {
             "aliases": [],
             "applies_to": null,
+            "contract_hash": "64b3db5a278e97eb3a1a1197155951317479ca6c01a1e49ee4ee62b8aa72284b",
+            "criterion": "The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, and keep a screens-enabled repository's captures current before handing off a change to what users see.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "324f772ba9a78886c6b631c5cb5278e37c3260e5a562ed1e071117155b66a22c",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens-capture.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5b0f24e46a19351d67fc46ab2ed1298b03da3cbb78c9afc38450d7b2e0403675",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "48ae5ce26523a1c9164fe62c660a329fde2b921c1cddc7c0b51882685b828de4",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/SKILL.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "48cbf947fa340e03c6aaa0ea458b186b15d929e91e996c896377dd804601a5ae",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 10,
+            "rationale": "Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-005-AC11",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
             "contract_hash": "08440ab7c06ded22ac53c76fada6653134a9e0c8a4196adaa8b87fd58112dbde",
             "criterion": "Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.",
             "links": [
@@ -2684,6 +2738,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "0dea2f301b8ecd7dd301027e9eae8f527bb4d4cc523f4eeab0462737a1fcd5b0"
+    "sha256": "b54dbf786014db0cc24f0a0ce67f378b97122c10bb92169b27b653e17b3d1726"
   }
 }

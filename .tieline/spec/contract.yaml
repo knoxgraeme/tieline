@@ -1471,3 +1471,32 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-capture.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC11
+          criterion: The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, and keep a screens-enabled repository's captures current before handing off a change to what users see.
+          rationale: Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens-capture.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/SKILL.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
