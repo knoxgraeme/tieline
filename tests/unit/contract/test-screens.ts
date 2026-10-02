@@ -443,6 +443,25 @@ await test("bounds a file read by the bytes read, not a size measured beforehand
   }
 });
 
+await test("reports catalog-named links and special files instead of skipping them", () => {
+  const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+  const settings = screenSettingsForRepository(ws.root)!;
+  // A link to a catalog inside the repository is still not followed.
+  ws.write("elsewhere/SHARING.yaml", SHARING_CATALOG_YAML);
+  ws.remove(".tieline/screens/SHARING.yaml");
+  symlinkSync(resolve(ws.root, "elsewhere/SHARING.yaml"), resolve(ws.root, ".tieline/screens/SHARING.yaml"));
+  const read = readScreenCatalogSources(ws.root, settings);
+  assert.equal(read.complete, false);
+  assert.deepEqual(read.issues, [
+    ".tieline/screens/SHARING.yaml: screen catalog file is not a regular file; symbolic links and special files are not read",
+  ]);
+  assert.throws(() => compile(ws), /SHARING\.yaml: screen catalog file is not a regular file/);
+  // Other names are not catalog files, links or not.
+  ws.remove(".tieline/screens/SHARING.yaml");
+  symlinkSync(resolve(ws.root, "elsewhere/SHARING.yaml"), resolve(ws.root, ".tieline/screens/notes.txt"));
+  assert.equal(readScreenCatalogSources(ws.root, settings).complete, true);
+});
+
 await test("bounds the catalog walk by depth, entries, files, and total bytes", () => {
   const ws = workspace({ screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
   const settings = screenSettingsForRepository(ws.root)!;

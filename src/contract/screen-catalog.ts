@@ -486,7 +486,17 @@ function catalogYamlFiles(
             };
           }
           pending.push({ path, depth: depth + 1 });
-        } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
+        } else if (/\.ya?ml$/i.test(entry.name)) {
+          // Links and special files are never followed, but a catalog-named
+          // one is not silently skipped either: its screens would vanish
+          // from the next compile without a word.
+          if (!entry.isFile()) {
+            return {
+              files,
+              entries,
+              issue: `${displayPath(path)}: screen catalog file is not a regular file; symbolic links and special files are not read`,
+            };
+          }
           if (files.length + 1 > limits.files) {
             return { files, entries, issue: `the screen catalog holds more than ${limits.files} YAML files` };
           }

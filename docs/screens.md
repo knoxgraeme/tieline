@@ -75,8 +75,9 @@ Validation also rejects duplicate screen keys anywhere in the catalog, two catal
 capability, a catalog for a capability the spec does not declare, catalog files larger than
 4 MiB, and more than 10,000 screens in total. The catalog directory is walked with bounds — 8
 levels deep, 10,000 entries, 1,000 YAML files, 64 MiB — and symbolic links are judged by where they
-really lead. The byte bounds apply to what is actually read, so a file that grows while the catalog
-is read cannot exceed them. Unknown fields are errors.
+really lead. Catalog files themselves must be regular files: a link or special file with a `.yaml`
+or `.yml` name is an error, never skipped. The byte bounds apply to what is actually read, so a
+file that grows while the catalog is read cannot exceed them. Unknown fields are errors.
 
 ### Image locators
 
