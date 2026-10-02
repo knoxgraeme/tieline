@@ -739,6 +739,22 @@ await test("writes nothing when a catalog changed after the import read it", asy
       error.issues.join("\n") === ".tieline/screens/SHARING.yaml was created after the import read it"
   );
   assert.equal(catalog(created, "SHARING"), "version: 1\ncapability: SHARING\nscreens: []\n");
+
+  // Untouched: the plan leaves SHARING alone, but an edit to it could add a
+  // key the import adds to NOTES, so it is checked too.
+  const untouched = workspace();
+  await importScreens(untouched, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const notesOnly = planImport(untouched, [screen("c")]);
+  assert.deepEqual(notesOnly.files.map((file) => file.status), ["updated", "unchanged"]);
+  const notesBefore = catalog(untouched, "NOTES");
+  untouched.write(".tieline/screens/SHARING.yaml", `${catalog(untouched, "SHARING")}# kept by hand\n`);
+  assert.throws(
+    () => applyScreenImport(notesOnly),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml was edited after the import read it"
+  );
+  assert.equal(catalog(untouched, "NOTES"), notesBefore);
 });
 
 await test("never rolls back over a catalog another writer changed meanwhile", async () => {

@@ -680,8 +680,10 @@ function changedFrom(path: string, expected: string | null): string | null {
  * paths, such as a planted symbolic link, stops the write and is left alone.
  *
  * A plan is only as current as the files it read. Once everything is staged,
- * every target must still hold what the plan read, or nothing is written: an
- * edit or a concurrent import made meanwhile is never silently overwritten.
+ * every catalog file the plan read, changed or not, must still hold what it
+ * read, or nothing is written: an edit or a concurrent import made meanwhile
+ * is never silently overwritten or merged into a catalog that no longer
+ * validates.
  * Likewise, a rollback only restores a file that still holds what this import
  * wrote. The check and the replacements are not atomic together, so a write
  * landing in between can still be lost; the window is kept as short as this
@@ -730,7 +732,10 @@ export function applyScreenImport(
     );
   }
 
-  const stale = changed.flatMap((file) => {
+  // Every planned file, not only the changed ones: an edit to a file this
+  // import leaves alone can still break the catalog as a whole, for example
+  // by adding a key the import is adding elsewhere.
+  const stale = plan.files.flatMap((file) => {
     const change = changedFrom(file.absolutePath, file.original);
     return change === null ? [] : [`${file.path} ${change} after the import read it`];
   });
