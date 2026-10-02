@@ -640,7 +640,18 @@ export function applyScreenImport(
   plan: ScreenImportPlan,
   fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
 ): void {
-  const changed = plan.files.filter((file) => file.status !== "unchanged");
+  writeScreenCatalogFiles(plan.files, fileSystem);
+}
+
+/**
+ * Writes changed catalog files as one unit, as `applyScreenImport` describes.
+ * Capture writes the catalog the same way, so neither leaves it half-applied.
+ */
+export function writeScreenCatalogFiles(
+  files: readonly PlannedScreenCatalogFile[],
+  fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
+): void {
+  const changed = files.filter((file) => file.status !== "unchanged");
   const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string }> = [];
   // Cleanup never throws: a temporary file that cannot be removed is reported,
   // and never stops the restoration that matters more.

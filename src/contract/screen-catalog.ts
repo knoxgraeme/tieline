@@ -320,6 +320,13 @@ export interface ScreenSettings {
   sceneTests: string[] | null;
   /** Path patterns whose change selects every screen for capture. */
   globalPaths: string[];
+  /** How a capture run starts Playwright. */
+  capture: {
+    /** Repository-relative Playwright configuration, or null for Playwright's default. */
+    playwrightConfig: string | null;
+    project: string | null;
+    timeoutMinutes: number;
+  };
 }
 
 function portable(path: string): string {
@@ -445,6 +452,11 @@ export function screenSettingsForRepository(
     textPath: portable(relative(root, textDirectory)),
     sceneTests: config.capture.tests,
     globalPaths: config.capture.global_paths,
+    capture: {
+      playwrightConfig: config.capture.playwright_config,
+      project: config.capture.project,
+      timeoutMinutes: config.capture.timeout_minutes,
+    },
   };
 }
 

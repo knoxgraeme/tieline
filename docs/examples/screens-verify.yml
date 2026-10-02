@@ -1,0 +1,26 @@
+name: Screens
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # Captures that count are made in the pinned Playwright image, so exact
+    # digests compare like for like. Keep this tag equal to the app's
+    # @playwright/test version.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      TIELINE_CAPTURE_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: npm ci
+      # Fails, naming each screen, when the committed digests, capture records,
+      # or ARIA snapshots differ from a fresh capture. Needs no credentials.
+      - run: npx tieline screens capture --changed --base origin/${{ github.base_ref }} --verify

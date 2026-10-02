@@ -1329,3 +1329,85 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-capture-selection.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC9
+          criterion: Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must write nothing and fail when a selected screen's committed outputs differ from a fresh capture.
+          rationale: Committed screen outputs are reviewed as the truth about how screens look, so a partial, untrusted, or stale capture must never replace them, and pull requests must not merge with outputs a fresh capture would not reproduce.
+          scenarios:
+            - given: one selected screen's test fails or captures nothing
+              when: screens are captured
+              then: Tieline must name the screen and the failure and write no catalog, snapshot, or screenshot
+            - given: a committed screenshot digest was captured in a different environment
+              when: the screen is verified
+              then: Tieline must report the environment difference rather than compare the digests
+            - given: a test calls tielineSnapshot for a key it is not tagged with
+              when: the test runs, inside or outside a capture run
+              then: the test must fail and say which tag to add
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:readCapturedScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:verifyCapturedScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:planCaptureOutputs
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:spawnPlaywright
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:resolvePlaywright
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/playwright/capture-screen.cts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/playwright/run-recorder.cts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-capture.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-playwright.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-screens-browser.ts
+                framework_hint: custom-script
