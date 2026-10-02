@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
@@ -21,6 +21,7 @@ import {
 } from "../contract/manifest.js";
 import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { loadAcceptedContract } from "../contract/load.js";
+import { realDestination } from "../contract/screen-catalog.js";
 import {
   diffReviewManifests,
   summarizeReviewChanges,
@@ -280,14 +281,12 @@ function manifestAtBase(
   base: string,
   manifestPath: string
 ): ContractManifest | null {
-  const directory = relative(resolve(repositoryRoot), resolve(manifestPath))
-    .split(sep)
-    .join("/");
-  if (
-    directory === ".." ||
-    directory.startsWith("../") ||
-    isAbsolute(directory)
-  ) {
+  // Paths are taken from Git's worktree root, not `repository.root`: with a
+  // nested root the workspace, and so the manifest, sits above it, yet is
+  // still in the repository that `base` belongs to.
+  const worktree = gitWorktreeRoot(repositoryRoot);
+  const directory = worktreePath(worktree, manifestPath);
+  if (directory === null) {
     throw new Error(
       `Cannot derive claim-side grading scope: the manifest at '${manifestPath}' is outside the repository, so '${base}' cannot hold a version of it.`
     );
@@ -297,7 +296,7 @@ function manifestAtBase(
   const listing = execFileSync(
     "git",
     ["ls-tree", "-l", "-z", base, "--", `${directory}/`],
-    { cwd: repositoryRoot, encoding: "utf8" }
+    { cwd: worktree, encoding: "utf8" }
   );
   const files = listing
     .split("\0")
@@ -315,7 +314,7 @@ function manifestAtBase(
     files.map(({ path, size }) => ({
       name: path.slice(`${directory}/`.length),
       content: execFileSync("git", ["show", `${base}:${path}`], {
-        cwd: repositoryRoot,
+        cwd: worktree,
         encoding: "utf8",
         // Exactly the blob's size, which the listing reports: no fixed cap
         // to outgrow, and nothing read past what the base holds.
@@ -324,6 +323,28 @@ function manifestAtBase(
     })),
     `ref '${base}'`
   );
+}
+
+/** The root of the Git worktree holding `repositoryRoot`. */
+function gitWorktreeRoot(repositoryRoot: string): string {
+  return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  }).trim();
+}
+
+/**
+ * `path` relative to the worktree root, `/`-separated, as a `<commit>:<path>`
+ * object name takes it; null when it is outside the worktree. Compared by
+ * real path, since Git reports the worktree root resolved.
+ */
+function worktreePath(worktree: string, path: string): string | null {
+  const relativePath = relative(realpathSync(worktree), realDestination(resolve(path)))
+    .split(sep)
+    .join("/");
+  return relativePath === ".." || relativePath.startsWith("../") || isAbsolute(relativePath)
+    ? null
+    : relativePath;
 }
 
 /**
@@ -336,11 +357,13 @@ function manifestAtBase(
 function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): string {
   if (parsed.configPath === undefined) return parsed.manifestPath;
   const defaultPath = resolve(parsed.repositoryRoot, ".tieline/manifest");
-  const configPath = relative(parsed.repositoryRoot, parsed.configPath).split(sep).join("/");
+  const worktree = gitWorktreeRoot(parsed.repositoryRoot);
+  const configPath = worktreePath(worktree, parsed.configPath);
+  if (configPath === null) return parsed.manifestPath;
   const object = `${commit}:${configPath}`;
   try {
     execFileSync("git", ["cat-file", "-e", object], {
-      cwd: parsed.repositoryRoot,
+      cwd: worktree,
       stdio: "ignore",
     });
   } catch {
@@ -348,7 +371,7 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
     return defaultPath;
   }
   const text = execFileSync("git", ["show", object], {
-    cwd: parsed.repositoryRoot,
+    cwd: worktree,
     encoding: "utf8",
   });
   let config: unknown;

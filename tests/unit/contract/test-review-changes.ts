@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { Script } from "node:vm";
@@ -372,6 +372,33 @@ await test("reads the base manifest where the base kept it, and only its own fil
   const scope = JSON.parse(capture.output());
   assert.deepEqual(scope.entries, []);
   assert.equal(scope.scoped_links, 0);
+});
+
+await test("reads the base manifest from the Git worktree under a nested repository root", async () => {
+  // The workspace stays at the top; `repository.root` is `app`, below it, so
+  // the manifest is outside that root but inside the repository.
+  const ws = branchWorkspace(false);
+  const app = resolve(ws.root, "app");
+  const configPath = resolve(ws.root, ".tieline/config.json");
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+  config.repository.root = "../app";
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  mkdirSync(app, { recursive: true });
+  renameSync(resolve(ws.root, "src"), resolve(app, "src"));
+  assert.equal(
+    await runCli(["contract", "compile", app, "--output", resolve(ws.root, ".tieline/manifest")], captureIO().io, {}),
+    0
+  );
+  ws.commit("nested base");
+
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "review", app, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  const changes = JSON.parse(capture.output()).changes;
+  assert.equal(changes.base_has_manifest, true);
+  assert.deepEqual(changes.stories, { added: 0, changed: 0, removed: 0 });
+  capture.reset();
+  assert.equal(await runCli(["contract", "grade", app, "--base", "HEAD", "--emit-scope", "--json"], capture.io, {}), 0);
+  assert.equal(JSON.parse(capture.output()).scoped_links, 0);
 });
 
 await test("reads a base that predates the workspace configuration from the default location", async () => {
