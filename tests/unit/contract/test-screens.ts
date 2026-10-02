@@ -532,6 +532,26 @@ await test("reads only the catalog file the walk found, and refuses moved captur
   assert.match(moved.issues[0]!, /^captures directory '\.tieline\/screens\/shots' now resolves to '.*\/screens\/more', not to '.*\/screens\/shots' where it was validated$/);
 });
 
+await test("does not read a catalog that vanished after validation as empty", () => {
+  for (const replace of [
+    (catalog: string) => rmSync(catalog, { recursive: true }),
+    (catalog: string) => {
+      rmSync(catalog, { recursive: true });
+      symlinkSync(resolve(catalog, "..", "nowhere"), catalog);
+    },
+  ]) {
+    const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+    const settings = screenSettingsForRepository(ws.root)!;
+    replace(resolve(ws.root, ".tieline/screens"));
+    const read = readScreenCatalogSources(ws.root, settings);
+    assert.equal(read.complete, false);
+    assert.deepEqual(read.issues, ["screen catalog '.tieline/screens' existed when the settings were read and is gone now"]);
+  }
+  // A catalog that never existed is still simply empty.
+  const fresh = workspace({ screens: ENABLED });
+  assert.deepEqual(readScreenCatalogSources(fresh.root, screenSettingsForRepository(fresh.root)!).complete, true);
+});
+
 await test("refuses a screens layout before walking the spec directory", () => {
   // Screenshots inside the spec, among them a YAML sidecar that does not
   // parse: the layout is refused first, not the sidecar's YAML.

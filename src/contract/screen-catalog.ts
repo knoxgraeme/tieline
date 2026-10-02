@@ -236,6 +236,12 @@ export interface ScreenSettings {
   realCapturesDirectory: string;
   /** Where the Tieline workspace directory really resolved when validated. */
   realWorkspaceDirectory: string;
+  /**
+   * Whether the catalog directory existed when validated. One that existed
+   * and is gone by the time it is read was deleted or swapped mid-command,
+   * which is not the same as a repository with no catalog yet.
+   */
+  catalogExisted: boolean;
   /** Absolute captures directory. */
   capturesDirectory: string;
   /** Catalog directory relative to the repository root, `/`-separated. */
@@ -428,6 +434,7 @@ export function screenSettingsForRepository(
     capturesDirectory,
     realCapturesDirectory: realCaptures,
     realWorkspaceDirectory: realWorkspace,
+    catalogExisted: pathExists(catalogDirectory),
     catalogPath: portable(relative(root, catalogDirectory)),
     capturesPath: portable(relative(root, capturesDirectory)) || ".",
   };
@@ -541,6 +548,16 @@ function catalogYamlFiles(
   return { files: files.sort((left, right) => left.localeCompare(right)), entries };
 }
 
+/** Whether anything is at `path`; only ENOENT means nothing is. */
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException | null)?.code !== "ENOENT";
+  }
+}
+
 /**
  * Whether the catalog directory exists. Only a missing path means an empty
  * catalog; any other failure to inspect it (an unsearchable parent, a file in
@@ -553,7 +570,13 @@ function catalogDirectoryState(settings: ScreenSettings): "missing" | "directory
       ? "directory"
       : { issue: `screen catalog '${settings.catalogPath}' is not a directory` };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") return "missing";
+    if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") {
+      // Missing now but present when validated: removed or swapped for a
+      // dangling link since, so the catalog cannot be read as empty.
+      return settings.catalogExisted
+        ? { issue: `screen catalog '${settings.catalogPath}' existed when the settings were read and is gone now` }
+        : "missing";
+    }
     return {
       issue: `screen catalog '${settings.catalogPath}' cannot be read: ${error instanceof Error ? error.message : String(error)}`,
     };
