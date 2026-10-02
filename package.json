@@ -13,6 +13,15 @@
   },
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./playwright": {
+      "types": "./dist/playwright/snapshot.d.cts",
+      "default": "./dist/playwright/snapshot.cjs"
+    },
+    "./package.json": "./package.json",
+    "./*": "./*"
+  },
   "bin": {
     "tieline": "dist/cli.js"
   },
@@ -110,7 +119,16 @@
     "yaml": "^2.8.1",
     "zod": "^3.23.8"
   },
+  "peerDependencies": {
+    "@playwright/test": ">=1.49.0 <2"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
