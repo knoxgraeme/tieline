@@ -16,5 +16,6 @@ await import("./integration-planning.js");
 await import("./integration-contract-sync.js");
 await import("./integration-lifecycle.js");
 await import("./integration-baseline.js");
+await import("./integration-hosted-screens.js");
 
 console.log("integration suite passed");

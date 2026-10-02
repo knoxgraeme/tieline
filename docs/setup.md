@@ -111,7 +111,8 @@ Tieline did not detect. The stored configuration name is `repository.source_root
 
 In `existing` mode, the baseline defines the least-privilege roles as `NOLOGIN`. Before
 init, provide URLs for operator-managed login roles that inherit `tieline_reader`,
-`tieline_planning_writer`, and `tieline_repository_sync`. Init does not create or rotate
+`tieline_planning_writer`, and `tieline_repository_sync` (and `tieline_capture_publisher` for
+hosted screens). Init does not create or rotate
 passwords unless `--provision-roles` explicitly asks it to. That flag assigns generated login
 passwords to the Tieline roles directly, which is how the agent-driven provisioning path (a
 freshly created Neon project, for example) reaches a working setup from `DATABASE_URL_ADMIN`
@@ -137,7 +138,9 @@ DATABASE_URL_SYNC=postgresql://... \
 Run this only after merges to `main`, never from a pull-request job. The checkpoint makes delayed
 jobs safe: a job whose expected previous commit is no longer current cannot overwrite a newer
 projection. Give this publisher `DATABASE_URL_SYNC`; MCP runtime processes receive only
-`DATABASE_URL` and `DATABASE_URL_WRITE`, not sync or admin credentials. See the
+`DATABASE_URL` and `DATABASE_URL_WRITE`, not sync or admin credentials. With
+[hosted screens](screens.md#hosted-screens) enabled, the same job publishes `main`'s page and
+needs the object storage credentials too. See the
 [CLI post-merge sync reference](cli.md#post-merge-sync) and [Operations](operations.md) for the
 credential boundaries.
 

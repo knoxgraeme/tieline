@@ -27,6 +27,22 @@ export interface ContractReviewScreens {
    * `path` locators are resolved against it.
    */
   capturesUrl: string;
+  /** Present on a hosted page, which serves images by digest. */
+  hosted?: HostedReviewImages;
+}
+
+/**
+ * How a hosted page finds images: by digest at `images/<digest>`, relative to
+ * the page, instead of in a captures directory. A changed screen also shows
+ * the image it had on the base the page is compared with.
+ */
+export interface HostedReviewImages {
+  /** The digests the site serves. A screen whose digest is not here has no image. */
+  served: ReadonlySet<string>;
+  /** Each screen's image digest on the base, by screen key. */
+  base: ReadonlyMap<string, string>;
+  /** What the base is called in captions, for example `main`. */
+  baseLabel: string;
 }
 
 export interface ScreenShownBy {
@@ -49,6 +65,8 @@ export interface ScreenReviewEntry {
   applies_to: Applicability | null;
   copy: string[];
   image: { src: string; label: string } | null;
+  /** On a hosted page, the image a changed screen had on the base. */
+  before_image?: { src: string; label: string };
   /** Why the screen is deliberately not captured, or null. */
   not_captured: { reason: string; detail: string } | null;
   shown_by: ScreenShownBy[];
@@ -109,15 +127,42 @@ function changeOf(
  * already restricted to http(s) when the catalog was validated.
  */
 function imageSource(
-  locator: { path: string } | { url: string } | undefined,
-  capturesUrl: string
+  locator: { path: string; sha256?: string | undefined } | { url: string } | undefined,
+  screens: ContractReviewScreens
 ): ScreenReviewEntry["image"] {
   if (!locator) return null;
   if ("url" in locator) return { src: locator.url, label: locator.url };
+  if (screens.hosted) {
+    return locator.sha256 !== undefined && screens.hosted.served.has(locator.sha256)
+      ? { src: hostedImageSource(locator.sha256), label: locator.path }
+      : null;
+  }
   return {
-    src: `${capturesUrl}${locator.path.split("/").map(encodeURIComponent).join("/")}`,
+    src: `${screens.capturesUrl}${locator.path.split("/").map(encodeURIComponent).join("/")}`,
     label: locator.path,
   };
+}
+
+/** Where a hosted site serves the image with `digest`, relative to the page. */
+export function hostedImageSource(digest: string): string {
+  return `images/${digest}`;
+}
+
+/**
+ * The image a changed screen replaced, on a hosted page whose base had a
+ * different image for it.
+ */
+function beforeImage(
+  key: string,
+  current: string | undefined,
+  screens: ContractReviewScreens,
+  change: Pick<ScreenReviewEntry, "change">
+): Pick<ScreenReviewEntry, "before_image"> {
+  const before = screens.hosted?.base.get(key);
+  if (!screens.hosted || !before || before === current || !change.change?.aspects.includes("image")) {
+    return {};
+  }
+  return { before_image: { src: hostedImageSource(before), label: screens.hosted.baseLabel } };
 }
 
 export function buildScreenReviewModel(
@@ -189,6 +234,7 @@ export function buildScreenReviewModel(
     for (const keys of groups.values()) {
       for (const key of keys) {
         const entry = byKey.get(key)!;
+        const change = changeOf(changes, entry.key);
         kinds.set(entry.kind, (kinds.get(entry.kind) ?? 0) + 1);
         for (const [dimension, values] of Object.entries(entry.applies_to ?? {})) {
           const known = dimensions.get(dimension) ?? new Set<string>();
@@ -206,10 +252,11 @@ export function buildScreenReviewModel(
           when: entry.when,
           applies_to: entry.applies_to ?? null,
           copy: entry.copy ?? [],
-          image: imageSource(entry.image, screens.capturesUrl),
+          image: imageSource(entry.image, screens),
+          ...beforeImage(entry.key, entry.image?.sha256, screens, change),
           not_captured: entry.not_captured ?? null,
           shown_by: shownBy.get(entry.key) ?? [],
-          ...changeOf(changes, entry.key),
+          ...change,
         });
       }
     }
@@ -421,6 +468,7 @@ export function renderScreensView(model: ScreenReviewModel): string {
             <code id="screen-detail-key"></code>
             <h1 id="screen-detail-title"></h1>
             <figure class="detail-shot" id="screen-detail-shot"></figure>
+            <figure class="detail-shot detail-before" id="screen-detail-before" hidden></figure>
             <dl class="detail-meta" id="screen-detail-meta"></dl>
             <section class="detail-section" id="screen-detail-copy"></section>
             <section class="detail-section" id="screen-detail-links"></section>
@@ -796,6 +844,9 @@ export const SCREEN_REVIEW_STYLES = `    .view-tabs {
       text-align: center;
     }
     .detail-shot.loaded { background: white; }
+    .detail-before { min-height: 0; margin-top: .75rem; }
+    .detail-before[hidden] { display: none; }
+    .detail-before figcaption { padding: .6rem; }
     .detail-meta { margin: 1rem 0 0; }
     .detail-meta > div {
       display: grid;
@@ -1160,6 +1211,29 @@ export const SCREEN_REVIEW_SCRIPT = `
         }
       }
 
+      function renderBefore(screen) {
+        const figure = document.getElementById("screen-detail-before");
+        figure.replaceChildren();
+        figure.classList.remove("loaded");
+        figure.hidden = !screen.before_image;
+        if (!screen.before_image) return;
+        const label = screen.before_image.label;
+        const caption = element("figcaption");
+        caption.append(element("i", "", "Before"), element("span", "", "Loading the image on " + label + "…"));
+        const image = element("img");
+        image.alt = "Screenshot of " + screen.title + " on " + label;
+        image.addEventListener("load", () => {
+          figure.classList.add("loaded");
+          caption.lastChild.textContent = "On " + label;
+        });
+        image.addEventListener("error", () => {
+          image.remove();
+          caption.lastChild.textContent = "The image on " + label + " is not available.";
+        });
+        image.src = screen.before_image.src;
+        figure.append(image, caption);
+      }
+
       function renderLinks(screen) {
         const section = document.getElementById("screen-detail-links");
         section.replaceChildren(element("h2", "", "Shown by Stories and acceptance criteria"));
@@ -1203,6 +1277,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         document.getElementById("screen-detail-title").textContent = screen.title;
         document.title = screen.title + " · Tieline spec review";
         renderShot(screen);
+        renderBefore(screen);
         const meta = document.getElementById("screen-detail-meta");
         meta.replaceChildren();
         if (screen.change) definition(meta, "On this branch", changeTag(screen.change));

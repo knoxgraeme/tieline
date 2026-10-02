@@ -12,12 +12,14 @@ Copy `.env.example` and set only the credentials needed by the process:
 | `DATABASE_URL_WRITE` | Planning Stories/ACs, Observations, Backlog Items, suggestions |
 | `DATABASE_URL_SYNC` | Repository authority transfer and projection |
 | `DATABASE_URL_ADMIN` | Offline migrations and retention |
+| `DATABASE_URL_SCREENS_PUBLISH` | [Hosted screens](screens.md#hosted-screens) only: publishing pull-request and branch pages |
 
-The MCP server uses read and planning-write connections. Sync and admin credentials belong to
-explicit CLI/CI operations and should not be exposed to ordinary agents.
+The MCP server uses read and planning-write connections. Sync, admin, and screens-publish
+credentials belong to explicit CLI/CI operations and should not be exposed to ordinary agents.
 
 The packaged migrations must run with an administrative database role. The baseline installs the
-`vector`, `pgcrypto`, and `pg_trgm` extensions and creates the three Tieline runtime roles.
+`vector`, `pgcrypto`, and `pg_trgm` extensions and creates the three Tieline runtime roles; the
+hosted screens migration adds a fourth, `tieline_capture_publisher`.
 Managed Postgres environments may require an administrator to preinstall pgvector/Postgres
 contrib extensions or grant the equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities
 before `tieline migrate` runs.

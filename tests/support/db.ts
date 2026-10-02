@@ -1,6 +1,7 @@
 import type { Sql } from "postgres";
 
 export type TielineRole =
+  | "tieline_capture_publisher"
   | "tieline_planning_writer"
   | "tieline_reader"
   | "tieline_repository_sync";

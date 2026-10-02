@@ -75,7 +75,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -95,7 +95,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -247,7 +247,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -278,7 +278,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "78bc8be95d9746770da042a378c95778143c6dfa5b6d3f401fc4eacbb2c854fc",
+                "reviewed_content_hash": "db59637e87675712eb0357584c88401ad341c746d5a3cc1fb2ca0e41748cad84",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/review.ts",
@@ -312,7 +312,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -322,7 +322,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -392,7 +392,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3cb9ca14238dae3b45b596c54ddba148a6a529e0a50192f53c4f0763ee3ba662",
+                "reviewed_content_hash": "37f67ca6de82d500d3674c1f05bc73fd2bccbd375572511e4903b42cbfb80c3c",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -498,7 +498,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -606,7 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3cb9ca14238dae3b45b596c54ddba148a6a529e0a50192f53c4f0763ee3ba662",
+                "reviewed_content_hash": "37f67ca6de82d500d3674c1f05bc73fd2bccbd375572511e4903b42cbfb80c3c",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -616,7 +616,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -626,7 +626,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -795,7 +795,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3cb9ca14238dae3b45b596c54ddba148a6a529e0a50192f53c4f0763ee3ba662",
+                "reviewed_content_hash": "37f67ca6de82d500d3674c1f05bc73fd2bccbd375572511e4903b42cbfb80c3c",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -805,7 +805,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1171,7 +1171,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1851,7 +1851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7074e48888fbe5a5a37fd068570fa1759fe7c84142281e28e6419cae95eaf9f7",
+                "reviewed_content_hash": "ed37382ecf9296982333c409ef05f1699d705fa49fd495ff9e2c13051e325534",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0c5d9454585e03cd665e31ff9c3aa667ef3f2c3f53f64ef0239857d3ae60824d",
+                "reviewed_content_hash": "77820d650312b6c717fe4e81c498bc87d0e4851223b6e96545feb58ab1dc4399",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9179cf23d2b71605d096b87f74018b68e81f35d56886766567b219c4efcb2ee5",
+                "reviewed_content_hash": "ba170beefea4035de70e95820047d08956419ec37483395b99bdc99648033e10",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2065,6 +2065,204 @@
           {
             "aliases": [],
             "applies_to": null,
+            "contract_hash": "e624ba08ef1228cb9a63dd80ca8e6f5484eb13ce6a40d584a939cd2ecf1d7ef7",
+            "criterion": "With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "108a59e75c3aa7c4449957e20ac1fb3038226c6bc986eb61f198f5b2d8498824",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0005_hosted_screens.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5ec7b7d7b58ded4b9b42edf1221f599d477ec115b393e0a02993741f5087e661",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/object-store/s3.ts",
+                  "repository": "tieline",
+                  "selector": "class:S3ObjectStore"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "34c319bfe18cc0ac4c9341ecccc0fd0f8b5c37686889f9717ae08a18b37c7327",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/hosted-screens-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresHostedScreensRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:publishMainScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensPublishCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:storeHostedImages"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "e964c02b6fe4b6e795254c9cd5897093a27abcb9a1fa57240cf5a67186d10506",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:readLocalHostedImage"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "7279966cca94f68c2360fa101e7df65bf539365d097e9c560a4c68dab80d8700",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-hosted-screens.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "b47aedd9a046595a42abea34cce1fd1ee567c58e3b8883b1bed9d2f44726e1a2",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosting.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 11,
+            "rationale": "A hosted page is reviewed as evidence of a change, so it must never show an image the store lacks or one the catalog does not record, and publishing a pull request must never change what main shows.",
+            "scenarios": [
+              {
+                "given": "a screenshot a page shows is neither in the object store nor usable in the captures directory",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC12-S1",
+                "then": "Tieline must name the screen and publish nothing",
+                "when": "the page is published"
+              },
+              {
+                "given": "the capture publisher's database credentials",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC12-S2",
+                "then": "the database must refuse",
+                "when": "they are used to write main's page or history, or to delete anything"
+              },
+              {
+                "given": "a sync of an older commit finishes after a sync of a newer one",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC12-S3",
+                "then": "Tieline must keep the newer page",
+                "when": "main's hosted page is published"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC12",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "be262bce4fe677c7a8b9f25326703983b6272c5b53b9301d33f7b44f50e360f2",
+            "criterion": "Tieline must delete a closed pull request's hosted page only after a grace period, a branch's page after the configured days without a publish, and main's image history beyond the configured number of replaced images per screen, and must delete an image only when no page or retained history references it and nothing referenced it within a grace period, removing it from the object store before its record and keeping the record of any image it could not remove.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "34c319bfe18cc0ac4c9341ecccc0fd0f8b5c37686889f9717ae08a18b37c7327",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/hosted-screens-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresHostedScreensRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensPruneCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "7279966cca94f68c2360fa101e7df65bf539365d097e9c560a4c68dab80d8700",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-hosted-screens.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "b47aedd9a046595a42abea34cce1fd1ee567c58e3b8883b1bed9d2f44726e1a2",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosting.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 12,
+            "rationale": "Hosted screens must stay bounded without deleting an image a page still shows, a merge is about to make main show, or a publish has just claimed.",
+            "scenarios": [
+              {
+                "given": "the object store refuses to delete one of two unreferenced images",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC13-S1",
+                "then": "Tieline must delete the other image and its record, and keep the refused image's record so the next run retries it",
+                "when": "retention runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC13",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
             "contract_hash": "08440ab7c06ded22ac53c76fada6653134a9e0c8a4196adaa8b87fd58112dbde",
             "criterion": "Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.",
             "links": [
@@ -2082,7 +2280,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0c5d9454585e03cd665e31ff9c3aa667ef3f2c3f53f64ef0239857d3ae60824d",
+                "reviewed_content_hash": "77820d650312b6c717fe4e81c498bc87d0e4851223b6e96545feb58ab1dc4399",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -2104,7 +2302,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9179cf23d2b71605d096b87f74018b68e81f35d56886766567b219c4efcb2ee5",
+                "reviewed_content_hash": "ba170beefea4035de70e95820047d08956419ec37483395b99bdc99648033e10",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2139,7 +2337,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2150,7 +2348,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f75d6b566678a376af2fa45c273923c327d91f663ebc62cb287095ed0d6f335d",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2161,7 +2359,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9179cf23d2b71605d096b87f74018b68e81f35d56886766567b219c4efcb2ee5",
+                "reviewed_content_hash": "ba170beefea4035de70e95820047d08956419ec37483395b99bdc99648033e10",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2268,7 +2466,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ecbea20fc1e342784be9a879e149452176a9e676592b7a6b9f9a06c00bcdd604",
+                "reviewed_content_hash": "b6591177e4042d4afa2ef388138af5052325b0b6059574a9fa19e3d8be90df8e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -2303,7 +2501,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6655e9b16031e589de4fb731949c2d8d0277133cad7e22bcbb0ae1b4120d0a8a",
+                "reviewed_content_hash": "d678a740ebb052727c7d194c763596cd431c8b970d9df0225f1b70bdc477c0e5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -2738,6 +2936,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "b54dbf786014db0cc24f0a0ce67f378b97122c10bb92169b27b653e17b3d1726"
+    "sha256": "3106a696f2883c2550490fc1ffdc58434962adffddfe881a65a59314eca08b95"
   }
 }

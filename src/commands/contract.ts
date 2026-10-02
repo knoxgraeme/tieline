@@ -20,6 +20,14 @@ import {
   type ContractManifest,
 } from "../contract/manifest.js";
 import { resolveComparisonBase } from "../contract/comparison-base.js";
+import { screenSettingsForRepository } from "../contract/screen-catalog.js";
+import {
+  DEFAULT_HOSTED_SCREENS_DEPENDENCIES,
+  publishMainScreens,
+  renderMainScreensResult,
+  type HostedSettings,
+  type MainScreensResult,
+} from "./screens-hosting.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import {
   diffReviewManifests,
@@ -123,6 +131,8 @@ interface ParsedContractCommand {
 
 const SCREENS_NOT_SYNCED =
   "screens and shows links stay in the repository manifest; database sync does not store them yet.";
+const SCREENS_HOSTED =
+  "screens and shows links are not stored in the contract tables; main's hosted page shows them.";
 
 function gitCommit(repositoryRoot: string): string {
   try {
@@ -345,6 +355,47 @@ function reviewChangesAgainstBase(
     };
   }
   return { changes: diffReviewManifests(baseManifest, current, base) };
+}
+
+/**
+ * The repository's hosted screens settings, or null when screens or hosting
+ * are off, which is the ordinary case and leaves sync unchanged.
+ */
+function hostedScreenSettings(repositoryRoot: string): HostedSettings | null {
+  const settings = screenSettingsForRepository(repositoryRoot);
+  return settings?.hosted ? { ...settings, hosted: settings.hosted } : null;
+}
+
+/**
+ * Publishes `main`'s hosted screens after its contract is synced. A failure
+ * here comes after the contract was written, so it is reported as its own
+ * outcome rather than thrown: the contract sync stands, and running sync
+ * again at the same commit retries only the screens.
+ */
+async function publishSyncedMainScreens(
+  parsed: ParsedContractCommand,
+  manifest: ContractManifest,
+  commit: string,
+  settings: HostedSettings
+): Promise<MainScreensResult> {
+  try {
+    return await publishMainScreens({
+      root: parsed.repositoryRoot,
+      repositoryKey: manifest.repository.key,
+      specDirectory: parsed.specDirectory,
+      manifest,
+      commit,
+      settings,
+      repository: DEFAULT_HOSTED_SCREENS_DEPENDENCIES.repository("sync"),
+      store: DEFAULT_HOSTED_SCREENS_DEPENDENCIES.store(settings.hosted),
+    });
+  } catch (error) {
+    return {
+      outcome: "failed",
+      commit,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 /**
@@ -704,6 +755,11 @@ export async function runContractCommand(
       syncableManifest,
       parsed.repositoryRoot
     );
+    // Hosted screens are published after the contract is synced, for the
+    // commit just synced. Their settings are read first, so a configuration
+    // error stops sync before anything is written; a repository that did not
+    // enable them syncs exactly as before.
+    const hosted = hostedScreenSettings(parsed.repositoryRoot);
     try {
       const result = await new PostgresContractSyncRepository(getSyncSql).sync(
         manifest,
@@ -740,6 +796,10 @@ export async function runContractCommand(
           (entry) => entry.embedding_status === "unavailable"
         ).length,
       };
+      const hostedScreens = hosted
+        ? await publishSyncedMainScreens(parsed, reviewedManifest, commit, hosted)
+        : undefined;
+      const skippedReason = hostedScreens ? SCREENS_HOSTED : SCREENS_NOT_SYNCED;
       io.write(
         parsed.json
           ? `${JSON.stringify({
@@ -751,18 +811,20 @@ export async function runContractCommand(
                 ? {
                     screens_skipped: {
                       ...skippedScreens,
-                      reason: SCREENS_NOT_SYNCED,
+                      reason: skippedReason,
                     },
                   }
                 : {}),
+              ...(hostedScreens ? { hosted_screens: hostedScreens } : {}),
             }, null, 2)}\n`
           : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s), ${result.reconciled_code_assets} orphaned code asset(s) reconciled; ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n${
               screensSkipped
-                ? `Skipped ${skippedScreens.screens} screen(s) and ${skippedScreens.shows_links} shows link(s): ${SCREENS_NOT_SYNCED}\n`
+                ? `Skipped ${skippedScreens.screens} screen(s) and ${skippedScreens.shows_links} shows link(s): ${skippedReason}\n`
                 : ""
             }`
       );
-      return 0;
+      if (hostedScreens && !parsed.json) renderMainScreensResult(hostedScreens, io);
+      return hostedScreens?.outcome === "failed" ? 1 : 0;
     } finally {
       await closeConnections();
     }

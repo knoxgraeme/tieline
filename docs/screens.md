@@ -577,16 +577,76 @@ branch's own. It highlights what the branch changed, offline and without a datab
 
 The page still renders when the working tree does not compile; it then explains that changes are
 not shown. A base ref without a compiled manifest reports everything as new. The "before" picture
-of a changed screen is not shown locally, because only the current screenshot is on disk.
+of a changed screen is not shown locally, because only the current screenshot is on disk; a
+[hosted](#hosted-screens) page shows it.
+
+## Hosted screens
+
+Hosted screens keep each pull request's and branch's review page, and `main`'s, in the team's
+own Postgres and S3-compatible bucket, so a team can review screens together without anyone
+checking out the branch. A hosted page is the same page `contract review` writes, with images
+served by digest; a pull request's page is compared with `main` and shows a changed screen's
+previous image beside the new one. Publishing only stores pages and images: nothing is rebuilt or
+redeployed. The site that serves them is the next step and is not built yet.
+
+Opt in beside `enabled`:
+
+```json
+{
+  "screens": {
+    "enabled": true,
+    "hosted": {
+      "enabled": true,
+      "bucket": "acme-screens",
+      "retention": { "branch_days": 14, "main_history": 5 }
+    }
+  }
+}
+```
+
+`retention` is optional; the values shown are the defaults. The bucket's endpoint and
+credentials come from the environment, never from this file: `AWS_ENDPOINT_URL_S3`,
+`AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY`, the variables Neon Object Storage
+credentials, AWS S3, and Cloudflare R2 all use. The endpoint must use HTTPS. Images are stored
+once, at `<repository key>/sha256/<digest>`.
+
+| Command | Database role | Does |
+| --- | --- | --- |
+| `tieline contract sync` on `main` | `DATABASE_URL_SYNC` | After syncing the contract, publishes `main`'s page and records each screen whose image changed |
+| `tieline screens publish --pull-request <n>` or `--branch <name>` | `DATABASE_URL_SCREENS_PUBLISH` | Publishes that ref's page, compared with `main`, replacing its previous page |
+| `tieline screens close --pull-request <n>` | `DATABASE_URL_SCREENS_PUBLISH` | Marks the pull request closed |
+| `tieline screens prune` | `DATABASE_URL_SYNC` | Applies retention; run it after sync on `main` |
+
+Publishing works from CI or a developer's machine. Screenshots are not committed, so before a
+page is stored every image it shows must already be in the bucket or be in the captures
+directory with the digest the catalog records; Tieline uploads only the images the bucket lacks,
+re-hashing each one, and accepts only PNG, JPEG, WebP, GIF, and AVIF files, never SVG. If any
+image is missing, nothing is published and the screens are named. On `main`, sync publishes the
+page only for the commit it just synced, so a late job never replaces a newer page; if publishing
+fails after the contract was synced, sync exits 1, and running it again retries only the screens.
+
+The capture publisher role (`tieline_capture_publisher`) can add images and write pull-request
+and branch pages, and nothing else: the database refuses it any write to `main`'s page or
+history, and any deletion. Only repository sync writes `main`, and only `prune`, with the same
+role, deletes.
+
+**Retention.** Each ref keeps only its latest page. A closed pull request's page is deleted by
+the first `prune` at least 24 hours after it closed, which leaves time for the merge to reach
+`main`; a branch's page after `branch_days` without a publish; `main` keeps each screen's current
+image and its last `main_history` replaced ones. An image is deleted only when no page or
+retained history references it and nothing has referenced it for 24 hours, from the bucket
+first; one the bucket refuses to delete is kept and retried by the next `prune`.
 
 ## Database sync
 
-The database does not store screens yet. `tieline contract sync` removes the screen catalogs and
-every `shows` link from the manifest before anything reaches Postgres. Because `shows` links
-never contribute to contract hashes, what it syncs is exactly what the same contract synced
-before screens existed. When it skipped anything, it says so (`screens_skipped` in JSON). Exact
-context reads and MCP tools likewise give the answers they did before; only the content-derived
-`manifest_digest` changes, because the reviewed manifest now includes the catalog.
+The contract tables do not store screens. `tieline contract sync` removes the screen catalogs and
+every `shows` link from the manifest before anything reaches them. Because `shows` links never
+contribute to contract hashes, what it syncs is exactly what the same contract synced before
+screens existed. When it skipped anything, it says so (`screens_skipped` in JSON). Exact context
+reads and MCP tools likewise give the answers they did before; only the content-derived
+`manifest_digest` changes, because the reviewed manifest now includes the catalog. With
+[hosted screens](#hosted-screens) enabled, sync also publishes `main`'s hosted page
+(`hosted_screens` in JSON).
 
 ## What comes later
 
@@ -594,7 +654,7 @@ These phases are planned and not implemented.
 [Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work:
 
 1. **History.** "Last changed in #71" for Stories, ACs, and screens, derived offline from git.
-2. **Hosted review.** One deployed site for `main` and every pull request, publishing from a
-   trusted CI job, with screenshots in the team's own bucket and a pull-request comment.
-3. **Database and agents.** Sync catalogs, links, and fingerprints to Postgres and add MCP tools
-   such as "screens for this AC".
+2. **The hosted site.** One deployed site serving `main` and every published pull request and
+   branch, behind the host's own access control, with CI templates and a pull-request comment.
+3. **Database and agents.** Sync catalogs, links, and fingerprints to the contract tables and add
+   MCP tools such as "screens for this AC".
