@@ -91,9 +91,12 @@ Screenshots are **never committed by default**. The catalog only points at them:
   diff. The importer records it for every screenshot it can read.
 
 When the captures directory is inside `.tieline/`, `tieline screens import` creates a
-`.gitignore` in it that ignores everything. A captures directory configured elsewhere is left for
-the repository to ignore. Every view works when an image is missing: cards and the detail panel
-show a placeholder that names the expected file.
+`.gitignore` in it that ignores everything. It never edits a `.gitignore` already there: one with
+a match-all rule (`*`, `/*`, `**`, or `/**`) that re-includes nothing but itself is reported as
+`captures_gitignore: exists`; anything else, including a file with only other rules, is reported
+as `unverified` with a note to ignore screenshots there. A captures directory configured
+elsewhere is left for the repository to ignore (`not_managed`). Every view works when an image
+is missing: cards and the detail panel show a placeholder that names the expected file.
 
 ## `shows` links
 

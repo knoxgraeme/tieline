@@ -742,13 +742,47 @@ export function createCaptureDigester(
   };
 }
 
-export type CapturesIgnoreStatus = "created" | "exists" | "not_managed";
+/**
+ * `exists`: the captures `.gitignore` already ignores everything in it.
+ * `unverified`: something is at that path, but Tieline cannot confirm it
+ * ignores everything — a file with other rules, or not a regular file — and
+ * leaves it for the repository rather than editing it.
+ * `not_managed`: the captures directory is outside `.tieline/`.
+ */
+export type CapturesIgnoreStatus = "created" | "exists" | "unverified" | "not_managed";
+
+const CAPTURES_GITIGNORE =
+  "# Screenshots referenced by the Tieline screen catalog are not committed.\n*\n!.gitignore\n";
+const CAPTURES_GITIGNORE_MAX_BYTES = 64 * 1024;
+const MATCH_ALL_PATTERNS = new Set(["*", "/*", "**", "/**"]);
+const SELF_INCLUDE_PATTERNS = new Set(["!.gitignore", "!/.gitignore"]);
+
+/**
+ * True when a `.gitignore` ignores every path below its directory: it has a
+ * match-all rule and re-includes nothing but itself. Any other negation could
+ * let screenshots be committed, so it is not treated as ignoring everything;
+ * other positive rules only ignore more and do not matter.
+ */
+export function gitignoreIgnoresEverything(content: string): boolean {
+  let matchAll = false;
+  for (const raw of content.split("\n")) {
+    const line = raw.trimEnd();
+    if (line.length === 0 || line.startsWith("#")) continue;
+    if (line.startsWith("!")) {
+      if (!SELF_INCLUDE_PATTERNS.has(line)) return false;
+    } else if (MATCH_ALL_PATTERNS.has(line)) {
+      matchAll = true;
+    }
+  }
+  return matchAll;
+}
 
 /**
  * Screenshots are never committed by default. When the captures directory is
  * inside `.tieline/` (the default), it gets a `.gitignore` that ignores
  * everything in it. A directory configured elsewhere is the repository's to
  * manage: writing `*` into, say, a source directory would hide real files.
+ * An existing `.gitignore` is never edited, only checked.
  */
 export function ensureCapturesIgnored(
   repositoryRoot: string,
@@ -765,20 +799,28 @@ export function ensureCapturesIgnored(
   let existing: ReturnType<typeof lstatSync> | undefined;
   try {
     existing = lstatSync(ignorePath);
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code !== "ENOENT") throw error;
     existing = undefined;
   }
-  if (existing) return existing.isFile() ? "exists" : "not_managed";
+  if (existing) {
+    if (!existing.isFile()) return "unverified";
+    let content: Buffer;
+    try {
+      content = readBoundedFile(ignorePath, CAPTURES_GITIGNORE_MAX_BYTES, "captures .gitignore");
+    } catch (error) {
+      // Unreadable or oversized: reported as unverified rather than trusted.
+      if (error instanceof ScreenImportError) return "unverified";
+      throw error;
+    }
+    return gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified";
+  }
   mkdirSync(directory, { recursive: true });
   try {
     // Exclusive creation never follows a link that appears in the meantime.
-    writeFileSync(
-      ignorePath,
-      "# Screenshots referenced by the Tieline screen catalog are not committed.\n*\n!.gitignore\n",
-      { flag: "wx" }
-    );
+    writeFileSync(ignorePath, CAPTURES_GITIGNORE, { flag: "wx" });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code === "EEXIST") return "not_managed";
+    if ((error as NodeJS.ErrnoException | null)?.code === "EEXIST") return "unverified";
     throw error;
   }
   return "created";

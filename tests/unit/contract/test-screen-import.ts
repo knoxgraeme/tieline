@@ -17,6 +17,7 @@ import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
   applyScreenImport,
   createCaptureDigester,
+  gitignoreIgnoresEverything,
   parseScreenImport,
   planScreenImport,
   readScreenImportFile,
@@ -453,10 +454,51 @@ await test("never writes the captures .gitignore through a symbolic link", async
   try {
     const { exit, result } = await importScreens(ws, [screen("a")]);
     assert.equal(exit, 0);
-    assert.equal(result.captures_gitignore, "not_managed");
+    assert.equal(result.captures_gitignore, "unverified");
     assert.equal(existsSync(outside), false, "a dangling link is never written through");
   } finally {
     rmSync(outside, { force: true });
+  }
+});
+
+await test("reports an existing captures .gitignore that does not ignore everything, and leaves it", async () => {
+  for (const content of ["", "# screenshots\n", "*.log\n", "*\n!*.png\n"]) {
+    const ws = workspace();
+    const ignorePath = resolve(ws.root, ".tieline/captures/.gitignore");
+    mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+    writeFileSync(ignorePath, content);
+    const { exit, result } = await importScreens(ws, [screen("a")]);
+    assert.equal(exit, 0);
+    assert.equal(result.captures_gitignore, "unverified", JSON.stringify(content));
+    assert.equal(readFileSync(ignorePath, "utf8"), content, "an existing .gitignore is never edited");
+
+    writeFileSync(resolve(ws.root, "import.json"), JSON.stringify([screen("b")]));
+    const capture = captureIO();
+    assert.equal(await runCli(["screens", "import", resolve(ws.root, "import.json"), "--repository", ws.root], capture.io, {}), 0);
+    assert.match(
+      capture.output(),
+      /note {2}\.tieline\/captures\/\.gitignore does not ignore everything in \.tieline\/captures \(or is not a regular file\), and Tieline leaves it unchanged; make sure screenshots there are git-ignored\./
+    );
+  }
+});
+
+await test("accepts an existing captures .gitignore that ignores everything", async () => {
+  const ws = workspace();
+  const content = "# kept by hand\r\n/*  \r\n!/.gitignore\r\n*.tmp\r\n";
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  writeFileSync(resolve(ws.root, ".tieline/captures/.gitignore"), content);
+  const { exit, result } = await importScreens(ws, [screen("a")]);
+  assert.equal(exit, 0);
+  assert.equal(result.captures_gitignore, "exists");
+  assert.equal(readFileSync(resolve(ws.root, ".tieline/captures/.gitignore"), "utf8"), content);
+});
+
+await test("treats only a match-all rule without other re-includes as ignoring everything", () => {
+  for (const content of ["*", "*\n!.gitignore\n", "**\n", "/**", "# c\n\n*\n*.png\n"]) {
+    assert.equal(gitignoreIgnoresEverything(content), true, JSON.stringify(content));
+  }
+  for (const content of ["", "#*\n", "*.png\n", " *\n", "*\n!keep.png\n", "!.gitignore\n", "\\*\n", "*/\n"]) {
+    assert.equal(gitignoreIgnoresEverything(content), false, JSON.stringify(content));
   }
 });
 

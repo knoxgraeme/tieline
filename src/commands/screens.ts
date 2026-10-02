@@ -135,6 +135,10 @@ export async function runScreensImportCommand(
     io.write(
       `  note  ${escapeTerminalText(settings.capturesPath)} is outside .tieline/; make sure screenshots there are git-ignored.\n`
     );
+  } else if (capturesIgnore === "unverified") {
+    io.write(
+      `  note  ${escapeTerminalText(settings.capturesPath)}/.gitignore does not ignore everything in ${escapeTerminalText(settings.capturesPath)} (or is not a regular file), and Tieline leaves it unchanged; make sure screenshots there are git-ignored.\n`
+    );
   }
   if (!dryRun && files.some((entry) => entry.status !== "unchanged")) {
     io.write(
