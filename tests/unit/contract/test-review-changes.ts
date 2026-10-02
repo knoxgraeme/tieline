@@ -460,6 +460,20 @@ await test("refuses a base manifest past its total size before reading it", asyn
   );
 });
 
+await test("refuses a base workspace configuration past its size limit before reading it", async () => {
+  const ws = branchWorkspace(false);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  const configPath = resolve(ws.root, ".tieline/config.json");
+  const config = readFileSync(configPath, "utf8");
+  writeFileSync(configPath, `${config}${" ".repeat(5 * 1024 * 1024)}\n`);
+  ws.commit("oversized configuration");
+  writeFileSync(configPath, config);
+  await assert.rejects(
+    () => runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], captureIO().io, {}),
+    /The workspace configuration '\.tieline\/config\.json' at '[0-9a-f]+' is \d+ bytes; more than the 4194304 a configuration may be, so it is not read\./
+  );
+});
+
 await test("reads a base that predates the workspace configuration from the default location", async () => {
   const ws = branchWorkspace(false);
   const configPath = resolve(ws.root, ".tieline/config.json");

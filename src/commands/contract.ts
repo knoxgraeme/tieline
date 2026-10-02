@@ -276,6 +276,11 @@ async function runGrade(
  * manifest configured elsewhere is refused: treating it as absent would grade
  * the whole contract as newly claimed, which is a fabricated scope.
  */
+/**
+ * The most a base revision's workspace configuration may be: a real one is a
+ * few kilobytes, and it is checked before Git is asked for it.
+ */
+const BASE_CONFIG_BYTES = 4 * 1024 * 1024;
 /** The most a base manifest directory listing may take: about 600,000 entries. */
 const MANIFEST_LISTING_BYTES = 64 * 1024 * 1024;
 /**
@@ -429,6 +434,11 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
   } catch {
     // Not in that commit: the base predates this workspace configuration.
     return defaultPath;
+  }
+  if (size > BASE_CONFIG_BYTES) {
+    throw new Error(
+      `The workspace configuration '${configPath}' at '${commit}' is ${size} bytes; more than the ${BASE_CONFIG_BYTES} a configuration may be, so it is not read.`
+    );
   }
   const text = execFileSync("git", ["show", object], {
     cwd: worktree,
