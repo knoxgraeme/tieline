@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
 import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
@@ -104,6 +104,8 @@ interface ParsedContractCommand {
   commit?: string;
   outputPath: string;
   manifestPath: string;
+  /** The workspace configuration file, when there is a workspace. */
+  configPath?: string;
   specDirectory: string;
   sourceRoots: string[];
   ignore: string[];
@@ -164,6 +166,7 @@ function resolveContractCommand(
     // manifest is still the default directory, never the page.
     manifestPath:
       workspace?.manifestPath ?? (action === "review" ? manifestPath : resolvedOutput),
+    ...(workspace ? { configPath: workspace.configPath } : {}),
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
@@ -288,13 +291,16 @@ function manifestAtBase(
       `Cannot derive claim-side grading scope: the manifest at '${manifestPath}' is outside the repository, so '${base}' cannot hold a version of it.`
     );
   }
+  // Only the directory's own files, as the working-tree reader takes them: a
+  // tracked file in a subdirectory is not part of the manifest.
   const names = execFileSync(
     "git",
     ["ls-tree", "-r", "--name-only", base, "--", directory],
     { cwd: repositoryRoot, encoding: "utf8" }
   )
     .split("\n")
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((name) => !name.slice(directory.length + 1).includes("/"));
   if (names.length === 0) return null;
   return parseContractManifestSnapshot(
     names.map((name) => ({
@@ -306,6 +312,41 @@ function manifestAtBase(
     })),
     `ref '${base}'`
   );
+}
+
+/**
+ * Where the manifest lived at `commit`: that revision's own configured
+ * `files.manifest`, so a branch that moved the manifest still compares with
+ * the base's. The current location is used when the commit has no workspace
+ * configuration at that path, or one that does not parse or name a manifest.
+ */
+function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): string {
+  if (parsed.configPath === undefined) return parsed.manifestPath;
+  const configPath = relative(parsed.repositoryRoot, parsed.configPath).split(sep).join("/");
+  const object = `${commit}:${configPath}`;
+  try {
+    execFileSync("git", ["cat-file", "-e", object], {
+      cwd: parsed.repositoryRoot,
+      stdio: "ignore",
+    });
+  } catch {
+    // Not in that commit: the base predates this workspace configuration.
+    return parsed.manifestPath;
+  }
+  const text = execFileSync("git", ["show", object], {
+    cwd: parsed.repositoryRoot,
+    encoding: "utf8",
+  });
+  let config: unknown;
+  try {
+    config = JSON.parse(text);
+  } catch {
+    return parsed.manifestPath;
+  }
+  const manifest = (config as { files?: { manifest?: unknown } } | null)?.files?.manifest;
+  return typeof manifest === "string" && manifest.length > 0
+    ? resolve(dirname(parsed.configPath), manifest)
+    : parsed.manifestPath;
 }
 
 /**
@@ -323,10 +364,11 @@ function reviewChangesAgainstBase(
   // whatever state the working tree is in. The manifest is read where this
   // branch left the base, so work that reached the base afterwards is not
   // shown as this branch's changes.
+  const commit = resolveComparisonBase(parsed.repositoryRoot, base).commit;
   const baseManifest = manifestAtBase(
     parsed.repositoryRoot,
-    resolveComparisonBase(parsed.repositoryRoot, base).commit,
-    parsed.manifestPath
+    commit,
+    manifestPathAtCommit(parsed, commit)
   );
   let current: ContractManifest;
   try {

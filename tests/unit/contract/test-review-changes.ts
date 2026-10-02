@@ -326,6 +326,38 @@ await test("summarizes Story and AC changes for repositories without screens", (
   assert.equal(page.includes("view-tabs"), false);
 });
 
+await test("reads the base manifest where the base kept it, and only its own files", async () => {
+  const ws = branchWorkspace(false);
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  // A tracked file below the manifest directory is not part of the manifest,
+  // just as the working-tree reader ignores it.
+  ws.write(".tieline/manifest/archive/old.json", "{}\n");
+  ws.commit("compiled base");
+  const unchanged = { added: 0, changed: 0, removed: 0 };
+  const sameContract = {
+    base: "HEAD",
+    base_has_manifest: true,
+    stories: unchanged,
+    acceptance_criteria: unchanged,
+    screens: unchanged,
+  };
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  assert.deepEqual(JSON.parse(capture.output()).changes, sameContract);
+
+  // The branch moves the manifest: the base's is still found where the base
+  // configured it, so an unchanged contract is not reported as all new.
+  const configPath = resolve(ws.root, ".tieline/config.json");
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+  config.files.manifest = "compiled";
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  rmSync(resolve(ws.root, ".tieline/manifest"), { recursive: true, force: true });
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  capture.reset();
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  assert.deepEqual(JSON.parse(capture.output()).changes, sameContract);
+});
+
 await test("compares against a git ref from the CLI and explains when it cannot", async () => {
   const ws = branchWorkspace(true);
   const capture = captureIO();
