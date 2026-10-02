@@ -1,0 +1,21 @@
+version: 1
+capability: NOTES
+screens:
+  - key: notes-list
+    title: Notes list
+    group: Browsing
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    copy:
+      - Your notes
+    paths:
+      - app/notes.html
+  - key: notes-list-empty
+    title: Notes list, no notes yet
+    group: Browsing
+    route: /notes
+    kind: state
+    when: A member without notes opens Notes.
+    paths:
+      - app/notes-empty.html

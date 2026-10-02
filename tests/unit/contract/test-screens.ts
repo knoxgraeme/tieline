@@ -111,7 +111,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
     catalog_directory: "screens",
     captures_directory: "captures",
     text_directory: "screen-text",
-    capture: { tests: null, global_paths: [] },
+    capture: { tests: null, global_paths: [], playwright_config: null, project: null, timeout_minutes: 30 },
   });
   assert.deepEqual(
     readScreensConfig({
@@ -121,8 +121,31 @@ await test("treats an absent or disabled screens block as off and applies defaul
         capture: { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"] },
       },
     })?.capture,
-    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"] }
+    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"], playwright_config: null, project: null, timeout_minutes: 30 }
   );
+  assert.deepEqual(
+    readScreensConfig({
+      screens: {
+        enabled: true,
+        capture: { playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10 },
+      },
+    })?.capture,
+    { tests: null, global_paths: [], playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10 }
+  );
+  for (const capture of [
+    { playwright_config: "e2e/*.config.ts" },
+    { playwright_config: "../playwright.config.ts" },
+    { project: "" },
+    { timeout_minutes: 0 },
+    { timeout_minutes: 241 },
+    { timeout_minutes: 1.5 },
+  ]) {
+    assert.throws(
+      () => readScreensConfig({ screens: { enabled: true, capture } }),
+      /Invalid 'screens' block.*screens\.capture\./,
+      JSON.stringify(capture)
+    );
+  }
   assert.throws(
     () => readScreensConfig({ screens: { enabled: true, capture: { global_paths: ["src/../../etc"] } } }),
     /screens\.capture\.global_paths\.0: must be a repository-relative POSIX path pattern/

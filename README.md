@@ -196,7 +196,7 @@ the affected ACs for agent or human review. After merge, an idempotent sync publ
 | [Setup](docs/setup.md) | Initialization, database modes, sync, and agent registration |
 | [Concepts](docs/concepts.md) | Contract structure, evidence, authority, and freshness |
 | [CLI](docs/cli.md) | Contract, topology, check, sync, grading, and review commands |
-| [Screens](docs/screens.md) | Optional screen catalog, `shows` links, import, and the Screens review view |
+| [Screens](docs/screens.md) | Optional screen catalog, `shows` links, import, Playwright capture and verification, and the Screens review view |
 | [MCP](docs/mcp.md) | Local and database-backed tools for agents |
 | [Architecture](docs/architecture.md) | Production boundaries and dependency direction |
 | [Testing](docs/testing.md) | Test layout, canonical checks, and disposable database guard |

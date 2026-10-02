@@ -537,13 +537,17 @@ function buildProgram(
   screens
     .command("capture")
     .description(
-      "Select the screens to capture, each with the reasons it was selected"
+      "Capture screens with the repository's Playwright tests tagged @screen:<key>"
     )
     .option("--all", "select every catalogued screen")
     .option("--changed", "select the screens a branch may have changed (needs --base)")
     .option("--base <ref>", "with --changed: compare from where the branch left this ref")
     .option("--screen <key>", "select a screen by key (repeatable)", collect, [])
-    .option("--dry-run", "report the selection without capturing")
+    .option("--dry-run", "report the selection and each reason without capturing")
+    .option(
+      "--verify",
+      "compare a fresh capture with the committed outputs; write nothing and fail on any difference"
+    )
     .option("--repository <path>", "repository path")
     .option("--json", "emit machine-readable JSON")
     .action(async (opts) => {
@@ -557,6 +561,7 @@ function buildProgram(
             base: opts.base,
             screens: opts.screen,
             dryRun: Boolean(opts.dryRun),
+            verify: Boolean(opts.verify),
             json: Boolean(opts.json),
           },
           io
@@ -569,9 +574,23 @@ function buildProgram(
     .description(
       "List screens whose capture outputs are missing or inconsistent, without capturing"
     )
+    .option(
+      "--capture",
+      "re-capture every screen and report the ones that drifted (writes the outputs)"
+    )
     .option("--repository <path>", "repository path")
     .option("--json", "emit machine-readable JSON")
     .action(async (opts) => {
+      if (opts.capture) {
+        const { runScreensAuditCaptureCommand } = await import("./commands/screens-capture.js");
+        setExit(
+          await runScreensAuditCaptureCommand(
+            { repository: opts.repository, json: Boolean(opts.json) },
+            io
+          )
+        );
+        return;
+      }
       const { runScreensAuditCommand } = await import("./commands/screens.js");
       setExit(
         await runScreensAuditCommand(

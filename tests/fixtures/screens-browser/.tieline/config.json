@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "product": { "name": "Acme Notes", "repo_name": "acme-notes" },
+  "repository": { "root": "..", "source_roots": ["app"], "ignore": [".git", ".tieline", "node_modules"] },
+  "context": { "sources": [] },
+  "runtime": { "default_embedding_provider": "hash", "default_database_mode": "offline" },
+  "files": { "spec_directory": "spec", "manifest": "manifest" },
+  "screens": {
+    "enabled": true,
+    "capture": {
+      "playwright_config": "playwright.config.ts",
+      "project": "screens",
+      "timeout_minutes": 5
+    }
+  },
+  "created_at": "2026-08-01T00:00:00.000Z",
+  "updated_at": "2026-08-01T00:00:00.000Z"
+}
