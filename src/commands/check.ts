@@ -133,14 +133,24 @@ function checkScreens(
   if (!settings) return null;
   // Capability keys are read leniently, so a catalog naming an undeclared
   // capability fails here even while the rest of the spec does not compile.
-  // An unparseable spec is already reported as a compile error.
+  // When a spec file cannot even be parsed, the declared capabilities are
+  // unknown, and that alone makes the catalog unverifiable rather than
+  // silently skipping the check.
   let capabilityKeys: ReadonlySet<string> | undefined;
+  const capabilityIssues: string[] = [];
   try {
     capabilityKeys = readDeclaredCapabilityKeys(root, specDirectory);
   } catch (error) {
     if (!(error instanceof ContractValidationError)) throw error;
+    capabilityIssues.push(
+      ...error.issues.map(
+        (issue) => `cannot confirm screen catalog capabilities because the spec does not parse: ${issue}`
+      )
+    );
   }
-  const { catalog, issues } = loadScreenCatalog(root, settings, capabilityKeys);
+  const loaded = loadScreenCatalog(root, settings, capabilityKeys);
+  const catalog = loaded.catalog;
+  const issues = [...capabilityIssues, ...loaded.issues];
   const links = manifestScreenLinks(manifest);
   const catalogInvalid = issues.length > 0;
   return {

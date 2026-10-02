@@ -648,6 +648,23 @@ await test("fails check when a catalog names a capability the spec does not decl
   ]);
 });
 
+await test("fails check when an unparseable spec leaves catalog capabilities unconfirmed", async () => {
+  const ws = workspace({ git: true, screens: ENABLED, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  ws.write(".tieline/spec/sharing.yaml", "version: 1\ncapability: [unclosed\n");
+  ws.write(".tieline/screens/BILLING.yaml", "version: 1\ncapability: BILLING\nscreens: []\n");
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1);
+  const result = JSON.parse(capture.output());
+  assert.equal(result.exit_reason, "invalid_screen_catalog");
+  assert.match(
+    result.screens.catalog_issues[0],
+    /^cannot confirm screen catalog capabilities because the spec does not parse: \.tieline\/spec\/sharing\.yaml: invalid YAML/
+  );
+});
+
 await test("reports screen counts from validate and compile when enabled", async () => {
   const ws = workspace({ screens: ENABLED, catalog: CATALOG });
   const capture = captureIO();

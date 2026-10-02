@@ -3,6 +3,7 @@ import {
   closeSync,
   existsSync,
   fstatSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readSync,
@@ -602,8 +603,18 @@ export function applyScreenImport(
 ): void {
   const changed = plan.files.filter((file) => file.status !== "unchanged");
   const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string }> = [];
-  const discardStaged = (): void => {
-    for (const { temporary } of staged) fileSystem.rmSync(temporary, { force: true });
+  // Cleanup never throws: a temporary file that cannot be removed is reported,
+  // and never stops the restoration that matters more.
+  const discardStaged = (from: number): string[] => {
+    const leftovers: string[] = [];
+    for (const { temporary } of staged.slice(from)) {
+      try {
+        fileSystem.rmSync(temporary, { force: true });
+      } catch (error) {
+        leftovers.push(`${temporary} (${message(error)})`);
+      }
+    }
+    return leftovers;
   };
   try {
     for (const file of changed) {
@@ -613,19 +624,22 @@ export function applyScreenImport(
       fileSystem.writeFileSync(temporary, file.content);
     }
   } catch (error) {
-    discardStaged();
+    const leftovers = discardStaged(0);
     throw new ScreenImportError(
-      `Could not stage the screen catalog files (${message(error)}); nothing was written.`
+      `Could not stage the screen catalog files (${message(error)}); nothing was written${
+        leftovers.length > 0 ? ", but some staged files could not be removed" : ""
+      }.`,
+      leftovers.map((leftover) => `staged file left behind: ${leftover}`)
     );
   }
 
   const replaced: PlannedScreenCatalogFile[] = [];
-  for (const { file, temporary } of staged) {
+  for (const [index, { file, temporary }] of staged.entries()) {
     try {
       fileSystem.renameSync(temporary, file.absolutePath);
       replaced.push(file);
     } catch (error) {
-      discardStaged();
+      // Restore first, then clean up, so a cleanup failure cannot prevent it.
       const unrestored: string[] = [];
       for (const done of replaced.reverse()) {
         try {
@@ -640,11 +654,15 @@ export function applyScreenImport(
           unrestored.push(`${done.path} (${message(restoreError)})`);
         }
       }
+      const leftovers = discardStaged(index);
       throw new ScreenImportError(
         unrestored.length === 0
           ? `Writing '${file.path}' failed (${message(error)}); the ${replaced.length} file(s) already written were restored, so the catalog is unchanged.`
           : `Writing '${file.path}' failed (${message(error)}), and restoring the files already written also failed. Restore them from git before importing again.`,
-        unrestored
+        [
+          ...unrestored,
+          ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+        ]
       );
     }
   }
@@ -742,11 +760,26 @@ export function ensureCapturesIgnored(
     return "not_managed";
   }
   const ignorePath = resolve(directory, ".gitignore");
-  if (existsSync(ignorePath)) return "exists";
+  // Inspect the path itself, not what it points at: a symbolic link here, even
+  // a dangling one, would make a write land wherever it leads.
+  let existing: ReturnType<typeof lstatSync> | undefined;
+  try {
+    existing = lstatSync(ignorePath);
+  } catch {
+    existing = undefined;
+  }
+  if (existing) return existing.isFile() ? "exists" : "not_managed";
   mkdirSync(directory, { recursive: true });
-  writeFileSync(
-    ignorePath,
-    "# Screenshots referenced by the Tieline screen catalog are not committed.\n*\n!.gitignore\n"
-  );
+  try {
+    // Exclusive creation never follows a link that appears in the meantime.
+    writeFileSync(
+      ignorePath,
+      "# Screenshots referenced by the Tieline screen catalog are not committed.\n*\n!.gitignore\n",
+      { flag: "wx" }
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === "EEXIST") return "not_managed";
+    throw error;
+  }
   return "created";
 }

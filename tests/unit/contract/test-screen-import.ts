@@ -445,6 +445,21 @@ await test("refuses an import that would write an oversized catalog file", async
   );
 });
 
+await test("never writes the captures .gitignore through a symbolic link", async () => {
+  const ws = workspace();
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-gitignore`);
+  symlinkSync(outside, resolve(ws.root, ".tieline/captures/.gitignore"));
+  try {
+    const { exit, result } = await importScreens(ws, [screen("a")]);
+    assert.equal(exit, 0);
+    assert.equal(result.captures_gitignore, "not_managed");
+    assert.equal(existsSync(outside), false, "a dangling link is never written through");
+  } finally {
+    rmSync(outside, { force: true });
+  }
+});
+
 console.log("screens import: atomic writes");
 
 function moveBetweenCatalogs(ws: ScreensWorkspace) {
@@ -495,6 +510,30 @@ await test("restores every file already written when a later write fails", async
   );
   // Byte-identical, with no staged or restore files left behind.
   assert.deepEqual(snapshot(ws), before);
+});
+
+await test("restores replaced files even when cleaning up staged files fails", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const notes = catalog(ws, "NOTES");
+  const sharing = catalog(ws, "SHARING");
+  const fileSystem = {
+    ...failingRenames([2]),
+    rmSync: (path: string, options: { force: true }) => {
+      if (path.endsWith(".tmp")) throw new Error("permission denied");
+      rmSync(path, options);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError);
+    assert.match(error.message, /the 1 file\(s\) already written were restored, so the catalog is unchanged/);
+    assert.match(error.issues.join("\n"), /staged file left behind: .*SHARING\.yaml\.\d+\.tmp \(permission denied\)/);
+  }
+  assert.equal(catalog(ws, "NOTES"), notes);
+  assert.equal(catalog(ws, "SHARING"), sharing);
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {
