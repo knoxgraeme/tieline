@@ -213,8 +213,9 @@ The input is treated as untrusted:
   catalog to writing it, and a second import fails at once (a dry run only reads and needs no
   lock). If an import was interrupted, the file remains, naming its process and start time;
   delete it once no import is running;
-- a catalog file edited by hand after the import read it stops the import before anything is
-  written; run it again. A rollback never restores over a file someone else changed meanwhile.
+- a catalog file edited, removed, or added by hand after the import read it stops the import
+  before anything is written; run it again. A rollback never restores over a file someone else
+  changed meanwhile.
 
 Merging is by key, so re-importing the same file changes nothing and never duplicates an entry.
 For an existing key, required fields are replaced, an omitted optional field keeps its catalog

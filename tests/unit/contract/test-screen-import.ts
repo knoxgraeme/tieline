@@ -787,6 +787,21 @@ await test("writes nothing when a catalog changed after the import read it", asy
       error.issues.join("\n") === ".tieline/screens/SHARING.yaml was edited after the import read it"
   );
   assert.equal(catalog(untouched, "NOTES"), notesBefore);
+
+  // Added: a catalog file the plan never saw, created by hand meanwhile.
+  const added = workspace();
+  await importScreens(added, [screen("a")]);
+  const addsC = planImport(added, [screen("c")]);
+  const addedBefore = catalog(added, "NOTES");
+  added.write(".tieline/screens/extra/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  assert.throws(
+    () => applyScreenImport(addsC),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/extra/SHARING.yaml was created after the import read it"
+  );
+  assert.equal(catalog(added, "NOTES"), addedBefore);
+  assert.deepEqual(catalogDirectory(added), ["NOTES.yaml", "extra"], "no staged file is left behind");
 });
 
 await test("never rolls back over a catalog another writer changed meanwhile", async () => {

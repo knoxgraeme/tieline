@@ -23,6 +23,7 @@ import {
   screenImagePathSchema,
   screenImageSchema,
   SCREEN_LIMITS,
+  listScreenCatalogFiles,
   realDestination,
   validateScreenCatalogDocuments,
   type ScreenCatalogDocument,
@@ -280,6 +281,8 @@ export interface ScreenImportPlan {
   pruned: string[];
   skipped_unknown_capability: Array<{ key: string; capability: string }>;
   files: PlannedScreenCatalogFile[];
+  /** Where the catalog was read from, to list it again before writing. */
+  catalog: { repositoryRoot: string; settings: ScreenSettings };
 }
 
 function portable(path: string): string {
@@ -492,6 +495,7 @@ export function planScreenImport(
       capability: entry.capability,
     })),
     files: [],
+    catalog: { repositoryRoot: root, settings: options.settings },
   };
   const touched = new Set<string>();
 
@@ -750,6 +754,24 @@ export function applyScreenImport(
     const change = changedFrom(file.absolutePath, file.original);
     return change === null ? [] : [`${file.path} ${change} after the import read it`];
   });
+  // A catalog file created meanwhile is in no plan, so the catalog is listed
+  // again: a new file could add a key the import adds, or cross a bound. The
+  // staged files are in the directory now, so the entry bound allows for them.
+  const known = new Set(plan.files.map((file) => file.absolutePath));
+  const listing = listScreenCatalogFiles(
+    plan.catalog.repositoryRoot,
+    plan.catalog.settings,
+    staged.length
+  );
+  if (listing.issue !== undefined) {
+    stale.push(`the catalog could not be listed again: ${listing.issue}`);
+  }
+  for (const path of listing.paths) {
+    if (!known.has(path)) {
+      const shown = relative(resolve(plan.catalog.repositoryRoot), path).split(sep).join("/");
+      stale.push(`${shown} was created after the import read it`);
+    }
+  }
   if (stale.length > 0) {
     const leftovers = discardStaged(0);
     throw new ScreenImportError(

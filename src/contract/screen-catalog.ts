@@ -489,6 +489,56 @@ function catalogYamlFiles(
   return { files: files.sort((left, right) => left.path.localeCompare(right.path)), entries };
 }
 
+/** The bounded walk of an existing catalog directory, past any captures in it. */
+function walkCatalogDirectory(
+  root: string,
+  settings: ScreenSettings,
+  limits: CatalogWalkLimits
+): ReturnType<typeof catalogYamlFiles> {
+  const directory = settings.catalogDirectory;
+  // The captures directory may sit inside the catalog. Its screenshots are not
+  // catalog files, and walking them would spend the walk's bounds on images.
+  // The walk never follows links, so a directory it reaches really is the
+  // same path below the catalog's real path.
+  const realDirectory = realpathSync(directory);
+  const realCaptures = realDestination(settings.capturesDirectory);
+  const capturesInCatalog =
+    realCaptures !== realDirectory && withinRepository(realDirectory, realCaptures)
+      ? resolve(directory, relative(realDirectory, realCaptures))
+      : undefined;
+  return catalogYamlFiles(
+    directory,
+    limits,
+    (absolutePath) => portable(relative(root, absolutePath)),
+    capturesInCatalog
+  );
+}
+
+/**
+ * The catalog's YAML files, absolute and sorted, found by the same bounded
+ * walk `readScreenCatalogSources` makes but without reading them. `extraEntries`
+ * raises the entry bound for entries the caller knows are passing through,
+ * such as an import's staged files.
+ */
+export function listScreenCatalogFiles(
+  repositoryRoot: string,
+  settings: ScreenSettings,
+  extraEntries = 0
+): { paths: string[]; issue?: string } {
+  const directory = settings.catalogDirectory;
+  if (!existsSync(directory)) return { paths: [] };
+  if (!statSync(directory).isDirectory()) {
+    return { paths: [], issue: `screen catalog '${settings.catalogPath}' is not a directory` };
+  }
+  const walk = walkCatalogDirectory(resolve(repositoryRoot), settings, {
+    ...CATALOG_WALK_LIMITS,
+    entries: CATALOG_WALK_LIMITS.entries + extraEntries,
+  });
+  return walk.issue
+    ? { paths: [], issue: walk.issue }
+    : { paths: walk.files.map((file) => file.path) };
+}
+
 /**
  * Reads every catalog YAML file. A missing catalog directory is an empty
  * catalog — the normal state of a repository that has just opted in — not an
@@ -512,22 +562,7 @@ export function readScreenCatalogSources(
   }
   const sources: ScreenCatalogSource[] = [];
   const issues: string[] = [];
-  // The captures directory may sit inside the catalog. Its screenshots are not
-  // catalog files, and walking them would spend the walk's bounds on images.
-  // The walk never follows links, so a directory it reaches really is the
-  // same path below the catalog's real path.
-  const realDirectory = realpathSync(directory);
-  const realCaptures = realDestination(settings.capturesDirectory);
-  const capturesInCatalog =
-    realCaptures !== realDirectory && withinRepository(realDirectory, realCaptures)
-      ? resolve(directory, relative(realDirectory, realCaptures))
-      : undefined;
-  const walk = catalogYamlFiles(
-    directory,
-    limits,
-    (absolutePath) => portable(relative(root, absolutePath)),
-    capturesInCatalog
-  );
+  const walk = walkCatalogDirectory(root, settings, limits);
   // A walk that hit a bound reports only that: validating a truncated
   // catalog would add misleading issues (unknown screens, missing files).
   if (walk.issue) {
