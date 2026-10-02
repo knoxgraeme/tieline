@@ -53,6 +53,11 @@ export const SCREEN_LIMITS = {
   applicabilityChars: 120,
   screens: 10_000,
   catalogFileBytes: 4 * 1024 * 1024,
+  /** Bounds on walking the catalog directory, checked during the walk. */
+  catalogDepth: 8,
+  catalogEntries: 10_000,
+  catalogFiles: 1_000,
+  catalogTotalBytes: 64 * 1024 * 1024,
 } as const;
 
 const IMAGE_EXTENSION = /\.(?:png|jpe?g|webp|gif|avif|svg)$/i;
@@ -335,16 +340,75 @@ export interface ScreenCatalogSources {
   sources: ScreenCatalogSource[];
   /** Files that could not be read or parsed; reported with validation issues. */
   issues: string[];
+  /**
+   * False when the walk stopped at a bound, so `sources` is not the whole
+   * catalog and nothing should be resolved against it.
+   */
+  complete: boolean;
 }
 
-function yamlFiles(directory: string): string[] {
-  const files: string[] = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) files.push(...yamlFiles(path));
-    else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) files.push(path);
+export interface CatalogWalkLimits {
+  depth: number;
+  entries: number;
+  files: number;
+  fileBytes: number;
+  totalBytes: number;
+}
+
+const CATALOG_WALK_LIMITS: CatalogWalkLimits = {
+  depth: SCREEN_LIMITS.catalogDepth,
+  entries: SCREEN_LIMITS.catalogEntries,
+  files: SCREEN_LIMITS.catalogFiles,
+  fileBytes: SCREEN_LIMITS.catalogFileBytes,
+  totalBytes: SCREEN_LIMITS.catalogTotalBytes,
+};
+
+/**
+ * The catalog's YAML files, found by a bounded walk. Catalog content can
+ * arrive in a pull request, so depth, directory entries examined, file count,
+ * and total bytes are all checked while walking: a hostile tree stops the
+ * walk with an issue instead of exhausting the stack, memory, or time. Symbolic
+ * links are never followed.
+ */
+function catalogYamlFiles(
+  directory: string,
+  limits: CatalogWalkLimits,
+  displayPath: (absolutePath: string) => string
+): { files: Array<{ path: string; size: number }>; issue?: string } {
+  const files: Array<{ path: string; size: number }> = [];
+  let entries = 0;
+  let totalBytes = 0;
+  const pending: Array<{ path: string; depth: number }> = [{ path: directory, depth: 0 }];
+  while (pending.length > 0) {
+    const { path: current, depth } = pending.pop()!;
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      entries += 1;
+      if (entries > limits.entries) {
+        return { files, issue: `the screen catalog holds more than ${limits.entries} directory entries` };
+      }
+      const path = resolve(current, entry.name);
+      if (entry.isDirectory()) {
+        if (depth + 1 > limits.depth) {
+          return {
+            files,
+            issue: `${displayPath(path)}: the screen catalog is nested deeper than ${limits.depth} directories`,
+          };
+        }
+        pending.push({ path, depth: depth + 1 });
+      } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
+        const size = statSync(path).size;
+        if (files.length + 1 > limits.files) {
+          return { files, issue: `the screen catalog holds more than ${limits.files} YAML files` };
+        }
+        totalBytes += Math.min(size, limits.fileBytes + 1);
+        if (totalBytes > limits.totalBytes) {
+          return { files, issue: `the screen catalog holds more than ${limits.totalBytes} bytes of YAML` };
+        }
+        files.push({ path, size });
+      }
+    }
   }
-  return files.sort((left, right) => left.localeCompare(right));
+  return { files: files.sort((left, right) => left.path.localeCompare(right.path)) };
 }
 
 /**
@@ -354,26 +418,31 @@ function yamlFiles(directory: string): string[] {
  */
 export function readScreenCatalogSources(
   repositoryRoot: string,
-  settings: ScreenSettings
+  settings: ScreenSettings,
+  limits: CatalogWalkLimits = CATALOG_WALK_LIMITS
 ): ScreenCatalogSources {
   const root = resolve(repositoryRoot);
   const directory = settings.catalogDirectory;
-  if (!existsSync(directory)) return { sources: [], issues: [] };
+  if (!existsSync(directory)) return { sources: [], issues: [], complete: true };
   if (!statSync(directory).isDirectory()) {
     return {
       sources: [],
       issues: [`screen catalog '${settings.catalogPath}' is not a directory`],
+      complete: false,
     };
   }
   const sources: ScreenCatalogSource[] = [];
   const issues: string[] = [];
-  for (const absolutePath of yamlFiles(directory)) {
+  const walk = catalogYamlFiles(directory, limits, (absolutePath) =>
+    portable(relative(root, absolutePath))
+  );
+  // A walk that hit a bound reports only that: validating a truncated
+  // catalog would add misleading issues (unknown screens, missing files).
+  if (walk.issue) return { sources: [], issues: [walk.issue], complete: false };
+  for (const { path: absolutePath, size } of walk.files) {
     const path = portable(relative(root, absolutePath));
-    const size = statSync(absolutePath).size;
-    if (size > SCREEN_LIMITS.catalogFileBytes) {
-      issues.push(
-        `${path}: screen catalog file is ${size} bytes; the limit is ${SCREEN_LIMITS.catalogFileBytes}`
-      );
+    if (size > limits.fileBytes) {
+      issues.push(`${path}: screen catalog file is ${size} bytes; the limit is ${limits.fileBytes}`);
       continue;
     }
     const content = readFileSync(absolutePath, "utf8");
@@ -384,7 +453,7 @@ export function readScreenCatalogSources(
       issues.push(`${path}: invalid YAML: ${message}`);
     }
   }
-  return { sources, issues };
+  return { sources, issues, complete: true };
 }
 
 export interface ScreenCatalogDocumentInput {

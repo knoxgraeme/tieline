@@ -286,12 +286,54 @@ await test("rejects duplicate keys across files, two catalogs for one capability
 await test("bounds catalog file size before reading and treats a missing catalog as empty", () => {
   const empty = workspace({ screens: ENABLED });
   const settings = screenSettingsForRepository(empty.root)!;
-  assert.deepEqual(readScreenCatalogSources(empty.root, settings), { sources: [], issues: [] });
+  assert.deepEqual(readScreenCatalogSources(empty.root, settings), {
+    sources: [],
+    issues: [],
+    complete: true,
+  });
   empty.write(".tieline/screens/BIG.yaml", `# ${"x".repeat(SCREEN_LIMITS.catalogFileBytes)}\n`);
   const read = readScreenCatalogSources(empty.root, settings);
   assert.equal(read.sources.length, 0);
   assert.match(read.issues[0]!, /\.tieline\/screens\/BIG\.yaml: screen catalog file is \d+ bytes; the limit is 4194304/);
   assert.ok(screenCatalogDocumentSchema.safeParse({ version: 1, capability: "N", screens: [] }).success);
+});
+
+await test("bounds the catalog walk by depth, entries, files, and total bytes", () => {
+  const ws = workspace({ screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
+  const settings = screenSettingsForRepository(ws.root)!;
+  const limits = { depth: 2, entries: 50, files: 3, fileBytes: 4096, totalBytes: 2048 };
+  assert.equal(readScreenCatalogSources(ws.root, settings, limits).complete, true);
+
+  ws.write(".tieline/screens/a/b/c/deep.yaml", "version: 1\ncapability: NOTES\nscreens: []\n");
+  const deep = readScreenCatalogSources(ws.root, settings, limits);
+  assert.equal(deep.complete, false);
+  assert.match(deep.issues[0]!, /\.tieline\/screens\/a\/b\/c: the screen catalog is nested deeper than 2 directories/);
+  ws.remove(".tieline/screens/a");
+
+  for (const name of ["x", "y"]) ws.write(`.tieline/screens/${name}.yaml`, "{}\n");
+  assert.deepEqual(readScreenCatalogSources(ws.root, settings, limits).issues, [
+    "the screen catalog holds more than 3 YAML files",
+  ]);
+  ws.remove(".tieline/screens/x.yaml");
+  ws.remove(".tieline/screens/y.yaml");
+
+  ws.write(".tieline/screens/padding.yaml", `# ${"p".repeat(1500)}\n`);
+  assert.deepEqual(readScreenCatalogSources(ws.root, settings, limits).issues, [
+    "the screen catalog holds more than 2048 bytes of YAML",
+  ]);
+  ws.remove(".tieline/screens/padding.yaml");
+
+  for (let index = 0; index < 60; index += 1) ws.write(`.tieline/screens/notes-${index}.txt`, "");
+  assert.deepEqual(readScreenCatalogSources(ws.root, settings, limits).issues, [
+    "the screen catalog holds more than 50 directory entries",
+  ]);
+
+  // With the default bounds, a catalog nested too deep stops loading with
+  // that one issue, rather than reporting every shows link as unknown.
+  ws.write(".tieline/screens/1/2/3/4/5/6/7/8/9/deep.yaml", "version: 1\ncapability: NOTES\nscreens: []\n");
+  assert.deepEqual(validationIssues(() => loadAcceptedContractWithSources(ws.root, ".tieline/spec")), [
+    ".tieline/screens/1/2/3/4/5/6/7/8/9: the screen catalog is nested deeper than 8 directories",
+  ]);
 });
 
 console.log("screens: shows links");

@@ -96,6 +96,9 @@ export function loadAcceptedContractWithSources(
   const catalog = screenSettings
     ? readScreenCatalogSources(root, screenSettings)
     : undefined;
+  // A catalog that could not be read in full cannot resolve shows links:
+  // report why it could not be read rather than every link as unknown.
+  if (catalog && !catalog.complete) throw new ContractValidationError(catalog.issues);
   let validated: ValidatedContract;
   try {
     // Pass the root so selector kinds declared by this repository are part of
