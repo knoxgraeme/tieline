@@ -82,7 +82,13 @@ const READ_FLAGS =
     ? constants.O_RDONLY
     : constants.O_RDONLY | constants.O_NONBLOCK;
 
-function readBoundedFile(path: string, maxBytes: number, label: string): Buffer {
+function readBoundedFile(
+  path: string,
+  maxBytes: number,
+  label: string,
+  /** Replaces the default message when the file is over `maxBytes`. */
+  tooLargeMessage?: string
+): Buffer {
   let descriptor: number;
   try {
     descriptor = openSync(path, READ_FLAGS);
@@ -98,7 +104,10 @@ function readBoundedFile(path: string, maxBytes: number, label: string): Buffer 
       throw new ScreenImportError(`${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is not a file.`);
     }
     const tooLarge = (): ScreenImportError =>
-      new ScreenImportError(`${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is larger than the ${maxBytes}-byte limit.`);
+      new ScreenImportError(
+        tooLargeMessage ??
+          `${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is larger than the ${maxBytes}-byte limit.`
+      );
     if (stat.size > maxBytes) throw tooLarge();
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let total = 0;
@@ -281,8 +290,15 @@ export interface ScreenImportPlan {
   pruned: string[];
   skipped_unknown_capability: Array<{ key: string; capability: string }>;
   files: PlannedScreenCatalogFile[];
-  /** Where the catalog was read from, to list it again before writing. */
-  catalog: { repositoryRoot: string; settings: ScreenSettings };
+  /**
+   * Where the catalog was read from, and the bounds the plan was validated
+   * against, to list it again the same way before writing.
+   */
+  catalog: {
+    repositoryRoot: string;
+    settings: ScreenSettings;
+    limits: Pick<CatalogWalkLimits, "entries" | "files" | "fileBytes" | "totalBytes">;
+  };
 }
 
 function portable(path: string): string {
@@ -495,7 +511,16 @@ export function planScreenImport(
       capability: entry.capability,
     })),
     files: [],
-    catalog: { repositoryRoot: root, settings: options.settings },
+    catalog: {
+      repositoryRoot: root,
+      settings: options.settings,
+      limits: options.catalogLimits ?? {
+        entries: SCREEN_LIMITS.catalogEntries,
+        files: SCREEN_LIMITS.catalogFiles,
+        fileBytes: SCREEN_LIMITS.catalogFileBytes,
+        totalBytes: SCREEN_LIMITS.catalogTotalBytes,
+      },
+    },
   };
   const touched = new Set<string>();
 
@@ -558,12 +583,7 @@ export function planScreenImport(
   // bytes overall, before parsing anything, so an import must not write one:
   // it would succeed here and fail every later command. The outputs are every
   // catalog file there will be, since the existing catalog validated whole.
-  const limits = options.catalogLimits ?? {
-    entries: SCREEN_LIMITS.catalogEntries,
-    files: SCREEN_LIMITS.catalogFiles,
-    fileBytes: SCREEN_LIMITS.catalogFileBytes,
-    totalBytes: SCREEN_LIMITS.catalogTotalBytes,
-  };
+  const limits = plan.catalog.limits;
   let totalBytes = 0;
   for (const { catalog, content } of outputs) {
     const bytes = Buffer.byteLength(content);
@@ -756,13 +776,15 @@ export function applyScreenImport(
   });
   // A catalog file created meanwhile is in no plan, so the catalog is listed
   // again: a new file could add a key the import adds, or cross a bound. The
-  // staged files are in the directory now, so the entry bound allows for them.
+  // staged files are in the directory now. One that will replace an existing
+  // file disappears on rename, so the entry bound allows for it; one that
+  // creates a catalog stays as a new entry, so it counts like any other.
   const known = new Set(plan.files.map((file) => file.absolutePath));
-  const listing = listScreenCatalogFiles(
-    plan.catalog.repositoryRoot,
-    plan.catalog.settings,
-    staged.length
-  );
+  const replacing = staged.filter(({ file }) => file.original !== null).length;
+  const listing = listScreenCatalogFiles(plan.catalog.repositoryRoot, plan.catalog.settings, {
+    ...plan.catalog.limits,
+    entries: plan.catalog.limits.entries + replacing,
+  });
   if (listing.issue !== undefined) {
     stale.push(`the catalog could not be listed again: ${listing.issue}`);
   }
@@ -871,12 +893,17 @@ export function createCaptureDigester(
       }
       let sha256 = digests.get(real);
       if (sha256 === undefined) {
-        const bytes = readBoundedFile(target, limits.fileBytes, "screenshot");
-        if (bytesRead + bytes.length > limits.totalBytes) {
-          throw new ScreenImportError(
-            `The screenshots this import references exceed the ${limits.totalBytes}-byte total it may read; import in smaller batches.`
-          );
-        }
+        // The read itself is bounded by what is left of the total, so a file
+        // that would cross it is refused from its size, not read first.
+        const remaining = limits.totalBytes - bytesRead;
+        const bytes = readBoundedFile(
+          target,
+          Math.min(limits.fileBytes, remaining),
+          "screenshot",
+          remaining < limits.fileBytes
+            ? `The screenshots this import references exceed the ${limits.totalBytes}-byte total it may read; import in smaller batches.`
+            : undefined
+        );
         bytesRead += bytes.length;
         sha256 = createHash("sha256").update(bytes).digest("hex");
         digests.set(real, sha256);

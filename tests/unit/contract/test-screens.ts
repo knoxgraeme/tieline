@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import {
+  chmodSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -371,6 +373,49 @@ await test("bounds catalog file size before reading and treats a missing catalog
   assert.equal(read.sources.length, 0);
   assert.match(read.issues[0]!, /\.tieline\/screens\/BIG\.yaml: screen catalog file is \d+ bytes; the limit is 4194304/);
   assert.ok(screenCatalogDocumentSchema.safeParse({ version: 1, capability: "N", screens: [] }).success);
+});
+
+await test("reports a catalog it cannot inspect instead of reading it as empty", async () => {
+  const ws = workspace({
+    screens: { enabled: true, catalog_directory: "locked/screens" },
+    notes: { storyShows: ["notes-list"] },
+  });
+  ws.write(".tieline/locked/screens/NOTES.yaml", NOTES_CATALOG_YAML);
+  ws.write(".tieline/locked/screens/SHARING.yaml", SHARING_CATALOG_YAML);
+  const settings = screenSettingsForRepository(ws.root)!;
+  assert.equal(readScreenCatalogSources(ws.root, settings).sources.length, 2);
+
+  // A path below a regular file cannot be a directory, and is not "missing".
+  ws.write("not-a-directory", "");
+  const blocked = readScreenCatalogSources(ws.root, {
+    ...settings,
+    catalogDirectory: resolve(ws.root, "not-a-directory/screens"),
+    catalogPath: "not-a-directory/screens",
+  });
+  assert.equal(blocked.complete, false);
+  assert.match(blocked.issues[0]!, /^screen catalog 'not-a-directory\/screens' cannot be read: ENOTDIR/);
+
+  // An unsearchable parent: compile fails rather than dropping every screen.
+  // Only where permissions are enforced (not for root or a process allowed
+  // to override them), which a probe of the locked path shows.
+  const locked = resolve(ws.root, ".tieline/locked");
+  chmodSync(locked, 0o000);
+  try {
+    const enforced = (() => {
+      try {
+        statSync(resolve(locked, "screens"));
+        return false;
+      } catch (error) {
+        return (error as NodeJS.ErrnoException).code === "EACCES";
+      }
+    })();
+    if (enforced) {
+      assert.match(readScreenCatalogSources(ws.root, settings).issues[0]!, /cannot be read: EACCES/);
+      assert.throws(() => compile(ws), /screen catalog '\.tieline\/locked\/screens' cannot be read: EACCES/);
+    }
+  } finally {
+    chmodSync(locked, 0o755);
+  }
 });
 
 await test("bounds the catalog walk by depth, entries, files, and total bytes", () => {

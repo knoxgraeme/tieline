@@ -1,5 +1,4 @@
 import {
-  existsSync,
   lstatSync,
   opendirSync,
   readFileSync,
@@ -489,6 +488,25 @@ function catalogYamlFiles(
   return { files: files.sort((left, right) => left.path.localeCompare(right.path)), entries };
 }
 
+/**
+ * Whether the catalog directory exists. Only a missing path means an empty
+ * catalog; any other failure to inspect it (an unsearchable parent, a file in
+ * the way) is reported, never read as "no catalog", which would silently drop
+ * every screen from the next compile.
+ */
+function catalogDirectoryState(settings: ScreenSettings): "missing" | "directory" | { issue: string } {
+  try {
+    return statSync(settings.catalogDirectory).isDirectory()
+      ? "directory"
+      : { issue: `screen catalog '${settings.catalogPath}' is not a directory` };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") return "missing";
+    return {
+      issue: `screen catalog '${settings.catalogPath}' cannot be read: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
 /** The bounded walk of an existing catalog directory, past any captures in it. */
 function walkCatalogDirectory(
   root: string,
@@ -516,23 +534,21 @@ function walkCatalogDirectory(
 
 /**
  * The catalog's YAML files, absolute and sorted, found by the same bounded
- * walk `readScreenCatalogSources` makes but without reading them. `extraEntries`
- * raises the entry bound for entries the caller knows are passing through,
- * such as an import's staged files.
+ * walk `readScreenCatalogSources` makes but without reading them. `limits`
+ * override the walk's own, for a caller that validated against others or
+ * knows of entries passing through, such as an import's staged files.
  */
 export function listScreenCatalogFiles(
   repositoryRoot: string,
   settings: ScreenSettings,
-  extraEntries = 0
+  limits: Partial<CatalogWalkLimits> = {}
 ): { paths: string[]; issue?: string } {
-  const directory = settings.catalogDirectory;
-  if (!existsSync(directory)) return { paths: [] };
-  if (!statSync(directory).isDirectory()) {
-    return { paths: [], issue: `screen catalog '${settings.catalogPath}' is not a directory` };
-  }
+  const state = catalogDirectoryState(settings);
+  if (state === "missing") return { paths: [] };
+  if (state !== "directory") return { paths: [], issue: state.issue };
   const walk = walkCatalogDirectory(resolve(repositoryRoot), settings, {
     ...CATALOG_WALK_LIMITS,
-    entries: CATALOG_WALK_LIMITS.entries + extraEntries,
+    ...limits,
   });
   return walk.issue
     ? { paths: [], issue: walk.issue }
@@ -550,15 +566,10 @@ export function readScreenCatalogSources(
   limits: CatalogWalkLimits = CATALOG_WALK_LIMITS
 ): ScreenCatalogSources {
   const root = resolve(repositoryRoot);
-  const directory = settings.catalogDirectory;
-  if (!existsSync(directory)) return { sources: [], issues: [], complete: true, entries: 0 };
-  if (!statSync(directory).isDirectory()) {
-    return {
-      sources: [],
-      issues: [`screen catalog '${settings.catalogPath}' is not a directory`],
-      complete: false,
-      entries: 0,
-    };
+  const state = catalogDirectoryState(settings);
+  if (state === "missing") return { sources: [], issues: [], complete: true, entries: 0 };
+  if (state !== "directory") {
+    return { sources: [], issues: [state.issue], complete: false, entries: 0 };
   }
   const sources: ScreenCatalogSource[] = [];
   const issues: string[] = [];

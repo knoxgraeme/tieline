@@ -432,6 +432,33 @@ await test("reads each screenshot once and bounds the total it reads", () => {
     () => digester.digest("three.png", "third"),
     /exceed the 100-byte total it may read; import in smaller batches/
   );
+  assert.equal(digester.bytesRead, 80);
+  // Exactly what is left of the total is still read.
+  ws.write(".tieline/captures/four.png", "w".repeat(20));
+  digester.digest("four.png", "fourth");
+  assert.equal(digester.bytesRead, 100);
+});
+
+await test("refuses a screenshot past the remaining total from its size, without reading it", () => {
+  // Linux counts the bytes a process reads in /proc/self/io; elsewhere the
+  // refusal itself is covered by the test above.
+  const readBytes = (): number | undefined => {
+    if (!existsSync("/proc/self/io")) return undefined;
+    const match = /^rchar: (\d+)$/m.exec(readFileSync("/proc/self/io", "utf8"));
+    return match ? Number(match[1]) : undefined;
+  };
+  if (readBytes() === undefined) return;
+  const ws = workspace();
+  ws.write(".tieline/captures/small.png", "x".repeat(80));
+  ws.write(".tieline/captures/large.png", "y".repeat(1024 * 1024));
+  const digester = createCaptureDigester(screenSettingsForRepository(ws.root)!, {
+    fileBytes: 2 * 1024 * 1024,
+    totalBytes: 100,
+  });
+  digester.digest("small.png", "small");
+  const before = readBytes()!;
+  assert.throws(() => digester.digest("large.png", "large"), /exceed the 100-byte total it may read/);
+  assert.ok(readBytes()! - before < 64 * 1024, "the 1 MiB screenshot was not read");
 });
 
 await test("re-reads a screenshot whose path the import keeps from the catalog", async () => {
@@ -802,6 +829,35 @@ await test("writes nothing when a catalog changed after the import read it", asy
   );
   assert.equal(catalog(added, "NOTES"), addedBefore);
   assert.deepEqual(catalogDirectory(added), ["NOTES.yaml", "extra"], "no staged file is left behind");
+});
+
+await test("rechecks the entry bound counting new catalogs but not replaced files' staging", async () => {
+  const fileBytes = SCREEN_LIMITS.catalogFileBytes;
+  const atTwo = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };
+  // Planned at the bound (NOTES.yaml and the new SHARING.yaml); a README
+  // added meanwhile would make three. The new catalog's staged file is a
+  // real entry, so the recheck is not loosened for it.
+  const crossed = workspace();
+  await importScreens(crossed, [screen("a")]);
+  const createsSharing = planImport(crossed, [screen("b", { capability: "SHARING" })], atTwo);
+  crossed.write(".tieline/screens/README.md", "Catalog notes.\n");
+  assert.throws(
+    () => applyScreenImport(createsSharing),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === "the catalog could not be listed again: the screen catalog holds more than 2 directory entries"
+  );
+  assert.deepEqual(catalogDirectory(crossed), ["NOTES.yaml", "README.md"]);
+
+  // At the bound, a file replaced in place briefly has a staged twin; that
+  // entry goes away on rename, so it is allowed for.
+  const replaced = workspace();
+  await importScreens(replaced, [screen("a")]);
+  replaced.write(".tieline/screens/README.md", "Catalog notes.\n");
+  const updatesNotes = planImport(replaced, [screen("c")], atTwo);
+  applyScreenImport(updatesNotes);
+  assert.match(catalog(replaced, "NOTES"), /key: c/);
+  assert.deepEqual(catalogDirectory(replaced), ["NOTES.yaml", "README.md"]);
 });
 
 await test("never rolls back over a catalog another writer changed meanwhile", async () => {
