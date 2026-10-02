@@ -371,6 +371,11 @@ export interface ScreenCatalogSources {
    * catalog and nothing should be resolved against it.
    */
   complete: boolean;
+  /**
+   * The directory entries the walk read, of every kind: the count its entry
+   * bound applies to, which an import must not push past.
+   */
+  entries: number;
 }
 
 export interface CatalogWalkLimits {
@@ -401,7 +406,7 @@ function catalogYamlFiles(
   limits: CatalogWalkLimits,
   displayPath: (absolutePath: string) => string,
   skipDirectory?: string
-): { files: Array<{ path: string; size: number }>; issue?: string } {
+): { files: Array<{ path: string; size: number }>; entries: number; issue?: string } {
   const files: Array<{ path: string; size: number }> = [];
   let entries = 0;
   let totalBytes = 0;
@@ -416,7 +421,7 @@ function catalogYamlFiles(
       while ((entry = handle.readSync()) !== null) {
         entries += 1;
         if (entries > limits.entries) {
-          return { files, issue: `the screen catalog holds more than ${limits.entries} directory entries` };
+          return { files, entries, issue: `the screen catalog holds more than ${limits.entries} directory entries` };
         }
         const path = resolve(current, entry.name);
         if (entry.isDirectory()) {
@@ -424,6 +429,7 @@ function catalogYamlFiles(
           if (depth + 1 > limits.depth) {
             return {
               files,
+              entries,
               issue: `${displayPath(path)}: the screen catalog is nested deeper than ${limits.depth} directories`,
             };
           }
@@ -431,11 +437,11 @@ function catalogYamlFiles(
         } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
           const size = statSync(path).size;
           if (files.length + 1 > limits.files) {
-            return { files, issue: `the screen catalog holds more than ${limits.files} YAML files` };
+            return { files, entries, issue: `the screen catalog holds more than ${limits.files} YAML files` };
           }
           totalBytes += Math.min(size, limits.fileBytes + 1);
           if (totalBytes > limits.totalBytes) {
-            return { files, issue: `the screen catalog holds more than ${limits.totalBytes} bytes of YAML` };
+            return { files, entries, issue: `the screen catalog holds more than ${limits.totalBytes} bytes of YAML` };
           }
           files.push({ path, size });
         }
@@ -444,7 +450,7 @@ function catalogYamlFiles(
       handle.closeSync();
     }
   }
-  return { files: files.sort((left, right) => left.path.localeCompare(right.path)) };
+  return { files: files.sort((left, right) => left.path.localeCompare(right.path)), entries };
 }
 
 /**
@@ -459,12 +465,13 @@ export function readScreenCatalogSources(
 ): ScreenCatalogSources {
   const root = resolve(repositoryRoot);
   const directory = settings.catalogDirectory;
-  if (!existsSync(directory)) return { sources: [], issues: [], complete: true };
+  if (!existsSync(directory)) return { sources: [], issues: [], complete: true, entries: 0 };
   if (!statSync(directory).isDirectory()) {
     return {
       sources: [],
       issues: [`screen catalog '${settings.catalogPath}' is not a directory`],
       complete: false,
+      entries: 0,
     };
   }
   const sources: ScreenCatalogSource[] = [];
@@ -487,7 +494,9 @@ export function readScreenCatalogSources(
   );
   // A walk that hit a bound reports only that: validating a truncated
   // catalog would add misleading issues (unknown screens, missing files).
-  if (walk.issue) return { sources: [], issues: [walk.issue], complete: false };
+  if (walk.issue) {
+    return { sources: [], issues: [walk.issue], complete: false, entries: walk.entries };
+  }
   for (const { path: absolutePath, size } of walk.files) {
     const path = portable(relative(root, absolutePath));
     if (size > limits.fileBytes) {
@@ -502,7 +511,7 @@ export function readScreenCatalogSources(
       issues.push(`${path}: invalid YAML: ${message}`);
     }
   }
-  return { sources, issues, complete: true };
+  return { sources, issues, complete: true, entries: walk.entries };
 }
 
 export interface ScreenCatalogDocumentInput {

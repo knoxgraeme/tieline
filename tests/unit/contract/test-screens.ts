@@ -337,6 +337,7 @@ await test("bounds catalog file size before reading and treats a missing catalog
     sources: [],
     issues: [],
     complete: true,
+    entries: 0,
   });
   empty.write(".tieline/screens/BIG.yaml", `# ${"x".repeat(SCREEN_LIMITS.catalogFileBytes)}\n`);
   const read = readScreenCatalogSources(empty.root, settings);

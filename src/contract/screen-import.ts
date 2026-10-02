@@ -236,11 +236,16 @@ export interface ScreenImportOptions {
    */
   digestScreenshot?: CaptureDigester["digest"];
   /**
-   * The bounds the loader's catalog walk enforces on files and bytes, so an
-   * import never writes a catalog that every later command refuses. Defaults
-   * to the walk's own.
+   * The directory entries the catalog walk read (`ScreenCatalogSources`), of
+   * every kind. Each file the import creates adds one.
    */
-  catalogLimits?: Pick<CatalogWalkLimits, "files" | "fileBytes" | "totalBytes">;
+  catalogEntries: number;
+  /**
+   * The bounds the loader's catalog walk enforces on entries, files, and
+   * bytes, so an import never writes a catalog that every later command
+   * refuses. Defaults to the walk's own.
+   */
+  catalogLimits?: Pick<CatalogWalkLimits, "entries" | "files" | "fileBytes" | "totalBytes">;
 }
 
 export type ScreenImportFileStatus = "created" | "updated" | "unchanged";
@@ -539,6 +544,7 @@ export function planScreenImport(
   // it would succeed here and fail every later command. The outputs are every
   // catalog file there will be, since the existing catalog validated whole.
   const limits = options.catalogLimits ?? {
+    entries: SCREEN_LIMITS.catalogEntries,
     files: SCREEN_LIMITS.catalogFiles,
     fileBytes: SCREEN_LIMITS.catalogFileBytes,
     totalBytes: SCREEN_LIMITS.catalogTotalBytes,
@@ -561,6 +567,14 @@ export function planScreenImport(
   if (totalBytes > limits.totalBytes) {
     issues.push(
       `the catalog would hold ${totalBytes} bytes; the limit is ${limits.totalBytes}`
+    );
+  }
+  // Every new catalog file is written at the top of the catalog directory.
+  const entries =
+    options.catalogEntries + outputs.filter(({ catalog }) => catalog.original === null).length;
+  if (entries > limits.entries) {
+    issues.push(
+      `the catalog directory would hold ${entries} entries; the limit is ${limits.entries}`
     );
   }
   validateScreenCatalogDocuments(

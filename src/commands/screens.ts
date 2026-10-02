@@ -79,6 +79,7 @@ export async function runScreensImportCommand(
       capabilityKeys,
       prune: options.prune === true,
       skipUnknownCapabilities: options.skipUnknownCapabilities === true,
+      catalogEntries: read.entries,
       digestScreenshot: (path, key) => digests.digest(path, key),
     });
   };

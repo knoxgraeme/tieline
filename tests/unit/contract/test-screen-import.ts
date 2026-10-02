@@ -459,7 +459,7 @@ await test("never reads screenshots of entries skipped for an unknown capability
   assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
 });
 
-await test("refuses an import that would take the catalog past its file or byte bounds", async () => {
+await test("refuses an import that would take the catalog past its entry, file, or byte bounds", async () => {
   const ws = workspace();
   await importScreens(ws, [screen("a")]);
   const notesBytes = Buffer.byteLength(catalog(ws, "NOTES"));
@@ -471,7 +471,7 @@ await test("refuses an import that would take the catalog past its file or byte 
 
   // One file more than the walk allows: a new capability file.
   assert.throws(
-    () => planImport(ws, addsSharing, { files: 1, fileBytes, totalBytes: 1_000_000 }),
+    () => planImport(ws, addsSharing, { entries: 10_000, files: 1, fileBytes, totalBytes: 1_000_000 }),
     (error: unknown) =>
       error instanceof ScreenImportError &&
       error.issues.join("\n") === "the catalog would hold 2 files; the limit is 1"
@@ -479,13 +479,26 @@ await test("refuses an import that would take the catalog past its file or byte 
   // One byte more than the walk allows, across files.
   const total = notesBytes + sharingBytes;
   assert.throws(
-    () => planImport(ws, addsSharing, { files: 2, fileBytes, totalBytes: total - 1 }),
+    () => planImport(ws, addsSharing, { entries: 10_000, files: 2, fileBytes, totalBytes: total - 1 }),
     (error: unknown) =>
       error instanceof ScreenImportError &&
       error.issues.join("\n") === `the catalog would hold ${total} bytes; the limit is ${total - 1}`
   );
   // Exactly at both bounds is fine.
-  assert.equal(planImport(ws, addsSharing, { files: 2, fileBytes, totalBytes: total }).files.length, 2);
+  assert.equal(planImport(ws, addsSharing, { entries: 10_000, files: 2, fileBytes, totalBytes: total }).files.length, 2);
+
+  // Entries count every kind, as the walk does: here NOTES.yaml and a README.
+  ws.write(".tieline/screens/README.md", "Catalog notes.\n");
+  const roomy = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };
+  assert.throws(
+    () => planImport(ws, addsSharing, roomy),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === "the catalog directory would hold 3 entries; the limit is 2"
+  );
+  assert.equal(planImport(ws, addsSharing, { ...roomy, entries: 3 }).files.length, 2);
+  // Updating an existing file adds no entry.
+  assert.equal(planImport(ws, [screen("c")], roomy).files.length, 1);
 });
 
 await test("refuses an import that would write an oversized catalog file", async () => {
@@ -589,6 +602,7 @@ function planImport(
       capabilityKeys: new Set(["NOTES", "SHARING"]),
       prune: false,
       skipUnknownCapabilities: false,
+      catalogEntries: read.entries,
       ...(catalogLimits ? { catalogLimits } : {}),
     }
   );
