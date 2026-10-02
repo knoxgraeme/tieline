@@ -191,6 +191,35 @@ await test("refuses a catalog the captures .gitignore would hide", () => {
   assert.equal(screenSettingsForRepository(nested.root)?.capturesPath, ".tieline/screens/shots");
 });
 
+await test("refuses a catalog and spec directory that overlap, or a spec the captures would hide", () => {
+  const withConfig = (screens: Record<string, unknown>, specDirectory = "spec") => {
+    const ws = workspace({ screens: { enabled: true, ...screens } });
+    const config = JSON.parse(readFileSync(resolve(ws.root, ".tieline/config.json"), "utf8"));
+    config.files.spec_directory = specDirectory;
+    ws.write(".tieline/config.json", `${JSON.stringify(config, null, 2)}\n`);
+    return ws;
+  };
+  for (const [screens, specDirectory] of [
+    [{ catalog_directory: "spec" }, "spec"],
+    [{ catalog_directory: "spec/screens" }, "spec"],
+    [{ catalog_directory: "contract" }, "contract/spec"],
+  ] as const) {
+    assert.throws(
+      () => screenSettingsForRepository(withConfig(screens, specDirectory).root),
+      new RegExp(`the catalog directory '${screens.catalog_directory}' and the spec directory '${specDirectory}' overlap`)
+    );
+  }
+  for (const [captures, specDirectory] of [["spec", "spec"], ["contract", "contract/spec"]] as const) {
+    assert.throws(
+      () => screenSettingsForRepository(withConfig({ captures_directory: captures }, specDirectory).root),
+      new RegExp(`the spec directory '${specDirectory}' is inside the captures directory '${captures}', which is git-ignored, so the spec would never be committed`)
+    );
+  }
+  // Siblings, and screenshots below the spec directory, are fine.
+  assert.equal(screenSettingsForRepository(withConfig({ catalog_directory: "screens" }, "spec").root)?.catalogPath, ".tieline/screens");
+  assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root)?.capturesPath, ".tieline/spec/shots");
+});
+
 console.log("screens: catalog schema");
 
 await test("accepts a complete catalog entry and an empty catalog", () => {

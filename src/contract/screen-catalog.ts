@@ -328,6 +328,24 @@ export function screenSettingsForRepository(
       `Invalid screens configuration: the catalog directory '${config.catalog_directory}' is inside the captures directory '${config.captures_directory}', which is git-ignored, so the catalog would never be committed.`
     );
   }
+  // Every YAML file below the spec directory is read as a contract document,
+  // and every one below the catalog as a screen catalog, so neither may hold
+  // the other; and a spec inside the captures directory would never be
+  // committed. The spec directory is the configured one, as commands use it.
+  const files = (parsed as { files?: { spec_directory?: unknown } } | null)?.files;
+  const specSetting =
+    typeof files?.spec_directory === "string" ? files.spec_directory : "spec";
+  const realSpec = realDestination(resolve(workspace, specSetting));
+  if (withinRepository(realSpec, realCatalog) || withinRepository(realCatalog, realSpec)) {
+    throw new Error(
+      `Invalid screens configuration: the catalog directory '${config.catalog_directory}' and the spec directory '${specSetting}' overlap. Every YAML file below the spec directory is read as a contract document, and every one below the catalog as a screen catalog, so each must be outside the other.`
+    );
+  }
+  if (withinRepository(realCaptures, realSpec)) {
+    throw new Error(
+      `Invalid screens configuration: the spec directory '${specSetting}' is inside the captures directory '${config.captures_directory}', which is git-ignored, so the spec would never be committed.`
+    );
+  }
   return {
     catalogDirectory,
     capturesDirectory,
