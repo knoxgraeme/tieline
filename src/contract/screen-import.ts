@@ -570,22 +570,31 @@ export function planScreenImport(
 /** The file operations `applyScreenImport` performs, injectable for tests. */
 export interface ScreenImportFileSystem {
   mkdirSync(path: string, options: { recursive: true }): void;
-  writeFileSync(path: string, content: string): void;
+  /**
+   * Creates a new file, failing with `EEXIST` when anything — including a
+   * symbolic link, even a dangling one — is already at the path, so a scratch
+   * write can never land wherever a planted link leads.
+   */
+  createFileSync(path: string, content: string): void;
   renameSync(from: string, to: string): void;
   rmSync(path: string, options: { force: true }): void;
 }
 
-const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
+export const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
   mkdirSync: (path, options) => {
     mkdirSync(path, options);
   },
-  writeFileSync: (path, content) => writeFileSync(path, content),
+  createFileSync: (path, content) => writeFileSync(path, content, { flag: "wx" }),
   renameSync: (from, to) => renameSync(from, to),
   rmSync: (path, options) => rmSync(path, options),
 };
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function alreadyExists(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === "EEXIST";
 }
 
 /**
@@ -595,7 +604,9 @@ function message(error: unknown): string {
  * already replaced are restored to their previous content (or removed, if the
  * import created them), so the catalog is never left half-applied — a screen
  * moved between files is never duplicated or lost. If restoring itself fails,
- * the error names every file that still needs restoring from git.
+ * the error names every file that still needs restoring from git. Staging and
+ * restore files are created exclusively: anything already at one of their
+ * paths, such as a planted symbolic link, stops the write and is left alone.
  */
 export function applyScreenImport(
   plan: ScreenImportPlan,
@@ -620,8 +631,15 @@ export function applyScreenImport(
     for (const file of changed) {
       fileSystem.mkdirSync(dirname(file.absolutePath), { recursive: true });
       const temporary = `${file.absolutePath}.${process.pid}.tmp`;
+      try {
+        fileSystem.createFileSync(temporary, file.content);
+      } catch (error) {
+        // A file this import created but could not fill is its own to remove;
+        // whatever was already at the path is not.
+        if (!alreadyExists(error)) staged.push({ file, temporary });
+        throw error;
+      }
       staged.push({ file, temporary });
-      fileSystem.writeFileSync(temporary, file.content);
     }
   } catch (error) {
     const leftovers = discardStaged(0);
@@ -647,7 +665,7 @@ export function applyScreenImport(
             fileSystem.rmSync(done.absolutePath, { force: true });
           } else {
             const restore = `${done.absolutePath}.${process.pid}.restore`;
-            fileSystem.writeFileSync(restore, done.original);
+            fileSystem.createFileSync(restore, done.original);
             fileSystem.renameSync(restore, done.absolutePath);
           }
         } catch (restoreError) {

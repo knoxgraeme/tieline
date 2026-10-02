@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -18,6 +19,7 @@ import {
   applyScreenImport,
   createCaptureDigester,
   gitignoreIgnoresEverything,
+  NODE_FILE_SYSTEM,
   parseScreenImport,
   planScreenImport,
   readScreenImportFile,
@@ -535,11 +537,7 @@ function moveBetweenCatalogs(ws: ScreensWorkspace) {
 function failingRenames(failOn: number[]) {
   let renames = 0;
   return {
-    mkdirSync: (path: string, options: { recursive: true }) => {
-      mkdirSync(path, options);
-    },
-    writeFileSync: (path: string, content: string) => writeFileSync(path, content),
-    rmSync: (path: string, options: { force: true }) => rmSync(path, options),
+    ...NODE_FILE_SYSTEM,
     renameSync: (from: string, to: string) => {
       renames += 1;
       if (failOn.includes(renames)) throw new Error("disk full");
@@ -584,6 +582,51 @@ await test("restores replaced files even when cleaning up staged files fails", a
   }
   assert.equal(catalog(ws, "NOTES"), notes);
   assert.equal(catalog(ws, "SHARING"), sharing);
+});
+
+function outsideFile(ws: ScreensWorkspace, name: string): string {
+  const path = resolve(ws.root, "..", `${ws.root.split("/").pop()}-${name}`);
+  writeFileSync(path, "outside\n");
+  return path;
+}
+
+await test("never writes a staged catalog file through a symbolic link", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const before = snapshot(ws);
+  const outside = outsideFile(ws, "outside-staged");
+  const planted = resolve(ws.root, `.tieline/screens/SHARING.yaml.${process.pid}.tmp`);
+  symlinkSync(outside, planted);
+  try {
+    assert.throws(
+      () => applyScreenImport(moveBetweenCatalogs(ws)),
+      /Could not stage the screen catalog files \(EEXIST: .*SHARING\.yaml\.\d+\.tmp'\); nothing was written\./
+    );
+    assert.equal(readFileSync(outside, "utf8"), "outside\n", "a planted link is never written through");
+    assert.equal(lstatSync(planted).isSymbolicLink(), true, "an entry this import did not create is left alone");
+    rmSync(planted);
+    assert.deepEqual(snapshot(ws), before, "the file staged before it is removed");
+  } finally {
+    rmSync(outside, { force: true });
+  }
+});
+
+await test("never writes a restore file through a symbolic link", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const outside = outsideFile(ws, "outside-restore");
+  symlinkSync(outside, resolve(ws.root, `.tieline/screens/NOTES.yaml.${process.pid}.restore`));
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), failingRenames([2]));
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.message, /restoring the files already written also failed/);
+    assert.match(error.issues.join("\n"), /^\.tieline\/screens\/NOTES\.yaml \(EEXIST: /);
+  } finally {
+    assert.equal(readFileSync(outside, "utf8"), "outside\n", "a planted link is never written through");
+    rmSync(outside, { force: true });
+  }
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {
