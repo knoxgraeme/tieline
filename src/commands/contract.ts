@@ -276,6 +276,9 @@ async function runGrade(
  * manifest configured elsewhere is refused: treating it as absent would grade
  * the whole contract as newly claimed, which is a fabricated scope.
  */
+/** The most a base manifest directory listing may take: about 600,000 entries. */
+const MANIFEST_LISTING_BYTES = 64 * 1024 * 1024;
+
 function manifestAtBase(
   repositoryRoot: string,
   base: string,
@@ -293,11 +296,22 @@ function manifestAtBase(
   }
   // Only what the working-tree reader takes: the directory's own regular
   // `.json` files. Not subdirectories, links, or other files.
-  const listing = execFileSync(
-    "git",
-    ["ls-tree", "-l", "-z", base, "--", `${directory}/`],
-    { cwd: worktree, encoding: "utf8" }
-  );
+  let listing: string;
+  try {
+    listing = execFileSync("git", ["ls-tree", "-l", "-z", base, "--", `${directory}/`], {
+      cwd: worktree,
+      encoding: "utf8",
+      // Metadata only, about 100 bytes an entry; far past any real manifest.
+      maxBuffer: MANIFEST_LISTING_BYTES,
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === "ENOBUFS") {
+      throw new Error(
+        `The manifest directory '${directory}' at '${base}' lists more than ${MANIFEST_LISTING_BYTES} bytes of entries, so it is not read.`
+      );
+    }
+    throw error;
+  }
   const files = listing
     .split("\0")
     .filter(Boolean)
@@ -361,11 +375,15 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
   const configPath = worktreePath(worktree, parsed.configPath);
   if (configPath === null) return parsed.manifestPath;
   const object = `${commit}:${configPath}`;
+  let size: number;
   try {
-    execFileSync("git", ["cat-file", "-e", object], {
-      cwd: worktree,
-      stdio: "ignore",
-    });
+    size = Number(
+      execFileSync("git", ["cat-file", "-s", object], {
+        cwd: worktree,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim()
+    );
   } catch {
     // Not in that commit: the base predates this workspace configuration.
     return defaultPath;
@@ -373,6 +391,8 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
   const text = execFileSync("git", ["show", object], {
     cwd: worktree,
     encoding: "utf8",
+    // Exactly the blob's size, whatever the configuration holds.
+    maxBuffer: size + 1,
   });
   let config: unknown;
   try {

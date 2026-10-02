@@ -401,6 +401,26 @@ await test("reads the base manifest from the Git worktree under a nested reposit
   assert.equal(JSON.parse(capture.output()).scoped_links, 0);
 });
 
+await test("reads a base whose configuration and manifest listing exceed git's default output buffer", async () => {
+  const ws = branchWorkspace(false);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  // Whitespace keeps the configuration valid while taking it past 1 MiB.
+  const configPath = resolve(ws.root, ".tieline/config.json");
+  writeFileSync(configPath, `${readFileSync(configPath, "utf8")}${" ".repeat(1_200_000)}\n`);
+  // Entries the reader ignores still make the directory listing long.
+  const padding = "p".repeat(180);
+  for (let index = 0; index < 5000; index += 1) {
+    writeFileSync(resolve(ws.root, `.tieline/manifest/${padding}-${index}.txt`), "");
+  }
+  ws.commit("large base");
+  assert.ok(statSync(configPath).size > 1024 * 1024);
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  const changes = JSON.parse(capture.output()).changes;
+  assert.equal(changes.base_has_manifest, true);
+  assert.deepEqual(changes.stories, { added: 0, changed: 0, removed: 0 });
+});
+
 await test("reads a base that predates the workspace configuration from the default location", async () => {
   const ws = branchWorkspace(false);
   const configPath = resolve(ws.root, ".tieline/config.json");
