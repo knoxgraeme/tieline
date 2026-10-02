@@ -167,6 +167,14 @@ Use the comparison ref supplied by the caller when available. Otherwise, agents 
 it from repository metadata, preferring the remote-tracking default branch, and ask only when it
 cannot be determined; do not assume every repository uses `origin/main`.
 
+Every `--base` comparison — `check`, `contract reconcile`, `contract grade`, and
+`code blast-radius` — starts from where the current branch left the base, `git merge-base <base>
+HEAD`, not from the base's latest commit. Commits that reached the base after the branch point are
+therefore never reported as this branch's changes. In CI a pull request is normally checked out
+merged into the base's tip, whose merge-base is that tip, so CI results are unaffected. JSON
+output from `check` and `reconcile` records the commit used as `base_commit`. The comparison needs
+the branch point in local history, so shallow clones must fetch it (`fetch-depth: 0`).
+
 The check compares changed, renamed, and deleted paths with manifest locators and reports each
 affected AC plus its freshness. It also sweeps every link for broken targets, whether or not the
 diff touched them, because a link can rot without the change under review going near it.
