@@ -5,6 +5,8 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -13,8 +15,10 @@ import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
+  applyScreenImport,
   createCaptureDigester,
   parseScreenImport,
+  planScreenImport,
   readScreenImportFile,
   ScreenImportError,
   SCREEN_IMPORT_LIMITS,
@@ -25,7 +29,11 @@ import {
   createScreensWorkspace,
   type ScreensWorkspace,
 } from "../../support/screen-fixtures.js";
-import { screenSettingsForRepository } from "../../../src/contract/screen-catalog.js";
+import {
+  readScreenCatalogSources,
+  screenSettingsForRepository,
+  validateScreenCatalogDocuments,
+} from "../../../src/contract/screen-catalog.js";
 
 const workspaces: ScreensWorkspace[] = [];
 function workspace(options: Parameters<typeof createScreensWorkspace>[0] = { screens: { enabled: true } }): ScreensWorkspace {
@@ -424,6 +432,71 @@ await test("never reads screenshots of entries skipped for an unknown capability
   assert.deepEqual(result.created, ["a"]);
   assert.deepEqual(result.image_digests, { computed: 0, missing: [] });
   assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
+});
+
+console.log("screens import: atomic writes");
+
+function moveBetweenCatalogs(ws: ScreensWorkspace) {
+  const settings = screenSettingsForRepository(ws.root)!;
+  const read = readScreenCatalogSources(ws.root, settings);
+  const issues: string[] = [];
+  const catalog = validateScreenCatalogDocuments(read.sources, undefined, issues);
+  assert.deepEqual(issues, []);
+  const documents = new Map(catalog.files.map((file) => [file.path, file.document]));
+  return planScreenImport(
+    parseScreenImport([screen("a", { capability: "SHARING" })]),
+    read.sources.map((source) => ({ source, document: documents.get(source.path)! })),
+    {
+      repositoryRoot: ws.root,
+      settings,
+      capabilityKeys: new Set(["NOTES", "SHARING"]),
+      prune: false,
+      skipUnknownCapabilities: false,
+    }
+  );
+}
+
+function failingRenames(failOn: number[]) {
+  let renames = 0;
+  return {
+    mkdirSync: (path: string, options: { recursive: true }) => {
+      mkdirSync(path, options);
+    },
+    writeFileSync: (path: string, content: string) => writeFileSync(path, content),
+    rmSync: (path: string, options: { force: true }) => rmSync(path, options),
+    renameSync: (from: string, to: string) => {
+      renames += 1;
+      if (failOn.includes(renames)) throw new Error("disk full");
+      renameSync(from, to);
+    },
+  };
+}
+
+await test("restores every file already written when a later write fails", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const before = snapshot(ws);
+  const plan = moveBetweenCatalogs(ws);
+  assert.deepEqual(plan.files.map((file) => file.status), ["updated", "updated"]);
+  assert.throws(
+    () => applyScreenImport(plan, failingRenames([2])),
+    /Writing '\.tieline\/screens\/SHARING\.yaml' failed \(disk full\); the 1 file\(s\) already written were restored, so the catalog is unchanged\./
+  );
+  // Byte-identical, with no staged or restore files left behind.
+  assert.deepEqual(snapshot(ws), before);
+});
+
+await test("names the files to restore from git when restoring fails too", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), failingRenames([2, 3]));
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError);
+    assert.match(error.message, /restoring the files already written also failed\. Restore them from git before importing again\./);
+    assert.deepEqual(error.issues, [".tieline/screens/NOTES.yaml (disk full)"]);
+  }
 });
 
 for (const created of workspaces) created.cleanup();

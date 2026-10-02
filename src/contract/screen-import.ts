@@ -242,6 +242,8 @@ export interface PlannedScreenCatalogFile {
   absolutePath: string;
   status: ScreenImportFileStatus;
   content: string;
+  /** The file's content before the import, or null when the import creates it. */
+  original: string | null;
 }
 
 export interface ScreenImportPlan {
@@ -548,26 +550,92 @@ export function planScreenImport(
             ? ("unchanged" as const)
             : ("updated" as const),
       content,
+      original: catalog.original,
     }))
     .sort((left, right) => left.path.localeCompare(right.path));
   return plan;
 }
 
+/** The file operations `applyScreenImport` performs, injectable for tests. */
+export interface ScreenImportFileSystem {
+  mkdirSync(path: string, options: { recursive: true }): void;
+  writeFileSync(path: string, content: string): void;
+  renameSync(from: string, to: string): void;
+  rmSync(path: string, options: { force: true }): void;
+}
+
+const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
+  mkdirSync: (path, options) => {
+    mkdirSync(path, options);
+  },
+  writeFileSync: (path, content) => writeFileSync(path, content),
+  renameSync: (from, to) => renameSync(from, to),
+  rmSync: (path, options) => rmSync(path, options),
+};
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
- * Writes the files a plan changes, each through a temporary file and a rename
- * so a reader never sees a half-written catalog file.
+ * Writes the files a plan changes as one unit. Every new file is staged
+ * beside its target first, so a failure while staging writes nothing. Each
+ * staged file then replaces its target by rename; if a rename fails, the files
+ * already replaced are restored to their previous content (or removed, if the
+ * import created them), so the catalog is never left half-applied — a screen
+ * moved between files is never duplicated or lost. If restoring itself fails,
+ * the error names every file that still needs restoring from git.
  */
-export function applyScreenImport(plan: ScreenImportPlan): void {
-  for (const file of plan.files) {
-    if (file.status === "unchanged") continue;
-    mkdirSync(dirname(file.absolutePath), { recursive: true });
-    const temporary = `${file.absolutePath}.${process.pid}.tmp`;
+export function applyScreenImport(
+  plan: ScreenImportPlan,
+  fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
+): void {
+  const changed = plan.files.filter((file) => file.status !== "unchanged");
+  const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string }> = [];
+  const discardStaged = (): void => {
+    for (const { temporary } of staged) fileSystem.rmSync(temporary, { force: true });
+  };
+  try {
+    for (const file of changed) {
+      fileSystem.mkdirSync(dirname(file.absolutePath), { recursive: true });
+      const temporary = `${file.absolutePath}.${process.pid}.tmp`;
+      staged.push({ file, temporary });
+      fileSystem.writeFileSync(temporary, file.content);
+    }
+  } catch (error) {
+    discardStaged();
+    throw new ScreenImportError(
+      `Could not stage the screen catalog files (${message(error)}); nothing was written.`
+    );
+  }
+
+  const replaced: PlannedScreenCatalogFile[] = [];
+  for (const { file, temporary } of staged) {
     try {
-      writeFileSync(temporary, file.content);
-      renameSync(temporary, file.absolutePath);
+      fileSystem.renameSync(temporary, file.absolutePath);
+      replaced.push(file);
     } catch (error) {
-      rmSync(temporary, { force: true });
-      throw error;
+      discardStaged();
+      const unrestored: string[] = [];
+      for (const done of replaced.reverse()) {
+        try {
+          if (done.original === null) {
+            fileSystem.rmSync(done.absolutePath, { force: true });
+          } else {
+            const restore = `${done.absolutePath}.${process.pid}.restore`;
+            fileSystem.writeFileSync(restore, done.original);
+            fileSystem.renameSync(restore, done.absolutePath);
+          }
+        } catch (restoreError) {
+          unrestored.push(`${done.path} (${message(restoreError)})`);
+        }
+      }
+      throw new ScreenImportError(
+        unrestored.length === 0
+          ? `Writing '${file.path}' failed (${message(error)}); the ${replaced.length} file(s) already written were restored, so the catalog is unchanged.`
+          : `Writing '${file.path}' failed (${message(error)}), and restoring the files already written also failed. Restore them from git before importing again.`,
+        unrestored
+      );
     }
   }
 }
