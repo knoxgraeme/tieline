@@ -558,6 +558,8 @@ function catalogDirectoryState(settings: ScreenSettings): "missing" | "directory
   }
 }
 
+const STRICT_UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
 /**
  * The bounded walk of an existing catalog directory, past any captures in it.
  * Each file is given twice: `path` under the configured catalog directory,
@@ -696,7 +698,16 @@ export function readScreenCatalogSources(
       continue;
     }
     totalBytes += read.bytes.length;
-    const content = read.bytes.toString("utf8");
+    // Decoded strictly: lenient decoding would turn malformed bytes into
+    // U+FFFD, so distinct files could validate, and hash, as the same text.
+    // A byte order mark is kept, so the content is exactly what the file holds.
+    let content: string;
+    try {
+      content = STRICT_UTF8.decode(read.bytes);
+    } catch {
+      issues.push(`${path}: screen catalog file is not valid UTF-8`);
+      continue;
+    }
     try {
       sources.push({ path, absolutePath, content, document: parse(content) });
     } catch (error) {

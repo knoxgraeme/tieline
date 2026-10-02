@@ -547,6 +547,24 @@ await test("refuses a screens layout before walking the spec directory", () => {
   );
 });
 
+await test("refuses catalog files that are not valid UTF-8, and keeps a byte order mark", () => {
+  const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+  const settings = screenSettingsForRepository(ws.root)!;
+  // A malformed byte in a title would otherwise read as U+FFFD and validate.
+  const path = resolve(ws.root, ".tieline/screens/NOTES.yaml");
+  const [head, tail] = NOTES_CATALOG_YAML.split("title: Notes list\n", 2) as [string, string];
+  writeFileSync(path, Buffer.concat([Buffer.from(`${head}title: Notes `), Buffer.from([0xff]), Buffer.from(` list\n${tail}`)]));
+  const read = readScreenCatalogSources(ws.root, settings);
+  assert.deepEqual(read.issues, [".tieline/screens/NOTES.yaml: screen catalog file is not valid UTF-8"]);
+  assert.throws(() => compile(ws), /NOTES\.yaml: screen catalog file is not valid UTF-8/);
+
+  // A byte order mark is valid and kept, so the content is the file's own.
+  writeFileSync(path, `\uFEFF${NOTES_CATALOG_YAML}`);
+  const withMark = readScreenCatalogSources(ws.root, settings);
+  assert.deepEqual(withMark.issues, []);
+  assert.equal(withMark.sources.find((source) => source.path.endsWith("NOTES.yaml"))!.content, `\uFEFF${NOTES_CATALOG_YAML}`);
+});
+
 await test("bounds the catalog walk by depth, entries, files, and total bytes", () => {
   const ws = workspace({ screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
   const settings = screenSettingsForRepository(ws.root)!;
