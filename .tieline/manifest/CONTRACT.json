@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "596245ed470795f063fb8971c6e90a330693406403ec4a7df30b1691cb558e1e",
+                "reviewed_content_hash": "784a50c24a01d62c8893d021b6acd20349ec7de2095a2adddd23464afd40b3f9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1923,7 +1923,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "596245ed470795f063fb8971c6e90a330693406403ec4a7df30b1691cb558e1e",
+                "reviewed_content_hash": "784a50c24a01d62c8893d021b6acd20349ec7de2095a2adddd23464afd40b3f9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -2026,7 +2026,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ccecec2a6619b0ffb3a8831a6f0a0f4ed43f94452291878f8293cff5b2e44056",
+                "reviewed_content_hash": "9f97479831494afb3e145c7bb0402d549c319bb8f10883d0fd3177dc7043ed4d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2037,7 +2037,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bba25d5d78f2d429d5f10791751dbc74a1ebc6d5697384e9f1c9f5b544a06951",
+                "reviewed_content_hash": "8710dfcbf100f514badb6630570240305174b69d478913979c668d93bf182053",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2048,7 +2048,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bba25d5d78f2d429d5f10791751dbc74a1ebc6d5697384e9f1c9f5b544a06951",
+                "reviewed_content_hash": "8710dfcbf100f514badb6630570240305174b69d478913979c668d93bf182053",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2059,7 +2059,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "218d2fc9e00cfca0b7b4c91a21b6f95546aef27878a3718d7d8617b851316a14",
+                "reviewed_content_hash": "963307ab369957b28fd7df905b453e7d09f9ae58ed7b1be43fb0ed10ea903741",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2181,7 +2181,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bba25d5d78f2d429d5f10791751dbc74a1ebc6d5697384e9f1c9f5b544a06951",
+                "reviewed_content_hash": "8710dfcbf100f514badb6630570240305174b69d478913979c668d93bf182053",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
