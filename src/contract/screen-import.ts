@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import {
+  closeSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -678,7 +681,7 @@ export function isStillFile(real: string, opened: Stats): boolean {
   }
   if (now !== real) return false;
   const current = statSync(real, { throwIfNoEntry: false });
-  return current !== undefined && current.dev === opened.dev && current.ino === opened.ino;
+  return current !== undefined && isSameFile(current, opened);
 }
 
 function isMissing(error: unknown): boolean {
@@ -1136,12 +1139,60 @@ export function ensureCapturesIgnored(
     return gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified";
   }
   mkdirSync(directory, { recursive: true });
+  return createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE) === "created"
+    ? "created"
+    : "unverified";
+}
+
+/**
+ * Creates `name` in `directory`, a validated real path, so that its content
+ * can only ever land there. The file is created exclusively (never through a
+ * link at its own path) and empty; only once it is confirmed to sit in
+ * `directory` is the content written, through the same descriptor, which no
+ * later swap of a parent directory can redirect. If a parent was swapped
+ * before the file was created, the empty file is removed from wherever it
+ * landed and the creation is refused. `exists`: something is already there.
+ */
+export function createInValidatedDirectory(
+  directory: string,
+  name: string,
+  content: string
+): "created" | "exists" {
+  const path = resolve(directory, name);
+  let descriptor: number;
   try {
-    // Exclusive creation never follows a link that appears in the meantime.
-    writeFileSync(ignorePath, CAPTURES_GITIGNORE, { flag: "wx" });
+    descriptor = openSync(path, "wx");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code === "EEXIST") return "unverified";
+    if (alreadyExists(error)) return "exists";
     throw error;
   }
+  try {
+    const created = fstatSync(descriptor);
+    let landed: boolean;
+    try {
+      landed = realPathIfPresent(dirname(path)) === directory && isSameFile(statSync(path), created);
+    } catch {
+      landed = false;
+    }
+    if (!landed) {
+      removeIfSameFile(path, created);
+      throw new ScreenImportError(
+        `'${directory}' changed while '${name}' was being created in it, so nothing was written there. Import again.`
+      );
+    }
+    writeFileSync(descriptor, content);
+  } finally {
+    closeSync(descriptor);
+  }
   return "created";
+}
+
+function isSameFile(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+/** Removes `path` only if it is still the file this process created. */
+function removeIfSameFile(path: string, created: Stats): void {
+  const current = lstatSync(path, { throwIfNoEntry: false });
+  if (current && isSameFile(current, created)) rmSync(path, { force: true });
 }

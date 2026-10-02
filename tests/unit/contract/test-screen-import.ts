@@ -23,6 +23,7 @@ import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
   applyScreenImport,
   createCaptureDigester,
+  createInValidatedDirectory,
   gitignoreIgnoresEverything,
   isStillFile,
   NODE_FILE_SYSTEM,
@@ -695,6 +696,33 @@ await test("treats only a match-all rule without other re-includes as ignoring e
   for (const content of ["", "#*\n", "*.png\n", " *\n", "*\n!keep.png\n", "!.gitignore\n", "\\*\n", "*/\n"]) {
     assert.equal(gitignoreIgnoresEverything(content), false, JSON.stringify(content));
   }
+});
+
+await test("writes the captures .gitignore only into the directory it validated", () => {
+  const ws = workspace();
+  const captures = resolve(ws.root, ".tieline/captures");
+  mkdirSync(captures, { recursive: true });
+  const validated = realpathSync(captures);
+  const outside = resolve(ws.root, "src");
+  mkdirSync(outside, { recursive: true });
+
+  // The validated directory is swapped for a link to `src` before creation:
+  // nothing, not even an empty file, is left there, and nothing is ignored.
+  renameSync(captures, resolve(ws.root, ".tieline/captures-moved"));
+  symlinkSync(outside, captures);
+  assert.throws(
+    () => createInValidatedDirectory(validated, ".gitignore", "*\n"),
+    /changed while '\.gitignore' was being created in it, so nothing was written there/
+  );
+  assert.equal(existsSync(resolve(outside, ".gitignore")), false);
+
+  // In place, the file is created with its content, once.
+  rmSync(captures);
+  renameSync(resolve(ws.root, ".tieline/captures-moved"), captures);
+  assert.equal(createInValidatedDirectory(validated, ".gitignore", "*\n"), "created");
+  assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
+  assert.equal(createInValidatedDirectory(validated, ".gitignore", "other\n"), "exists");
+  assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
 });
 
 await test("writes nothing when the captures .gitignore cannot be created", async () => {
