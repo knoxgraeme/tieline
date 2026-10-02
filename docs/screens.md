@@ -381,7 +381,9 @@ There are two ways to reach full coverage, and they combine:
 - **Backfill.** Inventory every state a user can reach — from the acceptance criteria first, then
   the pages, dialogs, toasts, and errors the code can show — write a scene for each, and run
   `capture --all --repeat 3`. Review the result once as a whole, then let pull requests carry
-  each change.
+  each change. The Tieline skill's
+  [capture reference](../skills/tieline/references/screens-capture.md) walks an agent through it,
+  and through keeping screens current on each branch.
 - **As changes come in.** Start from whatever is catalogued. Each pull request adds or updates
   the screens it touches, and a new screen's first capture becomes its recorded version. The
   audit shows the remaining gap.
