@@ -1,13 +1,8 @@
 import { createHash } from "node:crypto";
 import {
-  closeSync,
-  constants,
   existsSync,
-  fstatSync,
   lstatSync,
   mkdirSync,
-  openSync,
-  readSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -16,6 +11,7 @@ import {
 import { dirname, relative, resolve, sep } from "node:path";
 import { Document, isMap, isSeq, parseDocument, type YAMLSeq } from "yaml";
 import { z, type ZodIssue } from "zod";
+import { readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { stableKeySchema } from "./schema.js";
 import {
@@ -68,20 +64,9 @@ export class ScreenImportError extends Error {
 }
 
 /**
- * Reads a regular file of at most `maxBytes` bytes. The limit is enforced on
- * the bytes actually read, not only on the size reported before reading, so a
- * file that grows while it is read cannot exceed it.
+ * `readFileWithin`, failing with import errors: a file that cannot be opened,
+ * is not a regular file, or is over `maxBytes` stops the import.
  */
-/**
- * Opening a FIFO for reading blocks until something writes to it, before the
- * descriptor can be checked. Opened non-blocking, it opens at once and is
- * refused below as not a file; a regular file reads the same either way.
- */
-const READ_FLAGS =
-  process.platform === "win32"
-    ? constants.O_RDONLY
-    : constants.O_RDONLY | constants.O_NONBLOCK;
-
 function readBoundedFile(
   path: string,
   maxBytes: number,
@@ -89,39 +74,25 @@ function readBoundedFile(
   /** Replaces the default message when the file is over `maxBytes`. */
   tooLargeMessage?: string
 ): Buffer {
-  let descriptor: number;
+  const name = `${label[0]!.toUpperCase()}${label.slice(1)}`;
+  let read: BoundedRead;
   try {
-    descriptor = openSync(path, READ_FLAGS);
+    read = readFileWithin(path, maxBytes);
   } catch (error) {
     throw new ScreenImportError(
       `Cannot open ${label} '${path}': ${error instanceof Error ? error.message : String(error)}`
     );
   }
-  const chunks: Buffer[] = [];
-  try {
-    const stat = fstatSync(descriptor);
-    if (!stat.isFile()) {
-      throw new ScreenImportError(`${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is not a file.`);
-    }
-    const tooLarge = (): ScreenImportError =>
-      new ScreenImportError(
-        tooLargeMessage ??
-          `${label[0]!.toUpperCase()}${label.slice(1)} '${path}' is larger than the ${maxBytes}-byte limit.`
+  switch (read.status) {
+    case "read":
+      return read.bytes;
+    case "not_file":
+      throw new ScreenImportError(`${name} '${path}' is not a file.`);
+    case "too_large":
+      throw new ScreenImportError(
+        tooLargeMessage ?? `${name} '${path}' is larger than the ${maxBytes}-byte limit.`
       );
-    if (stat.size > maxBytes) throw tooLarge();
-    const buffer = Buffer.allocUnsafe(64 * 1024);
-    let total = 0;
-    for (;;) {
-      const read = readSync(descriptor, buffer, 0, buffer.length, null);
-      if (read === 0) break;
-      total += read;
-      if (total > maxBytes) throw tooLarge();
-      chunks.push(Buffer.from(buffer.subarray(0, read)));
-    }
-  } finally {
-    closeSync(descriptor);
   }
-  return Buffer.concat(chunks);
 }
 
 export function readScreenImportFile(

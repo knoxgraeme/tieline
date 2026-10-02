@@ -10,6 +10,7 @@ import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { z, type ZodIssue } from "zod";
 import { readScreensConfig } from "../config.js";
+import { readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { applicabilitySchema, stableKeySchema } from "./schema.js";
 
@@ -441,10 +442,12 @@ function catalogYamlFiles(
   limits: CatalogWalkLimits,
   displayPath: (absolutePath: string) => string,
   skipDirectory?: string
-): { files: Array<{ path: string; size: number }>; entries: number; issue?: string } {
-  const files: Array<{ path: string; size: number }> = [];
+): { files: string[]; entries: number; issue?: string } {
+  // Only paths are collected: sizes are taken, and bounded, when each file is
+  // read through its own descriptor, so a file cannot change between being
+  // measured here and read there.
+  const files: string[] = [];
   let entries = 0;
-  let totalBytes = 0;
   const pending: Array<{ path: string; depth: number }> = [{ path: directory, depth: 0 }];
   while (pending.length > 0) {
     const { path: current, depth } = pending.pop()!;
@@ -470,22 +473,17 @@ function catalogYamlFiles(
           }
           pending.push({ path, depth: depth + 1 });
         } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
-          const size = statSync(path).size;
           if (files.length + 1 > limits.files) {
             return { files, entries, issue: `the screen catalog holds more than ${limits.files} YAML files` };
           }
-          totalBytes += Math.min(size, limits.fileBytes + 1);
-          if (totalBytes > limits.totalBytes) {
-            return { files, entries, issue: `the screen catalog holds more than ${limits.totalBytes} bytes of YAML` };
-          }
-          files.push({ path, size });
+          files.push(path);
         }
       }
     } finally {
       handle.closeSync();
     }
   }
-  return { files: files.sort((left, right) => left.path.localeCompare(right.path)), entries };
+  return { files: files.sort((left, right) => left.localeCompare(right)), entries };
 }
 
 /**
@@ -552,7 +550,7 @@ export function listScreenCatalogFiles(
   });
   return walk.issue
     ? { paths: [], issue: walk.issue }
-    : { paths: walk.files.map((file) => file.path) };
+    : { paths: walk.files };
 }
 
 /**
@@ -579,13 +577,42 @@ export function readScreenCatalogSources(
   if (walk.issue) {
     return { sources: [], issues: [walk.issue], complete: false, entries: walk.entries };
   }
-  for (const { path: absolutePath, size } of walk.files) {
+  // Each file is read once, through one descriptor, bounded by the smaller
+  // of the per-file limit and what is left of the total. An oversized file is
+  // reported and counts as just over the per-file limit, so the rest are still
+  // checked; crossing the total stops the read, like any other bound.
+  const overTotal = (): ScreenCatalogSources => ({
+    sources: [],
+    issues: [`the screen catalog holds more than ${limits.totalBytes} bytes of YAML`],
+    complete: false,
+    entries: walk.entries,
+  });
+  let totalBytes = 0;
+  for (const absolutePath of walk.files) {
     const path = portable(relative(root, absolutePath));
-    if (size > limits.fileBytes) {
-      issues.push(`${path}: screen catalog file is ${size} bytes; the limit is ${limits.fileBytes}`);
+    const remaining = limits.totalBytes - totalBytes;
+    let read: BoundedRead;
+    try {
+      read = readFileWithin(absolutePath, Math.min(limits.fileBytes, remaining));
+    } catch (error) {
+      issues.push(
+        `${path}: screen catalog file cannot be read: ${error instanceof Error ? error.message : String(error)}`
+      );
       continue;
     }
-    const content = readFileSync(absolutePath, "utf8");
+    if (read.status === "not_file") {
+      issues.push(`${path}: screen catalog file is no longer a regular file`);
+      continue;
+    }
+    if (read.status === "too_large") {
+      if (read.size <= limits.fileBytes) return overTotal();
+      issues.push(`${path}: screen catalog file is ${read.size} bytes; the limit is ${limits.fileBytes}`);
+      totalBytes += limits.fileBytes + 1;
+      if (totalBytes > limits.totalBytes) return overTotal();
+      continue;
+    }
+    totalBytes += read.bytes.length;
+    const content = read.bytes.toString("utf8");
     try {
       sources.push({ path, absolutePath, content, document: parse(content) });
     } catch (error) {

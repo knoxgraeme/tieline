@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -13,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
+import { readFileWithin } from "../../../src/contract/bounded-read.js";
 import { runCheckCommand } from "../../../src/commands/check.js";
 import { readScreensConfig } from "../../../src/config.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
@@ -415,6 +417,23 @@ await test("reports a catalog it cannot inspect instead of reading it as empty",
     }
   } finally {
     chmodSync(locked, 0o755);
+  }
+});
+
+await test("bounds a file read by the bytes read, not a size measured beforehand", () => {
+  const ws = workspace({ screens: ENABLED });
+  ws.write("eight.yaml", "12345678");
+  const path = resolve(ws.root, "eight.yaml");
+  assert.deepEqual(readFileWithin(path, 8), { status: "read", bytes: Buffer.from("12345678") });
+  assert.deepEqual(readFileWithin(path, 7), { status: "too_large", size: 8 });
+  assert.deepEqual(readFileWithin(ws.root, 1024), { status: "not_file" });
+  assert.throws(() => readFileWithin(resolve(ws.root, "missing.yaml"), 8), /ENOENT/);
+  // A file whose reported size understates its content, as one that grows
+  // after being measured does: Linux reports /proc files as empty.
+  if (existsSync("/proc/self/status") && statSync("/proc/self/status").size === 0) {
+    const read = readFileWithin("/proc/self/status", 16);
+    assert.equal(read.status, "too_large");
+    assert.ok(read.status === "too_large" && read.size > 16);
   }
 });
 
