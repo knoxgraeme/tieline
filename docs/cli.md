@@ -158,6 +158,14 @@ stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` f
 machine-readable summary.
 
 ```bash
+tieline screens capture --changed --base origin/main --dry-run
+```
+
+Lists the screens a branch may have changed, each with the rule and file that selected it.
+`--all` and `--screen <key>` select every screen or named ones. See
+[Selecting screens to capture](screens.md#selecting-screens-to-capture).
+
+```bash
 tieline screens audit [--json]
 ```
 

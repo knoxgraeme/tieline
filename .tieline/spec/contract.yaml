@@ -1290,3 +1290,49 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-audit.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC8
+          criterion: Tieline must select the screens a branch may have changed since its branch point, because their committed capture outputs or catalog entry changed, a changed test tags them, a Story or AC that shows them links a changed file, a changed file or one of its code-topology dependents matches their paths or their showing Stories' and ACs' links, or a configured global path changed, and must report every reason for each screen and every rule it could not evaluate.
+          rationale: Re-capturing only affected screens keeps pull requests fast, and selection is a heuristic, so reviewers must see why each screen was chosen and where the selection may be narrower than it should be.
+          scenarios:
+            - given: a branch changes a shared component and the code topology is stale
+              when: screens changed since the base are selected
+              then: Tieline must report the dependency rule as unavailable rather than select nothing silently
+            - given: a branch changes a screen's committed screenshot digest by hand
+              when: screens changed since the base are selected
+              then: the screen must be selected so that verification re-captures it
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-selection.ts
+                selector: function:selectChangedScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-selection.ts
+                selector: function:selectScreensChangedSince
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:topologyDependents
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:runScreensCaptureCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-capture-selection.ts
+                framework_hint: custom-script

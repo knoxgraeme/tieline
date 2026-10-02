@@ -33,6 +33,7 @@ Add a `screens` block to `.tieline/config.json`:
 | `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored. |
 | `text_directory` | `"screen-text"` | Committed ARIA snapshots, relative to `.tieline/`. Must stay inside `.tieline/`, judged by where symbolic links really lead, apart from the catalog and the spec directory and outside the git-ignored captures directory. |
 | `capture.tests` | Playwright naming | Path patterns (`*` within a segment, `**` across) for the test files whose `@screen:<key>` tags link screens to the tests that capture them. When omitted, files named `*.spec.*`, `*.test.*`, or `*.screens.*` with a JavaScript or TypeScript extension are read. |
+| `capture.global_paths` | none | Path patterns for files whose change may affect every screen (themes, layouts, global styles, translations). A branch that changes one selects every screen for capture. |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
 when the block is read and are never written back into the file.
@@ -70,6 +71,7 @@ screens:
 | `when` | yes | 500 chars | A short description of what makes the screen appear. |
 | `applies_to` | no | 16 dimensions, 32 values each, 120 chars each | Absent means the screen applies to everyone. |
 | `copy` | no | 50 items, 500 chars each | Key visible text, in display order. |
+| `paths` | no | 20 patterns, 240 chars each | Files that render the screen, usually its page or route file, as repository-relative patterns. Used only to [select screens for capture](#selecting-screens-to-capture); never compiled into the manifest. |
 | `image` | no | | Either `path` or `url`; see below. |
 | `capture` | no | | The capture record; see [Capture outputs](#capture-outputs). Requires an `image` path with its `sha256`. |
 | `scene` | reserved | | Reserved for the script that reaches the screen with another browser driver. Must be omitted. |
@@ -140,6 +142,37 @@ keeps the image's path and digest keeps the record; one that changes the picture
 The capture record is compiled into the manifest beside `image`, and like `image` it never
 contributes to the screen's `contract_hash`. Screens without one compile to the same bytes as
 before.
+
+## Selecting screens to capture
+
+```bash
+tieline screens capture --all --dry-run
+tieline screens capture --changed --base origin/main --dry-run [--json]
+tieline screens capture --screen notes-share-denied --dry-run
+```
+
+`--changed` selects the screens a branch may have changed since it left the base ref
+(`git merge-base <ref> HEAD`), counting committed and uncommitted changes and new files git does
+not ignore. Each selected screen lists every reason it was selected:
+
+| Rule | Selects a screen when |
+| --- | --- |
+| `outputs` | its committed capture outputs changed: the digest or capture record in the catalog, or its ARIA snapshot. A screen whose outputs a branch touches is always re-captured, so a hand-edited digest cannot pass verification. |
+| `catalog` | its catalog entry was added, or its catalog fields changed (`paths`, `image`, and `capture` excepted) |
+| `scene` | a changed test file tags it `@screen:<key>`; a deleted test file's tags are read from the branch point |
+| `contract` | a Story or AC that shows it links a changed file; a Story-level `shows` link counts the links of the Story and all its ACs |
+| `path` | a changed file matches one of its `paths` |
+| `dependency` | the [code-topology blast radius](cli.md#derived-code-topology-and-blast-radius) of a changed file reaches a file that one of its `paths` or showing Stories and ACs names, so a change to a shared component reaches the pages that use it |
+| `global` | a changed file matches `capture.global_paths`; every screen is selected |
+
+Selection is a heuristic, so it reports what it could not evaluate instead of quietly selecting
+less: a contract that does not compile, a code topology that is missing or stale (run
+`tieline code compile .`), a blast radius that reached its traversal bound, an unreadable test
+file, or a branch-point catalog that could not be read within the catalog's bounds (whose screens are
+then treated as added).
+Each screen lists at most 10 reasons and counts the rest.
+
+`--dry-run` reports the selection without capturing; `--json` adds machine-readable output.
 
 ## Audit
 

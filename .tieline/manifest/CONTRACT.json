@@ -392,7 +392,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
+                "reviewed_content_hash": "56ef8bfbe45bc3099c4476acec38ad404fc2a1f262a835077bfe921cf6d5fe8f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -606,7 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
+                "reviewed_content_hash": "56ef8bfbe45bc3099c4476acec38ad404fc2a1f262a835077bfe921cf6d5fe8f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -795,7 +795,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
+                "reviewed_content_hash": "56ef8bfbe45bc3099c4476acec38ad404fc2a1f262a835077bfe921cf6d5fe8f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -1851,7 +1851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2fb87ec54a54c18ad25411b9dd5b0b6452085fc6f9aababf774a117cdcbff1eb",
+                "reviewed_content_hash": "0a4f34099e8ba0624cd71da1afe5d92ca5cd65899b21eb6126ebc1cb78af7f0b",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cec36ef65c4b9b0019b1bcb016e6b3740ab6e4ea5c91402fec8be154bdeeb9ad",
+                "reviewed_content_hash": "69eaaad7b8a973561d8f961a5d76160b23d370e181d1d276ad3e84d1f4a14940",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9ce27def558b5d81b40a7697ff1f96d3e7a78d8362b53d9bf44898b3c2226fc2",
+                "reviewed_content_hash": "ef517d78ca6abe639981f43c78794d1c05dd07e6fee8e75baf99a3f262be1552",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1934,7 +1934,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cec36ef65c4b9b0019b1bcb016e6b3740ab6e4ea5c91402fec8be154bdeeb9ad",
+                "reviewed_content_hash": "69eaaad7b8a973561d8f961a5d76160b23d370e181d1d276ad3e84d1f4a14940",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1956,7 +1956,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9ce27def558b5d81b40a7697ff1f96d3e7a78d8362b53d9bf44898b3c2226fc2",
+                "reviewed_content_hash": "ef517d78ca6abe639981f43c78794d1c05dd07e6fee8e75baf99a3f262be1552",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2013,7 +2013,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9ce27def558b5d81b40a7697ff1f96d3e7a78d8362b53d9bf44898b3c2226fc2",
+                "reviewed_content_hash": "ef517d78ca6abe639981f43c78794d1c05dd07e6fee8e75baf99a3f262be1552",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2048,7 +2048,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2c7b1c16d5c486fe2a3b68292f789d0663f17d56c62354c6298b695a12c0635b",
+                "reviewed_content_hash": "9a0a39e08b699ffcddfdd618adc058907a098671dec10020281b9af70faee041",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2059,7 +2059,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2c7b1c16d5c486fe2a3b68292f789d0663f17d56c62354c6298b695a12c0635b",
+                "reviewed_content_hash": "9a0a39e08b699ffcddfdd618adc058907a098671dec10020281b9af70faee041",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2070,7 +2070,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e2e97564971c57d062d3e260f0e4ac15d93437a68267bb40e63612ae25a2a453",
+                "reviewed_content_hash": "0d89859a799f4eec356039d73f02fcc91e21080db45d53399ddfc30370f4096b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2199,7 +2199,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2c7b1c16d5c486fe2a3b68292f789d0663f17d56c62354c6298b695a12c0635b",
+                "reviewed_content_hash": "9a0a39e08b699ffcddfdd618adc058907a098671dec10020281b9af70faee041",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2340,6 +2340,89 @@
             ],
             "stable_id": "CONTRACT-005-AC7",
             "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "2674cd3fdbc2e96c723da16de20818119cf6976e86fc50e520569f9172a15155",
+            "criterion": "Tieline must select the screens a branch may have changed since its branch point, because their committed capture outputs or catalog entry changed, a changed test tags them, a Story or AC that shows them links a changed file, a changed file or one of its code-topology dependents matches their paths or their showing Stories' and ACs' links, or a configured global path changed, and must report every reason for each screen and every rule it could not evaluate.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "e704922bcedd9e1d3937dff6667d324aaa220d6e8be1257d9cd56279770cedd4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensCaptureCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "e704922bcedd9e1d3937dff6667d324aaa220d6e8be1257d9cd56279770cedd4",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:topologyDependents"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b82a636c98aae36d33a544bd231675e4bf77898ace0eaf4aa2ff33622b24dc7a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-selection.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectChangedScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b82a636c98aae36d33a544bd231675e4bf77898ace0eaf4aa2ff33622b24dc7a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-selection.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectScreensChangedSince"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "9a2c125ac1cf973ecba819c1de8843dab52976c32f66953484f3d66f27aa5d7a",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-capture-selection.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 7,
+            "rationale": "Re-capturing only affected screens keeps pull requests fast, and selection is a heuristic, so reviewers must see why each screen was chosen and where the selection may be narrower than it should be.",
+            "scenarios": [
+              {
+                "given": "a branch changes a shared component and the code topology is stale",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC8-S1",
+                "then": "Tieline must report the dependency rule as unavailable rather than select nothing silently",
+                "when": "screens changed since the base are selected"
+              },
+              {
+                "given": "a branch changes a screen's committed screenshot digest by hand",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC8-S2",
+                "then": "the screen must be selected so that verification re-captures it",
+                "when": "screens changed since the base are selected"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC8",
+            "supersedes": null
           }
         ],
         "actor": "maintainer",
@@ -2364,6 +2447,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "c09acaa0da062baa3f63d7afdbb0ed57f1efee20f38cc1dcc09de514a90be4b3"
+    "sha256": "107108a80338f53e90bb227c358a042813d19805e47ce7af3bdc7a29826bf503"
   }
 }

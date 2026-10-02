@@ -198,6 +198,18 @@ await test("updates by key: omitted optional fields are kept, null clears them",
   assert.equal((text.match(/- key: a$/gm) ?? []).length, 1, "never duplicates an entry");
 });
 
+await test("merges the files a screen names like any optional field", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a", { paths: ["src/pages/a.tsx"] })]);
+  assert.match(catalog(ws, "NOTES"), /    paths:\n      - src\/pages\/a\.tsx\n/);
+  // Omitted keeps them; null removes them.
+  const kept = await importScreens(ws, [screen("a")]);
+  assert.equal(kept.result.unchanged, 1);
+  await importScreens(ws, [screen("a", { paths: null })]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /paths:/);
+  await importFails(ws, [screen("a", { paths: ["../escape/**"] })], /screens\[0\] \("a"\) at paths\.0: must not contain empty, '\.', or '\.\.' segments/);
+});
+
 await test("preserves hand-written comments and untouched entries in an updated file", async () => {
   const ws = workspace();
   ws.write(".tieline/screens/NOTES.yaml", `version: 1
