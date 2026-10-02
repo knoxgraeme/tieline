@@ -13,7 +13,7 @@ import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
-  attachCaptureDigests,
+  createCaptureDigester,
   parseScreenImport,
   readScreenImportFile,
   ScreenImportError,
@@ -368,16 +368,62 @@ await test("refuses screenshots that escape the captures directory or exceed the
   symlinkSync(resolve(ws.root, "secret.png"), resolve(ws.root, ".tieline/captures/link.png"));
   ws.write(".tieline/captures/big.png", "x".repeat(64));
   const settings = screenSettingsForRepository(ws.root)!;
-  const entries = parseScreenImport([screen("a", { image: "link.png" })]);
   assert.throws(
-    () => attachCaptureDigests(entries, settings),
+    () => createCaptureDigester(settings).digest("link.png", "a"),
     /Screenshot 'link.png' for screen 'a' resolves outside the captures directory '\.tieline\/captures'/
   );
   assert.throws(
-    () => attachCaptureDigests(parseScreenImport([screen("b", { image: "big.png" })]), settings, 16),
+    () => createCaptureDigester(settings, { fileBytes: 16, totalBytes: 1024 }).digest("big.png", "b"),
     /Screenshot '.*big\.png' is larger than the 16-byte limit/
   );
   assert.equal(SCREEN_IMPORT_LIMITS.captureBytes, 25 * 1024 * 1024);
+  assert.equal(SCREEN_IMPORT_LIMITS.captureTotalBytes, 4 * 1024 * 1024 * 1024);
+});
+
+await test("reads each screenshot once and bounds the total it reads", () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/one.png", "x".repeat(40));
+  ws.write(".tieline/captures/two.png", "y".repeat(40));
+  const settings = screenSettingsForRepository(ws.root)!;
+  const digester = createCaptureDigester(settings, { fileBytes: 64, totalBytes: 100 });
+  // Many entries naming one file cost one read.
+  for (let index = 0; index < 50; index += 1) digester.digest("one.png", `screen-${index}`);
+  assert.equal(digester.bytesRead, 40);
+  assert.equal(digester.computed, 50);
+  digester.digest("two.png", "second");
+  assert.equal(digester.bytesRead, 80);
+  ws.write(".tieline/captures/three.png", "z".repeat(40));
+  assert.throws(
+    () => digester.digest("three.png", "third"),
+    /exceed the 100-byte total it may read; import in smaller batches/
+  );
+});
+
+await test("re-reads a screenshot whose path the import keeps from the catalog", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/notes/list.png", "first capture");
+  await importScreens(ws, [screen("a", { image: "notes/list.png" })]);
+  ws.write(".tieline/captures/notes/list.png", "second capture");
+  // The re-import omits `image`, so the catalog's path is kept and re-read.
+  const { result } = await importScreens(ws, [screen("a")]);
+  assert.deepEqual(result.updated, ["a"]);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`path: notes/list.png\\n {6}sha256: ${sha256("second capture")}`));
+});
+
+await test("never reads screenshots of entries skipped for an unknown capability", async () => {
+  const ws = workspace();
+  ws.write("secret.png", "outside");
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  symlinkSync(resolve(ws.root, "secret.png"), resolve(ws.root, ".tieline/captures/escape.png"));
+  const { exit, result } = await importScreens(
+    ws,
+    [screen("a"), screen("billing", { capability: "BILLING", image: "escape.png" })],
+    ["--skip-unknown-capabilities"]
+  );
+  assert.equal(exit, 0);
+  assert.deepEqual(result.created, ["a"]);
+  assert.deepEqual(result.image_digests, { computed: 0, missing: [] });
+  assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
 });
 
 for (const created of workspaces) created.cleanup();

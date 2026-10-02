@@ -7,7 +7,7 @@ import {
 } from "../contract/screen-catalog.js";
 import {
   applyScreenImport,
-  attachCaptureDigests,
+  createCaptureDigester,
   ensureCapturesIgnored,
   parseScreenImport,
   planScreenImport,
@@ -48,11 +48,10 @@ export async function runScreensImportCommand(
   if (!settings) throw new Error(NOT_ENABLED);
 
   const inputPath = resolve(file);
-  const digests = attachCaptureDigests(
-    parseScreenImport(readScreenImportFile(inputPath)),
-    settings
-  );
-  const imported = digests.entries;
+  const imported = parseScreenImport(readScreenImportFile(inputPath));
+  // Screenshots are read during planning, only for screens the import
+  // accepts, so skipped entries never touch the filesystem.
+  const digests = createCaptureDigester(settings);
 
   // The existing catalog must be valid before it is merged into: editing an
   // invalid file would either hide the problem or compound it.
@@ -78,6 +77,7 @@ export async function runScreensImportCommand(
     capabilityKeys,
     prune: options.prune === true,
     skipUnknownCapabilities: options.skipUnknownCapabilities === true,
+    digestScreenshot: (path, key) => digests.digest(path, key),
   });
   const dryRun = options.dryRun === true;
   let capturesIgnore: CapturesIgnoreStatus | "dry_run" = "dry_run";

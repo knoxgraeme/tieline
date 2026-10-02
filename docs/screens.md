@@ -170,11 +170,14 @@ catalog fields above plus `capability`:
 `{ "url": … }`, optionally with a `sha256` the capture tool already knows. A complete synthetic
 example ships at [`docs/examples/screens/acme-notes.json`](examples/screens/acme-notes.json).
 
-For every `path` image without a `sha256`, the importer reads the screenshot from the captures
-directory and records its digest. Each file may be at most 25 MiB, and a path that resolves
-outside the captures directory (through a symbolic link, for example) stops the import. A
-screenshot that is not on this machine is reported, not fatal; if the catalog already records a
-digest for the same path, that reviewed digest is kept rather than erased.
+For every imported screen whose image is a `path` — including a path kept from the catalog because
+the input omitted `image` — the importer reads the screenshot from the captures directory and
+records its digest, unless the input supplied one. Each distinct file is read once however many
+screens name it; each may be at most 25 MiB, and one import reads at most 4 GiB in total. A path
+that resolves outside the captures directory (through a symbolic link, for example) stops the
+import. Entries skipped for an unknown capability are never read. A screenshot that is not on
+this machine is reported, not fatal; if the catalog already records a digest for the same path,
+that reviewed digest is kept rather than erased.
 
 The input is treated as untrusted:
 
