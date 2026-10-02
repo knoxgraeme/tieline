@@ -1149,8 +1149,9 @@ await test("installs only staged copies that still hold what was staged", async 
   );
   assert.deepEqual(snapshot(early), before, "nothing installed, no staged copy left");
 
-  // Edited between that check and its rename: caught once installed, and
-  // undone along with the file installed before it.
+  // Edited between that check and its rename: caught once installed. That
+  // content cannot be told apart from a writer's edit just after the rename,
+  // so it is left in place and named; the file installed before it is undone.
   const late = workspace();
   await importScreens(late, [screen("a"), screen("b", { capability: "SHARING" })]);
   const lateBefore = snapshot(late);
@@ -1168,9 +1169,13 @@ await test("installs only staged copies that still hold what was staged", async 
           NODE_FILE_SYSTEM.renameSync(from, to);
         },
       }),
-    /Writing '\.tieline\/screens\/SHARING\.yaml' failed \(the installed file was edited on its way in\); the 2 file\(s\) already written were restored, so the catalog is unchanged\./
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      /^Writing '\.tieline\/screens\/SHARING\.yaml' failed \(the installed file was edited on its way in\), and restoring the files already written also failed\. Restore them from git before importing again\./.test(error.message) &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml (was edited after this import wrote it; left as it is)"
   );
-  assert.deepEqual(snapshot(late), lateBefore);
+  assert.equal(catalog(late, "NOTES"), lateBefore["NOTES.yaml"]);
+  assert.match(catalog(late, "SHARING"), /# not what was staged\n$/);
 });
 
 await test("removes the directories it made when the captures ignore file cannot be written", () => {

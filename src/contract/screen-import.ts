@@ -843,18 +843,17 @@ export function applyScreenImport(
   }
 
   const replaced: PlannedScreenCatalogFile[] = [];
-  // A file installed with content other than what was staged: undone with
-  // the rest, since that content came in through this import's own rename.
-  let installedWrong: PlannedScreenCatalogFile | undefined;
   for (const [index, { file, temporary }] of staged.entries()) {
     try {
       fileSystem.renameSync(temporary, file.absolutePath);
       replaced.push(file);
       // Renamed by path, so what landed is checked against the plan: a staged
       // copy changed between the check above and the rename is caught here.
+      // Whether that content came through the rename or from a writer just
+      // after it cannot be told apart, so the rollback below leaves it in
+      // place and names it, as it does any file changed since it was written.
       const installed = changedFrom(file.absolutePath, file.content);
       if (installed !== null) {
-        installedWrong = file;
         throw new Error(`the installed file ${installed} on its way in`);
       }
     } catch (error) {
@@ -863,7 +862,7 @@ export function applyScreenImport(
       for (const done of replaced.reverse()) {
         // Another writer's change since this import replaced the file is
         // theirs to keep; restoring the stale original would discard it.
-        const change = done === installedWrong ? null : changedFrom(done.absolutePath, done.content);
+        const change = changedFrom(done.absolutePath, done.content);
         if (change !== null) {
           unrestored.push(`${done.path} (${change} after this import wrote it; left as it is)`);
           continue;
