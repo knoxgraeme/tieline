@@ -251,9 +251,10 @@ tieline contract review . --base origin/main
 (`git merge-base <ref> HEAD`), so work that reached the ref afterwards is not shown as the
 branch's own. It highlights what the branch changed, offline and without a database:
 
-- a summary above both views lists Stories and ACs that are new, changed (`content`, or `screens`
-  when only their `shows` links moved), or removed, and screens that are new, changed (`details`
-  for their catalog fields, `image` for a new screenshot digest), or removed;
+- a summary above both views lists Stories and ACs that are new, changed (`content`; `screens`
+  when their `shows` links changed; `moved` when a Story moved to another capability or an AC to
+  another Story), or removed, and screens that are new, changed (`details` for their catalog
+  fields, `image` for a new screenshot digest), or removed;
 - changed Stories are badged in the navigation and changed ACs in their Story, while every other
   record stays navigable;
 - screen cards and the detail panel carry the same badges, and a **Branch** filter narrows the

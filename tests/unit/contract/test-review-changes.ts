@@ -149,6 +149,39 @@ await test("reports added, changed, and removed records and screens with what ch
   });
 });
 
+await test("reports a Story or acceptance criterion moved to another parent", () => {
+  const ws = branchWorkspace(false);
+  const base = compile(ws);
+  const capability = (manifest: typeof base, key: string) =>
+    manifest.capabilities.find((candidate) => candidate.stable_id === key)!;
+
+  // Unchanged criterion, new Story: its content hash is the same.
+  const criterionMoved = structuredClone(base);
+  const from = capability(criterionMoved, "NOTES").stories[0]!;
+  const index = from.acceptance_criteria.findIndex((criterion) => criterion.stable_id === "NOTES-001-AC2");
+  capability(criterionMoved, "SHARING").stories[0]!.acceptance_criteria.push(...from.acceptance_criteria.splice(index, 1));
+  assert.deepEqual(
+    diffReviewManifests(base, criterionMoved, "origin/main").records.map((record) => [
+      record.kind,
+      record.stable_id,
+      record.story_stable_id,
+      record.status,
+      record.aspects,
+    ]),
+    [["acceptance_criterion", "NOTES-001-AC2", "SHARING-001", "changed", ["moved"]]]
+  );
+
+  // Unchanged Story, new capability: its criteria stay under it, so only it moved.
+  const storyMoved = structuredClone(base);
+  capability(storyMoved, "NOTES").stories.push(...capability(storyMoved, "SHARING").stories.splice(0, 1));
+  assert.deepEqual(
+    diffReviewManifests(base, storyMoved, "origin/main").records.map((record) => [record.kind, record.stable_id, record.status, record.aspects]),
+    [["story", "SHARING-001", "changed", ["moved"]]]
+  );
+
+  assert.deepEqual(diffReviewManifests(base, structuredClone(base), "origin/main").records, []);
+});
+
 await test("badges changes across both views while keeping the whole contract navigable", () => {
   const ws = branchWorkspace(true);
   const base = compile(ws);

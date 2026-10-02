@@ -13,8 +13,12 @@ import type {
 
 export type ReviewChangeStatus = "added" | "changed" | "removed";
 
-/** Why a Story or acceptance criterion counts as changed. */
-export type ContractChangeAspect = "content" | "screens";
+/**
+ * Why a Story or acceptance criterion counts as changed. `moved`: it now sits
+ * under a different capability (a Story) or Story (a criterion), which its
+ * content hash does not cover.
+ */
+export type ContractChangeAspect = "content" | "screens" | "moved";
 
 /** Why a screen counts as changed. */
 export type ScreenChangeAspect = "details" | "image";
@@ -58,6 +62,8 @@ export interface ReviewChanges {
 interface ContractRecord {
   kind: ContractRecordChange["kind"];
   story: string;
+  /** The capability a Story sits under, or the Story a criterion does. */
+  parent: string;
   title: string;
   hash: string;
   shows: string;
@@ -81,6 +87,7 @@ function contractRecords(manifest: ContractManifest | null): Map<string, Contrac
       records.set(story.stable_id, {
         kind: "story",
         story: story.stable_id,
+        parent: capability.stable_id,
         title: story.title,
         hash: story.contract_hash,
         shows: showsIdentity(story.shows),
@@ -89,6 +96,7 @@ function contractRecords(manifest: ContractManifest | null): Map<string, Contrac
         records.set(criterion.stable_id, {
           kind: "acceptance_criterion",
           story: story.stable_id,
+          parent: story.stable_id,
           title: criterion.criterion,
           hash: criterion.contract_hash,
           shows: showsIdentity(criterion.shows),
@@ -138,6 +146,7 @@ export function diffReviewManifests(
     const aspects: ContractChangeAspect[] = [];
     if (previous && previous.hash !== record.hash) aspects.push("content");
     if (previous && previous.shows !== record.shows) aspects.push("screens");
+    if (previous && previous.parent !== record.parent) aspects.push("moved");
     if (previous && aspects.length === 0) continue;
     records.push({
       kind: record.kind,
