@@ -719,9 +719,9 @@ await test("writes the captures .gitignore only into the directory it validated"
   // In place, the file is created with its content, once.
   rmSync(captures);
   renameSync(resolve(ws.root, ".tieline/captures-moved"), captures);
-  assert.equal(createInValidatedDirectory(validated, ".gitignore", "*\n"), "created");
+  assert.equal(createInValidatedDirectory(validated, ".gitignore", "*\n").status, "created");
   assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
-  assert.equal(createInValidatedDirectory(validated, ".gitignore", "other\n"), "exists");
+  assert.equal(createInValidatedDirectory(validated, ".gitignore", "other\n").status, "exists");
   assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
 });
 
@@ -1034,10 +1034,11 @@ await test("runs one import at a time under the import lock", async () => {
   const ws = workspace();
   const lock = resolve(ws.root, ".tieline/screens-import.lock");
   // While one import holds the lock, a second (on any catalog file) cannot start.
-  withScreenImportLock(ws.root, () => {
+  const settings = screenSettingsForRepository(ws.root)!;
+  withScreenImportLock(ws.root, settings, () => {
     assert.match(readFileSync(lock, "utf8"), /^\{"pid":\d+,"started_at":"[^"]+"\}\n$/);
     assert.throws(
-      () => withScreenImportLock(ws.root, () => "second"),
+      () => withScreenImportLock(ws.root, settings, () => "second"),
       /Another screen import is in progress: '\.tieline\/screens-import\.lock' exists\. If no import is running \(one may have been interrupted\), delete that file and import again\./
     );
   });
@@ -1058,8 +1059,29 @@ await test("runs one import at a time under the import lock", async () => {
   assert.equal(existsSync(lock), false);
   await importFails(ws, [screen("b", { capability: "GONE" })], /unknown capability 'GONE'/);
   assert.equal(existsSync(lock), false);
-  assert.throws(() => withScreenImportLock(ws.root, () => { throw new Error("planning failed"); }), /^Error: planning failed$/);
+  assert.throws(() => withScreenImportLock(ws.root, settings, () => { throw new Error("planning failed"); }), /^Error: planning failed$/);
   assert.equal(existsSync(lock), false);
+});
+
+await test("creates the import lock only in the workspace it validated", () => {
+  const ws = workspace();
+  const settings = screenSettingsForRepository(ws.root)!;
+  // The workspace is swapped for a link to a copy outside the repository.
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-workspace`);
+  renameSync(resolve(ws.root, ".tieline"), outside);
+  symlinkSync(outside, resolve(ws.root, ".tieline"));
+  try {
+    let ran = false;
+    assert.throws(
+      () => withScreenImportLock(ws.root, settings, () => { ran = true; }),
+      /changed while 'screens-import\.lock' was being created in it, so nothing was written there/
+    );
+    assert.equal(ran, false, "the import did not run");
+    assert.equal(existsSync(resolve(outside, "screens-import.lock")), false);
+  } finally {
+    rmSync(resolve(ws.root, ".tieline"));
+    renameSync(outside, resolve(ws.root, ".tieline"));
+  }
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {

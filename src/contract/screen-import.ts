@@ -1002,29 +1002,31 @@ export const SCREEN_IMPORT_LOCK = "screens-import.lock";
  */
 export function withScreenImportLock<T>(
   repositoryRoot: string,
+  settings: ScreenSettings,
   work: () => T,
   workspaceDirectory = resolve(repositoryRoot, ".tieline")
 ): T {
-  const lockPath = resolve(workspaceDirectory, SCREEN_IMPORT_LOCK);
-  const shown = relative(resolve(repositoryRoot), lockPath).split(sep).join("/");
-  try {
-    // Exclusive creation never follows a link planted at the path.
-    writeFileSync(
-      lockPath,
-      `${JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() })}\n`,
-      { flag: "wx" }
+  // Created in the workspace where the settings validated it, through the
+  // same anchored creation as the captures .gitignore, so a workspace swapped
+  // for a link since cannot receive it.
+  const lockPath = resolve(settings.realWorkspaceDirectory, SCREEN_IMPORT_LOCK);
+  const shown = relative(resolve(repositoryRoot), resolve(workspaceDirectory, SCREEN_IMPORT_LOCK))
+    .split(sep)
+    .join("/");
+  const lock = createInValidatedDirectory(
+    settings.realWorkspaceDirectory,
+    SCREEN_IMPORT_LOCK,
+    `${JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() })}\n`
+  );
+  if (lock.status === "exists") {
+    throw new ScreenImportError(
+      `Another screen import is in progress: '${shown}' exists. If no import is running (one may have been interrupted), delete that file and import again.`
     );
-  } catch (error) {
-    if (alreadyExists(error)) {
-      throw new ScreenImportError(
-        `Another screen import is in progress: '${shown}' exists. If no import is running (one may have been interrupted), delete that file and import again.`
-      );
-    }
-    throw error;
   }
+  // Only the lock this import created is removed, wherever the path leads now.
   const release = (): string | null => {
     try {
-      rmSync(lockPath, { force: true });
+      removeIfSameFile(lockPath, lock.file);
       return null;
     } catch (error) {
       return message(error);
@@ -1136,7 +1138,8 @@ export function ensureCapturesIgnored(
     return gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified";
   }
   mkdirSync(directory, { recursive: true });
-  return createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE) === "created"
+  return createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE).status ===
+    "created"
     ? "created"
     : "unverified";
 }
@@ -1154,17 +1157,18 @@ export function createInValidatedDirectory(
   directory: string,
   name: string,
   content: string
-): "created" | "exists" {
+): { status: "created"; file: Stats } | { status: "exists" } {
   const path = resolve(directory, name);
   let descriptor: number;
   try {
     descriptor = openSync(path, "wx");
   } catch (error) {
-    if (alreadyExists(error)) return "exists";
+    if (alreadyExists(error)) return { status: "exists" };
     throw error;
   }
+  let created: Stats;
   try {
-    const created = fstatSync(descriptor);
+    created = fstatSync(descriptor);
     let landed: boolean;
     try {
       landed = realPathIfPresent(dirname(path)) === directory && isSameFile(statSync(path), created);
@@ -1181,7 +1185,7 @@ export function createInValidatedDirectory(
   } finally {
     closeSync(descriptor);
   }
-  return "created";
+  return { status: "created", file: created };
 }
 
 /** Removes `path` only if it is still the file this process created. */

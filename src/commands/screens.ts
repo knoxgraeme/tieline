@@ -88,7 +88,7 @@ export async function runScreensImportCommand(
   // the catalog to replacing it, so imports never interleave.
   const { plan, capturesIgnore } = dryRun
     ? { plan: planAgainstCatalog(), capturesIgnore: "dry_run" as const }
-    : withScreenImportLock(root, () => {
+    : withScreenImportLock(root, settings, () => {
         const planned = planAgainstCatalog();
         // The ignore file comes first: if it cannot be made, nothing has been
         // written, rather than reporting failure after the catalog changed.

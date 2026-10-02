@@ -234,6 +234,8 @@ export interface ScreenSettings {
   realCatalogDirectory: string;
   /** Where the captures directory really resolved when validated, likewise. */
   realCapturesDirectory: string;
+  /** Where the Tieline workspace directory really resolved when validated. */
+  realWorkspaceDirectory: string;
   /** Absolute captures directory. */
   capturesDirectory: string;
   /** Catalog directory relative to the repository root, `/`-separated. */
@@ -425,6 +427,7 @@ export function screenSettingsForRepository(
     realCatalogDirectory: realCatalog,
     capturesDirectory,
     realCapturesDirectory: realCaptures,
+    realWorkspaceDirectory: realWorkspace,
     catalogPath: portable(relative(root, catalogDirectory)),
     capturesPath: portable(relative(root, capturesDirectory)) || ".",
   };
