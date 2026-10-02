@@ -684,6 +684,12 @@ export function isStillFile(real: string, opened: Stats): boolean {
   return current !== undefined && isSameFile(current, opened);
 }
 
+function capturesMoved(settings: ScreenSettings, now: string): ScreenImportError {
+  return new ScreenImportError(
+    `The captures directory '${settings.capturesPath}' now resolves to '${now}', not to '${settings.realCapturesDirectory}' where it was validated; nothing was written. Import again.`
+  );
+}
+
 function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
 }
@@ -929,6 +935,10 @@ export function createCaptureDigester(
           `The captures directory '${settings.capturesPath}' cannot be read: ${message(error)}`
         );
       }
+      // Containment is judged against the directory the settings validated.
+      if (realCaptures !== null && realCaptures !== settings.realCapturesDirectory) {
+        throw capturesMoved(settings, realCaptures);
+      }
     }
     return realCaptures;
   };
@@ -1110,8 +1120,13 @@ export function ensureCapturesIgnored(
 ): CapturesIgnoreStatus {
   // Judged, and written, where the directory really resolves: a captures path
   // under `.tieline/` that links to, say, `src/` must not get a match-all
-  // ignore file that would hide new source files from Git.
+  // ignore file that would hide new source files from Git. And only where it
+  // resolved when the settings validated it: a link swapped in since, even to
+  // another directory inside `.tieline/` such as the spec, is refused.
   const directory = realDestination(settings.capturesDirectory);
+  if (directory !== settings.realCapturesDirectory) {
+    throw capturesMoved(settings, directory);
+  }
   const workspace = realDestination(workspaceDirectory);
   if (directory === workspace || !withinRepository(workspace, directory)) {
     return "not_managed";

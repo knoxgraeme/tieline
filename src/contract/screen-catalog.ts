@@ -232,6 +232,8 @@ export interface ScreenSettings {
    * and validated; writers check it again before writing.
    */
   realCatalogDirectory: string;
+  /** Where the captures directory really resolved when validated, likewise. */
+  realCapturesDirectory: string;
   /** Absolute captures directory. */
   capturesDirectory: string;
   /** Catalog directory relative to the repository root, `/`-separated. */
@@ -399,6 +401,7 @@ export function screenSettingsForRepository(
     catalogDirectory,
     realCatalogDirectory: realCatalog,
     capturesDirectory,
+    realCapturesDirectory: realCaptures,
     catalogPath: portable(relative(root, catalogDirectory)),
     capturesPath: portable(relative(root, capturesDirectory)) || ".",
   };

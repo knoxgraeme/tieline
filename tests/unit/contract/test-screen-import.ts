@@ -24,6 +24,7 @@ import {
   applyScreenImport,
   createCaptureDigester,
   createInValidatedDirectory,
+  ensureCapturesIgnored,
   gitignoreIgnoresEverything,
   isStillFile,
   NODE_FILE_SYSTEM,
@@ -723,6 +724,28 @@ await test("writes the captures .gitignore only into the directory it validated"
   assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
   assert.equal(createInValidatedDirectory(validated, ".gitignore", "other\n"), "exists");
   assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
+});
+
+await test("refuses a captures directory that resolves elsewhere than where it was validated", () => {
+  const ws = workspace();
+  const captures = resolve(ws.root, ".tieline/captures");
+  mkdirSync(captures, { recursive: true });
+  ws.write(".tieline/captures/list.png", "png");
+  const settings = screenSettingsForRepository(ws.root)!;
+  // Swapped, after validation, for a link to the spec: inside `.tieline`,
+  // so only the comparison with the validated destination catches it.
+  renameSync(captures, resolve(ws.root, ".tieline/captures-moved"));
+  symlinkSync(resolve(ws.root, ".tieline/spec"), captures);
+  assert.throws(
+    () => ensureCapturesIgnored(ws.root, settings),
+    /The captures directory '\.tieline\/captures' now resolves to '.*\.tieline\/spec', not to '.*\.tieline\/captures' where it was validated; nothing was written\./
+  );
+  assert.equal(existsSync(resolve(ws.root, ".tieline/spec/.gitignore")), false);
+  // Screenshots are not resolved against the swapped directory either.
+  assert.throws(
+    () => createCaptureDigester(settings).digest("list.png", "a"),
+    /The captures directory '\.tieline\/captures' now resolves to/
+  );
 });
 
 await test("writes nothing when the captures .gitignore cannot be created", async () => {
