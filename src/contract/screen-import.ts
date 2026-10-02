@@ -659,16 +659,18 @@ export interface ScreenImportFileSystem {
   /**
    * Creates a new file, failing with `EEXIST` when anything — including a
    * symbolic link, even a dangling one — is already at the path, so a scratch
-   * write can never land wherever a planted link leads.
+   * write can never land wherever a planted link leads. Returns what it
+   * created; if writing fails, removes that (only while the path still names
+   * it) before throwing, so a failed creation leaves nothing behind.
    */
-  createFileSync(path: string, content: string): void;
+  createFileSync(path: string, content: string): Stats;
   renameSync(from: string, to: string): void;
   rmSync(path: string, options: { force: true }): void;
 }
 
 export const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
   mkdirSync: (path, options) => mkdirSync(path, options),
-  createFileSync: (path, content) => writeFileSync(path, content, { flag: "wx" }),
+  createFileSync: (path, content) => createExclusiveFile(path, content),
   renameSync: (from, to) => renameSync(from, to),
   rmSync: (path, options) => rmSync(path, options),
 };
@@ -754,7 +756,7 @@ export function applyScreenImport(
   fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
 ): void {
   const changed = plan.files.filter((file) => file.status !== "unchanged");
-  const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string }> = [];
+  const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string; created: Stats }> = [];
   // Only a file the import creates may need its directory made: the catalog
   // directory itself. A file that was read already had one, and making it
   // again could make it wherever a link swapped in since leads. What is made
@@ -766,8 +768,17 @@ export function applyScreenImport(
   // and never stops the restoration that matters more.
   const discardStaged = (from: number): string[] => {
     const leftovers: string[] = [];
-    for (const { temporary } of staged.slice(from)) {
+    // Removed only while the path still names the file staged there: one
+    // replaced since, or reached through a directory swapped for a link, is
+    // someone else's and stays, named.
+    for (const { temporary, created } of staged.slice(from)) {
       try {
+        const current = lstatSync(temporary, { throwIfNoEntry: false });
+        if (current === undefined) continue;
+        if (!isSameFile(current, created)) {
+          leftovers.push(`${temporary} (no longer the file staged there; left as it is)`);
+          continue;
+        }
         fileSystem.rmSync(temporary, { force: true });
       } catch (error) {
         leftovers.push(`${temporary} (${message(error)})`);
@@ -782,15 +793,9 @@ export function applyScreenImport(
         made.push({ directory, firstMade: fileSystem.mkdirSync(directory, { recursive: true }) });
       }
       const temporary = `${file.absolutePath}.${process.pid}.tmp`;
-      try {
-        fileSystem.createFileSync(temporary, file.content);
-      } catch (error) {
-        // A file this import created but could not fill is its own to remove;
-        // whatever was already at the path is not.
-        if (!alreadyExists(error)) staged.push({ file, temporary });
-        throw error;
-      }
-      staged.push({ file, temporary });
+      // A failed creation leaves nothing behind (the file system's contract),
+      // so only what was created is ever staged, with its identity.
+      staged.push({ file, temporary, created: fileSystem.createFileSync(temporary, file.content) });
     }
   } catch (error) {
     const leftovers = discardStaged(0);
@@ -905,30 +910,18 @@ export function applyScreenImport(
             fileSystem.rmSync(done.absolutePath, { force: true });
           } else {
             const restore = `${done.absolutePath}.${process.pid}.restore`;
-            try {
-              fileSystem.createFileSync(restore, done.original);
-            } catch (createError) {
-              // A copy this rollback created but could not fill is its own to
-              // remove, as with staged files; one already there is not.
-              if (!alreadyExists(createError)) {
-                try {
-                  fileSystem.rmSync(restore, { force: true });
-                } catch (cleanupError) {
-                  unrestored.push(`${restore} (restore copy left behind: ${message(cleanupError)})`);
-                }
-              }
-              throw createError;
-            }
+            // A copy that cannot be filled is removed by the creation itself.
+            const restoreFile = fileSystem.createFileSync(restore, done.original);
             try {
               fileSystem.renameSync(restore, done.absolutePath);
             } catch (renameError) {
               // The restore copy is this rollback's own: it must not stay as
-              // a stray entry in the catalog directory. One that no longer
-              // holds what was written there is not ours to remove.
-              const change = changedFrom(restore, done.original);
-              if (change !== null) {
-                unrestored.push(`${restore} (restore copy ${change}; left as it is)`);
-              } else {
+              // a stray entry in the catalog directory. One that is no longer
+              // the file created there is not ours to remove.
+              const current = lstatSync(restore, { throwIfNoEntry: false });
+              if (current !== undefined && !isSameFile(current, restoreFile)) {
+                unrestored.push(`${restore} (restore copy is no longer the file created there; left as it is)`);
+              } else if (current !== undefined) {
                 try {
                   fileSystem.rmSync(restore, { force: true });
                 } catch (cleanupError) {
@@ -1319,6 +1312,40 @@ export function writeScreenImport(
     throw combined;
   }
   return ignore.status;
+}
+
+/**
+ * Creates `path` exclusively (never through a link at the path) and writes
+ * `content` through the descriptor it opened. If the write fails, the file
+ * is removed while the path still names it, so nothing partial stays.
+ */
+export function createExclusiveFile(
+  path: string,
+  content: string,
+  /** Writes the content; injectable so tests can make it fail. */
+  write: (descriptor: number, content: string) => void = (descriptor, text) =>
+    writeFileSync(descriptor, text)
+): Stats {
+  const descriptor = openSync(path, "wx");
+  let created: Stats;
+  try {
+    created = fstatSync(descriptor);
+    try {
+      write(descriptor, content);
+    } catch (error) {
+      try {
+        removeIfSameFile(path, created);
+      } catch (cleanupError) {
+        throw new ScreenImportError(
+          `Writing '${path}' failed (${message(error)}), and the partial file could not be removed (${message(cleanupError)}); delete it.`
+        );
+      }
+      throw error;
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return created;
 }
 
 /**

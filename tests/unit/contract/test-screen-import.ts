@@ -23,6 +23,7 @@ import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
   applyScreenImport,
   createCaptureDigester,
+  createExclusiveFile,
   createInValidatedDirectory,
   ensureCapturesIgnored,
   prepareCapturesIgnore,
@@ -1179,8 +1180,9 @@ await test("installs only staged copies that still hold what was staged", async 
       applyScreenImport(moveBetweenCatalogs(early), {
         ...NODE_FILE_SYSTEM,
         createFileSync: (path: string, content: string) => {
-          NODE_FILE_SYSTEM.createFileSync(path, content);
+          const created = NODE_FILE_SYSTEM.createFileSync(path, content);
           if (path.includes("SHARING.yaml.")) tamper(path);
+          return created;
         },
       }),
     (error: unknown) =>
@@ -1234,19 +1236,34 @@ await test("removes the directories it made when the captures ignore file cannot
   assert.equal(existsSync(resolve(ws.root, ".tieline/screens")), false);
 });
 
-await test("removes a partial restore copy when writing it fails", async () => {
+await test("removes a partial scratch file when writing it fails", async () => {
+  // Staged and restore copies are created this way: a write that fails part
+  // way leaves nothing behind.
   const ws = workspace();
+  const path = resolve(ws.root, ".tieline/scratch.tmp");
+  assert.throws(
+    () =>
+      createExclusiveFile(path, "version: 1\n", (descriptor) => {
+        writeFileSync(descriptor, "vers");
+        throw new Error("ENOSPC: no space left on device");
+      }),
+    /^Error: ENOSPC: no space left on device$/
+  );
+  assert.equal(existsSync(path), false, "no partial file is left");
+  createExclusiveFile(path, "version: 1\n");
+  assert.equal(readFileSync(path, "utf8"), "version: 1\n");
+
+  // And a rollback whose restore copy cannot be written leaves none behind.
   await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
   const fileSystem = {
     ...failingRenames([2]),
-    createFileSync: (path: string, content: string) => {
-      if (path.endsWith(".restore")) {
-        // Created, partly written, then the disk fills.
-        writeFileSync(path, content.slice(0, 8), { flag: "wx" });
-        throw new Error("ENOSPC: no space left on device");
-      }
-      NODE_FILE_SYSTEM.createFileSync(path, content);
-    },
+    createFileSync: (target: string, content: string) =>
+      target.endsWith(".restore")
+        ? createExclusiveFile(target, content, (descriptor) => {
+            writeFileSync(descriptor, content.slice(0, 8));
+            throw new Error("ENOSPC: no space left on device");
+          })
+        : NODE_FILE_SYSTEM.createFileSync(target, content),
   };
   try {
     applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
@@ -1256,6 +1273,35 @@ await test("removes a partial restore copy when writing it fails", async () => {
     assert.deepEqual(error.issues, [".tieline/screens/NOTES.yaml (ENOSPC: no space left on device)"]);
   }
   assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml", "SHARING.yaml"], "no partial restore copy is left");
+});
+
+await test("never removes a staged path that names another file by cleanup time", async () => {
+  // NOTES is staged; while SHARING fails to stage, NOTES' staged path is
+  // replaced by an unrelated file, which the cleanup must leave alone.
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  let notesStaged = "";
+  const fileSystem = {
+    ...NODE_FILE_SYSTEM,
+    createFileSync: (path: string, content: string) => {
+      if (path.includes("NOTES.yaml.")) notesStaged = path;
+      if (path.includes("SHARING.yaml.")) {
+        rmSync(notesStaged);
+        writeFileSync(notesStaged, "someone else's file\n");
+        throw new Error("EIO: i/o error");
+      }
+      return NODE_FILE_SYSTEM.createFileSync(path, content);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.issues.join("\n"), /NOTES\.yaml\.\d+\.tmp \(no longer the file staged there; left as it is\)/);
+  }
+  assert.equal(readFileSync(notesStaged, "utf8"), "someone else's file\n");
+  rmSync(notesStaged);
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {
