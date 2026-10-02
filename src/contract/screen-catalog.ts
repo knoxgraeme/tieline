@@ -47,6 +47,8 @@ export const SCREEN_LIMITS = {
   whenChars: 500,
   copyItems: 50,
   copyChars: 500,
+  pathPatterns: 20,
+  pathPatternChars: 240,
   imagePathChars: 500,
   imageUrlChars: 2_048,
   testPathChars: 500,
@@ -176,6 +178,18 @@ export const screenCaptureSchema = z
   })
   .strict();
 
+/**
+ * A repository-relative path pattern naming files that render a screen: `*`
+ * matches within one path segment and `**` across segments, and a pattern also
+ * covers everything beneath the path it matches.
+ */
+export const screenPathPatternSchema = boundedText(SCREEN_LIMITS.pathPatternChars).superRefine(
+  (value, ctx) => {
+    const problem = relativePathProblem(value, "the repository root");
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  }
+);
+
 /** The shared applicability schema, with bounds on its size. */
 export const screenApplicabilitySchema = applicabilitySchema.superRefine((value, ctx) => {
   const dimensions = Object.entries(value);
@@ -240,6 +254,17 @@ export const screenEntrySchema = z
       .array(boundedText(SCREEN_LIMITS.copyChars))
       .max(SCREEN_LIMITS.copyItems)
       .optional(),
+    /**
+     * Files that render the screen, usually its page or route file. Used only
+     * to decide which screens a branch may have changed; shared components need
+     * not be listed, because the code-topology blast radius follows them to the
+     * files that use them.
+     */
+    paths: z
+      .array(screenPathPatternSchema)
+      .min(1)
+      .max(SCREEN_LIMITS.pathPatterns)
+      .optional(),
     image: screenImageSchema.optional(),
     scene: reservedField("scene", "the script that reaches a screen"),
     capture: screenCaptureSchema.optional(),
@@ -293,6 +318,8 @@ export interface ScreenSettings {
   textPath: string;
   /** Scene test file patterns; null means the Playwright naming defaults. */
   sceneTests: string[] | null;
+  /** Path patterns whose change selects every screen for capture. */
+  globalPaths: string[];
 }
 
 function portable(path: string): string {
@@ -417,6 +444,7 @@ export function screenSettingsForRepository(
     capturesPath: portable(relative(root, capturesDirectory)) || ".",
     textPath: portable(relative(root, textDirectory)),
     sceneTests: config.capture.tests,
+    globalPaths: config.capture.global_paths,
   };
 }
 

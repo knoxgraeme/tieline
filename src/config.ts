@@ -132,11 +132,14 @@ const screensPathPatternSchema = z
  * How screens are captured. `tests` names the files whose `@screen:<key>` tags
  * link catalog entries to the Playwright tests that capture them; when it is
  * omitted, files named like Playwright tests (`*.spec.ts`, `*.test.ts`,
- * `*.screens.ts`, and their JavaScript forms) are read.
+ * `*.screens.ts`, and their JavaScript forms) are read. `global_paths` names
+ * files whose change may affect every screen (themes, layouts, global styles,
+ * translations), so a branch that touches one re-captures them all.
  */
 const screensCaptureConfigSchema = z
   .object({
     tests: z.array(screensPathPatternSchema).min(1).max(50).optional(),
+    global_paths: z.array(screensPathPatternSchema).max(50).optional(),
   })
   .strict();
 
@@ -159,6 +162,8 @@ export const DEFAULT_SCREENS_TEXT_DIRECTORY = "screen-text";
 export interface ScreensCaptureConfig {
   /** Scene test file patterns; null means the Playwright naming defaults. */
   tests: string[] | null;
+  /** Path patterns whose change selects every screen for capture. */
+  global_paths: string[];
 }
 
 export interface ScreensConfig {
@@ -202,6 +207,7 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
       parsed.data.text_directory ?? DEFAULT_SCREENS_TEXT_DIRECTORY,
     capture: {
       tests: parsed.data.capture?.tests ?? null,
+      global_paths: parsed.data.capture?.global_paths ?? [],
     },
   };
 }
