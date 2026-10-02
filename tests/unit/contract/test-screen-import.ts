@@ -1126,6 +1126,52 @@ await test("removes a file it created exclusively when writing it fails", () => 
   assert.equal(createInValidatedDirectory(directory, "screens-import.lock", "{}\n").status, "created");
 });
 
+await test("installs only staged copies that still hold what was staged", async () => {
+  const tamper = (path: string) => writeFileSync(path, `${readFileSync(path, "utf8")}# not what was staged\n`);
+
+  // Edited after staging: refused before anything is installed.
+  const early = workspace();
+  await importScreens(early, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const before = snapshot(early);
+  assert.throws(
+    () =>
+      applyScreenImport(moveBetweenCatalogs(early), {
+        ...NODE_FILE_SYSTEM,
+        createFileSync: (path: string, content: string) => {
+          NODE_FILE_SYSTEM.createFileSync(path, content);
+          if (path.includes("SHARING.yaml.")) tamper(path);
+        },
+      }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml: its staged copy was edited before it was installed"
+  );
+  assert.deepEqual(snapshot(early), before, "nothing installed, no staged copy left");
+
+  // Edited between that check and its rename: caught once installed, and
+  // undone along with the file installed before it.
+  const late = workspace();
+  await importScreens(late, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const lateBefore = snapshot(late);
+  let tampered = false;
+  assert.throws(
+    () =>
+      applyScreenImport(moveBetweenCatalogs(late), {
+        ...NODE_FILE_SYSTEM,
+        renameSync: (from: string, to: string) => {
+          // Only the staged copy, once: the restore that follows is left alone.
+          if (!tampered && from.endsWith(".tmp") && to.endsWith("SHARING.yaml")) {
+            tampered = true;
+            tamper(from);
+          }
+          NODE_FILE_SYSTEM.renameSync(from, to);
+        },
+      }),
+    /Writing '\.tieline\/screens\/SHARING\.yaml' failed \(the installed file was edited on its way in\); the 2 file\(s\) already written were restored, so the catalog is unchanged\./
+  );
+  assert.deepEqual(snapshot(late), lateBefore);
+});
+
 await test("names the files to restore from git when restoring fails too", async () => {
   const ws = workspace();
   await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);

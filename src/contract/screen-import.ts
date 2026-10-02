@@ -827,6 +827,13 @@ export function applyScreenImport(
       stale.push(`${file.path} now resolves outside the screen catalog directory`);
     }
   }
+  // The staged copies sit at predictable paths, and the import lock does not
+  // keep other processes out, so each must still be a regular file holding
+  // exactly what this import staged before it is installed.
+  for (const { file, temporary } of staged) {
+    const change = changedFrom(temporary, file.content);
+    if (change !== null) stale.push(`${file.path}: its staged copy ${change} before it was installed`);
+  }
   if (stale.length > 0) {
     const leftovers = discardStaged(0);
     throw new ScreenImportError(
@@ -836,17 +843,27 @@ export function applyScreenImport(
   }
 
   const replaced: PlannedScreenCatalogFile[] = [];
+  // A file installed with content other than what was staged: undone with
+  // the rest, since that content came in through this import's own rename.
+  let installedWrong: PlannedScreenCatalogFile | undefined;
   for (const [index, { file, temporary }] of staged.entries()) {
     try {
       fileSystem.renameSync(temporary, file.absolutePath);
       replaced.push(file);
+      // Renamed by path, so what landed is checked against the plan: a staged
+      // copy changed between the check above and the rename is caught here.
+      const installed = changedFrom(file.absolutePath, file.content);
+      if (installed !== null) {
+        installedWrong = file;
+        throw new Error(`the installed file ${installed} on its way in`);
+      }
     } catch (error) {
       // Restore first, then clean up, so a cleanup failure cannot prevent it.
       const unrestored: string[] = [];
       for (const done of replaced.reverse()) {
         // Another writer's change since this import replaced the file is
         // theirs to keep; restoring the stale original would discard it.
-        const change = changedFrom(done.absolutePath, done.content);
+        const change = done === installedWrong ? null : changedFrom(done.absolutePath, done.content);
         if (change !== null) {
           unrestored.push(`${done.path} (${change} after this import wrote it; left as it is)`);
           continue;
