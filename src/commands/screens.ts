@@ -17,6 +17,10 @@ import {
   type CurrentScreenCatalogFile,
 } from "../contract/screen-import.js";
 import {
+  loadScreenAudit,
+  type ScreenCaptureGap,
+} from "../contract/screen-audit.js";
+import {
   escapeTerminalText,
   resolveCommandContext,
   type CommandIO,
@@ -143,6 +147,87 @@ export async function runScreensImportCommand(
   if (!dryRun && files.some((entry) => entry.status !== "unchanged")) {
     io.write(
       "Run `tieline contract compile .` to refresh the manifest and review page.\n"
+    );
+  }
+  return 0;
+}
+
+export interface ScreensAuditOptions {
+  repository?: string;
+  json?: boolean;
+}
+
+const GAP_LABELS: Record<ScreenCaptureGap, string> = {
+  screenshot: "screenshot digest",
+  capture: "capture record",
+  text: "ARIA snapshot",
+  scene: "@screen test",
+};
+
+/**
+ * `tieline screens audit`: lists screens whose capture outputs are missing or
+ * inconsistent, without capturing anything. Findings are a report, not a
+ * failure; only an unusable catalog fails the command.
+ */
+export async function runScreensAuditCommand(
+  options: ScreensAuditOptions,
+  io: CommandIO
+): Promise<number> {
+  const { root, specDirectory } = resolveCommandContext(options);
+  const settings = screenSettingsForRepository(root);
+  if (!settings) throw new Error(NOT_ENABLED);
+  const loaded = loadScreenAudit(root, settings, readDeclaredCapabilityKeys(root, specDirectory));
+  if (!loaded.audit) {
+    throw new ScreenImportError(
+      "The screen catalog is invalid; fix it before auditing.",
+      loaded.issues
+    );
+  }
+  const audit = loaded.audit;
+  if (options.json) {
+    io.write(`${JSON.stringify(audit, null, 2)}\n`);
+    return 0;
+  }
+  io.write(
+    `Screen audit of ${escapeTerminalText(audit.catalog_path)}: ${audit.screens} screen(s); ${audit.incomplete.length} missing capture output(s); ${audit.text_mismatch.length} ARIA snapshot mismatch(es); ${audit.orphaned_text.length} orphaned ARIA snapshot(s).\n`
+  );
+  for (const gap of audit.incomplete) {
+    io.write(
+      `  missing   ${escapeTerminalText(gap.key)} (${escapeTerminalText(gap.capability)}): ${gap.missing
+        .map((missing) => GAP_LABELS[missing])
+        .join(", ")}\n`
+    );
+  }
+  for (const key of audit.text_mismatch) {
+    io.write(
+      `  mismatch  ${escapeTerminalText(key)}: its ARIA snapshot differs from the digest its capture recorded\n`
+    );
+  }
+  for (const path of audit.orphaned_text) {
+    io.write(`  orphaned  ${escapeTerminalText(path)}: no catalogued screen has this key\n`);
+  }
+  for (const tag of audit.unknown_scene_tags) {
+    io.write(
+      `  unknown   @screen:${escapeTerminalText(tag.key)} in ${tag.files
+        .map(escapeTerminalText)
+        .join(", ")}: no catalogued screen has this key\n`
+    );
+  }
+  for (const issue of audit.text_issues) {
+    io.write(`  unreadable ${escapeTerminalText(issue)}\n`);
+  }
+  if (audit.environments.length > 1) {
+    io.write(
+      `  note  screens were captured in ${audit.environments.length} environments (${audit.environments
+        .map((environment) => `${environment.fingerprint.slice(0, 12)}: ${environment.screens}`)
+        .join(", ")}); digests from different environments are never compared.\n`
+    );
+  }
+  if (audit.scene_scan.status !== "complete") {
+    io.write(
+      `  note  the @screen tag scan is ${audit.scene_scan.status}: ${escapeTerminalText(
+        audit.scene_scan.detail ?? ""
+      )}; screens without a scene test are not reported.\n`
     );
   }
   return 0;

@@ -34,7 +34,9 @@ import {
 import {
   SCREEN_KINDS,
   screenEntrySchema,
+  screenCaptureSchema,
   screenImageSchema,
+  type ScreenCapture,
   type ScreenEntry,
   type ScreenImage,
   type ScreenKind,
@@ -89,6 +91,11 @@ export interface ManifestScreen {
   applies_to: Applicability | null;
   copy: string[];
   image: ScreenImage | null;
+  /**
+   * What the last Tieline capture recorded. Present only once the screen has
+   * been captured, so catalogs that never were compile to the same bytes.
+   */
+  capture?: ScreenCapture;
   contract_hash: string;
 }
 
@@ -444,6 +451,7 @@ const manifestScreenSchema = z
     applies_to: screenEntrySchema.shape.applies_to.unwrap().nullable(),
     copy: screenEntrySchema.shape.copy.unwrap(),
     image: screenImageSchema.nullable(),
+    capture: screenCaptureSchema.optional(),
     contract_hash: hashSchema,
   })
   .strict();
@@ -1199,9 +1207,10 @@ function compileCapability(
 }
 
 /**
- * What a screen is, for its `contract_hash`. The image locator is left out: it
- * says where a screenshot happens to be stored, not what the screen shows, and
- * capture fingerprints (a later phase) are the signal for visual change.
+ * What a screen is, for its `contract_hash`. The image locator and the capture
+ * record are left out: they say how the screen currently looks and where that
+ * picture is stored, not what the screen is, and the review diff reports them
+ * separately as image and text changes.
  */
 function screenSemantics(capability: string, entry: ScreenEntry): unknown {
   return {
@@ -1228,6 +1237,7 @@ function compileScreen(capability: string, entry: ScreenEntry): ManifestScreen {
     applies_to: entry.applies_to ?? null,
     copy: entry.copy ?? [],
     image: entry.image ?? null,
+    ...(entry.capture ? { capture: entry.capture } : {}),
     contract_hash: contractHash(screenSemantics(capability, entry)),
   };
 }

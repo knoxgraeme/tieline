@@ -91,11 +91,13 @@ export function readSelectorConfig(configValue: unknown): SelectorConfig {
  * with `enabled: false`, compiles, checks, reviews, and syncs exactly as it did
  * before the feature existed, and its catalog directory is never read.
  *
- * Both directories are relative to the `.tieline/` directory, matching
+ * Every directory is relative to the `.tieline/` directory, matching
  * `files.spec_directory`. The catalog is reviewed YAML and must stay inside
- * `.tieline/`; the captures directory holds git-ignored screenshots and may sit
- * anywhere inside the repository. Defaults are applied when the block is read,
- * not when it is parsed, so rewriting a workspace config never adds them.
+ * `.tieline/`, as must the text directory that holds the committed ARIA
+ * snapshots of captured screens; the captures directory holds git-ignored
+ * screenshots and may sit anywhere inside the repository. Defaults are applied
+ * when the block is read, not when it is parsed, so rewriting a workspace
+ * config never adds them.
  */
 const screensDirectorySchema = z
   .string()
@@ -107,11 +109,44 @@ const screensDirectorySchema = z
     "must be a relative POSIX path"
   );
 
+/**
+ * A repository-relative path pattern: `*` matches within one path segment and
+ * `**` across segments. Patterns are read from reviewed configuration but still
+ * bounded, and may not climb out of the repository.
+ */
+const screensPathPatternSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(240)
+  .refine(
+    (value) =>
+      !value.includes("\\") &&
+      !value.startsWith("/") &&
+      !/^[A-Za-z]:/.test(value) &&
+      !value.split("/").some((segment) => segment === ".."),
+    "must be a repository-relative POSIX path pattern without '..' segments"
+  );
+
+/**
+ * How screens are captured. `tests` names the files whose `@screen:<key>` tags
+ * link catalog entries to the Playwright tests that capture them; when it is
+ * omitted, files named like Playwright tests (`*.spec.ts`, `*.test.ts`,
+ * `*.screens.ts`, and their JavaScript forms) are read.
+ */
+const screensCaptureConfigSchema = z
+  .object({
+    tests: z.array(screensPathPatternSchema).min(1).max(50).optional(),
+  })
+  .strict();
+
 export const screensConfigSchema = z
   .object({
     enabled: z.boolean(),
     catalog_directory: screensDirectorySchema.optional(),
     captures_directory: screensDirectorySchema.optional(),
+    text_directory: screensDirectorySchema.optional(),
+    capture: screensCaptureConfigSchema.optional(),
   })
   .strict();
 
@@ -119,12 +154,21 @@ export type ScreensConfigBlock = z.infer<typeof screensConfigSchema>;
 
 export const DEFAULT_SCREENS_CATALOG_DIRECTORY = "screens";
 export const DEFAULT_SCREENS_CAPTURES_DIRECTORY = "captures";
+export const DEFAULT_SCREENS_TEXT_DIRECTORY = "screen-text";
+
+export interface ScreensCaptureConfig {
+  /** Scene test file patterns; null means the Playwright naming defaults. */
+  tests: string[] | null;
+}
 
 export interface ScreensConfig {
   /** Catalog directory relative to `.tieline/`. */
   catalog_directory: string;
   /** Screenshot directory relative to `.tieline/`. */
   captures_directory: string;
+  /** Committed ARIA snapshot directory relative to `.tieline/`. */
+  text_directory: string;
+  capture: ScreensCaptureConfig;
 }
 
 /**
@@ -154,6 +198,11 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
       parsed.data.catalog_directory ?? DEFAULT_SCREENS_CATALOG_DIRECTORY,
     captures_directory:
       parsed.data.captures_directory ?? DEFAULT_SCREENS_CAPTURES_DIRECTORY,
+    text_directory:
+      parsed.data.text_directory ?? DEFAULT_SCREENS_TEXT_DIRECTORY,
+    capture: {
+      tests: parsed.data.capture?.tests ?? null,
+    },
   };
 }
 

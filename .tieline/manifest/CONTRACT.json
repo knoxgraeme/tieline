@@ -95,7 +95,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "reviewed_content_hash": "de96d4a476c0b0db2131517dc092d99a8a8987b99cb78199e7c203ff4c5bf1b1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -166,7 +166,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "62e81a9e7f689f957cde3f7eae4ca1fb8783cd6c569414ed7cbc3e06181ab02d",
+                "reviewed_content_hash": "9e0a24d70621007518bbe376e34e151fb34afc512fe905b35a496da4da2610d0",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -322,7 +322,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "reviewed_content_hash": "de96d4a476c0b0db2131517dc092d99a8a8987b99cb78199e7c203ff4c5bf1b1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -382,7 +382,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "62e81a9e7f689f957cde3f7eae4ca1fb8783cd6c569414ed7cbc3e06181ab02d",
+                "reviewed_content_hash": "9e0a24d70621007518bbe376e34e151fb34afc512fe905b35a496da4da2610d0",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -392,7 +392,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -498,7 +498,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "reviewed_content_hash": "de96d4a476c0b0db2131517dc092d99a8a8987b99cb78199e7c203ff4c5bf1b1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -586,7 +586,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "62e81a9e7f689f957cde3f7eae4ca1fb8783cd6c569414ed7cbc3e06181ab02d",
+                "reviewed_content_hash": "9e0a24d70621007518bbe376e34e151fb34afc512fe905b35a496da4da2610d0",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -606,7 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -626,7 +626,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "reviewed_content_hash": "de96d4a476c0b0db2131517dc092d99a8a8987b99cb78199e7c203ff4c5bf1b1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -795,7 +795,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -1851,7 +1851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "02611115924cfc2a4f83b8c8d61951729e885d43c1917afd2baa457947654ad8",
+                "reviewed_content_hash": "2fb87ec54a54c18ad25411b9dd5b0b6452085fc6f9aababf774a117cdcbff1eb",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "784a50c24a01d62c8893d021b6acd20349ec7de2095a2adddd23464afd40b3f9",
+                "reviewed_content_hash": "db66c605cf65d319e0f2468dd200d143ad5c6b408f36b06aca8033fddf754bf6",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f90d71ee54c64de372eb47c1412ed2d5b5fa67e4ca93d6cdece83f03fb6550f5",
+                "reviewed_content_hash": "a74440e6017ec8963a102935f7ddd4437f1ad1bac65ddbd04292081a5b4546d5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1923,7 +1923,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "784a50c24a01d62c8893d021b6acd20349ec7de2095a2adddd23464afd40b3f9",
+                "reviewed_content_hash": "db66c605cf65d319e0f2468dd200d143ad5c6b408f36b06aca8033fddf754bf6",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1945,7 +1945,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f90d71ee54c64de372eb47c1412ed2d5b5fa67e4ca93d6cdece83f03fb6550f5",
+                "reviewed_content_hash": "a74440e6017ec8963a102935f7ddd4437f1ad1bac65ddbd04292081a5b4546d5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1969,7 +1969,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "62e81a9e7f689f957cde3f7eae4ca1fb8783cd6c569414ed7cbc3e06181ab02d",
+                "reviewed_content_hash": "9e0a24d70621007518bbe376e34e151fb34afc512fe905b35a496da4da2610d0",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -1980,7 +1980,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "reviewed_content_hash": "de96d4a476c0b0db2131517dc092d99a8a8987b99cb78199e7c203ff4c5bf1b1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -1991,7 +1991,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4ef0852e90e3c4fbe81a35d8cdc7a6e3cee69ecb3f938a7179c0704c61d16ab1",
+                "reviewed_content_hash": "de96d4a476c0b0db2131517dc092d99a8a8987b99cb78199e7c203ff4c5bf1b1",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2002,7 +2002,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f90d71ee54c64de372eb47c1412ed2d5b5fa67e4ca93d6cdece83f03fb6550f5",
+                "reviewed_content_hash": "a74440e6017ec8963a102935f7ddd4437f1ad1bac65ddbd04292081a5b4546d5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2020,13 +2020,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "9fba5f04d79f37236b3bb971712f1e3fac7c2cd00f643e196307183a9075261f",
+            "contract_hash": "34ec343f4b9159d2ff8ee4f81da3c7aa52ac36947e8979c07a307de6e74be4b0",
             "criterion": "The screen importer must bound and validate untrusted JSON before writing, must update catalog entries by key so a repeated import changes nothing, must delete entries only when pruning is requested, and must refuse or explicitly skip entries for undeclared capabilities.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9f97479831494afb3e145c7bb0402d549c319bb8f10883d0fd3177dc7043ed4d",
+                "reviewed_content_hash": "ef5e418af71701318ef2cfd0542b8c2d2934a5c8e5d6472ea62576cb3e838ee8",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2037,7 +2037,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8710dfcbf100f514badb6630570240305174b69d478913979c668d93bf182053",
+                "reviewed_content_hash": "0d77615a0c34b566db6771d42f762caf429a973c08c2b261bf35e3d5b1193d1c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2048,7 +2048,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8710dfcbf100f514badb6630570240305174b69d478913979c668d93bf182053",
+                "reviewed_content_hash": "0d77615a0c34b566db6771d42f762caf429a973c08c2b261bf35e3d5b1193d1c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2059,7 +2059,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "963307ab369957b28fd7df905b453e7d09f9ae58ed7b1be43fb0ed10ea903741",
+                "reviewed_content_hash": "7d7a621f04f05e8ec43cf6fccf537c9a18db5103d4b00dcbb51f274db90008b2",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2077,6 +2077,13 @@
                 "stable_id": "CONTRACT-005-AC4-S1",
                 "then": "Tieline must name the unknown capability and write nothing",
                 "when": "the import runs without the skip option"
+              },
+              {
+                "given": "an import changes the screenshot of a screen Tieline captured",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC4-S2",
+                "then": "Tieline must drop the screen's capture record, keep it when the picture is unchanged, and refuse capture records in the input",
+                "when": "the import is applied"
               }
             ],
             "stable_id": "CONTRACT-005-AC4",
@@ -2131,7 +2138,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "37d4ba4e80b6e2e2e85cc67d167847e01f05f9a04016355f54dd8b08e531e3fc",
+            "contract_hash": "b4ae398fa3533c64a9f321be221b7369b833388e171330a62d3a3491aa3cd633",
             "criterion": "The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.",
             "links": [
               {
@@ -2170,7 +2177,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5eb9edbe1f4b49e8316416355dfa27fec3c8ad7926d31f41c4127001c95280e1",
+                "reviewed_content_hash": "d9fca88dfe1c2761aec4be9b1a003975325c48bd66a3f5873626fca25b77c18e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-changes.ts",
@@ -2181,18 +2188,18 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8710dfcbf100f514badb6630570240305174b69d478913979c668d93bf182053",
+                "reviewed_content_hash": "0d77615a0c34b566db6771d42f762caf429a973c08c2b261bf35e3d5b1193d1c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
                   "repository": "tieline",
-                  "selector": "function:attachCaptureDigests"
+                  "selector": "function:createCaptureDigester"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3d3cf137d2dce81e572c2e230d082f5e0fcfe588e033efa63c934a92435431b1",
+                "reviewed_content_hash": "3cb6ba238da8a3e64cd546dd27ae41cef9033aa94985bc58348dbf5f2f0c3aa7",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2217,9 +2224,110 @@
                 "stable_id": "CONTRACT-005-AC6-S2",
                 "then": "every record must be reported as new and the page must say why",
                 "when": "the review page is rendered against it"
+              },
+              {
+                "given": "a branch re-captures a screen whose committed ARIA snapshot changed",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC6-S3",
+                "then": "the screen must be reported as changed with a text aspect, apart from its image and catalog fields",
+                "when": "the review page is rendered against the base ref"
               }
             ],
             "stable_id": "CONTRACT-005-AC6",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f3a9e24a300d5f428e58243b11a745e8b97ce1e4ef0e3e6576b3e0ad78eee72a",
+            "criterion": "Tieline must report screens missing a screenshot digest, a capture record, a committed ARIA snapshot, or a literal @screen test tag, ARIA snapshots that differ from their capture record or belong to no catalogued screen, and screens captured in different environments, through screens audit and as check warnings that never change the check's exit code, reading test files and snapshots only within fixed bounds and never through symbolic links.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9e0a24d70621007518bbe376e34e151fb34afc512fe905b35a496da4da2610d0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline",
+                  "selector": "function:checkScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "ef5e418af71701318ef2cfd0542b8c2d2934a5c8e5d6472ea62576cb3e838ee8",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensAuditCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9a88aa7e62f3527955c45dffa2b14ccb8d4b999b25a754d58a76872bf7eca379",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-audit.ts",
+                  "repository": "tieline",
+                  "selector": "function:auditScreenCaptures"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b045de1133b89e2490b7b70303b94ecf236e4ac146d7719c9088c5f463d382f3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:scanScreenScenes"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "691049b71fd20fee4e143b4179212d43f97706ac3ec975950a78917b428f43c5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-text.ts",
+                  "repository": "tieline",
+                  "selector": "function:readScreenTextDirectory"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "eb32fff74a56feafc1eb8101113eeb67f6e50c00cfa0c0aee9d5b2b23ccb00f9",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-audit.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 6,
+            "rationale": "Incremental capture only re-captures screens a branch may affect, so a cheap audit must find what it cannot, and check must surface it without making an unrelated pull request fail.",
+            "scenarios": [
+              {
+                "given": "the tag scan stops at one of its bounds",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC7-S1",
+                "then": "screens must not be reported as missing a test, and the audit must say why the scan is incomplete",
+                "when": "the audit runs"
+              },
+              {
+                "given": "a capture record's ARIA snapshot digest differs from the committed snapshot",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC7-S2",
+                "then": "Tieline must warn about the mismatch and keep the exit code the check would otherwise have",
+                "when": "check runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC7",
             "supersedes": null
           }
         ],
@@ -2245,6 +2353,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "a74d383dda4ee4a212218ebe89c56b8c8b83fb07efce45897e9f0d3b0f1b3740"
+    "sha256": "08ffa71deb9bcbc835d380458471971f6f5ba562707c4d8946c38d4806b51395"
   }
 }

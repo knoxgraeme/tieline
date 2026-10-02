@@ -182,7 +182,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "c0e721be716bfa3dc9263b2a2b5b4406c2bdeea596b4619d2f6c3ef0743d7d7f",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",

@@ -69,7 +69,7 @@ export class ScreenImportError extends Error {
  * the bytes actually read, not only on the size reported before reading, so a
  * file that grows while it is read cannot exceed it.
  */
-function readBoundedFile(path: string, maxBytes: number, label: string): Buffer {
+export function readBoundedFile(path: string, maxBytes: number, label: string): Buffer {
   let descriptor: number;
   try {
     descriptor = openSync(path, "r");
@@ -139,6 +139,15 @@ const screenImportEntrySchema = screenEntrySchema.extend({
       screenImageSchema,
     ])
     .nullable()
+    .optional(),
+  // A capture record vouches for a screenshot Tieline itself captured, so only
+  // `tieline screens capture` writes one.
+  capture: z
+    .never({
+      errorMap: () => ({
+        message: "'capture' is written by `tieline screens capture` and cannot be imported",
+      }),
+    })
     .optional(),
 });
 
@@ -320,6 +329,22 @@ function withCurrentDigest(
   return sha256 === undefined ? merged : { ...merged, image: { path: image.path, sha256 } };
 }
 
+/**
+ * Keeps an entry's capture record only while it still describes the picture.
+ * An import that leaves the image's path and digest as they were keeps it; one
+ * that changes either drops it, because the record would otherwise vouch for a
+ * screenshot its capture never saw.
+ */
+function withCaptureRecord(merged: ScreenEntry, previous: ScreenEntry | undefined): ScreenEntry {
+  const capture = previous?.capture;
+  const before = previous?.image;
+  const after = merged.image;
+  if (!capture || !before || !after || !("path" in before) || !("path" in after)) return merged;
+  return before.path === after.path && before.sha256 !== undefined && before.sha256 === after.sha256
+    ? { ...merged, capture }
+    : merged;
+}
+
 /** A catalog entry in the field order the catalog documents use. */
 function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefined): ScreenEntry {
   const group = mergedField(imported.group, current?.group);
@@ -477,10 +502,9 @@ export function planScreenImport(
     const previous = previousCapability
       ? catalogs.get(previousCapability)?.entries.get(entry.key)
       : undefined;
-    const merged = withCurrentDigest(
-      catalogEntry(entry, previous),
-      entry,
-      options.digestScreenshot
+    const merged = withCaptureRecord(
+      withCurrentDigest(catalogEntry(entry, previous), entry, options.digestScreenshot),
+      previous
     );
     const target = catalogFor(entry.capability);
     if (previousCapability !== undefined && previousCapability !== entry.capability) {

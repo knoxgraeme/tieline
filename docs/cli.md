@@ -157,6 +157,14 @@ omits, only within the capabilities it names. An entry for a capability the spec
 stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` for a
 machine-readable summary.
 
+```bash
+tieline screens audit [--json]
+```
+
+Lists screens missing a screenshot digest, capture record, committed ARIA snapshot, or
+`@screen` test, plus mismatched and orphaned ARIA snapshots, without capturing anything. See
+[Audit](screens.md#audit).
+
 ## CI check
 
 ```bash
@@ -196,7 +204,8 @@ manifest fails because no trustworthy result can be computed.
 
 When [screens](screens.md) are enabled, the check also fails when the screen catalog does not
 validate, and treats a `shows` link, committed or added in the working tree, to a screen the
-catalog does not contain as a broken link. Repositories without screens see no difference.
+catalog does not contain as a broken link. It also warns, without changing the exit code, about
+the screens `tieline screens audit` reports. Repositories without screens see no difference.
 
 See [the GitHub Actions example](examples/tieline-check.yml).
 
