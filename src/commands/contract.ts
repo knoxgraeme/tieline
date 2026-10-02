@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, posix, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
 import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
@@ -21,7 +21,6 @@ import {
 } from "../contract/manifest.js";
 import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { loadAcceptedContract } from "../contract/load.js";
-import { realDestination } from "../contract/screen-catalog.js";
 import {
   diffReviewManifests,
   summarizeReviewChanges,
@@ -300,8 +299,8 @@ export function manifestAtBase(
   // Paths are taken from Git's worktree root, not `repository.root`: with a
   // nested root the workspace, and so the manifest, sits above it, yet is
   // still in the repository that `base` belongs to.
-  const worktree = gitWorktreeRoot(repositoryRoot);
-  const directory = worktreePath(worktree, manifestPath);
+  const worktree = gitWorktree(repositoryRoot);
+  const directory = worktreePath(worktree, repositoryRoot, manifestPath);
   if (directory === null) {
     throw new Error(
       `Cannot derive claim-side grading scope: the manifest at '${manifestPath}' is outside the repository, so '${base}' cannot hold a version of it.`
@@ -312,7 +311,7 @@ export function manifestAtBase(
   let listing: string;
   try {
     listing = execFileSync("git", ["ls-tree", "-l", "-z", base, "--", `${directory}/`], {
-      cwd: worktree,
+      cwd: worktree.root,
       encoding: "utf8",
       // Metadata only, about 100 bytes an entry; far past any real manifest.
       maxBuffer: MANIFEST_LISTING_BYTES,
@@ -343,7 +342,7 @@ export function manifestAtBase(
       `The manifest at '${directory}' in '${base}' holds ${totalBytes} bytes; more than the ${maxBytes} a base manifest may hold, so it is not read.`
     );
   }
-  const contents = readBlobs(worktree, files);
+  const contents = readBlobs(worktree.root, files);
   return parseContractManifestSnapshot(
     files.map(({ path }, index) => ({
       name: path.slice(`${directory}/`.length),
@@ -386,24 +385,33 @@ function readBlobs(
   return contents;
 }
 
-/** The root of the Git worktree holding `repositoryRoot`. */
-function gitWorktreeRoot(repositoryRoot: string): string {
-  return execFileSync("git", ["rev-parse", "--show-toplevel"], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-  }).trim();
+/**
+ * Where `repositoryRoot` sits in its Git worktree: the worktree's root, to
+ * run Git from, and the root's own path within it (Git's prefix).
+ */
+function gitWorktree(repositoryRoot: string): { root: string; prefix: string } {
+  const [root = "", prefix = ""] = execFileSync(
+    "git",
+    ["rev-parse", "--show-toplevel", "--show-prefix"],
+    { cwd: repositoryRoot, encoding: "utf8" }
+  ).split("\n");
+  return { root, prefix };
 }
 
 /**
- * `path` relative to the worktree root, `/`-separated, as a `<commit>:<path>`
- * object name takes it; null when it is outside the worktree. Compared by
- * real path, since Git reports the worktree root resolved.
+ * `path` as a `<commit>:<path>` object name takes it: relative to the
+ * worktree root, `/`-separated, or null when outside the worktree. Derived
+ * from the configured path as written, never through the current file
+ * system, since what a link points at now says nothing about the base.
  */
-function worktreePath(worktree: string, path: string): string | null {
-  const relativePath = relative(realpathSync(worktree), realDestination(resolve(path)))
-    .split(sep)
-    .join("/");
-  return relativePath === ".." || relativePath.startsWith("../") || isAbsolute(relativePath)
+function worktreePath(
+  worktree: { prefix: string },
+  repositoryRoot: string,
+  path: string
+): string | null {
+  const fromRoot = relative(resolve(repositoryRoot), resolve(path)).split(sep).join("/");
+  const relativePath = posix.normalize(posix.join(worktree.prefix || ".", fromRoot));
+  return relativePath === ".." || relativePath.startsWith("../") || posix.isAbsolute(relativePath)
     ? null
     : relativePath;
 }
@@ -418,15 +426,15 @@ function worktreePath(worktree: string, path: string): string | null {
 function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): string {
   if (parsed.configPath === undefined) return parsed.manifestPath;
   const defaultPath = resolve(parsed.repositoryRoot, ".tieline/manifest");
-  const worktree = gitWorktreeRoot(parsed.repositoryRoot);
-  const configPath = worktreePath(worktree, parsed.configPath);
+  const worktree = gitWorktree(parsed.repositoryRoot);
+  const configPath = worktreePath(worktree, parsed.repositoryRoot, parsed.configPath);
   if (configPath === null) return parsed.manifestPath;
   const object = `${commit}:${configPath}`;
   let size: number;
   try {
     size = Number(
       execFileSync("git", ["cat-file", "-s", object], {
-        cwd: worktree,
+        cwd: worktree.root,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       }).trim()
@@ -441,7 +449,7 @@ function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): st
     );
   }
   const text = execFileSync("git", ["show", object], {
-    cwd: worktree,
+    cwd: worktree.root,
     encoding: "utf8",
     // Exactly the blob's size, whatever the configuration holds.
     maxBuffer: size + 1,

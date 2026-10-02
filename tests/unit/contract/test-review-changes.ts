@@ -474,6 +474,21 @@ await test("refuses a base workspace configuration past its size limit before re
   );
 });
 
+await test("looks up the base manifest at its configured path even where that path is now a link", async () => {
+  const ws = branchWorkspace(false);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  ws.commit("base with a regular manifest directory");
+  // The working tree now keeps the manifest elsewhere, linked from the same
+  // configured path: the base still holds it at that path.
+  renameSync(resolve(ws.root, ".tieline/manifest"), resolve(ws.root, ".tieline/manifest-real"));
+  symlinkSync("manifest-real", resolve(ws.root, ".tieline/manifest"));
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+  const changes = JSON.parse(capture.output()).changes;
+  assert.equal(changes.base_has_manifest, true);
+  assert.deepEqual(changes.stories, { added: 0, changed: 0, removed: 0 });
+});
+
 await test("reads a base that predates the workspace configuration from the default location", async () => {
   const ws = branchWorkspace(false);
   const configPath = resolve(ws.root, ".tieline/config.json");
