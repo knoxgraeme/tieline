@@ -3,6 +3,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -159,6 +160,17 @@ await test("judges configured directories by where symbolic links really lead", 
     assert.throws(
       () => screenSettingsForRepository(capturesLink.root),
       /Invalid 'screens\.captures_directory' 'captures': it resolves to '.*' through a symbolic link, outside the repository/
+    );
+
+    // The workspace itself linking out of the repository takes the catalog
+    // with it, even though the catalog stays inside the workspace.
+    const workspaceLink = workspace({ screens: { enabled: true, captures_directory: "../artifacts/shots" } });
+    const movedWorkspace = resolve(outside, "moved-workspace");
+    renameSync(resolve(workspaceLink.root, ".tieline"), movedWorkspace);
+    symlinkSync(movedWorkspace, resolve(workspaceLink.root, ".tieline"));
+    assert.throws(
+      () => screenSettingsForRepository(workspaceLink.root),
+      /Invalid screens configuration: '\.tieline' resolves to '.*moved-workspace' through a symbolic link, outside the repository, so the screen catalog would be written outside it\./
     );
 
     const dangling = workspace({ screens: ENABLED });

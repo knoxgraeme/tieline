@@ -307,8 +307,16 @@ export function screenSettingsForRepository(
   }
   // The lexical checks above are not enough: a symbolic link anywhere on
   // either path could send catalog writes, or the captures .gitignore,
-  // outside the checkout. Judge both by where they really resolve.
+  // outside the checkout. Judge both by where they really resolve, starting
+  // with the workspace itself: a catalog inside a workspace that links out
+  // of the repository would be written outside it too.
+  const realRoot = realpathSync(root);
   const realWorkspace = realpathSync(workspace);
+  if (!withinRepository(realRoot, realWorkspace)) {
+    throw new Error(
+      `Invalid screens configuration: '${portable(relative(root, workspace))}' resolves to '${realWorkspace}' through a symbolic link, outside the repository, so the screen catalog would be written outside it.`
+    );
+  }
   const realCatalog = realDestination(catalogDirectory);
   if (realCatalog === realWorkspace || !withinRepository(realWorkspace, realCatalog)) {
     throw new Error(
@@ -316,7 +324,7 @@ export function screenSettingsForRepository(
     );
   }
   const realCaptures = realDestination(capturesDirectory);
-  if (!withinRepository(realpathSync(root), realCaptures)) {
+  if (!withinRepository(realRoot, realCaptures)) {
     throw new Error(
       `Invalid 'screens.captures_directory' '${config.captures_directory}': it resolves to '${realCaptures}' through a symbolic link, outside the repository.`
     );
