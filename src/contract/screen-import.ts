@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import {
-  existsSync,
   lstatSync,
   mkdirSync,
   realpathSync,
@@ -447,7 +446,20 @@ export function planScreenImport(
         `Capability '${capability}' cannot name a catalog file inside '${options.settings.catalogPath}'.`
       );
     }
-    if (existsSync(absolutePath)) {
+    let present: boolean;
+    try {
+      // The path itself, link or not: anything there is in the way.
+      lstatSync(absolutePath);
+      present = true;
+    } catch (error) {
+      if (!isMissing(error)) {
+        throw new ScreenImportError(
+          `Cannot create the screen catalog for '${capability}': '${portable(relative(root, absolutePath))}' cannot be checked (${message(error)}).`
+        );
+      }
+      present = false;
+    }
+    if (present) {
       throw new ScreenImportError(
         `Cannot create the screen catalog for '${capability}': '${portable(relative(root, absolutePath))}' already exists and is not that capability's catalog.`
       );
@@ -641,6 +653,20 @@ export const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isMissing(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+}
+
+/** The real path of `path`, or null when nothing is there; other failures throw. */
+function realPathIfPresent(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch (error) {
+    if (isMissing(error)) return null;
+    throw error;
+  }
 }
 
 function alreadyExists(error: unknown): boolean {
@@ -842,9 +868,23 @@ export function createCaptureDigester(
     totalBytes: SCREEN_IMPORT_LIMITS.captureTotalBytes,
   }
 ): CaptureDigester {
-  const realCaptures = existsSync(settings.capturesDirectory)
-    ? realpathSync(settings.capturesDirectory)
-    : null;
+  // Resolved on first use, so an import that names no screenshots never
+  // touches the captures directory. Only a missing path means "no capture";
+  // any other failure to resolve one is an error, never a silent "missing",
+  // which would keep a stale reviewed digest unremarked.
+  let realCaptures: string | null | undefined;
+  const capturesRoot = (): string | null => {
+    if (realCaptures === undefined) {
+      try {
+        realCaptures = realPathIfPresent(settings.capturesDirectory);
+      } catch (error) {
+        throw new ScreenImportError(
+          `The captures directory '${settings.capturesPath}' cannot be read: ${message(error)}`
+        );
+      }
+    }
+    return realCaptures;
+  };
   const digests = new Map<string, string>();
   const missing: string[] = [];
   let computed = 0;
@@ -852,12 +892,22 @@ export function createCaptureDigester(
   return {
     digest(path, key) {
       const target = resolve(settings.capturesDirectory, path);
-      if (!realCaptures || !existsSync(target)) {
+      const root = capturesRoot();
+      let real: string | null = null;
+      if (root !== null) {
+        try {
+          real = realPathIfPresent(target);
+        } catch (error) {
+          throw new ScreenImportError(
+            `Screenshot '${path}' for screen '${key}' cannot be read: ${message(error)}`
+          );
+        }
+      }
+      if (root === null || real === null) {
         missing.push(key);
         return undefined;
       }
-      const real = realpathSync(target);
-      if (!withinRepository(realCaptures, real)) {
+      if (!withinRepository(root, real)) {
         throw new ScreenImportError(
           `Screenshot '${path}' for screen '${key}' resolves outside the captures directory '${settings.capturesPath}'.`
         );

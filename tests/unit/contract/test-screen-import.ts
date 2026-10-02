@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -459,6 +460,45 @@ await test("refuses a screenshot past the remaining total from its size, without
   const before = readBytes()!;
   assert.throws(() => digester.digest("large.png", "large"), /exceed the 100-byte total it may read/);
   assert.ok(readBytes()! - before < 64 * 1024, "the 1 MiB screenshot was not read");
+});
+
+await test("refuses a screenshot it cannot resolve instead of calling it missing", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/one.png", "png");
+  // A path through a file (ENOTDIR) and a link loop (ELOOP) are not "missing".
+  symlinkSync("loop.png", resolve(ws.root, ".tieline/captures/loop.png"));
+  for (const [image, code] of [["one.png/inner.png", "ENOTDIR"], ["loop.png", "ELOOP"]] as const) {
+    await importFails(
+      ws,
+      [screen("a", { image: { path: image } })],
+      new RegExp(`Screenshot '${image.replace(".", "\\.")}' for screen 'a' cannot be read: ${code}`)
+    );
+  }
+  // A screenshot that is simply absent is still reported as missing.
+  const { exit, result } = await importScreens(ws, [screen("a", { image: { path: "absent.png" } })]);
+  assert.equal(exit, 0);
+  assert.deepEqual((result.image_digests as { missing: string[] }).missing, ["a"]);
+
+  // An unsearchable directory, where permissions are enforced.
+  const locked = resolve(ws.root, ".tieline/captures/locked");
+  mkdirSync(locked);
+  writeFileSync(resolve(locked, "shot.png"), "png");
+  chmodSync(locked, 0o000);
+  try {
+    const enforced = (() => {
+      try {
+        statSync(resolve(locked, "shot.png"));
+        return false;
+      } catch (error) {
+        return (error as NodeJS.ErrnoException).code === "EACCES";
+      }
+    })();
+    if (enforced) {
+      await importFails(ws, [screen("b", { image: { path: "locked/shot.png" } })], /Screenshot 'locked\/shot\.png' for screen 'b' cannot be read: EACCES/);
+    }
+  } finally {
+    chmodSync(locked, 0o755);
+  }
 });
 
 await test("re-reads a screenshot whose path the import keeps from the catalog", async () => {
