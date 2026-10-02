@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c638d97df9e2ecf68ac4348a45ffe62de27b5219685bd007a2c78d82f53a5079",
+                "reviewed_content_hash": "627b1c165a5edc06b088170a7f9fde9dcdd3a6400dcd302a80357508680cb29e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "36458d0e401f795ab904fe273e5d39f038aa955ab4e7ab8cf99e28c2e5e139f0",
+                "reviewed_content_hash": "c3e12f89a516eb32ccba601cd8cbc2d4c1a5039c5cccb40b2c8fd18ff25e477c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1923,7 +1923,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c638d97df9e2ecf68ac4348a45ffe62de27b5219685bd007a2c78d82f53a5079",
+                "reviewed_content_hash": "627b1c165a5edc06b088170a7f9fde9dcdd3a6400dcd302a80357508680cb29e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1945,7 +1945,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "36458d0e401f795ab904fe273e5d39f038aa955ab4e7ab8cf99e28c2e5e139f0",
+                "reviewed_content_hash": "c3e12f89a516eb32ccba601cd8cbc2d4c1a5039c5cccb40b2c8fd18ff25e477c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2002,7 +2002,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "36458d0e401f795ab904fe273e5d39f038aa955ab4e7ab8cf99e28c2e5e139f0",
+                "reviewed_content_hash": "c3e12f89a516eb32ccba601cd8cbc2d4c1a5039c5cccb40b2c8fd18ff25e477c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
