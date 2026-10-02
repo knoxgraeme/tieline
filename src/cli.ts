@@ -535,6 +535,36 @@ function buildProgram(
     });
 
   screens
+    .command("capture")
+    .description(
+      "Select the screens to capture, each with the reasons it was selected"
+    )
+    .option("--all", "select every catalogued screen")
+    .option("--changed", "select the screens a branch may have changed (needs --base)")
+    .option("--base <ref>", "with --changed: compare from where the branch left this ref")
+    .option("--screen <key>", "select a screen by key (repeatable)", collect, [])
+    .option("--dry-run", "report the selection without capturing")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensCaptureCommand } = await import("./commands/screens-capture.js");
+      setExit(
+        await runScreensCaptureCommand(
+          {
+            repository: opts.repository,
+            all: Boolean(opts.all),
+            changed: Boolean(opts.changed),
+            base: opts.base,
+            screens: opts.screen,
+            dryRun: Boolean(opts.dryRun),
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+
+  screens
     .command("audit")
     .description(
       "List screens whose capture outputs are missing or inconsistent, without capturing"

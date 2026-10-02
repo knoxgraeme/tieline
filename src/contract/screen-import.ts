@@ -133,6 +133,7 @@ const screenImportEntrySchema = screenEntrySchema.extend({
   group: screenEntrySchema.shape.group.unwrap().nullable().optional(),
   applies_to: screenEntrySchema.shape.applies_to.unwrap().nullable().optional(),
   copy: screenEntrySchema.shape.copy.unwrap().nullable().optional(),
+  paths: screenEntrySchema.shape.paths.unwrap().nullable().optional(),
   image: z
     .union([
       screenImagePathSchema.transform((path): ScreenImage => ({ path })),
@@ -350,6 +351,7 @@ function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefi
   const group = mergedField(imported.group, current?.group);
   const appliesTo = mergedField(imported.applies_to, current?.applies_to);
   const copy = mergedField(imported.copy, current?.copy);
+  const paths = mergedField(imported.paths, current?.paths);
   const image = mergedImage(imported.image, current?.image);
   return {
     key: imported.key,
@@ -360,6 +362,7 @@ function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefi
     when: imported.when,
     ...(appliesTo === undefined ? {} : { applies_to: appliesTo }),
     ...(copy === undefined || copy.length === 0 ? {} : { copy }),
+    ...(paths === undefined ? {} : { paths }),
     ...(image === undefined ? {} : { image }),
   };
 }

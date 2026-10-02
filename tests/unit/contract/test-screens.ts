@@ -104,13 +104,21 @@ await test("treats an absent or disabled screens block as off and applies defaul
     catalog_directory: "screens",
     captures_directory: "captures",
     text_directory: "screen-text",
-    capture: { tests: null },
+    capture: { tests: null, global_paths: [] },
   });
   assert.deepEqual(
     readScreensConfig({
-      screens: { enabled: true, text_directory: "ui/text", capture: { tests: ["e2e/**"] } },
+      screens: {
+        enabled: true,
+        text_directory: "ui/text",
+        capture: { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"] },
+      },
     })?.capture,
-    { tests: ["e2e/**"] }
+    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"] }
+  );
+  assert.throws(
+    () => readScreensConfig({ screens: { enabled: true, capture: { global_paths: ["src/../../etc"] } } }),
+    /screens\.capture\.global_paths\.0: must be a repository-relative POSIX path pattern/
   );
   for (const tests of [[], ["../outside/**"], ["/abs/**"], ["e2e\\x"], Array.from({ length: 51 }, () => "e2e")]) {
     assert.throws(
@@ -296,6 +304,25 @@ const DIGEST_B = "b".repeat(64);
 const DIGEST_C = "c".repeat(64);
 const CAPTURED_IMAGE = { path: "notes-list.png", sha256: DIGEST_A };
 const CAPTURE = { fingerprint: DIGEST_B, text_sha256: DIGEST_C, test: "e2e/notes.screens.ts" };
+
+await test("bounds the files a screen names as rendering it", () => {
+  assert.deepEqual(
+    catalogIssues({ version: 1, capability: "NOTES", screens: [entry({ paths: ["src/pages/notes/**", "src/notes.tsx"] })] }),
+    []
+  );
+  const cases: Array<[unknown, RegExp]> = [
+    [[], /screens\.0\.paths: Array must contain at least 1/],
+    [Array.from({ length: SCREEN_LIMITS.pathPatterns + 1 }, (_, index) => `src/${index}.ts`), /screens\.0\.paths: Array must contain at most 20/],
+    [["../outside/**"], /screens\.0\.paths\.0: must not contain empty, '\.', or '\.\.' segments/],
+    [["/abs/**"], /screens\.0\.paths\.0: must be relative to the repository root/],
+    [[`src/${"x".repeat(SCREEN_LIMITS.pathPatternChars)}`], /screens\.0\.paths\.0: String must contain at most 240/],
+  ];
+  for (const [paths, expected] of cases) {
+    const issues = catalogIssues({ version: 1, capability: "NOTES", screens: [entry({ paths })] });
+    assert.equal(issues.length, 1, JSON.stringify(paths));
+    assert.match(issues[0]!, expected);
+  }
+});
 
 await test("accepts a capture record only beside the screenshot it describes", () => {
   assert.deepEqual(
@@ -600,6 +627,25 @@ await test("compiles a capture record beside the image, outside the screen's con
   writeFileSync(resolve(directory, "NOTES.json"), `${JSON.stringify(shard)}\n`);
   assert.throws(() => readContractManifest(directory), /capture\.fingerprint: must be a lowercase hex SHA-256 digest/);
   assert.equal("screen_catalogs" in manifestWithoutScreens(compile(ws).manifest).manifest, false);
+});
+
+await test("keeps the files a screen names out of the manifest and its contract hash", () => {
+  const withPaths = workspace({
+    screens: ENABLED,
+    catalog: {
+      ...CATALOG,
+      ".tieline/screens/NOTES.yaml": NOTES_CATALOG_YAML.replace(
+        "    kind: page\n",
+        "    kind: page\n    paths:\n      - src/pages/notes-list.tsx\n"
+      ),
+    },
+  });
+  const plain = workspace({ screens: ENABLED, catalog: CATALOG });
+  assert.match(readFileSync(resolve(withPaths.root, ".tieline/screens/NOTES.yaml"), "utf8"), /paths:/);
+  // Only the catalog file's own digest, recorded as the input, differs.
+  const screensOf = (ws: ScreensWorkspace) =>
+    compile(ws).manifest.screen_catalogs!.map((catalog) => ({ capability: catalog.capability, screens: catalog.screens }));
+  assert.equal(JSON.stringify(screensOf(withPaths)), JSON.stringify(screensOf(plain)));
 });
 
 await test("keeps contract hashes independent of shows links", () => {
