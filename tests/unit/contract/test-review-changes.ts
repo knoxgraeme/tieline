@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { Script } from "node:vm";
 import { runCli } from "../../../src/cli.js";
 import { compileContractManifest } from "../../../src/contract/manifest.js";
+import { manifestAtBase } from "../../../src/commands/contract.js";
 import { diffReviewManifests } from "../../../src/contract/review-changes.js";
 import { REVIEW_CHANGE_SCRIPT } from "../../../src/contract/review-changes-page.js";
 import { writeWorkspaceReviewPage } from "../../../src/tieline/review.js";
@@ -444,6 +445,19 @@ await test("reads every base manifest file through one git process", async () =>
   rmSync(bin, { recursive: true, force: true });
   assert.equal(calls.filter((call) => call === "cat-file --batch").length, 1);
   assert.deepEqual(calls.filter((call) => /^show \S+:\.tieline\/manifest\//.test(call)), []);
+});
+
+await test("refuses a base manifest past its total size before reading it", async () => {
+  const ws = branchWorkspace(false);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  ws.commit("base");
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ws.root, encoding: "utf8" }).trim();
+  const manifest = resolve(ws.root, ".tieline/manifest");
+  assert.notEqual(manifestAtBase(ws.root, head, manifest), null);
+  assert.throws(
+    () => manifestAtBase(ws.root, head, manifest, 100),
+    /^Error: The manifest at '\.tieline\/manifest' in '[0-9a-f]+' holds \d+ bytes; more than the 100 a base manifest may hold, so it is not read\.$/
+  );
 });
 
 await test("reads a base that predates the workspace configuration from the default location", async () => {

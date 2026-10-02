@@ -278,11 +278,19 @@ async function runGrade(
  */
 /** The most a base manifest directory listing may take: about 600,000 entries. */
 const MANIFEST_LISTING_BYTES = 64 * 1024 * 1024;
+/**
+ * The most a base manifest may hold in all, read into memory at once: far
+ * past any real contract, and checked from the listing before Git is asked
+ * for a byte, so a pathological base is refused rather than exhausting memory.
+ */
+const MANIFEST_SNAPSHOT_BYTES = 256 * 1024 * 1024;
 
-function manifestAtBase(
+/** @internal Exported for tests, which pass a small `maxBytes`. */
+export function manifestAtBase(
   repositoryRoot: string,
   base: string,
-  manifestPath: string
+  manifestPath: string,
+  maxBytes = MANIFEST_SNAPSHOT_BYTES
 ): ContractManifest | null {
   // Paths are taken from Git's worktree root, not `repository.root`: with a
   // nested root the workspace, and so the manifest, sits above it, yet is
@@ -324,6 +332,12 @@ function manifestAtBase(
         : [];
     });
   if (files.length === 0) return null;
+  const totalBytes = files.reduce((total, file) => total + file.size, 0);
+  if (totalBytes > maxBytes) {
+    throw new Error(
+      `The manifest at '${directory}' in '${base}' holds ${totalBytes} bytes; more than the ${maxBytes} a base manifest may hold, so it is not read.`
+    );
+  }
   const contents = readBlobs(worktree, files);
   return parseContractManifestSnapshot(
     files.map(({ path }, index) => ({
