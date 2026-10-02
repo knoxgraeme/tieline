@@ -308,13 +308,13 @@ export function renderScreenSidebar(model: ScreenReviewModel): string {
   const outline = model.sections
     .map(
       (section) => `<li>
-          <a href="#screens" data-outline-section="${escapeHtml(section.capability)}">${escapeHtml(section.name)}<small>${section.groups.reduce((total, group) => total + group.screens.length, 0)}</small></a>
+          <a href="#view/screens" data-outline-section="${escapeHtml(section.capability)}">${escapeHtml(section.name)}<small>${section.groups.reduce((total, group) => total + group.screens.length, 0)}</small></a>
           ${
             section.groups.some((group) => group.name !== null)
               ? `<ul>${section.groups
                   .map(
                     (group, index) =>
-                      `<li><a href="#screens" data-outline-section="${escapeHtml(section.capability)}" data-outline-group="${index}">${escapeHtml(group.name ?? "Ungrouped")}<small>${group.screens.length}</small></a></li>`
+                      `<li><a href="#view/screens" data-outline-section="${escapeHtml(section.capability)}" data-outline-group="${index}">${escapeHtml(group.name ?? "Ungrouped")}<small>${group.screens.length}</small></a></li>`
                   )
                   .join("")}</ul>`
               : ""
@@ -1115,7 +1115,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           tab.setAttribute("aria-selected", String(tab.getAttribute("data-view-tab") === view));
         }
         if (view !== "screens") closeDetail(false);
-        if (updateHash && view === "screens") history.pushState(null, "", "#screens");
+        if (updateHash && view === "screens") history.pushState(null, "", "#view/screens");
       }
 
       function definition(list, term, value) {
@@ -1236,7 +1236,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         for (const card of cards.values()) card.removeAttribute("aria-current");
         if (returnFocus && document.contains(returnFocus)) returnFocus.focus({ preventScroll: true });
         returnFocus = null;
-        if (updateHash) history.pushState(null, "", "#screens");
+        if (updateHash) history.pushState(null, "", "#view/screens");
       }
 
       function step(offset) {
@@ -1265,7 +1265,8 @@ export const SCREEN_REVIEW_SCRIPT = `
         } catch {
           return;
         }
-        if (hash === "screens") {
+        // Story keys cannot contain "/", so view routes never collide with one.
+        if (hash === "view/screens") {
           setView("screens", false);
           closeDetail(false);
         } else if (hash.startsWith("screen/")) {
