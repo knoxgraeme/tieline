@@ -844,6 +844,73 @@ export function createCaptureDigester(
   };
 }
 
+/** The lock an import holds, in the Tieline workspace directory. */
+export const SCREEN_IMPORT_LOCK = "screens-import.lock";
+
+/**
+ * Runs `work` holding the screen import lock: a file created exclusively in
+ * the Tieline workspace and removed afterwards. The stale-plan check in
+ * `applyScreenImport` sees only the files one import changes, so two imports
+ * writing different files could still break the catalog as a whole — the same
+ * key created in two capability files. Holding the lock from reading the
+ * catalog to replacing it runs imports one at a time. A second import fails at
+ * once rather than waiting, and a lock left by an interrupted import is never
+ * taken over automatically: the file names its process and start time, for a
+ * person to judge before deleting it.
+ */
+export function withScreenImportLock<T>(
+  repositoryRoot: string,
+  work: () => T,
+  workspaceDirectory = resolve(repositoryRoot, ".tieline")
+): T {
+  const lockPath = resolve(workspaceDirectory, SCREEN_IMPORT_LOCK);
+  const shown = relative(resolve(repositoryRoot), lockPath).split(sep).join("/");
+  try {
+    // Exclusive creation never follows a link planted at the path.
+    writeFileSync(
+      lockPath,
+      `${JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() })}\n`,
+      { flag: "wx" }
+    );
+  } catch (error) {
+    if (alreadyExists(error)) {
+      throw new ScreenImportError(
+        `Another screen import is in progress: '${shown}' exists. If no import is running (one may have been interrupted), delete that file and import again.`
+      );
+    }
+    throw error;
+  }
+  const release = (): string | null => {
+    try {
+      rmSync(lockPath, { force: true });
+      return null;
+    } catch (error) {
+      return message(error);
+    }
+  };
+  let result: T;
+  try {
+    result = work();
+  } catch (error) {
+    // The import's own failure is the one to report; a lock that also could
+    // not be removed is added to it, since it blocks the next import.
+    const failure = release();
+    if (failure === null) throw error;
+    const combined = new ScreenImportError(message(error), [
+      `the import lock '${shown}' could not be removed (${failure}); delete it before importing again`,
+    ]);
+    combined.cause = error;
+    throw combined;
+  }
+  const failure = release();
+  if (failure !== null) {
+    throw new ScreenImportError(
+      `The import was written, but its lock '${shown}' could not be removed (${failure}). Delete it before importing again.`
+    );
+  }
+  return result;
+}
+
 /**
  * `exists`: the captures `.gitignore` already ignores everything in it.
  * `unverified`: something is at that path, but Tieline cannot confirm it

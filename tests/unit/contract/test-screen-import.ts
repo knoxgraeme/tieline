@@ -25,6 +25,7 @@ import {
   readScreenImportFile,
   ScreenImportError,
   SCREEN_IMPORT_LIMITS,
+  withScreenImportLock,
 } from "../../../src/contract/screen-import.js";
 import { report, test } from "../../support/harness.js";
 import {
@@ -752,6 +753,38 @@ await test("never rolls back over a catalog another writer changed meanwhile", a
     ]);
   }
   assert.equal(catalog(ws, "NOTES"), concurrent);
+});
+
+await test("runs one import at a time under the import lock", async () => {
+  const ws = workspace();
+  const lock = resolve(ws.root, ".tieline/screens-import.lock");
+  // While one import holds the lock, a second (on any catalog file) cannot start.
+  withScreenImportLock(ws.root, () => {
+    assert.match(readFileSync(lock, "utf8"), /^\{"pid":\d+,"started_at":"[^"]+"\}\n$/);
+    assert.throws(
+      () => withScreenImportLock(ws.root, () => "second"),
+      /Another screen import is in progress: '\.tieline\/screens-import\.lock' exists\. If no import is running \(one may have been interrupted\), delete that file and import again\./
+    );
+  });
+  assert.equal(existsSync(lock), false, "released after the work");
+
+  // The command takes it: a held lock refuses the import and writes nothing.
+  writeFileSync(lock, "held by another import\n");
+  await importFails(ws, [screen("a")], /Another screen import is in progress/);
+  assert.equal(readFileSync(lock, "utf8"), "held by another import\n", "someone else's lock is never removed");
+  assert.equal(existsSync(resolve(ws.root, ".tieline/captures/.gitignore")), false);
+  // A dry run only reads, so it does not need the lock.
+  const dry = await importScreens(ws, [screen("a")], ["--dry-run"]);
+  assert.equal(dry.exit, 0);
+  rmSync(lock);
+
+  // Released whether the import succeeds or fails.
+  assert.equal((await importScreens(ws, [screen("a")])).exit, 0);
+  assert.equal(existsSync(lock), false);
+  await importFails(ws, [screen("b", { capability: "GONE" })], /unknown capability 'GONE'/);
+  assert.equal(existsSync(lock), false);
+  assert.throws(() => withScreenImportLock(ws.root, () => { throw new Error("planning failed"); }), /^Error: planning failed$/);
+  assert.equal(existsSync(lock), false);
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {

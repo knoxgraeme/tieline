@@ -208,9 +208,12 @@ The input is treated as untrusted:
 - writing is all-or-nothing across catalog files: every file is staged first, and if replacing one
   fails, the files already replaced are restored (the error names any that could not be, to
   restore from git);
-- a catalog file edited after the import read it, by hand or by another import, stops the import
-  before anything is written; run it again. A rollback never restores over a file someone else
-  changed meanwhile.
+- imports run one at a time: an import holds `.tieline/screens-import.lock` from reading the
+  catalog to writing it, and a second import fails at once (a dry run only reads and needs no
+  lock). If an import was interrupted, the file remains, naming its process and start time;
+  delete it once no import is running;
+- a catalog file edited by hand after the import read it stops the import before anything is
+  written; run it again. A rollback never restores over a file someone else changed meanwhile.
 
 Merging is by key, so re-importing the same file changes nothing and never duplicates an entry.
 For an existing key, required fields are replaced, an omitted optional field keeps its catalog

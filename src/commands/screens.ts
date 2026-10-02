@@ -13,8 +13,10 @@ import {
   planScreenImport,
   readScreenImportFile,
   ScreenImportError,
+  withScreenImportLock,
   type CapturesIgnoreStatus,
   type CurrentScreenCatalogFile,
+  type ScreenImportPlan,
 } from "../contract/screen-import.js";
 import {
   escapeTerminalText,
@@ -53,40 +55,46 @@ export async function runScreensImportCommand(
   // accepts, so skipped entries never touch the filesystem.
   const digests = createCaptureDigester(settings);
 
-  // The existing catalog must be valid before it is merged into: editing an
-  // invalid file would either hide the problem or compound it.
-  const capabilityKeys = readDeclaredCapabilityKeys(root, specDirectory);
-  const read = readScreenCatalogSources(root, settings);
-  const issues = [...read.issues];
-  const catalog = validateScreenCatalogDocuments(read.sources, capabilityKeys, issues);
-  if (issues.length > 0) {
-    throw new ScreenImportError(
-      "The existing screen catalog is invalid; fix it before importing.",
-      issues
-    );
-  }
-  const documents = new Map(catalog.files.map((entry) => [entry.path, entry.document]));
-  const current: CurrentScreenCatalogFile[] = read.sources.map((source) => ({
-    source,
-    document: documents.get(source.path)!,
-  }));
-
-  const plan = planScreenImport(imported, current, {
-    repositoryRoot: root,
-    settings,
-    capabilityKeys,
-    prune: options.prune === true,
-    skipUnknownCapabilities: options.skipUnknownCapabilities === true,
-    digestScreenshot: (path, key) => digests.digest(path, key),
-  });
+  const planAgainstCatalog = (): ScreenImportPlan => {
+    // The existing catalog must be valid before it is merged into: editing an
+    // invalid file would either hide the problem or compound it.
+    const capabilityKeys = readDeclaredCapabilityKeys(root, specDirectory);
+    const read = readScreenCatalogSources(root, settings);
+    const issues = [...read.issues];
+    const catalog = validateScreenCatalogDocuments(read.sources, capabilityKeys, issues);
+    if (issues.length > 0) {
+      throw new ScreenImportError(
+        "The existing screen catalog is invalid; fix it before importing.",
+        issues
+      );
+    }
+    const documents = new Map(catalog.files.map((entry) => [entry.path, entry.document]));
+    const current: CurrentScreenCatalogFile[] = read.sources.map((source) => ({
+      source,
+      document: documents.get(source.path)!,
+    }));
+    return planScreenImport(imported, current, {
+      repositoryRoot: root,
+      settings,
+      capabilityKeys,
+      prune: options.prune === true,
+      skipUnknownCapabilities: options.skipUnknownCapabilities === true,
+      digestScreenshot: (path, key) => digests.digest(path, key),
+    });
+  };
   const dryRun = options.dryRun === true;
-  let capturesIgnore: CapturesIgnoreStatus | "dry_run" = "dry_run";
-  if (!dryRun) {
-    // The ignore file comes first: if it cannot be made, nothing has been
-    // written, rather than reporting failure after the catalog changed.
-    capturesIgnore = ensureCapturesIgnored(root, settings);
-    applyScreenImport(plan);
-  }
+  // A dry run only reads. A real import holds the import lock from reading
+  // the catalog to replacing it, so imports never interleave.
+  const { plan, capturesIgnore } = dryRun
+    ? { plan: planAgainstCatalog(), capturesIgnore: "dry_run" as const }
+    : withScreenImportLock(root, () => {
+        const planned = planAgainstCatalog();
+        // The ignore file comes first: if it cannot be made, nothing has been
+        // written, rather than reporting failure after the catalog changed.
+        const ignore: CapturesIgnoreStatus = ensureCapturesIgnored(root, settings);
+        applyScreenImport(planned);
+        return { plan: planned, capturesIgnore: ignore };
+      });
 
   const files = plan.files.map(({ path, status }) => ({ path, status }));
   if (options.json) {
