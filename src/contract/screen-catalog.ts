@@ -245,7 +245,7 @@ function portable(path: string): string {
  * and one that points nowhere is refused, because writing through it would
  * land wherever it is later made to point.
  */
-function realDestination(path: string): string {
+export function realDestination(path: string): string {
   const pending: string[] = [];
   let current = path;
   for (;;) {

@@ -133,7 +133,7 @@ export async function runScreensImportCommand(
   }
   if (capturesIgnore === "not_managed") {
     io.write(
-      `  note  ${escapeTerminalText(settings.capturesPath)} is outside .tieline/; make sure screenshots there are git-ignored.\n`
+      `  note  ${escapeTerminalText(settings.capturesPath)} resolves outside .tieline/; make sure screenshots there are git-ignored.\n`
     );
   } else if (capturesIgnore === "unverified") {
     io.write(

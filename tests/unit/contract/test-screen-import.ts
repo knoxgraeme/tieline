@@ -334,8 +334,28 @@ await test("leaves a captures directory outside .tieline for the repository to i
   writeFileSync(resolve(ws.root, "import.json"), JSON.stringify([screen("a", { title: "Changed" })]));
   assert.equal(await runCli(["screens", "import", resolve(ws.root, "import.json"), "--repository", ws.root], capture.io, {}), 0);
   assert.match(capture.output(), /Imported 1 screen\(s\) into \.tieline\/screens: 0 created, 1 updated/);
-  assert.match(capture.output(), /note {2}artifacts\/screens is outside \.tieline\/; make sure screenshots there are git-ignored/);
+  assert.match(capture.output(), /note {2}artifacts\/screens resolves outside \.tieline\/; make sure screenshots there are git-ignored/);
   assert.match(capture.output(), /Run `tieline contract compile \.`/);
+});
+
+await test("judges the captures directory by where it really resolves", async () => {
+  // `.tieline/captures` links to a source directory: an ignore-everything
+  // file there would hide new source files from Git.
+  const linked = workspace();
+  mkdirSync(resolve(linked.root, "src"), { recursive: true });
+  symlinkSync(resolve(linked.root, "src"), resolve(linked.root, ".tieline/captures"));
+  const { exit, result } = await importScreens(linked, [screen("a")]);
+  assert.equal(exit, 0);
+  assert.equal(result.captures_gitignore, "not_managed");
+  assert.equal(existsSync(resolve(linked.root, "src/.gitignore")), false);
+
+  // A link that stays inside `.tieline/` is still managed, at its real path.
+  const inside = workspace();
+  mkdirSync(resolve(inside.root, ".tieline/shots"), { recursive: true });
+  symlinkSync(resolve(inside.root, ".tieline/shots"), resolve(inside.root, ".tieline/captures"));
+  const managed = await importScreens(inside, [screen("a")]);
+  assert.equal(managed.result.captures_gitignore, "created");
+  assert.match(readFileSync(resolve(inside.root, ".tieline/shots/.gitignore"), "utf8"), /^\*$/m);
 });
 
 console.log("screens import: screenshot digests");

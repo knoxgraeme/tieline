@@ -22,6 +22,7 @@ import {
   screenImagePathSchema,
   screenImageSchema,
   SCREEN_LIMITS,
+  realDestination,
   validateScreenCatalogDocuments,
   type ScreenCatalogDocument,
   type ScreenCatalogSource,
@@ -807,8 +808,12 @@ export function ensureCapturesIgnored(
   settings: ScreenSettings,
   workspaceDirectory = resolve(repositoryRoot, ".tieline")
 ): CapturesIgnoreStatus {
-  const directory = settings.capturesDirectory;
-  if (directory === workspaceDirectory || !withinRepository(workspaceDirectory, directory)) {
+  // Judged, and written, where the directory really resolves: a captures path
+  // under `.tieline/` that links to, say, `src/` must not get a match-all
+  // ignore file that would hide new source files from Git.
+  const directory = realDestination(settings.capturesDirectory);
+  const workspace = realDestination(workspaceDirectory);
+  if (directory === workspace || !withinRepository(workspace, directory)) {
     return "not_managed";
   }
   const ignorePath = resolve(directory, ".gitignore");
