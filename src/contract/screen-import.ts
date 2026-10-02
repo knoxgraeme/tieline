@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   closeSync,
+  constants,
   existsSync,
   fstatSync,
   lstatSync,
@@ -70,10 +71,20 @@ export class ScreenImportError extends Error {
  * the bytes actually read, not only on the size reported before reading, so a
  * file that grows while it is read cannot exceed it.
  */
+/**
+ * Opening a FIFO for reading blocks until something writes to it, before the
+ * descriptor can be checked. Opened non-blocking, it opens at once and is
+ * refused below as not a file; a regular file reads the same either way.
+ */
+const READ_FLAGS =
+  process.platform === "win32"
+    ? constants.O_RDONLY
+    : constants.O_RDONLY | constants.O_NONBLOCK;
+
 function readBoundedFile(path: string, maxBytes: number, label: string): Buffer {
   let descriptor: number;
   try {
-    descriptor = openSync(path, "r");
+    descriptor = openSync(path, READ_FLAGS);
   } catch (error) {
     throw new ScreenImportError(
       `Cannot open ${label} '${path}': ${error instanceof Error ? error.message : String(error)}`

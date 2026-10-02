@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -13,6 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runCli } from "../../../src/cli.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
@@ -457,6 +459,36 @@ await test("never reads screenshots of entries skipped for an unknown capability
   assert.deepEqual(result.created, ["a"]);
   assert.deepEqual(result.image_digests, { computed: 0, missing: [] });
   assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
+});
+
+await test("refuses FIFOs as the import file or a screenshot without blocking on them", () => {
+  // Opening a FIFO with no writer blocks, so the import runs in a child
+  // process whose time limit turns a regression into a failure, not a hang.
+  if (process.platform === "win32") return;
+  const ws = workspace();
+  const repository = fileURLToPath(new URL("../../../", import.meta.url));
+  const run = (file: string) => {
+    const result = spawnSync(
+      process.execPath,
+      ["--import", "tsx", resolve(repository, "src/cli.ts"), "screens", "import", file, "--repository", ws.root],
+      { cwd: repository, encoding: "utf8", timeout: 20_000 }
+    );
+    assert.equal(result.error, undefined, "the import blocked instead of returning");
+    return result;
+  };
+  const fifo = resolve(ws.root, "import.fifo");
+  execFileSync("mkfifo", [fifo]);
+  const input = run(fifo);
+  assert.notEqual(input.status, 0);
+  assert.match(input.stderr, /Screen import file '.*import\.fifo' is not a file\./);
+
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  execFileSync("mkfifo", [resolve(ws.root, ".tieline/captures/a.png")]);
+  writeFileSync(resolve(ws.root, "import.json"), JSON.stringify([screen("a", { image: { path: "a.png" } })]));
+  const capture = run(resolve(ws.root, "import.json"));
+  assert.notEqual(capture.status, 0);
+  assert.match(capture.stderr, /Screenshot '.*a\.png' is not a file\./);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/NOTES.yaml")), false, "nothing was written");
 });
 
 await test("refuses an import that would take the catalog past its entry, file, or byte bounds", async () => {
