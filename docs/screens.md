@@ -28,7 +28,7 @@ Add a `screens` block to `.tieline/config.json`:
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | required | `true` turns the feature on. `false`, or no block at all, leaves it off. |
-| `catalog_directory` | `"screens"` | Reviewed catalog YAML, relative to `.tieline/`. Must stay inside `.tieline/`. |
+| `catalog_directory` | `"screens"` | Reviewed catalog YAML, relative to `.tieline/`. Must stay inside `.tieline/` and outside the captures directory, which is git-ignored. |
 | `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository. |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
@@ -73,7 +73,9 @@ screens:
 
 Validation also rejects duplicate screen keys anywhere in the catalog, two catalog files for one
 capability, a catalog for a capability the spec does not declare, catalog files larger than
-4 MiB, and more than 10,000 screens in total. Unknown fields are errors.
+4 MiB, and more than 10,000 screens in total. The catalog directory is walked with bounds — 8
+levels deep, 10,000 entries, 1,000 YAML files, 64 MiB — and symbolic links are judged by where they
+really lead. Unknown fields are errors.
 
 ### Image locators
 
@@ -186,7 +188,8 @@ The input is treated as untrusted:
 - every entry is validated with the catalog's bounds, and every problem is reported with its
   index and key;
 - duplicate keys in the file are rejected;
-- nothing is written unless the whole import, merged with the existing catalog, validates;
+- nothing is written unless the whole import, merged with the existing catalog, validates —
+  including every catalog file staying within the 4 MiB limit;
 - writing is all-or-nothing across catalog files: every file is staged first, and if replacing one
   fails, the files already replaced are restored (the error names any that could not be, to
   restore from git).

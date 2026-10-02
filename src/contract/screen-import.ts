@@ -525,6 +525,16 @@ export function planScreenImport(
       : (catalog.original ?? catalog.document.toString());
     return { catalog, content };
   });
+  // The loader refuses oversized files before parsing them, so an import
+  // must not write one: it would succeed here and fail every later command.
+  for (const { catalog, content } of outputs) {
+    const bytes = Buffer.byteLength(content);
+    if (bytes > SCREEN_LIMITS.catalogFileBytes) {
+      issues.push(
+        `${catalog.path}: the catalog would be ${bytes} bytes; the limit is ${SCREEN_LIMITS.catalogFileBytes}`
+      );
+    }
+  }
   validateScreenCatalogDocuments(
     outputs.map(({ catalog, content }) => ({
       path: catalog.path,

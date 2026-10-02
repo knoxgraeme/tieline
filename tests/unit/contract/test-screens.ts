@@ -173,6 +173,22 @@ await test("judges configured directories by where symbolic links really lead", 
   }
 });
 
+await test("refuses a catalog the captures .gitignore would hide", () => {
+  for (const screens of [
+    { enabled: true, catalog_directory: "shots", captures_directory: "shots" },
+    { enabled: true, catalog_directory: "shots/catalog", captures_directory: "shots" },
+  ]) {
+    const ws = workspace({ screens });
+    assert.throws(
+      () => screenSettingsForRepository(ws.root),
+      /the catalog directory '.*' is inside the captures directory 'shots', which is git-ignored/
+    );
+  }
+  // The reverse is fine: screenshots may live under the catalog directory.
+  const nested = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  assert.equal(screenSettingsForRepository(nested.root)?.capturesPath, ".tieline/screens/shots");
+});
+
 console.log("screens: catalog schema");
 
 await test("accepts a complete catalog entry and an empty catalog", () => {

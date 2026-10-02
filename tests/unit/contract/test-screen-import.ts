@@ -434,6 +434,17 @@ await test("never reads screenshots of entries skipped for an unknown capability
   assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
 });
 
+await test("refuses an import that would write an oversized catalog file", async () => {
+  const ws = workspace();
+  const copy = Array.from({ length: 50 }, (_, index) => `${index} ${"c".repeat(480)}`);
+  const entries = Array.from({ length: 180 }, (_, index) => screen(`screen-${index}`, { copy }));
+  await importFails(
+    ws,
+    entries,
+    /The imported catalog would not validate; nothing was written\.\n- \.tieline\/screens\/NOTES\.yaml: the catalog would be \d+ bytes; the limit is 4194304/
+  );
+});
+
 console.log("screens import: atomic writes");
 
 function moveBetweenCatalogs(ws: ScreensWorkspace) {

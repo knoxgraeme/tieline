@@ -320,6 +320,13 @@ export function screenSettingsForRepository(
       `Invalid 'screens.captures_directory' '${config.captures_directory}': it resolves to '${realCaptures}' through a symbolic link, outside the repository.`
     );
   }
+  // The captures directory is git-ignored wholesale, so a catalog inside it
+  // would work locally but never be committed.
+  if (withinRepository(realCaptures, realCatalog)) {
+    throw new Error(
+      `Invalid screens configuration: the catalog directory '${config.catalog_directory}' is inside the captures directory '${config.captures_directory}', which is git-ignored, so the catalog would never be committed.`
+    );
+  }
   return {
     catalogDirectory,
     capturesDirectory,
