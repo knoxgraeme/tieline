@@ -272,6 +272,13 @@ export function realDestination(path: string): string {
 }
 
 /**
+ * Where the committed code topology lives: `CODE_TOPOLOGY_DIRECTORY`, kept
+ * here rather than imported so loading a screen catalog does not load the
+ * topology indexer. The screens tests pin the two together.
+ */
+export const CODE_TOPOLOGY_PATH = ".tieline/topology";
+
+/**
  * The repository's screen settings, or null when the feature is off. Like
  * `selectorVocabularyForRepository`, a missing or unparseable config means the
  * feature is off, while a malformed `screens` block throws.
@@ -338,9 +345,9 @@ export function screenSettingsForRepository(
   }
   // Every YAML file below the spec directory is read as a contract document,
   // and every one below the catalog as a screen catalog, so neither may hold
-  // the other; and a spec inside the captures directory would never be
-  // committed. The spec directory is the configured one, as commands use it.
-  const files = (parsed as { files?: { spec_directory?: unknown } } | null)?.files;
+  // the other. The spec directory is the configured one, as commands use it.
+  const files = (parsed as { files?: { spec_directory?: unknown; manifest?: unknown } } | null)
+    ?.files;
   const specSetting =
     typeof files?.spec_directory === "string" ? files.spec_directory : "spec";
   const realSpec = realDestination(resolve(workspace, specSetting));
@@ -349,10 +356,31 @@ export function screenSettingsForRepository(
       `Invalid screens configuration: the catalog directory '${config.catalog_directory}' and the spec directory '${specSetting}' overlap. Every YAML file below the spec directory is read as a contract document, and every one below the catalog as a screen catalog, so each must be outside the other.`
     );
   }
-  if (withinRepository(realCaptures, realSpec)) {
-    throw new Error(
-      `Invalid screens configuration: the spec directory '${specSetting}' is inside the captures directory '${config.captures_directory}', which is git-ignored, so the spec would never be committed.`
-    );
+  // The captures directory is git-ignored wholesale, so it must not hold
+  // anything Tieline commits: the spec, the compiled manifest, or the code
+  // topology would silently drop out of commits.
+  const manifestSetting = typeof files?.manifest === "string" ? files.manifest : "manifest";
+  const committed: Array<{ label: string; setting: string; noun: string; real: string }> = [
+    { label: "spec directory", setting: specSetting, noun: "spec", real: realSpec },
+    {
+      label: "manifest",
+      setting: manifestSetting,
+      noun: "manifest",
+      real: realDestination(resolve(workspace, manifestSetting)),
+    },
+    {
+      label: "code topology directory",
+      setting: CODE_TOPOLOGY_PATH,
+      noun: "code topology",
+      real: realDestination(resolve(root, CODE_TOPOLOGY_PATH)),
+    },
+  ];
+  for (const { label, setting, noun, real } of committed) {
+    if (withinRepository(realCaptures, real)) {
+      throw new Error(
+        `Invalid screens configuration: the ${label} '${setting}' is inside the captures directory '${config.captures_directory}', which is git-ignored, so the ${noun} would never be committed.`
+      );
+    }
   }
   return {
     catalogDirectory,

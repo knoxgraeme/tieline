@@ -24,12 +24,14 @@ import {
   writeContractManifest,
 } from "../../../src/contract/manifest.js";
 import {
+  CODE_TOPOLOGY_PATH,
   readScreenCatalogSources,
   screenCatalogDocumentSchema,
   screenSettingsForRepository,
   SCREEN_LIMITS,
   validateScreenCatalogDocuments,
 } from "../../../src/contract/screen-catalog.js";
+import { CODE_TOPOLOGY_DIRECTORY } from "../../../src/contract/topology-role-snapshot.js";
 import { ContractValidationError } from "../../../src/contract/validate.js";
 import { workspaceFromConfig } from "../../../src/tieline/workspace.js";
 import { report, test } from "../../support/harness.js";
@@ -203,11 +205,12 @@ await test("refuses a catalog the captures .gitignore would hide", () => {
   assert.equal(screenSettingsForRepository(nested.root)?.capturesPath, ".tieline/screens/shots");
 });
 
-await test("refuses a catalog and spec directory that overlap, or a spec the captures would hide", () => {
-  const withConfig = (screens: Record<string, unknown>, specDirectory = "spec") => {
+await test("refuses a catalog and spec directory that overlap, or committed files the captures would hide", () => {
+  const withConfig = (screens: Record<string, unknown>, specDirectory = "spec", manifest = "manifest") => {
     const ws = workspace({ screens: { enabled: true, ...screens } });
     const config = JSON.parse(readFileSync(resolve(ws.root, ".tieline/config.json"), "utf8"));
     config.files.spec_directory = specDirectory;
+    config.files.manifest = manifest;
     ws.write(".tieline/config.json", `${JSON.stringify(config, null, 2)}\n`);
     return ws;
   };
@@ -227,6 +230,18 @@ await test("refuses a catalog and spec directory that overlap, or a spec the cap
       new RegExp(`the spec directory '${specDirectory}' is inside the captures directory '${captures}', which is git-ignored, so the spec would never be committed`)
     );
   }
+  for (const [captures, manifest] of [["manifest", "manifest"], ["artifacts", "artifacts/manifest"]] as const) {
+    assert.throws(
+      () => screenSettingsForRepository(withConfig({ captures_directory: captures }, "spec", manifest).root),
+      new RegExp(`the manifest '${manifest}' is inside the captures directory '${captures}', which is git-ignored, so the manifest would never be committed`)
+    );
+  }
+  // The committed code topology, at its fixed location.
+  assert.equal(CODE_TOPOLOGY_PATH, CODE_TOPOLOGY_DIRECTORY);
+  assert.throws(
+    () => screenSettingsForRepository(withConfig({ captures_directory: "topology" }).root),
+    /the code topology directory '\.tieline\/topology' is inside the captures directory 'topology', which is git-ignored, so the code topology would never be committed/
+  );
   // Siblings, and screenshots below the spec directory, are fine.
   assert.equal(screenSettingsForRepository(withConfig({ catalog_directory: "screens" }, "spec").root)?.catalogPath, ".tieline/screens");
   assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root)?.capturesPath, ".tieline/spec/shots");
