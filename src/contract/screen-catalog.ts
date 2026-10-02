@@ -437,6 +437,8 @@ export interface ScreenCatalogSource {
   /** Repository-relative, `/`-separated. */
   path: string;
   absolutePath: string;
+  /** Where the walk found the file and read it, below the validated catalog. */
+  realPath: string;
   content: string;
   document: unknown;
 }
@@ -709,7 +711,7 @@ export function readScreenCatalogSources(
       continue;
     }
     try {
-      sources.push({ path, absolutePath, content, document: parse(content) });
+      sources.push({ path, absolutePath, realPath: real, content, document: parse(content) });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       issues.push(`${path}: invalid YAML: ${message}`);

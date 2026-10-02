@@ -261,6 +261,11 @@ export interface PlannedScreenCatalogFile {
   content: string;
   /** The file's content before the import, or null when the import creates it. */
   original: string | null;
+  /**
+   * The real directory the file was read from (or, for a new file, the
+   * validated catalog directory): where its write must land.
+   */
+  realParent: string;
 }
 
 export interface ScreenImportPlan {
@@ -367,6 +372,8 @@ interface EditableCatalog {
   capability: string;
   path: string;
   absolutePath: string;
+  /** The real directory the file was read from, or will be created in. */
+  realParent: string;
   document: Document;
   sequence: YAMLSeq;
   original: string | null;
@@ -441,6 +448,7 @@ export function planScreenImport(
       capability: document.capability,
       path: source.path,
       absolutePath: source.absolutePath,
+      realParent: dirname(source.realPath),
       document: parsed,
       sequence,
       original: source.content,
@@ -485,6 +493,8 @@ export function planScreenImport(
       capability,
       path: portable(relative(root, absolutePath)),
       absolutePath,
+      // A new catalog file is always made at the top of the catalog.
+      realParent: options.settings.realCatalogDirectory,
       document,
       sequence,
       original: null,
@@ -633,6 +643,7 @@ export function planScreenImport(
             : ("updated" as const),
       content,
       original: catalog.original,
+      realParent: catalog.realParent,
     }))
     .sort((left, right) => left.path.localeCompare(right.path));
   return plan;
@@ -809,11 +820,13 @@ export function applyScreenImport(
       stale.push(`${shown} was created after the import read it`);
     }
   }
-  // The catalog directory was validated by where it really resolves. A
-  // directory swapped for a link since then would send every write, staged
-  // or final, wherever it leads, so each target's directory must still
-  // resolve inside the validated one. (Node cannot rename relative to an open
-  // directory, so this is checked here, as close to the writes as it can be.)
+  // Each file was read from (or will be made in) a directory validated by
+  // where it really resolved. A directory swapped for a link since then would
+  // send its writes, staged or final, wherever the link leads — even
+  // somewhere else inside the catalog, such as nested captures — so each
+  // target's directory must still resolve to exactly that one. (Node cannot
+  // rename relative to an open directory, so this is checked here, as close
+  // to the writes as it can be.)
   const validated = plan.catalog.settings.realCatalogDirectory;
   for (const { file } of staged) {
     let directory: string | null;
@@ -825,6 +838,8 @@ export function applyScreenImport(
     }
     if (directory === null || !withinRepository(validated, directory)) {
       stale.push(`${file.path} now resolves outside the screen catalog directory`);
+    } else if (directory !== file.realParent) {
+      stale.push(`${file.path} now resolves to '${directory}', not to '${file.realParent}' where it was read`);
     }
   }
   // The staged copies sit at predictable paths, and the import lock does not

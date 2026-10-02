@@ -976,6 +976,27 @@ await test("never writes through a catalog directory swapped for a link after pl
   }
 });
 
+await test("writes a nested catalog file only into the directory it was read from", async () => {
+  // Captures nested in the catalog, and a catalog file in a subdirectory.
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  await importScreens(ws, [screen("a")]);
+  ws.write(".tieline/screens/sub/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  const plan = planImport(ws, [screen("b", { capability: "SHARING" })]);
+  const original = readFileSync(resolve(ws.root, ".tieline/screens/sub/SHARING.yaml"), "utf8");
+  // After planning, `sub` moves out of the catalog and a link to the
+  // captures takes its place, holding identical bytes: content checks pass.
+  ws.write(".tieline/screens/shots/SHARING.yaml", original);
+  renameSync(resolve(ws.root, ".tieline/screens/sub"), resolve(ws.root, "sub-moved"));
+  symlinkSync(resolve(ws.root, ".tieline/screens/shots"), resolve(ws.root, ".tieline/screens/sub"));
+  assert.throws(
+    () => applyScreenImport(plan),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      /^\.tieline\/screens\/sub\/SHARING\.yaml now resolves to '.*\/screens\/shots', not to '.*\/screens\/sub' where it was read$/m.test(error.issues.join("\n"))
+  );
+  assert.equal(readFileSync(resolve(ws.root, ".tieline/screens/shots/SHARING.yaml"), "utf8"), original, "the captures copy is untouched");
+});
+
 await test("rechecks the entry bound counting new catalogs but not replaced files' staging", async () => {
   const fileBytes = SCREEN_LIMITS.catalogFileBytes;
   const atTwo = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };
