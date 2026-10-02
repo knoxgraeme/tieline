@@ -1286,7 +1286,10 @@ await test("never removes a staged path that names another file by cleanup time"
     createFileSync: (path: string, content: string) => {
       if (path.includes("NOTES.yaml.")) notesStaged = path;
       if (path.includes("SHARING.yaml.")) {
-        rmSync(notesStaged);
+        // Moved aside rather than deleted, as a swap does: the staged file
+        // still exists, so the file now at its path is a different one (a
+        // deleted file's inode could otherwise be reused for it).
+        renameSync(notesStaged, `${notesStaged}.moved`);
         writeFileSync(notesStaged, "someone else's file\n");
         throw new Error("EIO: i/o error");
       }
@@ -1302,6 +1305,32 @@ await test("never removes a staged path that names another file by cleanup time"
   }
   assert.equal(readFileSync(notesStaged, "utf8"), "someone else's file\n");
   rmSync(notesStaged);
+  rmSync(`${notesStaged}.moved`);
+});
+
+await test("never removes a directory it made once its path names another one", () => {
+  // The import makes the catalog directory for a new catalog; before its
+  // cleanup, that directory is renamed away and a different empty one put in
+  // its place, which the cleanup must leave alone.
+  const ws = workspace();
+  const catalogDirectory = resolve(ws.root, ".tieline/screens");
+  const plan = planImport(ws, [screen("a")]);
+  const fileSystem = {
+    ...NODE_FILE_SYSTEM,
+    createFileSync: () => {
+      renameSync(catalogDirectory, `${catalogDirectory}-moved`);
+      mkdirSync(catalogDirectory);
+      throw new Error("EIO: i/o error");
+    },
+  };
+  try {
+    applyScreenImport(plan, fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.issues.join("\n"), /directory left behind: .*\.tieline\/screens \(no longer the directory made there; left as it is\)/);
+  }
+  assert.equal(existsSync(catalogDirectory), true, "the other directory is still there");
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {

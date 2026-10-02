@@ -761,9 +761,8 @@ export function applyScreenImport(
   // directory itself. A file that was read already had one, and making it
   // again could make it wherever a link swapped in since leads. What is made
   // is undone if the import is refused.
-  const made: Array<{ directory: string; firstMade: string | undefined }> = [];
-  const unmake = (): string[] =>
-    made.flatMap(({ directory, firstMade }) => removeMadeDirectories(directory, firstMade));
+  const made: MadeDirectory[] = [];
+  const unmake = (): string[] => removeMadeDirectories(made);
   // Cleanup never throws: a temporary file that cannot be removed is reported,
   // and never stops the restoration that matters more.
   const discardStaged = (from: number): string[] => {
@@ -790,7 +789,9 @@ export function applyScreenImport(
     for (const file of changed) {
       if (file.original === null) {
         const directory = dirname(file.absolutePath);
-        made.push({ directory, firstMade: fileSystem.mkdirSync(directory, { recursive: true }) });
+        made.push(
+          ...recordMadeDirectories(directory, fileSystem.mkdirSync(directory, { recursive: true }))
+        );
       }
       const temporary = `${file.absolutePath}.${process.pid}.tmp`;
       // A failed creation leaves nothing behind (the file system's contract),
@@ -1235,14 +1236,14 @@ export function prepareCapturesIgnore(
     }
     return nothing(gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified");
   }
-  const firstMade = mkdirSync(directory, { recursive: true });
+  const madeDirectories = recordMadeDirectories(directory, mkdirSync(directory, { recursive: true }));
   let created: ReturnType<typeof createInValidatedDirectory>;
   try {
     created = createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE, write);
   } catch (error) {
     // The directories just made for the file go with it, or a captures
     // directory inside the catalog could keep the catalog over its bound.
-    const leftovers = removeMadeDirectories(directory, firstMade);
+    const leftovers = removeMadeDirectories(madeDirectories);
     if (leftovers.length === 0) throw error;
     const combined = new ScreenImportError(
       message(error),
@@ -1262,27 +1263,53 @@ export function prepareCapturesIgnore(
       } catch (error) {
         leftovers.push(`${ignorePath} (${message(error)})`);
       }
-      leftovers.push(...removeMadeDirectories(directory, firstMade));
+      leftovers.push(...removeMadeDirectories(madeDirectories));
       return leftovers;
     },
   };
 }
 
+/** A directory this process made, with the identity it had when made. */
+interface MadeDirectory {
+  path: string;
+  identity: Stats;
+}
+
 /**
- * Removes the directories `mkdirSync(directory, { recursive: true })` made,
- * deepest first up to `firstMade`; one that is no longer empty is someone
- * else's now and stays, named in what is returned.
+ * The directories `mkdirSync(directory, { recursive: true })` made, deepest
+ * first up to `firstMade`, each with its identity, recorded as soon as they
+ * exist.
  */
-function removeMadeDirectories(directory: string, firstMade: string | undefined): string[] {
+function recordMadeDirectories(directory: string, firstMade: string | undefined): MadeDirectory[] {
   if (firstMade === undefined) return [];
+  const made: MadeDirectory[] = [];
   for (let current = directory; ; current = dirname(current)) {
-    try {
-      rmdirSync(current);
-    } catch (error) {
-      return [`${current} (${message(error)})`];
-    }
-    if (current === resolve(firstMade)) return [];
+    const identity = lstatSync(current, { throwIfNoEntry: false });
+    if (identity) made.push({ path: current, identity });
+    if (current === resolve(firstMade) || dirname(current) === current) return made;
   }
+}
+
+/**
+ * Removes the directories this process made, deepest first, each only while
+ * its path still names the directory made there: one renamed away and
+ * replaced, or reached through an ancestor swapped for a link, is someone
+ * else's. One no longer empty stays too. What stays is named.
+ */
+function removeMadeDirectories(made: readonly MadeDirectory[]): string[] {
+  for (const { path, identity } of made) {
+    try {
+      const current = lstatSync(path, { throwIfNoEntry: false });
+      if (current === undefined) continue;
+      if (!isSameFile(current, identity)) {
+        return [`${path} (no longer the directory made there; left as it is)`];
+      }
+      rmdirSync(path);
+    } catch (error) {
+      return [`${path} (${message(error)})`];
+    }
+  }
+  return [];
 }
 
 /**
