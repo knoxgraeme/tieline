@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
 import { runCheckCommand } from "../../../src/commands/check.js";
@@ -132,6 +140,37 @@ await test("keeps the catalog inside .tieline and captures inside the repository
     catalog_directory: "ui/screens",
     captures_directory: "../artifacts/shots",
   });
+});
+
+await test("judges configured directories by where symbolic links really lead", () => {
+  const outside = mkdtempSync(resolve(tmpdir(), "tieline-screens-outside-"));
+  try {
+    const catalogLink = workspace({ screens: ENABLED });
+    symlinkSync(outside, resolve(catalogLink.root, ".tieline/screens"));
+    assert.throws(
+      () => screenSettingsForRepository(catalogLink.root),
+      /Invalid 'screens\.catalog_directory' 'screens': it resolves to '.*' through a symbolic link, outside '\.tieline'/
+    );
+
+    const capturesLink = workspace({ screens: ENABLED });
+    symlinkSync(outside, resolve(capturesLink.root, ".tieline/captures"));
+    assert.throws(
+      () => screenSettingsForRepository(capturesLink.root),
+      /Invalid 'screens\.captures_directory' 'captures': it resolves to '.*' through a symbolic link, outside the repository/
+    );
+
+    const dangling = workspace({ screens: ENABLED });
+    symlinkSync(resolve(outside, "not-created-yet"), resolve(dangling.root, ".tieline/screens"));
+    assert.throws(() => screenSettingsForRepository(dangling.root), /cannot be resolved/);
+
+    // A link that stays inside the repository is fine.
+    const inside = workspace({ screens: ENABLED });
+    inside.write("artifacts/shots/.keep", "");
+    symlinkSync(resolve(inside.root, "artifacts/shots"), resolve(inside.root, ".tieline/captures"));
+    assert.equal(screenSettingsForRepository(inside.root)?.capturesPath, ".tieline/captures");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
 });
 
 console.log("screens: catalog schema");

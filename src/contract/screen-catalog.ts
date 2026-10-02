@@ -1,5 +1,12 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { z, type ZodIssue } from "zod";
 import { readScreensConfig } from "../config.js";
@@ -227,6 +234,38 @@ function portable(path: string): string {
 }
 
 /**
+ * Where `path` really lands on disk: the real path of its nearest existing
+ * ancestor plus the components not created yet. Symbolic links are followed,
+ * and one that points nowhere is refused, because writing through it would
+ * land wherever it is later made to point.
+ */
+function realDestination(path: string): string {
+  const pending: string[] = [];
+  let current = path;
+  for (;;) {
+    let exists = true;
+    try {
+      lstatSync(current);
+    } catch {
+      exists = false;
+    }
+    if (exists) {
+      try {
+        return resolve(realpathSync(current), ...pending);
+      } catch (error) {
+        throw new Error(
+          `'${current}' cannot be resolved: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+    const parent = dirname(current);
+    if (parent === current) return resolve(path);
+    pending.unshift(basename(current));
+    current = parent;
+  }
+}
+
+/**
  * The repository's screen settings, or null when the feature is off. Like
  * `selectorVocabularyForRepository`, a missing or unparseable config means the
  * feature is off, while a malformed `screens` block throws.
@@ -258,6 +297,22 @@ export function screenSettingsForRepository(
   if (!withinRepository(root, capturesDirectory)) {
     throw new Error(
       `Invalid 'screens.captures_directory' '${config.captures_directory}': the captures directory must stay inside the repository.`
+    );
+  }
+  // The lexical checks above are not enough: a symbolic link anywhere on
+  // either path could send catalog writes, or the captures .gitignore,
+  // outside the checkout. Judge both by where they really resolve.
+  const realWorkspace = realpathSync(workspace);
+  const realCatalog = realDestination(catalogDirectory);
+  if (realCatalog === realWorkspace || !withinRepository(realWorkspace, realCatalog)) {
+    throw new Error(
+      `Invalid 'screens.catalog_directory' '${config.catalog_directory}': it resolves to '${realCatalog}' through a symbolic link, outside '${portable(relative(root, workspace))}'.`
+    );
+  }
+  const realCaptures = realDestination(capturesDirectory);
+  if (!withinRepository(realpathSync(root), realCaptures)) {
+    throw new Error(
+      `Invalid 'screens.captures_directory' '${config.captures_directory}': it resolves to '${realCaptures}' through a symbolic link, outside the repository.`
     );
   }
   return {
