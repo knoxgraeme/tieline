@@ -181,7 +181,9 @@ function declaredShowsLinks(
     return [
       {
         ...owner,
-        screen_key: key,
+        // Trimmed as the schema trims it, so an authored " notes-list " is the
+        // same link the manifest records.
+        screen_key: key.trim(),
         provenance: typeof provenance === "string" ? provenance : "",
       },
     ];

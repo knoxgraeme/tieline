@@ -663,6 +663,21 @@ await test("fails check on working-tree shows links the catalog does not contain
   assert.deepEqual(valid.screens.broken_links, []);
 });
 
+await test("matches working-tree shows keys the way the schema normalizes them", async () => {
+  // The schema trims authored keys, so this is the manifest's 'notes-list' link.
+  const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ['" notes-list "'] }, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 0);
+  const result = JSON.parse(capture.output());
+  assert.equal(result.manifest_current, true);
+  assert.equal(result.exit_reason, "ok");
+  assert.equal(result.screens.shows_links, 1);
+  assert.deepEqual(result.screens.broken_links, []);
+});
+
 await test("fails check when the working-tree catalog does not validate", async () => {
   const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
   const capture = captureIO();
