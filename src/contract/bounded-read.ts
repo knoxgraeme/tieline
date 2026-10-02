@@ -1,0 +1,89 @@
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readSync,
+  realpathSync,
+  statSync,
+  type Stats,
+} from "node:fs";
+
+/**
+ * Opening a FIFO for reading blocks until something writes to it, before the
+ * descriptor can be checked. Opened non-blocking, it opens at once and is
+ * refused as not a file; a regular file reads the same either way.
+ */
+const READ_FLAGS =
+  process.platform === "win32"
+    ? constants.O_RDONLY
+    : constants.O_RDONLY | constants.O_NONBLOCK;
+
+const CHUNK_BYTES = 64 * 1024;
+
+export type BoundedRead =
+  | { status: "read"; bytes: Buffer }
+  /** `size`: the size reported, or the bytes read once they passed the bound. */
+  | { status: "too_large"; size: number }
+  | { status: "not_file" }
+  /** `verify` refused the file that was opened. */
+  | { status: "changed" };
+
+/**
+ * Reads a regular file of at most `maxBytes` bytes through one descriptor.
+ * The bound is checked against the size the descriptor reports and again
+ * against the bytes actually read, so a file that grows or is replaced after
+ * someone else measured it cannot be read past the bound. A failure to open
+ * the file is thrown, with its cause.
+ *
+ * `verify` sees the opened file's own metadata before anything is read, so a
+ * caller that validated a path can confirm it opened that file and not one
+ * swapped in since.
+ */
+export function readFileWithin(
+  path: string,
+  maxBytes: number,
+  verify?: (opened: Stats) => boolean
+): BoundedRead {
+  const descriptor = openSync(path, READ_FLAGS);
+  try {
+    const stat = fstatSync(descriptor);
+    if (!stat.isFile()) return { status: "not_file" };
+    if (verify && !verify(stat)) return { status: "changed" };
+    if (stat.size > maxBytes) return { status: "too_large", size: stat.size };
+    const chunks: Buffer[] = [];
+    const buffer = Buffer.allocUnsafe(Math.min(CHUNK_BYTES, maxBytes + 1));
+    let total = 0;
+    for (;;) {
+      const read = readSync(descriptor, buffer, 0, buffer.length, null);
+      if (read === 0) break;
+      total += read;
+      if (total > maxBytes) return { status: "too_large", size: total };
+      chunks.push(Buffer.from(buffer.subarray(0, read)));
+    }
+    return { status: "read", bytes: Buffer.concat(chunks) };
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+export function isSameFile(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+/**
+ * Whether the file opened as `real` is still the one at that real path: the
+ * path still resolves to itself (no link has been put anywhere along it) and
+ * names the same file as the open descriptor. Together these mean the opened
+ * file is the one that was found or validated there, whatever was swapped in
+ * between. Anything that stops the check counts as "no".
+ */
+export function isStillFile(real: string, opened: Stats): boolean {
+  try {
+    if (realpathSync(real) !== real) return false;
+    const current = statSync(real, { throwIfNoEntry: false });
+    return current !== undefined && isSameFile(current, opened);
+  } catch {
+    return false;
+  }
+}

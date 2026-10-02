@@ -129,7 +129,33 @@ tieline contract review .
 
 Writes `.tieline/review.html`, a self-contained page with capability navigation, Story and AC
 cards, scenario steps, evidence links, search, lifecycle filters, and a print layout. Open the
-file directly in a browser. Use `--output <path>` to write it elsewhere.
+file directly in a browser. Use `--output <path>` to write it elsewhere. When
+[screens](screens.md) are enabled, the page adds a Screens view and shows each Story's and AC's
+linked screens.
+
+```bash
+tieline contract review . --base origin/main
+```
+
+`--base <ref>` highlights the Stories, ACs, and screens the branch added, changed, or removed
+relative to the manifest committed where the branch left that ref (`git merge-base <ref> HEAD`).
+It reads only git, so it works offline. See [Changes on a branch](screens.md#changes-on-a-branch).
+
+## Screens
+
+Screens are an optional feature; see [Screens](screens.md) to opt in. Once enabled, import
+catalog entries from a JSON file:
+
+```bash
+tieline screens import screens.json --dry-run
+tieline screens import screens.json
+tieline contract compile .
+```
+
+Re-importing updates entries by key and never duplicates them. `--prune` removes entries the file
+omits, only within the capabilities it names. An entry for a capability the spec does not declare
+stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` for a
+machine-readable summary.
 
 ## CI check
 
@@ -140,6 +166,16 @@ tieline check --base <base-ref> .
 Use the comparison ref supplied by the caller when available. Otherwise, agents should determine
 it from repository metadata, preferring the remote-tracking default branch, and ask only when it
 cannot be determined; do not assume every repository uses `origin/main`.
+
+Every `--base` comparison — `check`, `contract reconcile`, `contract grade`, and
+`code blast-radius` — starts from where the current branch left the base, `git merge-base <base>
+HEAD`, not from the base's latest commit. Commits that reached the base after the branch point are
+therefore never reported as this branch's changes. In CI a pull request is normally checked out
+merged into the base's tip, whose merge-base is that tip, so CI results are unaffected. JSON
+output from `check` and `reconcile` records the commit used as `base_commit`. The comparison needs
+the branch point in local history, so shallow clones must fetch it (`fetch-depth: 0`). When a
+criss-cross merge history leaves more than one equally good branch point, the command refuses to
+guess; pass the commit to compare with as `--base`.
 
 The check compares changed, renamed, and deleted paths with manifest locators and reports each
 affected AC plus its freshness. It also sweeps every link for broken targets, whether or not the
@@ -158,6 +194,10 @@ review the semantic diff, and commit the result. Use `--no-fail-on-stale-manifes
 intentionally downgrading that integrity gate to a warning. Invalid YAML or an unreadable
 manifest fails because no trustworthy result can be computed.
 
+When [screens](screens.md) are enabled, the check also fails when the screen catalog does not
+validate, and treats a `shows` link in the working-tree spec to a screen the catalog does not
+contain as a broken link. Repositories without screens see no difference.
+
 See [the GitHub Actions example](examples/tieline-check.yml).
 
 ## Post-merge sync
@@ -169,6 +209,9 @@ tieline contract sync . --expected-previous-commit <previous-main-sha>
 Sync is idempotent and checkpointed. A delayed job cannot overwrite a newer projection. If
 planning changed while a materializing pull request was open, the merged repository version wins
 and the later planning revision is preserved as a handoff conflict for reconciliation.
+
+Screens are not synced yet: sync removes screen catalogs and `shows` links before writing and
+reports what it skipped. See [Screens](screens.md#database-sync).
 
 ## Derived code topology and blast radius
 

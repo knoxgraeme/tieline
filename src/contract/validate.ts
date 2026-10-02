@@ -6,7 +6,13 @@ import {
   acceptedContractDocumentSchema,
   type AcceptedContractDocument,
   type ContractLink,
+  type ScreenLink,
 } from "./schema.js";
+import {
+  validateScreenCatalogDocuments,
+  type ScreenCatalogDocumentInput,
+  type ValidatedScreenCatalog,
+} from "./screen-catalog.js";
 import {
   CORE_SELECTOR_VOCABULARY,
   createSelectorVocabulary,
@@ -34,6 +40,13 @@ export interface ValidateAcceptedContractOptions {
    * legitimately go and look at the repository.
    */
   repositoryRoot?: string;
+  /**
+   * The repository's screen catalog files, supplied only when the repository
+   * enabled the Screens feature. Absent means the feature is off: the catalog
+   * is not consulted, and a `shows` link is an error, exactly as it was before
+   * screens existed. `load.ts` reads the configuration and supplies this.
+   */
+  screenCatalog?: ScreenCatalogDocumentInput[];
 }
 
 /**
@@ -65,6 +78,8 @@ export function selectorVocabularyForRepository(
 export interface ValidatedContract {
   documents: AcceptedContractDocument[];
   warnings: string[];
+  /** Present only when the repository enabled screens. */
+  screens?: ValidatedScreenCatalog;
 }
 
 interface StableRecord {
@@ -161,6 +176,52 @@ function validateLinks(
   }
 }
 
+const SCREENS_NOT_ENABLED =
+  'screens are not enabled for this repository; add "screens": { "enabled": true } to .tieline/config.json';
+
+/**
+ * `shows` links name screens, not files, so they are resolved against the
+ * catalog rather than the checkout. An unknown key fails validation the same
+ * way an unknown `supersedes` target does.
+ */
+function validateScreenLinks(
+  path: string,
+  owner: string,
+  shows: ScreenLink[],
+  catalog: ValidatedScreenCatalog | undefined,
+  issues: string[]
+): void {
+  const seen = new Map<string, ScreenLink>();
+  for (const link of shows) {
+    const key = link.target.key;
+    if (!catalog) {
+      issues.push(`${path}: '${owner}' shows screen '${key}', but ${SCREENS_NOT_ENABLED}`);
+    } else if (!catalog.screens.has(key) && !catalog.unvalidatedKeys.has(key)) {
+      issues.push(`${path}: '${owner}' shows unknown screen '${key}'`);
+    }
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, link);
+      continue;
+    }
+    issues.push(duplicateShowsLinkIssue(path, owner, existing.provenance, link.provenance));
+  }
+}
+
+/** The issue for one owner declaring the same `shows` target twice. */
+export function duplicateShowsLinkIssue(
+  path: string,
+  owner: string,
+  firstProvenance: string,
+  provenance: string
+): string {
+  const detail =
+    firstProvenance === provenance
+      ? `with provenance '${provenance}' more than once`
+      : `with conflicting provenance '${firstProvenance}' and '${provenance}'`;
+  return `${path}: '${owner}' declares the same 'shows' link target ${detail}`;
+}
+
 function findSupersessionCycle(
   start: string,
   records: Map<string, StableRecord>
@@ -200,6 +261,17 @@ export function validateAcceptedContractDocuments(
   }
 
   const documents = parsedInputs.map(({ document }) => document);
+  // A capability check against a partially parsed contract would report
+  // catalogs of the unparsed files as unknown, on top of the real issue.
+  const screens = options.screenCatalog
+    ? validateScreenCatalogDocuments(
+        options.screenCatalog,
+        parsedInputs.length === inputs.length
+          ? new Set(documents.map((document) => document.capability.key))
+          : undefined,
+        issues
+      )
+    : undefined;
   const records = new Map<string, StableRecord>();
   const criteriaByText = new Map<string, { key: string; path: string }>();
   const warnings: string[] = [];
@@ -229,6 +301,9 @@ export function validateAcceptedContractDocuments(
         supersedes: story.supersedes,
       });
       validateLinks(sourcePath, story.key, story.links, vocabulary, issues);
+      if (story.shows) {
+        validateScreenLinks(sourcePath, story.key, story.shows, screens, issues);
+      }
       for (const criterion of story.acceptance_criteria) {
         addRecord(criterion.key, {
           kind: "criterion",
@@ -243,6 +318,15 @@ export function validateAcceptedContractDocuments(
           vocabulary,
           issues
         );
+        if (criterion.shows) {
+          validateScreenLinks(
+            sourcePath,
+            criterion.key,
+            criterion.shows,
+            screens,
+            issues
+          );
+        }
         const normalized = normalizeSemanticText(criterion.criterion);
         const existing = criteriaByText.get(normalized);
         if (existing && existing.key !== criterion.key) {
@@ -283,5 +367,5 @@ export function validateAcceptedContractDocuments(
   }
 
   if (issues.length > 0) throw new ContractValidationError(issues);
-  return { documents, warnings };
+  return screens ? { documents, warnings, screens } : { documents, warnings };
 }

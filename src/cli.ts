@@ -200,6 +200,9 @@ export function workspaceStartForCommand(
   if (command === "status") {
     return firstPositional(args, new Set()) ?? process.cwd();
   }
+  if (command === "screens") {
+    return optionValue(args, "repository") ?? process.cwd();
+  }
   return process.cwd();
 }
 
@@ -377,7 +380,10 @@ function buildProgram(
     return sub;
   };
   contractAction("validate", "Validate accepted contract YAML");
-  contractAction("review", "Render a browser review page");
+  contractAction("review", "Render a browser review page").option(
+    "--base <ref>",
+    "highlight Stories, acceptance criteria, and screens changed since this git ref"
+  );
   contractAction("compile", "Compile the contract manifest");
   contractAction(
     "coverage",
@@ -486,6 +492,41 @@ function buildProgram(
             kind: opts.kind,
             selector: opts.selector,
             ac: opts.ac,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+
+  const screens = program
+    .command("screens")
+    .description("Manage the optional screen catalog (requires screens.enabled)");
+  screens
+    .command("import")
+    .description("Create or update screen catalog entries from a JSON file")
+    .argument("<file>", "screen import JSON: an array of screen entries")
+    .option("--repository <path>", "repository path")
+    .option(
+      "--prune",
+      "remove catalog entries the file omits, within the capabilities it names"
+    )
+    .option(
+      "--skip-unknown-capabilities",
+      "skip entries for capabilities the contract does not declare instead of failing"
+    )
+    .option("--dry-run", "report the changes without writing")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (file: string, opts) => {
+      const { runScreensImportCommand } = await import("./commands/screens.js");
+      setExit(
+        await runScreensImportCommand(
+          file,
+          {
+            repository: opts.repository,
+            prune: Boolean(opts.prune),
+            skipUnknownCapabilities: Boolean(opts.skipUnknownCapabilities),
+            dryRun: Boolean(opts.dryRun),
             json: Boolean(opts.json),
           },
           io

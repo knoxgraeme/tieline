@@ -101,6 +101,9 @@ capability:
             - given: a linked implementation path changes without a refreshed manifest
               when: the branch is checked against its base
               then: Tieline must report the linked criterion as impacted and stale
+            - given: the base branch gained commits after the branch was created
+              when: the branch is checked against that base
+              then: Tieline must compare from the branch point and report only the branch's own changes
           links:
             - relation: implements
               provenance: authored
@@ -114,12 +117,26 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/commands/check.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/comparison-base.ts
+                selector: function:resolveComparisonBase
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-impact.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-comparison-base.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC4
           criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.
@@ -131,6 +148,13 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/contract/review-page.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/html.ts
+                selector: function:escapeHtml
             - relation: implements
               provenance: authored
               target:
@@ -979,4 +1003,231 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/topology/test-code-topology-command.ts
+                framework_hint: custom-script
+    - key: CONTRACT-005
+      title: Review the screens that show accepted behavior
+      actor: maintainer
+      goal: catalog an application's user-visible screens beside the Stories and Acceptance Criteria they show
+      benefit: UI states and copy are reviewed with the behavior and code they belong to
+      lifecycle: in_progress
+      aliases:
+        - screen catalog
+        - shows links
+      acceptance_criteria:
+        - key: CONTRACT-005-AC1
+          criterion: Tieline must leave compile, check, review, sync, and exact context reads unchanged and must never read a screen catalog unless the repository enables screens in its configuration.
+          rationale: Screens are optional; a repository that does not opt in must not pay for or be broken by the feature.
+          scenarios:
+            - given: a repository without an enabled screens block contains a screen catalog directory
+              when: the contract is validated, compiled, reviewed, and checked
+              then: every output must be byte-identical to the same repository without the directory
+            - given: a repository that has not enabled screens authors a shows link
+              when: the contract is validated
+              then: Tieline must reject the link and say how to opt in
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/config.ts
+                selector: function:readScreensConfig
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-catalog.ts
+                selector: function:screenSettingsForRepository
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/load.ts
+                selector: function:loadAcceptedContractWithSources
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC2
+          criterion: Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.
+          rationale: The catalog is the reference a shows link resolves against, so an invalid entry or an unresolvable key would make screen review untrustworthy.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-catalog.ts
+                selector: function:validateScreenCatalogDocuments
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/bounded-read.ts
+                selector: function:readFileWithin
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/validate.ts
+                selector: function:validateScreenLinks
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC3
+          criterion: Tieline must compile the screen catalog and shows links into the manifest deterministically without changing any contract hash, must fail check on an invalid catalog or a committed shows link to a removed screen, and must remove screens before database sync.
+          rationale: The manifest is the reviewed read model, so screens must appear in it reproducibly, while the database and evidence consumers keep seeing exactly the contract they saw before screens existed.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+                selector: function:compileScreenCatalogs
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+                selector: function:manifestWithoutScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:checkScreens
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC4
+          criterion: The screen importer must bound and validate untrusted JSON before writing, must update catalog entries by key so a repeated import changes nothing, must delete entries only when pruning is requested, and must refuse or explicitly skip entries for undeclared capabilities.
+          rationale: Most catalog entries arrive from external capture tools, so the importer is a trust boundary and must be safe to run repeatedly.
+          scenarios:
+            - given: an import names a capability the contract does not declare
+              when: the import runs without the skip option
+              then: Tieline must name the unknown capability and write nothing
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-import.ts
+                selector: function:planScreenImport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-import.ts
+                selector: function:parseScreenImport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens.ts
+                selector: function:runScreensImportCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-import.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC5
+          criterion: The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.
+          rationale: Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-review-page.ts
+                selector: function:buildScreenReviewModel
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-page.ts
+                selector: function:renderContractReviewPage
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-review.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC6
+          criterion: The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.
+          rationale: Reviewers of a pull request need to see which behavior and which screens moved without a database, a hosted service, or committed screenshots.
+          scenarios:
+            - given: a branch re-captures a screenshot without changing the screen's catalog fields
+              when: the screens are imported and the review page is rendered against the base ref
+              then: the screen must be reported as changed because its recorded image digest differs
+            - given: the base ref has no compiled manifest
+              when: the review page is rendered against it
+              then: every record must be reported as new and the page must say why
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-changes.ts
+                selector: function:diffReviewManifests
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/review-changes-page.ts
+                selector: function:renderChangesPanel
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:reviewChangesAgainstBase
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/comparison-base.ts
+                selector: function:resolveComparisonBase
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-import.ts
+                selector: function:attachCaptureDigests
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-review-changes.ts
                 framework_hint: custom-script

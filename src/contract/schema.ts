@@ -106,6 +106,57 @@ export const contractLinkSchema = z.union([
     .strict(),
 ]);
 
+/**
+ * A `shows` link from a Story or AC to a screen in the repository's screen
+ * catalog. Screens are an opt-in feature, so this is deliberately not a member
+ * of `contractLinkSchema`: every consumer of evidence links (sync, impact,
+ * coverage, grading, assurance) keeps seeing exactly the code, test, and help
+ * links it always has. Whether the repository enabled screens, and whether the
+ * key names a catalogued screen, is checked in `validate.ts`, which has the
+ * repository's configuration and catalog in hand.
+ */
+export const screenTargetSchema = z
+  .object({
+    kind: z.literal("screen"),
+    key: stableKeySchema,
+  })
+  .strict();
+
+export const screenLinkSchema = z
+  .object({
+    relation: z.literal("shows"),
+    provenance: linkProvenanceSchema,
+    target: screenTargetSchema,
+  })
+  .strict();
+
+/**
+ * What a Story or AC may author under `links`. The screen member is last, so a
+ * malformed evidence link reports exactly the issues it did before screens
+ * existed: the screen branch fails on its `relation` literal and never wins.
+ */
+const authoredLinksSchema = z
+  .array(z.union([...contractLinkSchema.options, screenLinkSchema]))
+  .default([]);
+
+/**
+ * Moves authored `shows` links out of `links` into their own `shows` list.
+ * `shows` is present only when something was moved, so a Story or AC without
+ * screen links parses to exactly the object it did before the feature existed —
+ * including every hash computed from its `links`.
+ */
+function splitScreenLinks<T extends { links: Array<ContractLink | ScreenLink> }>(
+  value: T
+): Omit<T, "links"> & { links: ContractLink[]; shows?: ScreenLink[] } {
+  const links: ContractLink[] = [];
+  const shows: ScreenLink[] = [];
+  for (const link of value.links) {
+    if (link.relation === "shows") shows.push(link);
+    else links.push(link);
+  }
+  return shows.length > 0 ? { ...value, links, shows } : { ...value, links };
+}
+
 const aliasesSchema = z.array(nonEmptyText).default([]);
 const applicabilityOptionalSchema = applicabilitySchema.optional();
 
@@ -120,10 +171,11 @@ export const acceptanceCriterionSchema = z
     aliases: aliasesSchema,
     applies_to: applicabilityOptionalSchema,
     scenarios: z.array(scenarioSchema).default([]),
-    links: z.array(contractLinkSchema).default([]),
+    links: authoredLinksSchema,
     supersedes: stableKeySchema.optional(),
   })
-  .strict();
+  .strict()
+  .transform(splitScreenLinks);
 
 export const planningAcceptanceCriterionSchema = z
   .object({
@@ -156,12 +208,13 @@ export const acceptedStorySchema = z
     aliases: aliasesSchema,
     applies_to: applicabilityOptionalSchema,
     motivated_by: z.array(stableKeySchema).default([]),
-    links: z.array(contractLinkSchema).default([]),
+    links: authoredLinksSchema,
     supersedes: stableKeySchema.optional(),
     planning_origin: planningOriginSchema.optional(),
     acceptance_criteria: z.array(acceptanceCriterionSchema).min(1),
   })
-  .strict();
+  .strict()
+  .transform(splitScreenLinks);
 
 export const planningStorySchema = z
   .object({
@@ -204,6 +257,7 @@ export type ContractScenario = z.infer<typeof scenarioSchema>;
 export type LinkProvenance = z.infer<typeof linkProvenanceSchema>;
 export type ContractLink = z.infer<typeof contractLinkSchema>;
 export type ContractTarget = ContractLink["target"];
+export type ScreenLink = z.infer<typeof screenLinkSchema>;
 export type AcceptanceCriterion = z.infer<typeof acceptanceCriterionSchema>;
 export type AcceptedStory = z.infer<typeof acceptedStorySchema>;
 export type Capability = z.infer<typeof capabilitySchema>;

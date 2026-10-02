@@ -15,6 +15,7 @@ import {
   linkProvenanceSchema,
   planningOriginSchema,
   scenarioSchema,
+  screenLinkSchema,
   testTargetSchema,
 } from "./schema.js";
 import type {
@@ -24,8 +25,20 @@ import type {
   Capability,
   ContractLink,
   ContractScenario,
+  ScreenLink,
 } from "./schema.js";
-import { loadAcceptedContractWithSources } from "./load.js";
+import {
+  loadAcceptedContractWithSources,
+  type LoadedAcceptedContract,
+} from "./load.js";
+import {
+  SCREEN_KINDS,
+  screenEntrySchema,
+  screenImageSchema,
+  type ScreenEntry,
+  type ScreenImage,
+  type ScreenKind,
+} from "./screen-catalog.js";
 import {
   type RepositoryEntryInspection,
 } from "./paths.js";
@@ -35,6 +48,17 @@ import {
 } from "./source-snapshot.js";
 
 export const CONTRACT_MANIFEST_VERSION = 2 as const;
+/**
+ * The manifest format that also holds screen catalogs and `shows` links. A
+ * manifest is written in it only when it holds them, so a repository that
+ * never enabled screens keeps writing version 2 byte for byte, while a reader
+ * that predates screens refuses this format by its version instead of
+ * mistaking the new fields for damage.
+ */
+export const CONTRACT_MANIFEST_SCREENS_VERSION = 3 as const;
+export type ContractManifestVersion =
+  | typeof CONTRACT_MANIFEST_VERSION
+  | typeof CONTRACT_MANIFEST_SCREENS_VERSION;
 
 export interface ManifestInput {
   path: string;
@@ -53,6 +77,43 @@ export interface ManifestLink {
   current_content_hash?: string | null;
 }
 
+/**
+ * A `shows` link from a Story or AC to a catalogued screen. Kept apart from
+ * `links` so evidence consumers never see it, and present on a Story or AC only
+ * when it has at least one, so a contract without screen links compiles to the
+ * same bytes it always did.
+ */
+export interface ManifestScreenLink {
+  relation: ScreenLink["relation"];
+  provenance: ScreenLink["provenance"];
+  target: ScreenLink["target"];
+}
+
+/** One catalogued screen, compiled from the capability's screen catalog. */
+export interface ManifestScreen {
+  stable_id: string;
+  title: string;
+  group: string | null;
+  route: string;
+  kind: ScreenKind;
+  when: string;
+  applies_to: Applicability | null;
+  copy: string[];
+  image: ScreenImage | null;
+  contract_hash: string;
+}
+
+/**
+ * The screens of one capability and the catalog file they came from. On disk a
+ * catalog lives in its capability's manifest file, so branches that touch
+ * unrelated capabilities still never conflict.
+ */
+export interface ManifestScreenCatalog {
+  capability: string;
+  input: ManifestInput;
+  screens: ManifestScreen[];
+}
+
 export interface ManifestScenario extends ContractScenario {
   stable_id: string;
   position: number;
@@ -68,6 +129,7 @@ export interface ManifestAcceptanceCriterion {
   supersedes: string | null;
   scenarios: ManifestScenario[];
   links: ManifestLink[];
+  shows?: ManifestScreenLink[];
   contract_hash: string;
 }
 
@@ -84,6 +146,7 @@ export interface ManifestStory {
   supersedes: string | null;
   planning_origin: AcceptedStory["planning_origin"] | null;
   links: ManifestLink[];
+  shows?: ManifestScreenLink[];
   acceptance_criteria: ManifestAcceptanceCriterion[];
   contract_hash: string;
 }
@@ -100,12 +163,18 @@ export interface ManifestCapability {
 }
 
 export interface ContractManifest {
-  schema_version: typeof CONTRACT_MANIFEST_VERSION;
+  /** 3 exactly when the manifest holds screen catalogs or `shows` links. */
+  schema_version: ContractManifestVersion;
   repository: {
     key: string;
   };
   inputs: ManifestInput[];
   capabilities: ManifestCapability[];
+  /**
+   * Present only when at least one capability has a screen catalog, which
+   * requires the repository to have enabled screens. Sorted by capability.
+   */
+  screen_catalogs?: ManifestScreenCatalog[];
 }
 
 /**
@@ -141,6 +210,10 @@ const SHARD_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export interface ContractManifestShard {
   input: ManifestInput;
   capability: ManifestCapability;
+  screen_catalog?: {
+    input: ManifestInput;
+    screens: ManifestScreen[];
+  };
 }
 
 /**
@@ -371,6 +444,21 @@ const manifestLinkSchema = z.union([
     })
     .strict(),
 ]);
+const manifestScreenLinksSchema = z.array(screenLinkSchema).min(1).optional();
+const manifestScreenSchema = z
+  .object({
+    stable_id: stableIdSchema,
+    title: screenEntrySchema.shape.title,
+    group: screenEntrySchema.shape.group.unwrap().nullable(),
+    route: screenEntrySchema.shape.route,
+    kind: z.enum(SCREEN_KINDS),
+    when: screenEntrySchema.shape.when,
+    applies_to: screenEntrySchema.shape.applies_to.unwrap().nullable(),
+    copy: screenEntrySchema.shape.copy.unwrap(),
+    image: screenImageSchema.nullable(),
+    contract_hash: hashSchema,
+  })
+  .strict();
 const manifestScenarioSchema = scenarioSchema
   .extend({
     stable_id: stableIdSchema,
@@ -388,6 +476,7 @@ const manifestCriterionSchema = z
     supersedes: stableIdSchema.nullable(),
     scenarios: z.array(manifestScenarioSchema),
     links: z.array(manifestLinkSchema),
+    shows: manifestScreenLinksSchema,
     contract_hash: hashSchema,
   })
   .strict();
@@ -405,6 +494,7 @@ const manifestStorySchema = z
     supersedes: stableIdSchema.nullable(),
     planning_origin: planningOriginSchema.nullable(),
     links: z.array(manifestLinkSchema),
+    shows: manifestScreenLinksSchema,
     acceptance_criteria: z.array(manifestCriterionSchema).min(1),
     contract_hash: hashSchema,
   })
@@ -429,7 +519,10 @@ const manifestInputSchema = z
   .strict();
 const contractManifestIndexSchema = z
   .object({
-    schema_version: z.literal(CONTRACT_MANIFEST_VERSION),
+    schema_version: z.union([
+      z.literal(CONTRACT_MANIFEST_VERSION),
+      z.literal(CONTRACT_MANIFEST_SCREENS_VERSION),
+    ]),
     repository: z
       .object({
         key: stableIdSchema,
@@ -441,6 +534,13 @@ const contractManifestShardSchema = z
   .object({
     input: manifestInputSchema,
     capability: manifestCapabilitySchema,
+    screen_catalog: z
+      .object({
+        input: manifestInputSchema,
+        screens: z.array(manifestScreenSchema),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -572,6 +672,25 @@ interface ManifestAssemblyErrors {
     duplicate: ManifestStableIdLocation
   ): string;
   noCapabilities(): string;
+  duplicateScreen(key: string, firstShard: string, duplicateShard: string): string;
+  newerVersion(version: number): string;
+  screensInVersion2(): string;
+}
+
+/** Whether a manifest holds anything only the screens format can hold. */
+function holdsScreenFields(
+  manifest: Pick<ContractManifest, "capabilities" | "screen_catalogs">
+): boolean {
+  return (
+    manifest.screen_catalogs !== undefined ||
+    manifest.capabilities.some((capability) =>
+      capability.stories.some(
+        (story) =>
+          story.shows !== undefined ||
+          story.acceptance_criteria.some((criterion) => criterion.shows !== undefined)
+      )
+    )
+  );
 }
 
 type ManifestStableIdKind =
@@ -651,15 +770,30 @@ function assembleContractManifest(
   if (!index) {
     throw new ContractManifestError(errors.missingIndex());
   }
+  const rawIndex = parseJson(index);
+  const declaredVersion =
+    rawIndex !== null && typeof rawIndex === "object"
+      ? (rawIndex as { schema_version?: unknown }).schema_version
+      : undefined;
+  // A version past the newest this reader knows is a newer format, not a
+  // damaged one, and is reported as such.
+  if (
+    typeof declaredVersion === "number" &&
+    declaredVersion > CONTRACT_MANIFEST_SCREENS_VERSION
+  ) {
+    throw new ContractManifestError(errors.newerVersion(declaredVersion));
+  }
   const parsedIndex = parseManifestPart(
     contractManifestIndexSchema,
-    parseJson(index),
+    rawIndex,
     "The contract manifest index",
     errors.fileLabel(index.name)
   );
 
   const inputs: ManifestInput[] = [];
   const capabilities: ManifestCapability[] = [];
+  const screenCatalogs: ManifestScreenCatalog[] = [];
+  const claimedScreens = new Map<string, string>();
   const claimedInputs = new Map<string, string>();
   const claimedStableIds = new Map<
     string,
@@ -708,6 +842,22 @@ function assembleContractManifest(
     claimedInputs.set(shard.input.path, shard.capability.stable_id);
     inputs.push(shard.input);
     capabilities.push(shard.capability);
+    if (shard.screen_catalog) {
+      for (const screen of shard.screen_catalog.screens) {
+        const claimedBy = claimedScreens.get(screen.stable_id);
+        if (claimedBy !== undefined) {
+          throw new ContractManifestError(
+            errors.duplicateScreen(screen.stable_id, claimedBy, file.name)
+          );
+        }
+        claimedScreens.set(screen.stable_id, file.name);
+      }
+      screenCatalogs.push({
+        capability: shard.capability.stable_id,
+        input: shard.screen_catalog.input,
+        screens: shard.screen_catalog.screens,
+      });
+    }
   }
   // A compilation always writes at least one capability, because a spec
   // directory with no YAML files fails to load. An index with no capabilities
@@ -716,6 +866,15 @@ function assembleContractManifest(
   if (capabilities.length === 0) {
     throw new ContractManifestError(errors.noCapabilities());
   }
+  if (
+    parsedIndex.schema_version === CONTRACT_MANIFEST_VERSION &&
+    holdsScreenFields({
+      capabilities,
+      ...(screenCatalogs.length > 0 ? { screen_catalogs: screenCatalogs } : {}),
+    })
+  ) {
+    throw new ContractManifestError(errors.screensInVersion2());
+  }
   return {
     schema_version: parsedIndex.schema_version,
     repository: parsedIndex.repository,
@@ -723,6 +882,13 @@ function assembleContractManifest(
     capabilities: capabilities.sort((left, right) =>
       left.stable_id.localeCompare(right.stable_id)
     ),
+    ...(screenCatalogs.length > 0
+      ? {
+          screen_catalogs: screenCatalogs.sort((left, right) =>
+            left.capability.localeCompare(right.capability)
+          ),
+        }
+      : {}),
   };
 }
 
@@ -754,6 +920,12 @@ export function readContractManifest(directory: string): ContractManifest {
       `Contract manifest duplicate stable ID '${stableId}' is used by ${first.kind} in '${resolve(root, first.shard)}' and ${duplicate.kind} in '${resolve(root, duplicate.shard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
     noCapabilities: () =>
       `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`,
+    duplicateScreen: (key, firstShard, duplicateShard) =>
+      `Contract manifest duplicate screen key '${key}' is used in '${resolve(root, firstShard)}' and '${resolve(root, duplicateShard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
+    newerVersion: (version) =>
+      `The contract manifest index '${resolve(root, CONTRACT_MANIFEST_INDEX_FILE)}' declares schema version ${version}, newer than this version of Tieline reads (up to ${CONTRACT_MANIFEST_SCREENS_VERSION}). Upgrade Tieline to read it.`,
+    screensInVersion2: () =>
+      `The contract manifest at '${root}' records screens or shows links under schema version ${CONTRACT_MANIFEST_VERSION}, which cannot hold them. Run 'tieline contract compile .' to regenerate it.`,
   });
 }
 
@@ -795,6 +967,12 @@ export function parseContractManifestSnapshot(
       `The contract manifest at ${origin} has duplicate stable ID '${stableId}', used by ${first.kind} in '${first.shard}' and ${duplicate.kind} in '${duplicate.shard}'.`,
     noCapabilities: () =>
       `The contract manifest at ${origin} has an index but no capabilities.`,
+    duplicateScreen: (key, firstShard, duplicateShard) =>
+      `The contract manifest at ${origin} has duplicate screen key '${key}' in '${firstShard}' and '${duplicateShard}'.`,
+    newerVersion: (version) =>
+      `The contract manifest at ${origin} declares schema version ${version}, newer than this version of Tieline reads (up to ${CONTRACT_MANIFEST_SCREENS_VERSION}). Upgrade Tieline to read it.`,
+    screensInVersion2: () =>
+      `The contract manifest at ${origin} records screens or shows links under schema version ${CONTRACT_MANIFEST_VERSION}, which cannot hold them.`,
   });
 }
 
@@ -814,6 +992,12 @@ export function writeContractManifest(
   const contents = new Map<string, string>([
     [CONTRACT_MANIFEST_INDEX_FILE, serializeManifestIndex(manifest)],
   ]);
+  const screenCatalogs = new Map(
+    (manifest.screen_catalogs ?? []).map((catalog) => [
+      catalog.capability,
+      catalog,
+    ])
+  );
   for (const capability of manifest.capabilities) {
     const input = sources.get(capability.stable_id);
     if (!input) {
@@ -821,9 +1005,30 @@ export function writeContractManifest(
         `Capability '${capability.stable_id}' has no source spec file, so its manifest file cannot record where it came from.`
       );
     }
+    const screenCatalog = screenCatalogs.get(capability.stable_id);
+    screenCatalogs.delete(capability.stable_id);
     contents.set(
       shardFileName(capability.stable_id),
-      serializeManifestShard({ input, capability })
+      serializeManifestShard({
+        input,
+        capability,
+        ...(screenCatalog
+          ? {
+              screen_catalog: {
+                input: screenCatalog.input,
+                screens: screenCatalog.screens,
+              },
+            }
+          : {}),
+      })
+    );
+  }
+  // Validation rejects a catalog for an undeclared capability, so this only
+  // guards against a caller-built manifest that would silently drop screens.
+  const [orphanedCatalog] = screenCatalogs.keys();
+  if (orphanedCatalog !== undefined) {
+    throw new ContractManifestError(
+      `Screen catalog for capability '${orphanedCatalog}' has no capability to be written beside.`
     );
   }
 
@@ -923,6 +1128,29 @@ function compileLinks(
     );
 }
 
+/**
+ * `shows` links sorted the way evidence links are, or nothing at all when there
+ * are none — absence keeps a screen-free contract byte-identical.
+ */
+function compileScreenLinks(
+  shows: ScreenLink[] | undefined
+): { shows: ManifestScreenLink[] } | Record<string, never> {
+  if (!shows || shows.length === 0) return {};
+  return {
+    shows: shows
+      .map((link) => ({
+        relation: link.relation,
+        provenance: link.provenance,
+        target: link.target,
+      }))
+      .sort((left, right) =>
+        stableJson([left.relation, left.target]).localeCompare(
+          stableJson([right.relation, right.target])
+        )
+      ),
+  };
+}
+
 function criterionSemantics(criterion: AcceptanceCriterion): unknown {
   return {
     stable_id: criterion.key,
@@ -955,6 +1183,7 @@ function compileCriterion(
       ...scenario,
     })),
     links: compileLinks(context, criterion.links),
+    ...compileScreenLinks(criterion.shows),
     contract_hash: contractHash(criterionSemantics(criterion)),
   };
 }
@@ -993,6 +1222,7 @@ function compileStory(
     supersedes: story.supersedes ?? null,
     planning_origin: story.planning_origin ?? null,
     links: compileLinks(context, story.links),
+    ...compileScreenLinks(story.shows),
     acceptance_criteria: story.acceptance_criteria
       .map((criterion, position) =>
         compileCriterion(context, criterion, position)
@@ -1028,6 +1258,40 @@ function compileCapability(
       .map((story) => compileStory(context, story))
       .sort((left, right) => left.stable_id.localeCompare(right.stable_id)),
     contract_hash: contractHash(capabilitySemantics(capability)),
+  };
+}
+
+/**
+ * What a screen is, for its `contract_hash`. The image locator is left out: it
+ * says where a screenshot happens to be stored, not what the screen shows, and
+ * capture fingerprints (a later phase) are the signal for visual change.
+ */
+function screenSemantics(capability: string, entry: ScreenEntry): unknown {
+  return {
+    stable_id: entry.key,
+    capability,
+    title: entry.title,
+    group: entry.group ?? null,
+    route: entry.route,
+    kind: entry.kind,
+    when: entry.when,
+    applies_to: entry.applies_to ?? null,
+    copy: entry.copy ?? [],
+  };
+}
+
+function compileScreen(capability: string, entry: ScreenEntry): ManifestScreen {
+  return {
+    stable_id: entry.key,
+    title: entry.title,
+    group: entry.group ?? null,
+    route: entry.route,
+    kind: entry.kind,
+    when: entry.when,
+    applies_to: entry.applies_to ?? null,
+    copy: entry.copy ?? [],
+    image: entry.image ?? null,
+    contract_hash: contractHash(screenSemantics(capability, entry)),
   };
 }
 
@@ -1083,19 +1347,56 @@ export function compileContractManifestWithSources(
     });
     return capability;
   });
+  const screenCatalogs = compileScreenCatalogs(loaded, sources);
+  const sortedCapabilities = capabilities.sort((left, right) =>
+    left.stable_id.localeCompare(right.stable_id)
+  );
+  const screenFields =
+    screenCatalogs.length > 0 ? { screen_catalogs: screenCatalogs } : {};
   return {
     manifest: {
-      schema_version: CONTRACT_MANIFEST_VERSION,
+      schema_version: holdsScreenFields({
+        capabilities: sortedCapabilities,
+        ...screenFields,
+      })
+        ? CONTRACT_MANIFEST_SCREENS_VERSION
+        : CONTRACT_MANIFEST_VERSION,
       repository: { key: repositoryKey },
       inputs: [...sources.values()].sort((left, right) =>
         left.path.localeCompare(right.path)
       ),
-      capabilities: capabilities.sort((left, right) =>
-        left.stable_id.localeCompare(right.stable_id)
-      ),
+      capabilities: sortedCapabilities,
+      ...screenFields,
     },
     sources,
   };
+}
+
+function compileScreenCatalogs(
+  loaded: LoadedAcceptedContract,
+  capabilitySources: ReadonlyMap<string, ManifestInput>
+): ManifestScreenCatalog[] {
+  if (!loaded.screens || !loaded.screenCatalog) return [];
+  const contents = new Map(
+    loaded.screenCatalog.sources.map((source) => [source.path, source.content])
+  );
+  return loaded.screens.files
+    .map(({ path, document }) => {
+      const content = contents.get(path);
+      if (content === undefined || !capabilitySources.has(document.capability)) {
+        throw new ContractManifestError(
+          `Screen catalog '${path}' for capability '${document.capability}' cannot be compiled: its source or its capability is missing.`
+        );
+      }
+      return {
+        capability: document.capability,
+        input: { path, sha256: sha256(content) },
+        screens: document.screens
+          .map((entry) => compileScreen(document.capability, entry))
+          .sort((left, right) => left.stable_id.localeCompare(right.stable_id)),
+      };
+    })
+    .sort((left, right) => left.capability.localeCompare(right.capability));
 }
 
 export function compileContractManifest(
@@ -1139,6 +1440,7 @@ function serializeManifestShard(shard: ContractManifestShard): string {
   return serializeManifestJson({
     input: shard.input,
     capability: reviewedCapability(shard.capability),
+    ...(shard.screen_catalog ? { screen_catalog: shard.screen_catalog } : {}),
   });
 }
 
@@ -1168,4 +1470,52 @@ function withoutCurrentContentHash(link: ManifestLink): ManifestLink {
   const reviewed = { ...link };
   delete reviewed.current_content_hash;
   return reviewed;
+}
+
+/** What `manifestWithoutScreens` removed. */
+export interface SkippedScreens {
+  screens: number;
+  shows_links: number;
+}
+
+/**
+ * The manifest minus everything the Screens feature added: the catalogs and
+ * every `shows` link. Database sync does not store screens yet, so it syncs this
+ * instead — which is exactly the manifest the same contract compiled to before
+ * screens existed, schema version 2 included, because `shows` links never
+ * contribute to a contract hash.
+ */
+export function manifestWithoutScreens(manifest: ContractManifest): {
+  manifest: ContractManifest;
+  skipped: SkippedScreens;
+} {
+  let showsLinks = 0;
+  const strip = <T extends { shows?: ManifestScreenLink[] }>(owner: T): T => {
+    if (owner.shows === undefined) return owner;
+    showsLinks += owner.shows.length;
+    const stripped = { ...owner };
+    delete stripped.shows;
+    return stripped;
+  };
+  const { screen_catalogs: catalogs, ...rest } = manifest;
+  return {
+    manifest: {
+      ...rest,
+      schema_version: CONTRACT_MANIFEST_VERSION,
+      capabilities: manifest.capabilities.map((capability) => ({
+        ...capability,
+        stories: capability.stories.map((story) => ({
+          ...strip(story),
+          acceptance_criteria: story.acceptance_criteria.map(strip),
+        })),
+      })),
+    },
+    skipped: {
+      screens: (catalogs ?? []).reduce(
+        (total, catalog) => total + catalog.screens.length,
+        0
+      ),
+      shows_links: showsLinks,
+    },
+  };
 }

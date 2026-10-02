@@ -2,7 +2,18 @@ import {
   compileContractManifest,
   readContractManifest,
   serializeContractManifest,
+  type ContractManifest,
+  type ManifestScreenLink,
 } from "../contract/manifest.js";
+import {
+  readDeclaredScreenReferences,
+  type DeclaredShowsLink,
+} from "../contract/load.js";
+import {
+  loadScreenCatalog,
+  screenSettingsForRepository,
+} from "../contract/screen-catalog.js";
+import { ContractValidationError } from "../contract/validate.js";
 import {
   analyzeContractImpact,
   changesSince,
@@ -11,6 +22,7 @@ import {
   type AcceptanceCriterionImpact,
   type RepositoryPathChange,
 } from "../contract/impact.js";
+import { resolveComparisonBase } from "../contract/comparison-base.js";
 import { isEligibleSourcePath } from "../contract/coverage.js";
 import {
   escapeTerminalText,
@@ -42,8 +54,192 @@ export type CheckExitReason =
   | "ok"
   | "broken_links"
   | "broken_links_warn_only"
+  | "invalid_screen_catalog"
   | "stale_manifest"
   | "stale_manifest_warn_only";
+
+/**
+ * A `shows` link in the working-tree spec whose screen the working-tree
+ * catalog does not contain — the screen counterpart of a link to a deleted
+ * file.
+ */
+export interface BrokenScreenLink {
+  owner_kind: "story" | "acceptance_criterion";
+  owner_stable_id: string;
+  story_stable_id: string;
+  screen_key: string;
+  provenance: string;
+}
+
+/**
+ * The screen part of a check, reported only when the repository enabled
+ * screens. `catalog_invalid` means the working-tree catalog, or the spec's
+ * `shows` declarations, failed validation, so links were not resolved.
+ */
+export interface ScreenCheck {
+  /**
+   * `disabled_with_screen_data`: screens are off, yet the committed manifest
+   * still records screens or shows links — a configuration the contract can
+   * no longer compile, so it fails like an invalid catalog.
+   */
+  status: "evaluated" | "catalog_invalid" | "disabled_with_screen_data";
+  /** Null when screens are disabled. */
+  catalog_path: string | null;
+  catalog_screens: number;
+  shows_links: number;
+  broken_links: BrokenScreenLink[];
+  /** Catalog problems, and `shows` declarations the validator refuses. */
+  catalog_issues: string[];
+}
+
+type ScreenLinkOwner = Omit<BrokenScreenLink, "screen_key" | "provenance">;
+
+function manifestScreenLinks(
+  manifest: ContractManifest
+): Array<{ owner: ScreenLinkOwner; key: string; provenance: string }> {
+  const links: Array<{ owner: ScreenLinkOwner; key: string; provenance: string }> = [];
+  const add = (
+    owner: ScreenLinkOwner,
+    shows: ManifestScreenLink[] | undefined
+  ): void => {
+    for (const link of shows ?? []) {
+      links.push({ owner, key: link.target.key, provenance: link.provenance });
+    }
+  };
+  for (const capability of manifest.capabilities) {
+    for (const story of capability.stories) {
+      add(
+        {
+          owner_kind: "story",
+          owner_stable_id: story.stable_id,
+          story_stable_id: story.stable_id,
+        },
+        story.shows
+      );
+      for (const criterion of story.acceptance_criteria) {
+        add(
+          {
+            owner_kind: "acceptance_criterion",
+            owner_stable_id: criterion.stable_id,
+            story_stable_id: story.stable_id,
+          },
+          criterion.shows
+        );
+      }
+    }
+  }
+  return links;
+}
+
+/** The working-tree spec's `shows` links, in the shape check resolves. */
+function declaredScreenLinks(
+  declared: readonly DeclaredShowsLink[]
+): Array<{ owner: ScreenLinkOwner; key: string; provenance: string }> {
+  const seen = new Set<string>();
+  return declared.flatMap((link) => {
+    const identity = `${link.owner_kind}\0${link.owner_stable_id}\0${link.screen_key}`;
+    if (seen.has(identity)) return [];
+    seen.add(identity);
+    return [
+      {
+        owner: {
+          owner_kind: link.owner_kind,
+          owner_stable_id: link.owner_stable_id,
+          story_stable_id: link.story_stable_id,
+        },
+        key: link.screen_key,
+        provenance: link.provenance,
+      },
+    ];
+  });
+}
+
+/**
+ * Resolves `shows` links against the working-tree catalog, or returns null
+ * when the repository has not enabled screens. The links are the ones the
+ * working-tree spec declares, read leniently: a link to a screen that does not
+ * exist stops the spec from compiling, so the manifest would never hold it,
+ * and a compile failure by itself does not fail check. A link the branch
+ * removed is not resolved, even while the committed manifest still records
+ * it; that manifest is reported stale instead.
+ */
+function checkScreens(
+  root: string,
+  specDirectory: string,
+  manifest: ContractManifest
+): ScreenCheck | null {
+  const settings = screenSettingsForRepository(root, { specDirectory });
+  if (!settings) {
+    // A repository that never enabled screens has no screen data in its
+    // manifest, so this stays null and check is unchanged for it.
+    const links = manifestScreenLinks(manifest);
+    const screens = (manifest.screen_catalogs ?? []).reduce(
+      (total, catalog) => total + catalog.screens.length,
+      0
+    );
+    if (links.length === 0 && manifest.screen_catalogs === undefined) return null;
+    return {
+      status: "disabled_with_screen_data",
+      catalog_path: null,
+      catalog_screens: screens,
+      shows_links: links.length,
+      broken_links: [],
+      catalog_issues: [
+        `the committed manifest records ${screens} screen(s) and ${links.length} shows link(s), but screens are not enabled in .tieline/config.json; enable screens again, or remove the screens and shows links and recompile`,
+      ],
+    };
+  }
+  // Capability keys and links are read leniently, so a catalog naming an
+  // undeclared capability, or a link naming an unknown screen, fails here even
+  // while the rest of the spec does not compile. When a spec file cannot even
+  // be parsed, the declared capabilities are unknown, and that alone makes the
+  // catalog unverifiable rather than silently skipping the check.
+  let capabilityKeys: ReadonlySet<string> | undefined;
+  let declaredLinks: DeclaredShowsLink[] | undefined;
+  const capabilityIssues: string[] = [];
+  try {
+    const declared = readDeclaredScreenReferences(root, specDirectory);
+    capabilityKeys = declared.capabilityKeys;
+    declaredLinks = declared.showsLinks;
+    // A link the validator refuses (malformed, or a target named twice) stops
+    // the spec from compiling, which alone does not fail check.
+    capabilityIssues.push(...declared.showsIssues);
+  } catch (error) {
+    if (!(error instanceof ContractValidationError)) throw error;
+    capabilityIssues.push(
+      ...error.issues.map(
+        (issue) => `cannot confirm screen catalog capabilities because the spec does not parse: ${issue}`
+      )
+    );
+  }
+  const loaded = loadScreenCatalog(root, settings, capabilityKeys);
+  const catalog = loaded.catalog;
+  const issues = [...capabilityIssues, ...loaded.issues];
+  // A spec that cannot be read leaves the catalog invalid, so nothing is
+  // resolved; the committed links are then only counted.
+  const links = declaredLinks
+    ? declaredScreenLinks(declaredLinks)
+    : manifestScreenLinks(manifest);
+  const catalogInvalid = issues.length > 0;
+  return {
+    status: catalogInvalid ? "catalog_invalid" : "evaluated",
+    catalog_path: settings.catalogPath,
+    catalog_screens: catalog.screens.size,
+    shows_links: links.length,
+    // An invalid catalog cannot say which keys exist, so its links are left
+    // unresolved rather than all reported as broken.
+    broken_links: catalogInvalid
+      ? []
+      : links
+          .filter((link) => !catalog.screens.has(link.key))
+          .map((link) => ({
+            ...link.owner,
+            screen_key: link.key,
+            provenance: link.provenance,
+          })),
+    catalog_issues: issues,
+  };
+}
 
 /**
  * A changed source file that no manifest link names.
@@ -283,7 +479,10 @@ export async function runCheckCommand(
       `Cannot evaluate semantic impact because the contract manifest in ${manifestPath} is unreadable: ${error instanceof Error ? error.message : String(error)}`
     );
   }
-  const changes = changesSince(root, base);
+  // Changes are measured from where this branch left the base, so commits that
+  // reached the base afterwards are not reported as this branch's changes.
+  const comparison = resolveComparisonBase(root, base);
+  const changes = changesSince(root, comparison.commit);
   // Recompiling refuses to run while a link points at absent evidence, so a
   // failure here is itself a finding rather than a reason to abort the check.
   let manifestCurrent = false;
@@ -308,6 +507,13 @@ export async function runCheckCommand(
     specDirectory,
   });
   const brokenLinks = impacts.filter(isBrokenImpact);
+  // Null unless the repository enabled screens, so a disabled feature adds
+  // nothing to the result, the output, or the exit code.
+  const screens = checkScreens(root, specDirectory, manifest);
+  const brokenScreenLinks = screens?.broken_links ?? [];
+  const screenCatalogInvalid =
+    screens?.status === "catalog_invalid" || screens?.status === "disabled_with_screen_data";
+  const brokenLinkCount = brokenLinks.length + brokenScreenLinks.length;
   // A manifest that does not match its own recompilation is drift, not a
   // judgement call, so it gates alongside broken links. A compile failure is
   // deliberately excluded: it is already reported on its own, and counting it
@@ -322,6 +528,13 @@ export async function runCheckCommand(
           impact.broken_cause ?? "missing"
         )}.`
     ),
+    ...brokenScreenLinks.map(
+      (link) =>
+        `${link.owner_stable_id} shows screen '${link.screen_key}', but the screen catalog does not contain it.`
+    ),
+    ...(screenCatalogInvalid
+      ? screens.catalog_issues.map((issue) => `Screens: ${issue}`)
+      : []),
     ...(staleManifest && failOnStaleManifest ? [staleManifestMessage] : []),
   ];
   // Without a workspace there is no configured `source_roots`, and guessing at
@@ -340,30 +553,37 @@ export async function runCheckCommand(
         specDirectory,
       })
     : [];
-  const brokenLinksFail = brokenLinks.length > 0 && failOnBroken;
+  const brokenLinksFail = brokenLinkCount > 0 && failOnBroken;
   const staleManifestFails = staleManifest && failOnStaleManifest;
-  const exitCode = brokenLinksFail || staleManifestFails ? 1 : 0;
+  // An invalid screen catalog always fails: like a broken link, nothing has to
+  // be judged to know that it does not validate.
+  const exitCode =
+    brokenLinksFail || screenCatalogInvalid || staleManifestFails ? 1 : 0;
   // Broken links outrank a stale manifest when both hold: recorded evidence
   // that no longer exists is the more severe fault, and the full picture stays
   // available in `errors`, `warnings`, and `manifest_current`.
   const exitReason: CheckExitReason =
-    brokenLinks.length > 0
+    brokenLinkCount > 0
       ? failOnBroken
         ? "broken_links"
         : "broken_links_warn_only"
-      : staleManifest
-        ? failOnStaleManifest
-          ? "stale_manifest"
-          : "stale_manifest_warn_only"
-        : "ok";
+      : screenCatalogInvalid
+        ? "invalid_screen_catalog"
+        : staleManifest
+          ? failOnStaleManifest
+            ? "stale_manifest"
+            : "stale_manifest_warn_only"
+          : "ok";
   const result = {
     base,
+    base_commit: comparison.commit,
     repository: repositoryKey,
     manifest_current: manifestCurrent,
     manifest_compile_error: manifestCompileError,
     changes,
     impacts,
     broken_links: brokenLinks,
+    ...(screens ? { screens } : {}),
     unclaimed_changes: unclaimed,
     unclaimed_change_count: unclaimed.length,
     unclaimed_changes_status: unclaimedStatus,
@@ -400,8 +620,13 @@ export async function runCheckCommand(
       unclaimedStatus === "evaluated"
         ? `; changes to consider=${unclaimed.length}`
         : "";
+    const screenSummary = screens
+      ? `; broken screen link(s)=${brokenScreenLinks.length}${
+          screenCatalogInvalid ? "; screen catalog=invalid" : ""
+        }`
+      : "";
     io.write(
-      `Semantic impact: ${impacts.length} AC finding(s) across ${groups.length} acceptance criteria; manifest=${manifestCurrent ? "current" : "stale"}; broken link(s)=${brokenLinks.length}${completeness}.\n`
+      `Semantic impact: ${impacts.length} AC finding(s) across ${groups.length} acceptance criteria; manifest=${manifestCurrent ? "current" : "stale"}; broken link(s)=${brokenLinks.length}${screenSummary}${completeness}.\n`
     );
     for (const group of groups) io.write(renderCheckImpactGroupText(group));
     if (groups.length || unclaimed.length) io.write("\n");
@@ -416,6 +641,11 @@ export async function runCheckCommand(
     if (brokenLinksFail) {
       io.write(
         "  Broken links fail this check. Re-run with --no-fail-on-broken to downgrade them to warnings.\n"
+      );
+    }
+    if (screenCatalogInvalid) {
+      io.write(
+        "  An invalid screen catalog fails this check. Fix the issues above until `tieline contract validate` passes.\n"
       );
     }
     if (staleManifestFails) {

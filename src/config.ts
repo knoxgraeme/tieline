@@ -82,6 +82,81 @@ export function readSelectorConfig(configValue: unknown): SelectorConfig {
   return parsed.data;
 }
 
+/**
+ * The optional Screens feature.
+ *
+ * Screens catalogue the user-visible states of an application beside the
+ * Stories they show. Like declared selector kinds, the feature is opt-in and
+ * lives in `.tieline/config.json`: a repository without a `screens` block, or
+ * with `enabled: false`, compiles, checks, reviews, and syncs exactly as it did
+ * before the feature existed, and its catalog directory is never read.
+ *
+ * Both directories are relative to the `.tieline/` directory, matching
+ * `files.spec_directory`. The catalog is reviewed YAML and must stay inside
+ * `.tieline/`; the captures directory holds git-ignored screenshots and may sit
+ * anywhere inside the repository. Defaults are applied when the block is read,
+ * not when it is parsed, so rewriting a workspace config never adds them.
+ */
+const screensDirectorySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(240)
+  .refine(
+    (value) => !value.includes("\\") && !value.startsWith("/") && !/^[A-Za-z]:/.test(value),
+    "must be a relative POSIX path"
+  );
+
+export const screensConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    catalog_directory: screensDirectorySchema.optional(),
+    captures_directory: screensDirectorySchema.optional(),
+  })
+  .strict();
+
+export type ScreensConfigBlock = z.infer<typeof screensConfigSchema>;
+
+export const DEFAULT_SCREENS_CATALOG_DIRECTORY = "screens";
+export const DEFAULT_SCREENS_CAPTURES_DIRECTORY = "captures";
+
+export interface ScreensConfig {
+  /** Catalog directory relative to `.tieline/`. */
+  catalog_directory: string;
+  /** Screenshot directory relative to `.tieline/`. */
+  captures_directory: string;
+}
+
+/**
+ * Reads the `screens` block out of an already-parsed `.tieline/config.json`
+ * value. Returns null when the feature is off — no block, or `enabled: false` —
+ * which is the normal case. A malformed block throws for the same reason a
+ * malformed `selectors` block does: a repository that tried to opt in and got
+ * it wrong must not silently run with the feature off.
+ */
+export function readScreensConfig(configValue: unknown): ScreensConfig | null {
+  if (configValue === null || typeof configValue !== "object") return null;
+  const block = (configValue as Record<string, unknown>).screens;
+  if (block === undefined || block === null) return null;
+  const parsed = screensConfigSchema.safeParse(block);
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid 'screens' block in Tieline configuration: ${parsed.error.issues
+        .map(
+          (issue) => `${["screens", ...issue.path].join(".")}: ${issue.message}`
+        )
+        .join("; ")}`
+    );
+  }
+  if (!parsed.data.enabled) return null;
+  return {
+    catalog_directory:
+      parsed.data.catalog_directory ?? DEFAULT_SCREENS_CATALOG_DIRECTORY,
+    captures_directory:
+      parsed.data.captures_directory ?? DEFAULT_SCREENS_CAPTURES_DIRECTORY,
+  };
+}
+
 export interface Config {
   dbUrl: string | undefined;
   dbWriteUrl: string | undefined;

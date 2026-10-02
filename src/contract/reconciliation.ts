@@ -98,11 +98,11 @@ export interface ClaimingCriterion {
 export type IntentCapabilityRecord = Omit<ManifestCapability, "stories">;
 export type IntentStoryRecord = Omit<
   ManifestStory,
-  "links" | "acceptance_criteria"
+  "links" | "shows" | "acceptance_criteria"
 >;
 export type IntentAcceptanceCriterionDetails = Omit<
   ManifestAcceptanceCriterion,
-  "links"
+  "links" | "shows"
 >;
 
 /**
@@ -320,15 +320,23 @@ function capabilityRecord(
   return record;
 }
 
+// `shows` links to screens are dropped beside evidence links: the exact-read
+// output contract (and the strict MCP schemas behind it) predates screens, so a
+// repository that enables them must get the same answers it always did.
 function storyRecord(story: ManifestStory): IntentStoryRecord {
-  const { links: _links, acceptance_criteria: _criteria, ...record } = story;
+  const {
+    links: _links,
+    shows: _shows,
+    acceptance_criteria: _criteria,
+    ...record
+  } = story;
   return record;
 }
 
 function acceptanceCriterionDetails(
   criterion: ManifestAcceptanceCriterion
 ): IntentAcceptanceCriterionDetails {
-  const { links: _links, ...record } = criterion;
+  const { links: _links, shows: _shows, ...record } = criterion;
   return record;
 }
 

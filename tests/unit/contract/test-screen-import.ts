@@ -1,0 +1,1353 @@
+import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { runCli } from "../../../src/cli.js";
+import { isStillFile, readFileWithin } from "../../../src/contract/bounded-read.js";
+import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
+import {
+  applyScreenImport,
+  createCaptureDigester,
+  createExclusiveFile,
+  createInValidatedDirectory,
+  ensureCapturesIgnored,
+  prepareCapturesIgnore,
+  writeScreenImport,
+  gitignoreIgnoresEverything,
+  NODE_FILE_SYSTEM,
+  parseScreenImport,
+  planScreenImport,
+  readScreenImportFile,
+  ScreenImportError,
+  SCREEN_IMPORT_LIMITS,
+  withScreenImportLock,
+} from "../../../src/contract/screen-import.js";
+import { report, test } from "../../support/harness.js";
+import {
+  captureIO,
+  createScreensWorkspace,
+  NOTES_CATALOG_YAML,
+  type ScreensWorkspace,
+} from "../../support/screen-fixtures.js";
+import {
+  readScreenCatalogSources,
+  SCREEN_LIMITS,
+  screenSettingsForRepository,
+  validateScreenCatalogDocuments,
+} from "../../../src/contract/screen-catalog.js";
+
+const workspaces: ScreensWorkspace[] = [];
+function workspace(options: Parameters<typeof createScreensWorkspace>[0] = { screens: { enabled: true } }): ScreensWorkspace {
+  const created = createScreensWorkspace(options);
+  workspaces.push(created);
+  return created;
+}
+
+function screen(key: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    key,
+    capability: "NOTES",
+    title: `Screen ${key}`,
+    route: "/notes",
+    kind: "page",
+    when: "A member opens Notes.",
+    ...overrides,
+  };
+}
+
+async function importScreens(
+  ws: ScreensWorkspace,
+  entries: unknown,
+  flags: string[] = []
+): Promise<{ exit: number; result: Record<string, unknown> }> {
+  const file = resolve(ws.root, "import.json");
+  writeFileSync(file, typeof entries === "string" ? entries : JSON.stringify(entries));
+  const capture = captureIO();
+  const exit = await runCli(["screens", "import", file, "--repository", ws.root, "--json", ...flags], capture.io, {});
+  return { exit, result: JSON.parse(capture.output()) as Record<string, unknown> };
+}
+
+async function importFails(ws: ScreensWorkspace, entries: unknown, pattern: RegExp, flags: string[] = []): Promise<void> {
+  const before = snapshot(ws);
+  await assert.rejects(() => importScreens(ws, entries, flags), pattern);
+  assert.deepEqual(snapshot(ws), before, "a refused import writes nothing");
+}
+
+function snapshot(ws: ScreensWorkspace): Record<string, string> {
+  const directory = resolve(ws.root, ".tieline/screens");
+  if (!existsSync(directory)) return {};
+  return Object.fromEntries(
+    readdirSync(directory).sort().map((name) => [name, readFileSync(resolve(directory, name), "utf8")])
+  );
+}
+
+function catalog(ws: ScreensWorkspace, capability: string): string {
+  return readFileSync(resolve(ws.root, `.tieline/screens/${capability}.yaml`), "utf8");
+}
+
+console.log("screens import: happy path");
+
+await test("creates one catalog file per capability that the contract then loads", async () => {
+  const ws = workspace();
+  const { exit, result } = await importScreens(ws, [
+    screen("notes-list", { group: "Browsing", applies_to: { role: ["member"] }, copy: ["Your notes"], image: "notes/list.png" }),
+    screen("notes-share-denied", { capability: "SHARING", kind: "inline-error", image: { url: "https://cdn.example.test/denied.png" } }),
+    screen("notes-loading", { kind: "loading" }),
+  ]);
+  assert.equal(exit, 0);
+  assert.deepEqual(result.created, ["notes-list", "notes-share-denied", "notes-loading"]);
+  assert.deepEqual(result.files, [
+    { path: ".tieline/screens/NOTES.yaml", status: "created" },
+    { path: ".tieline/screens/SHARING.yaml", status: "created" },
+  ]);
+  assert.equal(result.captures_gitignore, "created");
+  assert.equal(
+    catalog(ws, "NOTES"),
+    `version: 1
+capability: NOTES
+screens:
+  - key: notes-list
+    title: Screen notes-list
+    group: Browsing
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    applies_to:
+      role:
+        - member
+    copy:
+      - Your notes
+    image:
+      path: notes/list.png
+  - key: notes-loading
+    title: Screen notes-loading
+    route: /notes
+    kind: loading
+    when: A member opens Notes.
+`
+  );
+  const loaded = loadAcceptedContractWithSources(ws.root, ".tieline/spec");
+  assert.deepEqual([...loaded.screens!.screens.keys()].sort(), ["notes-list", "notes-loading", "notes-share-denied"]);
+  assert.equal(
+    readFileSync(resolve(ws.root, ".tieline/captures/.gitignore"), "utf8"),
+    "# Screenshots referenced by the Tieline screen catalog are not committed.\n*\n!.gitignore\n"
+  );
+});
+
+await test("accepts the versioned envelope and the shipped synthetic example", async () => {
+  const ws = workspace();
+  ws.write(".tieline/spec/billing.yaml", `version: 1
+capability:
+  key: BILLING
+  name: Billing
+  description: Admins pay for a plan.
+  stories:
+    - key: BILLING-001
+      title: Upgrade the plan
+      actor: admin
+      goal: move to the Team plan
+      benefit: my team shares notes
+      lifecycle: production
+      acceptance_criteria:
+        - key: BILLING-001-AC1
+          criterion: An admin on the free plan must be able to start an upgrade.
+`);
+  const example = JSON.parse(readFileSync(resolve(process.cwd(), "docs/examples/screens/acme-notes.json"), "utf8"));
+  assert.equal(parseScreenImport(example).length, 16);
+  const { exit, result } = await importScreens(ws, example);
+  assert.equal(exit, 0);
+  assert.equal((result.created as string[]).length, 16);
+  assert.equal(loadAcceptedContractWithSources(ws.root, ".tieline/spec").screens?.screens.size, 16);
+});
+
+console.log("screens import: idempotency and merge");
+
+await test("re-importing the same file changes nothing and rewrites nothing", async () => {
+  const ws = workspace();
+  const entries = [screen("a", { copy: ["One"] }), screen("b", { capability: "SHARING" })];
+  await importScreens(ws, entries);
+  const before = snapshot(ws);
+  const mtime = statSync(resolve(ws.root, ".tieline/screens/NOTES.yaml")).mtimeMs;
+  const { result } = await importScreens(ws, entries);
+  assert.deepEqual(result.created, []);
+  assert.deepEqual(result.updated, []);
+  assert.equal(result.unchanged, 2);
+  assert.deepEqual((result.files as Array<{ status: string }>).map((file) => file.status), ["unchanged", "unchanged"]);
+  assert.equal(result.captures_gitignore, "exists");
+  assert.deepEqual(snapshot(ws), before);
+  assert.equal(statSync(resolve(ws.root, ".tieline/screens/NOTES.yaml")).mtimeMs, mtime);
+});
+
+await test("updates by key: omitted optional fields are kept, null clears them", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a", { group: "G", copy: ["One"], image: "a.png", applies_to: { role: ["admin"] } })]);
+  const { result } = await importScreens(ws, [screen("a", { title: "Renamed", image: null })]);
+  assert.deepEqual(result.updated, ["a"]);
+  const text = catalog(ws, "NOTES");
+  assert.match(text, /title: Renamed/);
+  assert.match(text, /group: G/);
+  assert.match(text, /- One/);
+  assert.match(text, /role:\n {8}- admin/);
+  assert.doesNotMatch(text, /image:/);
+  assert.equal((text.match(/- key: a$/gm) ?? []).length, 1, "never duplicates an entry");
+});
+
+await test("preserves hand-written comments and untouched entries in an updated file", async () => {
+  const ws = workspace();
+  ws.write(".tieline/screens/NOTES.yaml", `version: 1
+capability: NOTES
+# Reviewed by the design team.
+screens:
+  # The landing page.
+  - key: landing
+    title: Landing
+    route: /
+    kind: page
+    when: A member signs in.
+  - key: a
+    title: Old title
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+`);
+  const { result } = await importScreens(ws, [screen("a")]);
+  assert.deepEqual(result.updated, ["a"]);
+  const text = catalog(ws, "NOTES");
+  assert.match(text, /# Reviewed by the design team\./);
+  assert.match(text, /# The landing page\.\n {2}- key: landing\n {4}title: Landing/);
+  assert.match(text, /title: Screen a/);
+});
+
+await test("moves a screen whose capability changed instead of duplicating it", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a", { copy: ["Kept"] }), screen("b")]);
+  const { result } = await importScreens(ws, [screen("a", { capability: "SHARING" })]);
+  assert.deepEqual(result.moved, [{ key: "a", from: "NOTES", to: "SHARING" }]);
+  assert.deepEqual(result.created, []);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /key: a$/m);
+  assert.match(catalog(ws, "SHARING"), /key: a\n[\s\S]*- Kept/);
+  assert.equal(loadAcceptedContractWithSources(ws.root, ".tieline/spec").screens?.screens.get("a")?.capability, "SHARING");
+});
+
+console.log("screens import: deletion only on request");
+
+await test("never deletes without --prune, and prunes only the capabilities in the file", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b"), screen("c", { capability: "SHARING" })]);
+  const kept = await importScreens(ws, [screen("a")]);
+  assert.deepEqual(kept.result.pruned, []);
+  assert.match(catalog(ws, "NOTES"), /key: b/);
+
+  const dry = await importScreens(ws, [screen("a")], ["--prune", "--dry-run"]);
+  assert.deepEqual(dry.result.pruned, ["b"]);
+  assert.equal(dry.result.dry_run, true);
+  assert.match(catalog(ws, "NOTES"), /key: b/, "a dry run writes nothing");
+
+  const pruned = await importScreens(ws, [screen("a")], ["--prune"]);
+  assert.deepEqual(pruned.result.pruned, ["b"]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /key: b/);
+  assert.match(catalog(ws, "SHARING"), /key: c/, "SHARING is not in the file, so it is untouched");
+});
+
+console.log("screens import: unknown capabilities");
+
+await test("refuses entries for undeclared capabilities unless asked to skip them", async () => {
+  const ws = workspace();
+  const entries = [screen("a"), screen("billing-plans", { capability: "BILLING" })];
+  await importFails(ws, entries, /1 screen\(s\) name capabilities the contract does not declare; nothing was written[\s\S]*unknown capability 'BILLING': billing-plans/);
+  const { result } = await importScreens(ws, entries, ["--skip-unknown-capabilities"]);
+  assert.deepEqual(result.created, ["a"]);
+  assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing-plans", capability: "BILLING" }]);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/BILLING.yaml")), false);
+});
+
+console.log("screens import: untrusted input");
+
+await test("rejects malformed documents and invalid entries with every issue named", async () => {
+  const ws = workspace();
+  await importFails(ws, "{ not json", /is not valid JSON/);
+  await importFails(ws, { screens: [] }, /exactly \{ "version": 1, "screens": \[\.\.\.\] \}/);
+  await importFails(ws, { version: 2, screens: [] }, /exactly \{ "version": 1/);
+  await importFails(ws, { version: 1, screens: [], extra: true }, /exactly \{ "version": 1/);
+  await importFails(ws, "\"just a string\"", /must be a JSON array/);
+  await importFails(
+    ws,
+    [screen("a", { kind: "modal", title: "x".repeat(201) }), screen("a"), { key: 7 }, screen("b", { scene: "s.ts" })],
+    /The screen import is invalid \(\d+ issue\(s\)\); nothing was written/
+  );
+  try {
+    await importScreens(ws, [screen("a", { kind: "modal", title: "x".repeat(201) }), screen("a"), screen("b", { scene: "s.ts" })]);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError);
+    assert.deepEqual(
+      error.issues.map((issue) => issue.replace(/Expected .*, received/, "Expected …, received")),
+      [
+        'screens[0] ("a") at title: String must contain at most 200 character(s)',
+        "screens[0] (\"a\") at kind: Invalid enum value. Expected …, received 'modal'",
+        'screens[2] ("b") at scene: \'scene\' is reserved for the script that reaches a screen in a later Tieline release and must be omitted',
+      ]
+    );
+  }
+  await importFails(ws, [screen("a"), screen("a")], /screens\[1\] \("a"\): duplicate key; first used by screens\[0\]/);
+  await importFails(ws, [screen("a", { image: "../outside.png" })], /screens\[0\] \("a"\) at image/);
+  await importFails(ws, [screen("a", { capability: "../NOTES" })], /at capability: must be a stable identifier/);
+});
+
+await test("bounds the file size and the entry count before parsing entries", async () => {
+  const ws = workspace();
+  const file = resolve(ws.root, "big.json");
+  writeFileSync(file, JSON.stringify([screen("a")]));
+  assert.throws(() => readScreenImportFile(file, 10), /larger than the 10-byte limit/);
+  assert.deepEqual(readScreenImportFile(file), [screen("a")]);
+  writeFileSync(file, Buffer.from([0x5b, 0xff, 0x5d]));
+  assert.throws(() => readScreenImportFile(file), /not valid UTF-8/);
+  assert.throws(() => readScreenImportFile(resolve(ws.root, "missing.json")), /Cannot open screen import file/);
+  assert.throws(() => readScreenImportFile(ws.root), /is not a file/);
+  const tooMany = Array.from({ length: SCREEN_IMPORT_LIMITS.entries + 1 }, () => 0);
+  assert.throws(() => parseScreenImport(tooMany), /holds 10001 entries; the limit is 10000/);
+  assert.equal(SCREEN_IMPORT_LIMITS.fileBytes, 16 * 1024 * 1024);
+});
+
+await test("refuses to merge into an invalid catalog or a repository that has not opted in", async () => {
+  const ws = workspace();
+  ws.write(".tieline/screens/NOTES.yaml", "version: 1\ncapability: NOTES\nscreens:\n  - key: a\n");
+  await importFails(ws, [screen("b")], /The existing screen catalog is invalid; fix it before importing/);
+  const orphan = workspace();
+  orphan.write(".tieline/screens/GONE.yaml", "version: 1\ncapability: GONE\nscreens: []\n");
+  await importFails(orphan, [screen("b")], /screen catalog names unknown capability 'GONE'/);
+  const occupied = workspace();
+  occupied.write(".tieline/screens/NOTES.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  await importFails(occupied, [screen("b")], /'\.tieline\/screens\/NOTES\.yaml' already exists and is not that capability's catalog/);
+  const disabled = workspace({});
+  await assert.rejects(() => importScreens(disabled, [screen("a")]), /Screens are not enabled for this repository/);
+});
+
+await test("leaves a captures directory outside .tieline for the repository to ignore", async () => {
+  const ws = workspace({ screens: { enabled: true, captures_directory: "../artifacts/screens" } });
+  const { result } = await importScreens(ws, [screen("a")]);
+  assert.equal(result.captures_gitignore, "not_managed");
+  assert.equal(existsSync(resolve(ws.root, "artifacts/screens/.gitignore")), false);
+  const capture = captureIO();
+  writeFileSync(resolve(ws.root, "import.json"), JSON.stringify([screen("a", { title: "Changed" })]));
+  assert.equal(await runCli(["screens", "import", resolve(ws.root, "import.json"), "--repository", ws.root], capture.io, {}), 0);
+  assert.match(capture.output(), /Imported 1 screen\(s\) into \.tieline\/screens: 0 created, 1 updated/);
+  assert.match(capture.output(), /note {2}artifacts\/screens resolves outside \.tieline\/; make sure screenshots there are git-ignored/);
+  assert.match(capture.output(), /Run `tieline contract compile \.`/);
+});
+
+await test("judges the captures directory by where it really resolves", async () => {
+  // `.tieline/captures` links to a source directory: an ignore-everything
+  // file there would hide new source files from Git.
+  const linked = workspace();
+  mkdirSync(resolve(linked.root, "src"), { recursive: true });
+  symlinkSync(resolve(linked.root, "src"), resolve(linked.root, ".tieline/captures"));
+  const { exit, result } = await importScreens(linked, [screen("a")]);
+  assert.equal(exit, 0);
+  assert.equal(result.captures_gitignore, "not_managed");
+  assert.equal(existsSync(resolve(linked.root, "src/.gitignore")), false);
+
+  // A link that stays inside `.tieline/` is still managed, at its real path.
+  const inside = workspace();
+  mkdirSync(resolve(inside.root, ".tieline/shots"), { recursive: true });
+  symlinkSync(resolve(inside.root, ".tieline/shots"), resolve(inside.root, ".tieline/captures"));
+  const managed = await importScreens(inside, [screen("a")]);
+  assert.equal(managed.result.captures_gitignore, "created");
+  assert.match(readFileSync(resolve(inside.root, ".tieline/shots/.gitignore"), "utf8"), /^\*$/m);
+});
+
+console.log("screens import: screenshot digests");
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+await test("records each readable screenshot's digest and keeps a reviewed one when the file is absent", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/notes/list.png", "first capture");
+  const first = await importScreens(ws, [screen("a", { image: "notes/list.png" }), screen("b", { image: "notes/missing.png" })]);
+  assert.deepEqual(first.result.image_digests, { computed: 1, missing: ["b"] });
+  assert.match(catalog(ws, "NOTES"), new RegExp(`path: notes/list.png\n {6}sha256: ${sha256("first capture")}`));
+  assert.doesNotMatch(catalog(ws, "NOTES"), /missing\.png\n {6}sha256/);
+
+  // A machine without the screenshot keeps the reviewed digest instead of erasing it.
+  ws.remove(".tieline/captures/notes/list.png");
+  const absent = await importScreens(ws, [screen("a", { image: "notes/list.png" })]);
+  assert.deepEqual(absent.result.updated, []);
+  assert.deepEqual(absent.result.image_digests, { computed: 0, missing: ["a"] });
+  assert.match(catalog(ws, "NOTES"), new RegExp(`sha256: ${sha256("first capture")}`));
+
+  // A re-capture changes the digest, so the reviewed diff shows the new picture.
+  ws.write(".tieline/captures/notes/list.png", "second capture");
+  const recaptured = await importScreens(ws, [screen("a", { image: "notes/list.png" })]);
+  assert.deepEqual(recaptured.result.updated, ["a"]);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`sha256: ${sha256("second capture")}`));
+
+  // A digest supplied by a capture tool is trusted as the record, not recomputed.
+  const supplied = sha256("from the tool");
+  await importScreens(ws, [screen("a", { image: { url: "https://cdn.example.test/a.png", sha256: supplied } })]);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`url: https://cdn.example.test/a.png\n {6}sha256: ${supplied}`));
+  await importFails(ws, [screen("a", { image: { path: "a.png", sha256: "ABC" } })], /must be a lowercase hex SHA-256 digest/);
+});
+
+await test("refuses screenshots that escape the captures directory or exceed the size bound", () => {
+  const ws = workspace();
+  ws.write("secret.png", "outside");
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  symlinkSync(resolve(ws.root, "secret.png"), resolve(ws.root, ".tieline/captures/link.png"));
+  ws.write(".tieline/captures/big.png", "x".repeat(64));
+  const settings = screenSettingsForRepository(ws.root)!;
+  assert.throws(
+    () => createCaptureDigester(settings).digest("link.png", "a"),
+    /Screenshot 'link.png' for screen 'a' resolves outside the captures directory '\.tieline\/captures'/
+  );
+  assert.throws(
+    () => createCaptureDigester(settings, { fileBytes: 16, totalBytes: 1024 }).digest("big.png", "b"),
+    /Screenshot '.*big\.png' is larger than the 16-byte limit/
+  );
+  assert.equal(SCREEN_IMPORT_LIMITS.captureBytes, 25 * 1024 * 1024);
+  assert.equal(SCREEN_IMPORT_LIMITS.captureTotalBytes, 4 * 1024 * 1024 * 1024);
+});
+
+await test("reads each screenshot once and bounds the total it reads", () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/one.png", "x".repeat(40));
+  ws.write(".tieline/captures/two.png", "y".repeat(40));
+  const settings = screenSettingsForRepository(ws.root)!;
+  const digester = createCaptureDigester(settings, { fileBytes: 64, totalBytes: 100 });
+  // Many entries naming one file cost one read.
+  for (let index = 0; index < 50; index += 1) digester.digest("one.png", `screen-${index}`);
+  assert.equal(digester.bytesRead, 40);
+  assert.equal(digester.computed, 50);
+  digester.digest("two.png", "second");
+  assert.equal(digester.bytesRead, 80);
+  ws.write(".tieline/captures/three.png", "z".repeat(40));
+  assert.throws(
+    () => digester.digest("three.png", "third"),
+    /exceed the 100-byte total it may read; import in smaller batches/
+  );
+  assert.equal(digester.bytesRead, 80);
+  // Exactly what is left of the total is still read.
+  ws.write(".tieline/captures/four.png", "w".repeat(20));
+  digester.digest("four.png", "fourth");
+  assert.equal(digester.bytesRead, 100);
+});
+
+await test("refuses a screenshot past the remaining total from its size, without reading it", () => {
+  // Linux counts the bytes a process reads in /proc/self/io; elsewhere the
+  // refusal itself is covered by the test above.
+  const readBytes = (): number | undefined => {
+    if (!existsSync("/proc/self/io")) return undefined;
+    const match = /^rchar: (\d+)$/m.exec(readFileSync("/proc/self/io", "utf8"));
+    return match ? Number(match[1]) : undefined;
+  };
+  if (readBytes() === undefined) return;
+  const ws = workspace();
+  ws.write(".tieline/captures/small.png", "x".repeat(80));
+  ws.write(".tieline/captures/large.png", "y".repeat(1024 * 1024));
+  const digester = createCaptureDigester(screenSettingsForRepository(ws.root)!, {
+    fileBytes: 2 * 1024 * 1024,
+    totalBytes: 100,
+  });
+  digester.digest("small.png", "small");
+  const before = readBytes()!;
+  assert.throws(() => digester.digest("large.png", "large"), /exceed the 100-byte total it may read/);
+  assert.ok(readBytes()! - before < 64 * 1024, "the 1 MiB screenshot was not read");
+});
+
+await test("refuses a screenshot it cannot resolve instead of calling it missing", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/one.png", "png");
+  // A path through a file (ENOTDIR) and a link loop (ELOOP) are not "missing".
+  symlinkSync("loop.png", resolve(ws.root, ".tieline/captures/loop.png"));
+  for (const [image, code] of [["one.png/inner.png", "ENOTDIR"], ["loop.png", "ELOOP"]] as const) {
+    await importFails(
+      ws,
+      [screen("a", { image: { path: image } })],
+      new RegExp(`Screenshot '${image.replace(".", "\\.")}' for screen 'a' cannot be read: ${code}`)
+    );
+  }
+  // A screenshot that is simply absent is still reported as missing.
+  const { exit, result } = await importScreens(ws, [screen("a", { image: { path: "absent.png" } })]);
+  assert.equal(exit, 0);
+  assert.deepEqual((result.image_digests as { missing: string[] }).missing, ["a"]);
+
+  // An unsearchable directory, where permissions are enforced.
+  const locked = resolve(ws.root, ".tieline/captures/locked");
+  mkdirSync(locked);
+  writeFileSync(resolve(locked, "shot.png"), "png");
+  chmodSync(locked, 0o000);
+  try {
+    const enforced = (() => {
+      try {
+        statSync(resolve(locked, "shot.png"));
+        return false;
+      } catch (error) {
+        return (error as NodeJS.ErrnoException).code === "EACCES";
+      }
+    })();
+    if (enforced) {
+      await importFails(ws, [screen("b", { image: { path: "locked/shot.png" } })], /Screenshot 'locked\/shot\.png' for screen 'b' cannot be read: EACCES/);
+    }
+  } finally {
+    chmodSync(locked, 0o755);
+  }
+});
+
+await test("reads only the screenshot that passed containment, not one swapped in after", () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/notes/list.png", "inside");
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-capture`);
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(resolve(outside, "list.png"), "outside");
+  try {
+    const real = realpathSync(resolve(ws.root, ".tieline/captures/notes/list.png"));
+    // The opened file is the validated one.
+    assert.equal(isStillFile(real, statSync(real)), true);
+    // A different file was opened (a link swapped in before the open).
+    assert.equal(isStillFile(real, statSync(resolve(outside, "list.png"))), false);
+    // A directory on the validated path is now a link out of the captures.
+    renameSync(resolve(ws.root, ".tieline/captures/notes"), resolve(ws.root, ".tieline/captures/notes-moved"));
+    symlinkSync(outside, resolve(ws.root, ".tieline/captures/notes"));
+    assert.equal(isStillFile(real, statSync(resolve(outside, "list.png"))), false);
+    // The bounded read stops before reading when the opened file is refused.
+    assert.deepEqual(readFileWithin(real, 1024, () => false), { status: "changed" });
+    assert.deepEqual(readFileWithin(resolve(outside, "list.png"), 1024, () => true), {
+      status: "read",
+      bytes: Buffer.from("outside"),
+    });
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+await test("re-reads a screenshot whose path the import keeps from the catalog", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/notes/list.png", "first capture");
+  await importScreens(ws, [screen("a", { image: "notes/list.png" })]);
+  ws.write(".tieline/captures/notes/list.png", "second capture");
+  // The re-import omits `image`, so the catalog's path is kept and re-read.
+  const { result } = await importScreens(ws, [screen("a")]);
+  assert.deepEqual(result.updated, ["a"]);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`path: notes/list.png\\n {6}sha256: ${sha256("second capture")}`));
+});
+
+await test("never reads screenshots of entries skipped for an unknown capability", async () => {
+  const ws = workspace();
+  ws.write("secret.png", "outside");
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  symlinkSync(resolve(ws.root, "secret.png"), resolve(ws.root, ".tieline/captures/escape.png"));
+  const { exit, result } = await importScreens(
+    ws,
+    [screen("a"), screen("billing", { capability: "BILLING", image: "escape.png" })],
+    ["--skip-unknown-capabilities"]
+  );
+  assert.equal(exit, 0);
+  assert.deepEqual(result.created, ["a"]);
+  assert.deepEqual(result.image_digests, { computed: 0, missing: [] });
+  assert.deepEqual(result.skipped_unknown_capability, [{ key: "billing", capability: "BILLING" }]);
+});
+
+await test("refuses FIFOs as the import file or a screenshot without blocking on them", () => {
+  // Opening a FIFO with no writer blocks, so the import runs in a child
+  // process whose time limit turns a regression into a failure, not a hang.
+  if (process.platform === "win32") return;
+  const ws = workspace();
+  const repository = fileURLToPath(new URL("../../../", import.meta.url));
+  const run = (file: string) => {
+    const result = spawnSync(
+      process.execPath,
+      ["--import", "tsx", resolve(repository, "src/cli.ts"), "screens", "import", file, "--repository", ws.root],
+      { cwd: repository, encoding: "utf8", timeout: 20_000 }
+    );
+    assert.equal(result.error, undefined, "the import blocked instead of returning");
+    return result;
+  };
+  const fifo = resolve(ws.root, "import.fifo");
+  execFileSync("mkfifo", [fifo]);
+  const input = run(fifo);
+  assert.notEqual(input.status, 0);
+  assert.match(input.stderr, /Screen import file '.*import\.fifo' is not a file\./);
+
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  execFileSync("mkfifo", [resolve(ws.root, ".tieline/captures/a.png")]);
+  writeFileSync(resolve(ws.root, "import.json"), JSON.stringify([screen("a", { image: { path: "a.png" } })]));
+  const capture = run(resolve(ws.root, "import.json"));
+  assert.notEqual(capture.status, 0);
+  assert.match(capture.stderr, /Screenshot '.*a\.png' is not a file\./);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/NOTES.yaml")), false, "nothing was written");
+});
+
+await test("refuses an import that would take the catalog past its entry, file, or byte bounds", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a")]);
+  const notesBytes = Buffer.byteLength(catalog(ws, "NOTES"));
+  const fileBytes = SCREEN_LIMITS.catalogFileBytes;
+  const addsSharing = [screen("b", { capability: "SHARING" })];
+  const sharingBytes = Buffer.byteLength(
+    planImport(ws, addsSharing).files.find((file) => file.path.endsWith("SHARING.yaml"))!.content
+  );
+
+  // One file more than the walk allows: a new capability file.
+  assert.throws(
+    () => planImport(ws, addsSharing, { entries: 10_000, files: 1, fileBytes, totalBytes: 1_000_000 }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === "the catalog would hold 2 files; the limit is 1"
+  );
+  // One byte more than the walk allows, across files.
+  const total = notesBytes + sharingBytes;
+  assert.throws(
+    () => planImport(ws, addsSharing, { entries: 10_000, files: 2, fileBytes, totalBytes: total - 1 }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === `the catalog would hold ${total} bytes; the limit is ${total - 1}`
+  );
+  // Exactly at both bounds is fine.
+  assert.equal(planImport(ws, addsSharing, { entries: 10_000, files: 2, fileBytes, totalBytes: total }).files.length, 2);
+
+  // Entries count every kind, as the walk does: here NOTES.yaml and a README.
+  ws.write(".tieline/screens/README.md", "Catalog notes.\n");
+  const roomy = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };
+  assert.throws(
+    () => planImport(ws, addsSharing, roomy),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === "the catalog directory would hold 3 entries; the limit is 2"
+  );
+  assert.equal(planImport(ws, addsSharing, { ...roomy, entries: 3 }).files.length, 2);
+  // Updating an existing file adds no entry.
+  assert.equal(planImport(ws, [screen("c")], roomy).files.length, 1);
+});
+
+await test("refuses an import that would write an oversized catalog file", async () => {
+  const ws = workspace();
+  const copy = Array.from({ length: 50 }, (_, index) => `${index} ${"c".repeat(480)}`);
+  const entries = Array.from({ length: 180 }, (_, index) => screen(`screen-${index}`, { copy }));
+  await importFails(
+    ws,
+    entries,
+    /The imported catalog would not validate; nothing was written\.\n- \.tieline\/screens\/NOTES\.yaml: the catalog would be \d+ bytes; the limit is 4194304/
+  );
+});
+
+await test("never writes the captures .gitignore through a symbolic link", async () => {
+  const ws = workspace();
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-gitignore`);
+  symlinkSync(outside, resolve(ws.root, ".tieline/captures/.gitignore"));
+  try {
+    const { exit, result } = await importScreens(ws, [screen("a")]);
+    assert.equal(exit, 0);
+    assert.equal(result.captures_gitignore, "unverified");
+    assert.equal(existsSync(outside), false, "a dangling link is never written through");
+  } finally {
+    rmSync(outside, { force: true });
+  }
+});
+
+await test("reports an existing captures .gitignore that does not ignore everything, and leaves it", async () => {
+  for (const content of ["", "# screenshots\n", "*.log\n", "*\n!*.png\n"]) {
+    const ws = workspace();
+    const ignorePath = resolve(ws.root, ".tieline/captures/.gitignore");
+    mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+    writeFileSync(ignorePath, content);
+    const { exit, result } = await importScreens(ws, [screen("a")]);
+    assert.equal(exit, 0);
+    assert.equal(result.captures_gitignore, "unverified", JSON.stringify(content));
+    assert.equal(readFileSync(ignorePath, "utf8"), content, "an existing .gitignore is never edited");
+
+    writeFileSync(resolve(ws.root, "import.json"), JSON.stringify([screen("b")]));
+    const capture = captureIO();
+    assert.equal(await runCli(["screens", "import", resolve(ws.root, "import.json"), "--repository", ws.root], capture.io, {}), 0);
+    assert.match(
+      capture.output(),
+      /note {2}\.tieline\/captures\/\.gitignore does not ignore everything in \.tieline\/captures \(or is not a regular file\), and Tieline leaves it unchanged; make sure screenshots there are git-ignored\./
+    );
+  }
+});
+
+await test("accepts an existing captures .gitignore that ignores everything", async () => {
+  const ws = workspace();
+  const content = "# kept by hand\r\n/*  \r\n!/.gitignore\r\n*.tmp\r\n";
+  mkdirSync(resolve(ws.root, ".tieline/captures"), { recursive: true });
+  writeFileSync(resolve(ws.root, ".tieline/captures/.gitignore"), content);
+  const { exit, result } = await importScreens(ws, [screen("a")]);
+  assert.equal(exit, 0);
+  assert.equal(result.captures_gitignore, "exists");
+  assert.equal(readFileSync(resolve(ws.root, ".tieline/captures/.gitignore"), "utf8"), content);
+});
+
+await test("treats only a match-all rule without other re-includes as ignoring everything", () => {
+  for (const content of ["*", "*\n!.gitignore\n", "**\n", "/**", "# c\n\n*\n*.png\n"]) {
+    assert.equal(gitignoreIgnoresEverything(content), true, JSON.stringify(content));
+  }
+  for (const content of ["", "#*\n", "*.png\n", " *\n", "*\n!keep.png\n", "!.gitignore\n", "\\*\n", "*/\n"]) {
+    assert.equal(gitignoreIgnoresEverything(content), false, JSON.stringify(content));
+  }
+});
+
+await test("writes the captures .gitignore only into the directory it validated", () => {
+  const ws = workspace();
+  const captures = resolve(ws.root, ".tieline/captures");
+  mkdirSync(captures, { recursive: true });
+  const validated = realpathSync(captures);
+  const outside = resolve(ws.root, "src");
+  mkdirSync(outside, { recursive: true });
+
+  // The validated directory is swapped for a link to `src` before creation:
+  // nothing, not even an empty file, is left there, and nothing is ignored.
+  renameSync(captures, resolve(ws.root, ".tieline/captures-moved"));
+  symlinkSync(outside, captures);
+  assert.throws(
+    () => createInValidatedDirectory(validated, ".gitignore", "*\n"),
+    /changed while '\.gitignore' was being created in it, so nothing was written there/
+  );
+  assert.equal(existsSync(resolve(outside, ".gitignore")), false);
+
+  // In place, the file is created with its content, once.
+  rmSync(captures);
+  renameSync(resolve(ws.root, ".tieline/captures-moved"), captures);
+  assert.equal(createInValidatedDirectory(validated, ".gitignore", "*\n").status, "created");
+  assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
+  assert.equal(createInValidatedDirectory(validated, ".gitignore", "other\n").status, "exists");
+  assert.equal(readFileSync(resolve(captures, ".gitignore"), "utf8"), "*\n");
+});
+
+await test("refuses a captures directory that resolves elsewhere than where it was validated", () => {
+  const ws = workspace();
+  const captures = resolve(ws.root, ".tieline/captures");
+  mkdirSync(captures, { recursive: true });
+  ws.write(".tieline/captures/list.png", "png");
+  const settings = screenSettingsForRepository(ws.root)!;
+  // Swapped, after validation, for a link to the spec: inside `.tieline`,
+  // so only the comparison with the validated destination catches it.
+  renameSync(captures, resolve(ws.root, ".tieline/captures-moved"));
+  symlinkSync(resolve(ws.root, ".tieline/spec"), captures);
+  assert.throws(
+    () => ensureCapturesIgnored(ws.root, settings),
+    /The captures directory '\.tieline\/captures' now resolves to '.*\.tieline\/spec', not to '.*\.tieline\/captures' where it was validated; nothing was written\./
+  );
+  assert.equal(existsSync(resolve(ws.root, ".tieline/spec/.gitignore")), false);
+  // Screenshots are not resolved against the swapped directory either.
+  assert.throws(
+    () => createCaptureDigester(settings).digest("list.png", "a"),
+    /The captures directory '\.tieline\/captures' now resolves to/
+  );
+});
+
+await test("writes nothing when the captures .gitignore cannot be created", async () => {
+  const ws = workspace();
+  // A file where the captures directory should be: it cannot be created.
+  ws.write(".tieline/captures", "not a directory\n");
+  await importFails(ws, [screen("a")], /EEXIST|ENOTDIR|file already exists|not a directory/);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/NOTES.yaml")), false);
+});
+
+console.log("screens import: atomic writes");
+
+function moveBetweenCatalogs(ws: ScreensWorkspace) {
+  return planImport(ws, [screen("a", { capability: "SHARING" })]);
+}
+
+function planImport(
+  ws: ScreensWorkspace,
+  entries: unknown[],
+  catalogLimits?: Parameters<typeof planScreenImport>[2]["catalogLimits"]
+) {
+  const settings = screenSettingsForRepository(ws.root)!;
+  const read = readScreenCatalogSources(ws.root, settings);
+  const issues: string[] = [];
+  const catalog = validateScreenCatalogDocuments(read.sources, undefined, issues);
+  assert.deepEqual(issues, []);
+  const documents = new Map(catalog.files.map((file) => [file.path, file.document]));
+  return planScreenImport(
+    parseScreenImport(entries),
+    read.sources.map((source) => ({ source, document: documents.get(source.path)! })),
+    {
+      repositoryRoot: ws.root,
+      settings,
+      capabilityKeys: new Set(["NOTES", "SHARING"]),
+      prune: false,
+      skipUnknownCapabilities: false,
+      catalogEntries: read.entries,
+      ...(catalogLimits ? { catalogLimits } : {}),
+    }
+  );
+}
+
+function failingRenames(failOn: number[]) {
+  let renames = 0;
+  return {
+    ...NODE_FILE_SYSTEM,
+    renameSync: (from: string, to: string) => {
+      renames += 1;
+      if (failOn.includes(renames)) throw new Error("disk full");
+      renameSync(from, to);
+    },
+  };
+}
+
+await test("restores every file already written when a later write fails", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const before = snapshot(ws);
+  const plan = moveBetweenCatalogs(ws);
+  assert.deepEqual(plan.files.map((file) => file.status), ["updated", "updated"]);
+  assert.throws(
+    () => applyScreenImport(plan, failingRenames([2])),
+    /Writing '\.tieline\/screens\/SHARING\.yaml' failed \(disk full\); the 1 file\(s\) already written were restored, so the catalog is unchanged\./
+  );
+  // Byte-identical, with no staged or restore files left behind.
+  assert.deepEqual(snapshot(ws), before);
+});
+
+await test("restores replaced files even when cleaning up staged files fails", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const notes = catalog(ws, "NOTES");
+  const sharing = catalog(ws, "SHARING");
+  const fileSystem = {
+    ...failingRenames([2]),
+    rmSync: (path: string, options: { force: true }) => {
+      if (path.endsWith(".tmp")) throw new Error("permission denied");
+      rmSync(path, options);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError);
+    assert.match(error.message, /the 1 file\(s\) already written were restored, so the catalog is unchanged/);
+    assert.match(error.issues.join("\n"), /staged file left behind: .*SHARING\.yaml\.\d+\.tmp \(permission denied\)/);
+  }
+  assert.equal(catalog(ws, "NOTES"), notes);
+  assert.equal(catalog(ws, "SHARING"), sharing);
+});
+
+function outsideFile(ws: ScreensWorkspace, name: string): string {
+  const path = resolve(ws.root, "..", `${ws.root.split("/").pop()}-${name}`);
+  writeFileSync(path, "outside\n");
+  return path;
+}
+
+await test("never writes a staged catalog file through a symbolic link", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const before = snapshot(ws);
+  const outside = outsideFile(ws, "outside-staged");
+  const planted = resolve(ws.root, `.tieline/screens/SHARING.yaml.${process.pid}.tmp`);
+  symlinkSync(outside, planted);
+  try {
+    assert.throws(
+      () => applyScreenImport(moveBetweenCatalogs(ws)),
+      /Could not stage the screen catalog files \(EEXIST: .*SHARING\.yaml\.\d+\.tmp'\); nothing was written\./
+    );
+    assert.equal(readFileSync(outside, "utf8"), "outside\n", "a planted link is never written through");
+    assert.equal(lstatSync(planted).isSymbolicLink(), true, "an entry this import did not create is left alone");
+    rmSync(planted);
+    assert.deepEqual(snapshot(ws), before, "the file staged before it is removed");
+  } finally {
+    rmSync(outside, { force: true });
+  }
+});
+
+await test("never writes a restore file through a symbolic link", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const outside = outsideFile(ws, "outside-restore");
+  symlinkSync(outside, resolve(ws.root, `.tieline/screens/NOTES.yaml.${process.pid}.restore`));
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), failingRenames([2]));
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.message, /restoring the files already written also failed/);
+    assert.match(error.issues.join("\n"), /^\.tieline\/screens\/NOTES\.yaml \(EEXIST: /);
+  } finally {
+    assert.equal(readFileSync(outside, "utf8"), "outside\n", "a planted link is never written through");
+    rmSync(outside, { force: true });
+  }
+});
+
+function catalogDirectory(ws: ScreensWorkspace): string[] {
+  return readdirSync(resolve(ws.root, ".tieline/screens")).sort();
+}
+
+await test("writes nothing when a catalog changed after the import read it", async () => {
+  // Edited: a concurrent import, or a hand edit, made after planning.
+  const edited = workspace();
+  await importScreens(edited, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const plan = moveBetweenCatalogs(edited);
+  const notes = catalog(edited, "NOTES");
+  edited.write(".tieline/screens/SHARING.yaml", `${catalog(edited, "SHARING")}# kept by hand\n`);
+  const sharing = catalog(edited, "SHARING");
+  try {
+    applyScreenImport(plan);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.message, /^The screen catalog changed after the import read it, so nothing was written\. Run the import again\.\n/);
+    assert.deepEqual(error.issues, [".tieline/screens/SHARING.yaml was edited after the import read it"]);
+  }
+  assert.equal(catalog(edited, "NOTES"), notes);
+  assert.equal(catalog(edited, "SHARING"), sharing);
+  assert.deepEqual(catalogDirectory(edited), ["NOTES.yaml", "SHARING.yaml"], "no staged file is left behind");
+
+  // Created: the plan would create a file that now exists.
+  const created = workspace();
+  await importScreens(created, [screen("a")]);
+  const creating = planImport(created, [screen("b", { capability: "SHARING" })]);
+  created.write(".tieline/screens/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  assert.throws(
+    () => applyScreenImport(creating),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml was created after the import read it"
+  );
+  assert.equal(catalog(created, "SHARING"), "version: 1\ncapability: SHARING\nscreens: []\n");
+
+  // Untouched: the plan leaves SHARING alone, but an edit to it could add a
+  // key the import adds to NOTES, so it is checked too.
+  const untouched = workspace();
+  await importScreens(untouched, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const notesOnly = planImport(untouched, [screen("c")]);
+  assert.deepEqual(notesOnly.files.map((file) => file.status), ["updated", "unchanged"]);
+  const notesBefore = catalog(untouched, "NOTES");
+  untouched.write(".tieline/screens/SHARING.yaml", `${catalog(untouched, "SHARING")}# kept by hand\n`);
+  assert.throws(
+    () => applyScreenImport(notesOnly),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml was edited after the import read it"
+  );
+  assert.equal(catalog(untouched, "NOTES"), notesBefore);
+
+  // Added: a catalog file the plan never saw, created by hand meanwhile.
+  const added = workspace();
+  await importScreens(added, [screen("a")]);
+  const addsC = planImport(added, [screen("c")]);
+  const addedBefore = catalog(added, "NOTES");
+  added.write(".tieline/screens/extra/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  assert.throws(
+    () => applyScreenImport(addsC),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/extra/SHARING.yaml was created after the import read it"
+  );
+  assert.equal(catalog(added, "NOTES"), addedBefore);
+  assert.deepEqual(catalogDirectory(added), ["NOTES.yaml", "extra"], "no staged file is left behind");
+});
+
+await test("never writes through a catalog directory swapped for a link after planning", () => {
+  const ws = workspace();
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-catalog`);
+  mkdirSync(outside, { recursive: true });
+  try {
+    // Planned while the catalog directory is absent, so the plan creates it.
+    const plan = planImport(ws, [screen("a")]);
+    assert.deepEqual(plan.files.map((file) => file.status), ["created"]);
+    symlinkSync(outside, resolve(ws.root, ".tieline/screens"));
+    assert.throws(
+      () => applyScreenImport(plan),
+      (error: unknown) =>
+        error instanceof ScreenImportError &&
+        error.issues.includes(".tieline/screens/NOTES.yaml now resolves outside the screen catalog directory") &&
+        error.issues.some((issue) => /^the catalog could not be listed again: screen catalog '\.tieline\/screens' now resolves to /.test(issue))
+    );
+    assert.deepEqual(readdirSync(outside), [], "nothing is left outside the repository, staged or final");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+await test("writes a nested catalog file only into the directory it was read from", async () => {
+  // Captures nested in the catalog, and a catalog file in a subdirectory.
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  await importScreens(ws, [screen("a")]);
+  ws.write(".tieline/screens/sub/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  const plan = planImport(ws, [screen("b", { capability: "SHARING" })]);
+  const original = readFileSync(resolve(ws.root, ".tieline/screens/sub/SHARING.yaml"), "utf8");
+  // After planning, `sub` moves out of the catalog and a link to the
+  // captures takes its place, holding identical bytes: content checks pass.
+  ws.write(".tieline/screens/shots/SHARING.yaml", original);
+  renameSync(resolve(ws.root, ".tieline/screens/sub"), resolve(ws.root, "sub-moved"));
+  symlinkSync(resolve(ws.root, ".tieline/screens/shots"), resolve(ws.root, ".tieline/screens/sub"));
+  assert.throws(
+    () => applyScreenImport(plan),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      /^\.tieline\/screens\/sub\/SHARING\.yaml now resolves to '.*\/screens\/shots', not to '.*\/screens\/sub' where it was read$/m.test(error.issues.join("\n"))
+  );
+  assert.equal(readFileSync(resolve(ws.root, ".tieline/screens/shots/SHARING.yaml"), "utf8"), original, "the captures copy is untouched");
+});
+
+await test("never makes directories through a catalog ancestor swapped for a link", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a")]);
+  ws.write(".tieline/screens/sub/deep/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  const plan = planImport(ws, [screen("b", { capability: "SHARING" })]);
+  // After planning, `sub` becomes a link to an empty directory outside the
+  // repository, where `deep` does not exist.
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-ancestor`);
+  mkdirSync(outside, { recursive: true });
+  try {
+    renameSync(resolve(ws.root, ".tieline/screens/sub"), resolve(ws.root, "sub-moved"));
+    symlinkSync(outside, resolve(ws.root, ".tieline/screens/sub"));
+    assert.throws(() => applyScreenImport(plan), ScreenImportError);
+    assert.deepEqual(readdirSync(outside), [], "nothing was made outside the repository");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+await test("rechecks the entry bound counting new catalogs but not replaced files' staging", async () => {
+  const fileBytes = SCREEN_LIMITS.catalogFileBytes;
+  const atTwo = { entries: 2, files: 10, fileBytes, totalBytes: 1_000_000 };
+  // Planned at the bound (NOTES.yaml and the new SHARING.yaml); a README
+  // added meanwhile would make three. The new catalog's staged file is a
+  // real entry, so the recheck is not loosened for it.
+  const crossed = workspace();
+  await importScreens(crossed, [screen("a")]);
+  const createsSharing = planImport(crossed, [screen("b", { capability: "SHARING" })], atTwo);
+  crossed.write(".tieline/screens/README.md", "Catalog notes.\n");
+  assert.throws(
+    () => applyScreenImport(createsSharing),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === "the catalog could not be listed again: the screen catalog holds more than 2 directory entries"
+  );
+  assert.deepEqual(catalogDirectory(crossed), ["NOTES.yaml", "README.md"]);
+
+  // At the bound, a file replaced in place briefly has a staged twin; that
+  // entry goes away on rename, so it is allowed for.
+  const replaced = workspace();
+  await importScreens(replaced, [screen("a")]);
+  replaced.write(".tieline/screens/README.md", "Catalog notes.\n");
+  const updatesNotes = planImport(replaced, [screen("c")], atTwo);
+  applyScreenImport(updatesNotes);
+  assert.match(catalog(replaced, "NOTES"), /key: c/);
+  assert.deepEqual(catalogDirectory(replaced), ["NOTES.yaml", "README.md"]);
+});
+
+await test("never rolls back over a catalog another writer changed meanwhile", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const concurrent = "version: 1\ncapability: NOTES\nscreens: []\n# written concurrently\n";
+  const fileSystem = {
+    ...NODE_FILE_SYSTEM,
+    renameSync: (from: string, to: string) => {
+      if (to.endsWith("SHARING.yaml")) {
+        // Another writer updates the file this import already replaced.
+        writeFileSync(resolve(ws.root, ".tieline/screens/NOTES.yaml"), concurrent);
+        throw new Error("disk full");
+      }
+      renameSync(from, to);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.message, /restoring the files already written also failed/);
+    assert.deepEqual(error.issues, [
+      ".tieline/screens/NOTES.yaml (was edited after this import wrote it; left as it is)",
+    ]);
+  }
+  assert.equal(catalog(ws, "NOTES"), concurrent);
+});
+
+await test("runs one import at a time under the import lock", async () => {
+  const ws = workspace();
+  const lock = resolve(ws.root, ".tieline/screens-import.lock");
+  // While one import holds the lock, a second (on any catalog file) cannot start.
+  const settings = screenSettingsForRepository(ws.root)!;
+  withScreenImportLock(ws.root, settings, () => {
+    assert.match(readFileSync(lock, "utf8"), /^\{"pid":\d+,"started_at":"[^"]+"\}\n$/);
+    assert.throws(
+      () => withScreenImportLock(ws.root, settings, () => "second"),
+      /Another screen import is in progress: '\.tieline\/screens-import\.lock' exists\. If no import is running \(one may have been interrupted\), delete that file and import again\./
+    );
+  });
+  assert.equal(existsSync(lock), false, "released after the work");
+
+  // The command takes it: a held lock refuses the import and writes nothing.
+  writeFileSync(lock, "held by another import\n");
+  await importFails(ws, [screen("a")], /Another screen import is in progress/);
+  assert.equal(readFileSync(lock, "utf8"), "held by another import\n", "someone else's lock is never removed");
+  assert.equal(existsSync(resolve(ws.root, ".tieline/captures/.gitignore")), false);
+  // A dry run only reads, so it does not need the lock.
+  const dry = await importScreens(ws, [screen("a")], ["--dry-run"]);
+  assert.equal(dry.exit, 0);
+  rmSync(lock);
+
+  // Released whether the import succeeds or fails.
+  assert.equal((await importScreens(ws, [screen("a")])).exit, 0);
+  assert.equal(existsSync(lock), false);
+  await importFails(ws, [screen("b", { capability: "GONE" })], /unknown capability 'GONE'/);
+  assert.equal(existsSync(lock), false);
+  assert.throws(() => withScreenImportLock(ws.root, settings, () => { throw new Error("planning failed"); }), /^Error: planning failed$/);
+  assert.equal(existsSync(lock), false);
+});
+
+await test("creates the import lock only in the workspace it validated", () => {
+  const ws = workspace();
+  const settings = screenSettingsForRepository(ws.root)!;
+  // The workspace is swapped for a link to a copy outside the repository.
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-workspace`);
+  renameSync(resolve(ws.root, ".tieline"), outside);
+  symlinkSync(outside, resolve(ws.root, ".tieline"));
+  try {
+    let ran = false;
+    assert.throws(
+      () => withScreenImportLock(ws.root, settings, () => { ran = true; }),
+      /changed while 'screens-import\.lock' was being created in it, so nothing was written there/
+    );
+    assert.equal(ran, false, "the import did not run");
+    assert.equal(existsSync(resolve(outside, "screens-import.lock")), false);
+  } finally {
+    rmSync(resolve(ws.root, ".tieline"));
+    renameSync(outside, resolve(ws.root, ".tieline"));
+  }
+});
+
+await test("undoes the captures directory it made when the catalog write is refused", () => {
+  // Captures inside the catalog, not made yet; the catalog is at its entry
+  // bound, so the new captures directory is what would take it over.
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  ws.write(".tieline/screens/NOTES.yaml", NOTES_CATALOG_YAML);
+  const before = catalog(ws, "NOTES");
+  const settings = screenSettingsForRepository(ws.root)!;
+  const plan = planImport(ws, [screen("c")], { entries: 1, files: 10, fileBytes: SCREEN_LIMITS.catalogFileBytes, totalBytes: 1_000_000 });
+  assert.throws(
+    () => writeScreenImport(ws.root, settings, plan),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      /the screen catalog holds more than 2 directory entries/.test(error.issues.join("\n"))
+  );
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/shots")), false, "the captures directory it made is gone");
+  assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml"]);
+  assert.equal(catalog(ws, "NOTES"), before);
+
+  // Within the bound, the same import writes both.
+  const roomy = planImport(ws, [screen("c")], { entries: 10, files: 10, fileBytes: SCREEN_LIMITS.catalogFileBytes, totalBytes: 1_000_000 });
+  assert.equal(writeScreenImport(ws.root, settings, roomy), "created");
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/shots/.gitignore")), true);
+  assert.match(catalog(ws, "NOTES"), /key: c/);
+});
+
+await test("removes a file it created exclusively when writing it fails", () => {
+  const ws = workspace();
+  const directory = realpathSync(resolve(ws.root, ".tieline"));
+  assert.throws(
+    () =>
+      createInValidatedDirectory(directory, "screens-import.lock", "{}\n", () => {
+        throw new Error("ENOSPC: no space left on device");
+      }),
+    /^Error: ENOSPC: no space left on device$/
+  );
+  assert.equal(existsSync(resolve(directory, "screens-import.lock")), false, "no stale lock blocks later imports");
+  // And the next import can take the lock.
+  assert.equal(createInValidatedDirectory(directory, "screens-import.lock", "{}\n").status, "created");
+});
+
+await test("installs only staged copies that still hold what was staged", async () => {
+  const tamper = (path: string) => writeFileSync(path, `${readFileSync(path, "utf8")}# not what was staged\n`);
+
+  // Edited after staging: refused before anything is installed.
+  const early = workspace();
+  await importScreens(early, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const before = snapshot(early);
+  assert.throws(
+    () =>
+      applyScreenImport(moveBetweenCatalogs(early), {
+        ...NODE_FILE_SYSTEM,
+        createFileSync: (path: string, content: string) => {
+          const created = NODE_FILE_SYSTEM.createFileSync(path, content);
+          if (path.includes("SHARING.yaml.")) tamper(path);
+          return created;
+        },
+      }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml: its staged copy was edited before it was installed"
+  );
+  assert.deepEqual(snapshot(early), before, "nothing installed, no staged copy left");
+
+  // Edited between that check and its rename: caught once installed. That
+  // content cannot be told apart from a writer's edit just after the rename,
+  // so it is left in place and named; the file installed before it is undone.
+  const late = workspace();
+  await importScreens(late, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const lateBefore = snapshot(late);
+  let tampered = false;
+  assert.throws(
+    () =>
+      applyScreenImport(moveBetweenCatalogs(late), {
+        ...NODE_FILE_SYSTEM,
+        renameSync: (from: string, to: string) => {
+          // Only the staged copy, once: the restore that follows is left alone.
+          if (!tampered && from.endsWith(".tmp") && to.endsWith("SHARING.yaml")) {
+            tampered = true;
+            tamper(from);
+          }
+          NODE_FILE_SYSTEM.renameSync(from, to);
+        },
+      }),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      /^Writing '\.tieline\/screens\/SHARING\.yaml' failed \(the installed file was edited on its way in\), and restoring the files already written also failed\. Restore them from git before importing again\./.test(error.message) &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml (was edited after this import wrote it; left as it is)"
+  );
+  assert.equal(catalog(late, "NOTES"), lateBefore["NOTES.yaml"]);
+  assert.match(catalog(late, "SHARING"), /# not what was staged\n$/);
+});
+
+await test("removes the directories it made when the captures ignore file cannot be written", () => {
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  const settings = screenSettingsForRepository(ws.root)!;
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens")), false);
+  assert.throws(
+    () =>
+      prepareCapturesIgnore(ws.root, settings, undefined, () => {
+        throw new Error("ENOSPC: no space left on device");
+      }),
+    /^Error: ENOSPC: no space left on device$/
+  );
+  // Both the catalog directory and the captures directory below it were
+  // made for the file, and both are gone again.
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens")), false);
+});
+
+await test("removes a partial scratch file when writing it fails", async () => {
+  // Staged and restore copies are created this way: a write that fails part
+  // way leaves nothing behind.
+  const ws = workspace();
+  const path = resolve(ws.root, ".tieline/scratch.tmp");
+  assert.throws(
+    () =>
+      createExclusiveFile(path, "version: 1\n", (descriptor) => {
+        writeFileSync(descriptor, "vers");
+        throw new Error("ENOSPC: no space left on device");
+      }),
+    /^Error: ENOSPC: no space left on device$/
+  );
+  assert.equal(existsSync(path), false, "no partial file is left");
+  createExclusiveFile(path, "version: 1\n");
+  assert.equal(readFileSync(path, "utf8"), "version: 1\n");
+
+  // And a rollback whose restore copy cannot be written leaves none behind.
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const fileSystem = {
+    ...failingRenames([2]),
+    createFileSync: (target: string, content: string) =>
+      target.endsWith(".restore")
+        ? createExclusiveFile(target, content, (descriptor) => {
+            writeFileSync(descriptor, content.slice(0, 8));
+            throw new Error("ENOSPC: no space left on device");
+          })
+        : NODE_FILE_SYSTEM.createFileSync(target, content),
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.deepEqual(error.issues, [".tieline/screens/NOTES.yaml (ENOSPC: no space left on device)"]);
+  }
+  assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml", "SHARING.yaml"], "no partial restore copy is left");
+});
+
+await test("never removes a staged path that names another file by cleanup time", async () => {
+  // NOTES is staged; while SHARING fails to stage, NOTES' staged path is
+  // replaced by an unrelated file, which the cleanup must leave alone.
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  let notesStaged = "";
+  const fileSystem = {
+    ...NODE_FILE_SYSTEM,
+    createFileSync: (path: string, content: string) => {
+      if (path.includes("NOTES.yaml.")) notesStaged = path;
+      if (path.includes("SHARING.yaml.")) {
+        // Moved aside rather than deleted, as a swap does: the staged file
+        // still exists, so the file now at its path is a different one (a
+        // deleted file's inode could otherwise be reused for it).
+        renameSync(notesStaged, `${notesStaged}.moved`);
+        writeFileSync(notesStaged, "someone else's file\n");
+        throw new Error("EIO: i/o error");
+      }
+      return NODE_FILE_SYSTEM.createFileSync(path, content);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.issues.join("\n"), /NOTES\.yaml\.\d+\.tmp \(no longer the file staged there; left as it is\)/);
+  }
+  assert.equal(readFileSync(notesStaged, "utf8"), "someone else's file\n");
+  rmSync(notesStaged);
+  rmSync(`${notesStaged}.moved`);
+});
+
+await test("never removes a directory it made once its path names another one", () => {
+  // The import makes the catalog directory for a new catalog; before its
+  // cleanup, that directory is renamed away and a different empty one put in
+  // its place, which the cleanup must leave alone.
+  const ws = workspace();
+  const catalogDirectory = resolve(ws.root, ".tieline/screens");
+  const plan = planImport(ws, [screen("a")]);
+  const fileSystem = {
+    ...NODE_FILE_SYSTEM,
+    createFileSync: () => {
+      renameSync(catalogDirectory, `${catalogDirectory}-moved`);
+      mkdirSync(catalogDirectory);
+      throw new Error("EIO: i/o error");
+    },
+  };
+  try {
+    applyScreenImport(plan, fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.issues.join("\n"), /directory left behind: .*\.tieline\/screens \(no longer the directory made there; left as it is\)/);
+  }
+  assert.equal(existsSync(catalogDirectory), true, "the other directory is still there");
+});
+
+await test("names the files to restore from git when restoring fails too", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), failingRenames([2, 3]));
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError);
+    assert.match(error.message, /restoring the files already written also failed\. Restore them from git before importing again\./);
+    assert.deepEqual(error.issues, [".tieline/screens/NOTES.yaml (disk full)"]);
+  }
+  // The restore copy whose rename failed is removed, not left as a stray
+  // entry in the catalog directory.
+  assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml", "SHARING.yaml"]);
+});
+
+for (const created of workspaces) created.cleanup();
+report();
