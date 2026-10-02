@@ -134,8 +134,10 @@ When screens are enabled, `tieline check`:
 - validates the working-tree catalog and fails (`exit_reason: invalid_screen_catalog`) when it
   does not validate;
 - fails like a broken link (`exit_reason: broken_links`, downgradable with
-  `--no-fail-on-broken`) when a committed `shows` link names a screen the catalog no longer
-  contains;
+  `--no-fail-on-broken`) when a `shows` link names a screen the catalog does not contain. It
+  resolves the committed manifest's links and any the working-tree spec adds: a link to an
+  unknown screen stops the spec from compiling, so it never reaches the manifest, and is read
+  from the YAML instead;
 - adds a `screens` section to its JSON output and a `broken screen link(s)=N` count to its text
   summary.
 

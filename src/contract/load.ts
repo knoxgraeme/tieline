@@ -135,20 +135,80 @@ export function loadAcceptedContract(
   return screens ? { documents, warnings, screens } : { documents, warnings };
 }
 
+/** A `shows` link as the working-tree spec authors it, read leniently. */
+export interface DeclaredShowsLink {
+  owner_kind: "story" | "acceptance_criterion";
+  owner_stable_id: string;
+  story_stable_id: string;
+  screen_key: string;
+  provenance: string;
+}
+
+/** What the working-tree spec says about screens, read leniently. */
+export interface DeclaredScreenReferences {
+  capabilityKeys: Set<string>;
+  showsLinks: DeclaredShowsLink[];
+}
+
+function field(value: unknown, name: string): unknown {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)[name]
+    : undefined;
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function declaredShowsLinks(
+  owner: Omit<DeclaredShowsLink, "screen_key" | "provenance">,
+  links: unknown
+): DeclaredShowsLink[] {
+  if (!Array.isArray(links)) return [];
+  return links.flatMap((link: unknown) => {
+    const target = field(link, "target");
+    const key = field(target, "key");
+    if (
+      field(link, "relation") !== "shows" ||
+      field(target, "kind") !== "screen" ||
+      typeof key !== "string"
+    ) {
+      return [];
+    }
+    const provenance = field(link, "provenance");
+    return [
+      {
+        ...owner,
+        screen_key: key,
+        provenance: typeof provenance === "string" ? provenance : "",
+      },
+    ];
+  });
+}
+
 /**
- * Capability keys declared by the spec, read without validating the rest of
- * each document. The screen importer needs to know which capabilities exist
- * even while the contract is mid-edit — for example when it already carries
- * `shows` links to screens the import is about to create.
+ * Capability keys and `shows` links declared by the spec, read without
+ * validating the rest of each document. Screen tooling needs both even while
+ * the contract is mid-edit: the importer, to know which capabilities exist
+ * when the spec already carries links to screens it is about to create; check,
+ * to resolve links the committed manifest does not hold yet, since a link to
+ * an unknown screen is exactly what stops the spec from compiling.
  */
-export function readDeclaredCapabilityKeys(
+export function readDeclaredScreenReferences(
   repositoryRoot: string,
   specDirectory = ".tieline/spec"
-): Set<string> {
+): DeclaredScreenReferences {
   const root = resolve(repositoryRoot);
   const directory = resolve(root, specDirectory);
-  const keys = new Set<string>();
-  if (!existsSync(directory) || !statSync(directory).isDirectory()) return keys;
+  const references: DeclaredScreenReferences = {
+    capabilityKeys: new Set(),
+    showsLinks: [],
+  };
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) {
+    return references;
+  }
   for (const path of yamlFiles(directory)) {
     let document: unknown;
     try {
@@ -159,15 +219,50 @@ export function readDeclaredCapabilityKeys(
         `${relative(root, path)}: invalid YAML: ${message}`,
       ]);
     }
-    const capability =
-      document !== null && typeof document === "object"
-        ? (document as { capability?: unknown }).capability
-        : undefined;
-    const key =
-      capability !== null && typeof capability === "object"
-        ? (capability as { key?: unknown }).key
-        : undefined;
-    if (typeof key === "string" && key.trim().length > 0) keys.add(key.trim());
+    const capability = field(document, "capability");
+    const capabilityKey = nonEmptyString(field(capability, "key"));
+    if (capabilityKey) references.capabilityKeys.add(capabilityKey);
+    const stories = field(capability, "stories");
+    for (const story of Array.isArray(stories) ? stories : []) {
+      const storyKey = nonEmptyString(field(story, "key"));
+      // A link's owner is named by its key; an unkeyed story or criterion
+      // already stops the spec from compiling, which check reports.
+      if (!storyKey) continue;
+      references.showsLinks.push(
+        ...declaredShowsLinks(
+          {
+            owner_kind: "story",
+            owner_stable_id: storyKey,
+            story_stable_id: storyKey,
+          },
+          field(story, "links")
+        )
+      );
+      const criteria = field(story, "acceptance_criteria");
+      for (const criterion of Array.isArray(criteria) ? criteria : []) {
+        const criterionKey = nonEmptyString(field(criterion, "key"));
+        if (!criterionKey) continue;
+        references.showsLinks.push(
+          ...declaredShowsLinks(
+            {
+              owner_kind: "acceptance_criterion",
+              owner_stable_id: criterionKey,
+              story_stable_id: storyKey,
+            },
+            field(criterion, "links")
+          )
+        );
+      }
+    }
   }
-  return keys;
+  return references;
+}
+
+/** Capability keys declared by the spec; see `readDeclaredScreenReferences`. */
+export function readDeclaredCapabilityKeys(
+  repositoryRoot: string,
+  specDirectory = ".tieline/spec"
+): Set<string> {
+  return readDeclaredScreenReferences(repositoryRoot, specDirectory)
+    .capabilityKeys;
 }

@@ -36,6 +36,7 @@ import {
   captureIO,
   createScreensWorkspace,
   NOTES_CATALOG_YAML,
+  notesSpecYaml,
   REPO_KEY,
   screensConfigJson,
   SHARING_CATALOG_YAML,
@@ -598,7 +599,7 @@ await test("fails check on committed shows links whose screen left the catalog",
       provenance: "authored",
     },
   ]);
-  assert.ok(broken.errors.includes("NOTES-001-AC1 shows screen 'note-saved-toast', but the screen catalog no longer contains it."));
+  assert.ok(broken.errors.includes("NOTES-001-AC1 shows screen 'note-saved-toast', but the screen catalog does not contain it."));
 
   capture.reset();
   assert.equal(
@@ -610,6 +611,56 @@ await test("fails check on committed shows links whose screen left the catalog",
   capture.reset();
   await runCheckCommand({ base: "HEAD", repository: ws.root }, capture.io);
   assert.match(capture.output(), /broken link\(s\)=0; broken screen link\(s\)=1;/);
+});
+
+await test("fails check on working-tree shows links the catalog does not contain", async () => {
+  const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+
+  // Added: the spec no longer compiles, so the committed manifest never sees the link.
+  ws.write(".tieline/spec/notes.yaml", notesSpecYaml({ storyShows: ["notes-list"], criterionShows: ["no-such-screen"] }));
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1);
+  const added = JSON.parse(capture.output());
+  assert.match(added.manifest_compile_error, /'NOTES-001-AC1' shows unknown screen 'no-such-screen'/);
+  assert.equal(added.exit_reason, "broken_links");
+  assert.equal(added.screens.status, "evaluated");
+  assert.equal(added.screens.shows_links, 2);
+  assert.deepEqual(added.screens.broken_links, [
+    {
+      owner_kind: "acceptance_criterion",
+      owner_stable_id: "NOTES-001-AC1",
+      story_stable_id: "NOTES-001",
+      screen_key: "no-such-screen",
+      provenance: "authored",
+    },
+  ]);
+  assert.ok(added.errors.includes("NOTES-001-AC1 shows screen 'no-such-screen', but the screen catalog does not contain it."));
+
+  // Retargeted: the committed link still resolves, the working-tree one does not.
+  ws.write(".tieline/spec/notes.yaml", notesSpecYaml({ storyShows: ["notes-lists"] }));
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1);
+  const retargeted = JSON.parse(capture.output());
+  assert.equal(retargeted.exit_reason, "broken_links");
+  assert.deepEqual(
+    retargeted.screens.broken_links.map((link: { owner_stable_id: string; screen_key: string }) => [link.owner_stable_id, link.screen_key]),
+    [["NOTES-001", "notes-lists"]]
+  );
+
+  // A working-tree link to a screen that exists is not broken; the manifest is only stale.
+  ws.write(".tieline/spec/notes.yaml", notesSpecYaml({ storyShows: ["notes-list"], criterionShows: ["note-saved-toast"] }));
+  capture.reset();
+  assert.equal(
+    await runCheckCommand({ base: "HEAD", repository: ws.root, json: true, failOnStaleManifest: false }, capture.io),
+    0
+  );
+  const valid = JSON.parse(capture.output());
+  assert.equal(valid.exit_reason, "stale_manifest_warn_only");
+  assert.equal(valid.screens.shows_links, 2);
+  assert.deepEqual(valid.screens.broken_links, []);
 });
 
 await test("fails check when the working-tree catalog does not validate", async () => {

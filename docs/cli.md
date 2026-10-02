@@ -195,8 +195,8 @@ intentionally downgrading that integrity gate to a warning. Invalid YAML or an u
 manifest fails because no trustworthy result can be computed.
 
 When [screens](screens.md) are enabled, the check also fails when the screen catalog does not
-validate, and treats a committed `shows` link to a screen the catalog no longer contains as a
-broken link. Repositories without screens see no difference.
+validate, and treats a `shows` link, committed or added in the working tree, to a screen the
+catalog does not contain as a broken link. Repositories without screens see no difference.
 
 See [the GitHub Actions example](examples/tieline-check.yml).
 
