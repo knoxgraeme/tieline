@@ -874,7 +874,24 @@ export function applyScreenImport(
           } else {
             const restore = `${done.absolutePath}.${process.pid}.restore`;
             fileSystem.createFileSync(restore, done.original);
-            fileSystem.renameSync(restore, done.absolutePath);
+            try {
+              fileSystem.renameSync(restore, done.absolutePath);
+            } catch (renameError) {
+              // The restore copy is this rollback's own: it must not stay as
+              // a stray entry in the catalog directory. One that no longer
+              // holds what was written there is not ours to remove.
+              const change = changedFrom(restore, done.original);
+              if (change !== null) {
+                unrestored.push(`${restore} (restore copy ${change}; left as it is)`);
+              } else {
+                try {
+                  fileSystem.rmSync(restore, { force: true });
+                } catch (cleanupError) {
+                  unrestored.push(`${restore} (restore copy left behind: ${message(cleanupError)})`);
+                }
+              }
+              throw renameError;
+            }
           }
         } catch (restoreError) {
           unrestored.push(`${done.path} (${message(restoreError)})`);

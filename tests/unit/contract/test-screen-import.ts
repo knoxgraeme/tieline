@@ -1183,6 +1183,9 @@ await test("names the files to restore from git when restoring fails too", async
     assert.match(error.message, /restoring the files already written also failed\. Restore them from git before importing again\./);
     assert.deepEqual(error.issues, [".tieline/screens/NOTES.yaml (disk full)"]);
   }
+  // The restore copy whose rename failed is removed, not left as a stray
+  // entry in the catalog directory.
+  assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml", "SHARING.yaml"]);
 });
 
 for (const created of workspaces) created.cleanup();
