@@ -568,7 +568,10 @@ export function planScreenImport(
   return plan;
 }
 
-/** The file operations `applyScreenImport` performs, injectable for tests. */
+/**
+ * The writes `applyScreenImport` performs, injectable for tests. Its checks
+ * that a catalog file is still as expected read the real file system.
+ */
 export interface ScreenImportFileSystem {
   mkdirSync(path: string, options: { recursive: true }): void;
   /**
@@ -599,6 +602,33 @@ function alreadyExists(error: unknown): boolean {
 }
 
 /**
+ * How the file at `path` no longer holds `expected` (null: no file), or null
+ * when it still does. Nothing past `expected`'s length is read.
+ */
+function changedFrom(path: string, expected: string | null): string | null {
+  let stat: ReturnType<typeof lstatSync>;
+  try {
+    stat = lstatSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code !== "ENOENT") {
+      return `could not be checked (${message(error)})`;
+    }
+    return expected === null ? null : "was removed";
+  }
+  if (expected === null) return "was created";
+  if (!stat.isFile()) return "is no longer a regular file";
+  const bytes = Buffer.byteLength(expected);
+  if (stat.size !== bytes) return "was edited";
+  try {
+    return readBoundedFile(path, bytes, "screen catalog file").toString("utf8") === expected
+      ? null
+      : "was edited";
+  } catch (error) {
+    return `could not be checked (${message(error)})`;
+  }
+}
+
+/**
  * Writes the files a plan changes as one unit. Every new file is staged
  * beside its target first, so a failure while staging writes nothing. Each
  * staged file then replaces its target by rename; if a rename fails, the files
@@ -608,6 +638,14 @@ function alreadyExists(error: unknown): boolean {
  * the error names every file that still needs restoring from git. Staging and
  * restore files are created exclusively: anything already at one of their
  * paths, such as a planted symbolic link, stops the write and is left alone.
+ *
+ * A plan is only as current as the files it read. Once everything is staged,
+ * every target must still hold what the plan read, or nothing is written: an
+ * edit or a concurrent import made meanwhile is never silently overwritten.
+ * Likewise, a rollback only restores a file that still holds what this import
+ * wrote. The check and the replacements are not atomic together, so a write
+ * landing in between can still be lost; the window is kept as short as this
+ * process can make it.
  */
 export function applyScreenImport(
   plan: ScreenImportPlan,
@@ -652,6 +690,18 @@ export function applyScreenImport(
     );
   }
 
+  const stale = changed.flatMap((file) => {
+    const change = changedFrom(file.absolutePath, file.original);
+    return change === null ? [] : [`${file.path} ${change} after the import read it`];
+  });
+  if (stale.length > 0) {
+    const leftovers = discardStaged(0);
+    throw new ScreenImportError(
+      "The screen catalog changed after the import read it, so nothing was written. Run the import again.",
+      [...stale, ...leftovers.map((leftover) => `staged file left behind: ${leftover}`)]
+    );
+  }
+
   const replaced: PlannedScreenCatalogFile[] = [];
   for (const [index, { file, temporary }] of staged.entries()) {
     try {
@@ -661,6 +711,13 @@ export function applyScreenImport(
       // Restore first, then clean up, so a cleanup failure cannot prevent it.
       const unrestored: string[] = [];
       for (const done of replaced.reverse()) {
+        // Another writer's change since this import replaced the file is
+        // theirs to keep; restoring the stale original would discard it.
+        const change = changedFrom(done.absolutePath, done.content);
+        if (change !== null) {
+          unrestored.push(`${done.path} (${change} after this import wrote it; left as it is)`);
+          continue;
+        }
         try {
           if (done.original === null) {
             fileSystem.rmSync(done.absolutePath, { force: true });

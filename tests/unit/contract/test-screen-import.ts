@@ -535,6 +535,10 @@ await test("writes nothing when the captures .gitignore cannot be created", asyn
 console.log("screens import: atomic writes");
 
 function moveBetweenCatalogs(ws: ScreensWorkspace) {
+  return planImport(ws, [screen("a", { capability: "SHARING" })]);
+}
+
+function planImport(ws: ScreensWorkspace, entries: unknown[]) {
   const settings = screenSettingsForRepository(ws.root)!;
   const read = readScreenCatalogSources(ws.root, settings);
   const issues: string[] = [];
@@ -542,7 +546,7 @@ function moveBetweenCatalogs(ws: ScreensWorkspace) {
   assert.deepEqual(issues, []);
   const documents = new Map(catalog.files.map((file) => [file.path, file.document]));
   return planScreenImport(
-    parseScreenImport([screen("a", { capability: "SHARING" })]),
+    parseScreenImport(entries),
     read.sources.map((source) => ({ source, document: documents.get(source.path)! })),
     {
       repositoryRoot: ws.root,
@@ -647,6 +651,72 @@ await test("never writes a restore file through a symbolic link", async () => {
     assert.equal(readFileSync(outside, "utf8"), "outside\n", "a planted link is never written through");
     rmSync(outside, { force: true });
   }
+});
+
+function catalogDirectory(ws: ScreensWorkspace): string[] {
+  return readdirSync(resolve(ws.root, ".tieline/screens")).sort();
+}
+
+await test("writes nothing when a catalog changed after the import read it", async () => {
+  // Edited: a concurrent import, or a hand edit, made after planning.
+  const edited = workspace();
+  await importScreens(edited, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const plan = moveBetweenCatalogs(edited);
+  const notes = catalog(edited, "NOTES");
+  edited.write(".tieline/screens/SHARING.yaml", `${catalog(edited, "SHARING")}# kept by hand\n`);
+  const sharing = catalog(edited, "SHARING");
+  try {
+    applyScreenImport(plan);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.message, /^The screen catalog changed after the import read it, so nothing was written\. Run the import again\.\n/);
+    assert.deepEqual(error.issues, [".tieline/screens/SHARING.yaml was edited after the import read it"]);
+  }
+  assert.equal(catalog(edited, "NOTES"), notes);
+  assert.equal(catalog(edited, "SHARING"), sharing);
+  assert.deepEqual(catalogDirectory(edited), ["NOTES.yaml", "SHARING.yaml"], "no staged file is left behind");
+
+  // Created: the plan would create a file that now exists.
+  const created = workspace();
+  await importScreens(created, [screen("a")]);
+  const creating = planImport(created, [screen("b", { capability: "SHARING" })]);
+  created.write(".tieline/screens/SHARING.yaml", "version: 1\ncapability: SHARING\nscreens: []\n");
+  assert.throws(
+    () => applyScreenImport(creating),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      error.issues.join("\n") === ".tieline/screens/SHARING.yaml was created after the import read it"
+  );
+  assert.equal(catalog(created, "SHARING"), "version: 1\ncapability: SHARING\nscreens: []\n");
+});
+
+await test("never rolls back over a catalog another writer changed meanwhile", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a"), screen("b", { capability: "SHARING" })]);
+  const concurrent = "version: 1\ncapability: NOTES\nscreens: []\n# written concurrently\n";
+  const fileSystem = {
+    ...NODE_FILE_SYSTEM,
+    renameSync: (from: string, to: string) => {
+      if (to.endsWith("SHARING.yaml")) {
+        // Another writer updates the file this import already replaced.
+        writeFileSync(resolve(ws.root, ".tieline/screens/NOTES.yaml"), concurrent);
+        throw new Error("disk full");
+      }
+      renameSync(from, to);
+    },
+  };
+  try {
+    applyScreenImport(moveBetweenCatalogs(ws), fileSystem);
+    assert.fail("expected the import to fail");
+  } catch (error) {
+    assert.ok(error instanceof ScreenImportError, String(error));
+    assert.match(error.message, /restoring the files already written also failed/);
+    assert.deepEqual(error.issues, [
+      ".tieline/screens/NOTES.yaml (was edited after this import wrote it; left as it is)",
+    ]);
+  }
+  assert.equal(catalog(ws, "NOTES"), concurrent);
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {
