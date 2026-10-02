@@ -73,8 +73,14 @@ export interface BrokenScreenLink {
  * so its links could not be resolved.
  */
 export interface ScreenCheck {
-  status: "evaluated" | "catalog_invalid";
-  catalog_path: string;
+  /**
+   * `disabled_with_screen_data`: screens are off, yet the committed manifest
+   * still records screens or shows links — a configuration the contract can
+   * no longer compile, so it fails like an invalid catalog.
+   */
+  status: "evaluated" | "catalog_invalid" | "disabled_with_screen_data";
+  /** Null when screens are disabled. */
+  catalog_path: string | null;
   catalog_screens: number;
   shows_links: number;
   broken_links: BrokenScreenLink[];
@@ -130,7 +136,26 @@ function checkScreens(
   manifest: ContractManifest
 ): ScreenCheck | null {
   const settings = screenSettingsForRepository(root);
-  if (!settings) return null;
+  if (!settings) {
+    // A repository that never enabled screens has no screen data in its
+    // manifest, so this stays null and check is unchanged for it.
+    const links = manifestScreenLinks(manifest);
+    const screens = (manifest.screen_catalogs ?? []).reduce(
+      (total, catalog) => total + catalog.screens.length,
+      0
+    );
+    if (links.length === 0 && manifest.screen_catalogs === undefined) return null;
+    return {
+      status: "disabled_with_screen_data",
+      catalog_path: null,
+      catalog_screens: screens,
+      shows_links: links.length,
+      broken_links: [],
+      catalog_issues: [
+        `the committed manifest records ${screens} screen(s) and ${links.length} shows link(s), but screens are not enabled in .tieline/config.json; enable screens again, or remove the screens and shows links and recompile`,
+      ],
+    };
+  }
   // Capability keys are read leniently, so a catalog naming an undeclared
   // capability fails here even while the rest of the spec does not compile.
   // When a spec file cannot even be parsed, the declared capabilities are
@@ -443,7 +468,8 @@ export async function runCheckCommand(
   // nothing to the result, the output, or the exit code.
   const screens = checkScreens(root, specDirectory, manifest);
   const brokenScreenLinks = screens?.broken_links ?? [];
-  const screenCatalogInvalid = screens?.status === "catalog_invalid";
+  const screenCatalogInvalid =
+    screens?.status === "catalog_invalid" || screens?.status === "disabled_with_screen_data";
   const brokenLinkCount = brokenLinks.length + brokenScreenLinks.length;
   // A manifest that does not match its own recompilation is drift, not a
   // judgement call, so it gates alongside broken links. A compile failure is

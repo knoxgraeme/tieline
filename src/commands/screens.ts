@@ -82,8 +82,10 @@ export async function runScreensImportCommand(
   const dryRun = options.dryRun === true;
   let capturesIgnore: CapturesIgnoreStatus | "dry_run" = "dry_run";
   if (!dryRun) {
-    applyScreenImport(plan);
+    // The ignore file comes first: if it cannot be made, nothing has been
+    // written, rather than reporting failure after the catalog changed.
     capturesIgnore = ensureCapturesIgnored(root, settings);
+    applyScreenImport(plan);
   }
 
   const files = plan.files.map(({ path, status }) => ({ path, status }));

@@ -37,6 +37,7 @@ import {
   createScreensWorkspace,
   NOTES_CATALOG_YAML,
   REPO_KEY,
+  screensConfigJson,
   SHARING_CATALOG_YAML,
   type ScreensWorkspace,
 } from "../../support/screen-fixtures.js";
@@ -662,6 +663,24 @@ await test("fails check when an unparseable spec leaves catalog capabilities unc
   assert.match(
     result.screens.catalog_issues[0],
     /^cannot confirm screen catalog capabilities because the spec does not parse: \.tieline\/spec\/sharing\.yaml: invalid YAML/
+  );
+});
+
+await test("fails check when screens are disabled but the manifest still records them", async () => {
+  const ws = workspace({ git: true, screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
+  const capture = captureIO();
+  assert.equal(await runCli(["contract", "compile", ws.root], capture.io, {}), 0);
+  ws.commit("baseline");
+  ws.write(".tieline/config.json", screensConfigJson({ enabled: false }));
+  capture.reset();
+  assert.equal(await runCheckCommand({ base: "HEAD", repository: ws.root, json: true }, capture.io), 1);
+  const result = JSON.parse(capture.output());
+  assert.equal(result.exit_reason, "invalid_screen_catalog");
+  assert.equal(result.screens.status, "disabled_with_screen_data");
+  assert.equal(result.screens.catalog_path, null);
+  assert.match(
+    result.screens.catalog_issues[0],
+    /records 4 screen\(s\) and 1 shows link\(s\), but screens are not enabled/
   );
 });
 

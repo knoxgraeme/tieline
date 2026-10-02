@@ -139,7 +139,10 @@ When screens are enabled, `tieline check`:
 - adds a `screens` section to its JSON output and a `broken screen link(s)=N` count to its text
   summary.
 
-When screens are disabled none of this runs, and the output is unchanged.
+When screens are disabled none of this runs, and the output is unchanged for a repository that
+never enabled them. A repository that disables screens while its committed manifest still records
+screens or `shows` links fails the check (`screens.status: disabled_with_screen_data`): enable
+screens again, or remove them and recompile.
 
 ## Import
 

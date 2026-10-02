@@ -1,10 +1,11 @@
 import {
   existsSync,
   lstatSync,
-  readdirSync,
+  opendirSync,
   readFileSync,
   realpathSync,
   statSync,
+  type Dirent,
 } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
@@ -388,31 +389,39 @@ function catalogYamlFiles(
   const pending: Array<{ path: string; depth: number }> = [{ path: directory, depth: 0 }];
   while (pending.length > 0) {
     const { path: current, depth } = pending.pop()!;
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      entries += 1;
-      if (entries > limits.entries) {
-        return { files, issue: `the screen catalog holds more than ${limits.entries} directory entries` };
+    // Read entries one at a time, so the entry budget bounds memory too: a
+    // directory holding millions of entries is never materialized at once.
+    const handle = opendirSync(current);
+    try {
+      let entry: Dirent | null;
+      while ((entry = handle.readSync()) !== null) {
+        entries += 1;
+        if (entries > limits.entries) {
+          return { files, issue: `the screen catalog holds more than ${limits.entries} directory entries` };
+        }
+        const path = resolve(current, entry.name);
+        if (entry.isDirectory()) {
+          if (depth + 1 > limits.depth) {
+            return {
+              files,
+              issue: `${displayPath(path)}: the screen catalog is nested deeper than ${limits.depth} directories`,
+            };
+          }
+          pending.push({ path, depth: depth + 1 });
+        } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
+          const size = statSync(path).size;
+          if (files.length + 1 > limits.files) {
+            return { files, issue: `the screen catalog holds more than ${limits.files} YAML files` };
+          }
+          totalBytes += Math.min(size, limits.fileBytes + 1);
+          if (totalBytes > limits.totalBytes) {
+            return { files, issue: `the screen catalog holds more than ${limits.totalBytes} bytes of YAML` };
+          }
+          files.push({ path, size });
+        }
       }
-      const path = resolve(current, entry.name);
-      if (entry.isDirectory()) {
-        if (depth + 1 > limits.depth) {
-          return {
-            files,
-            issue: `${displayPath(path)}: the screen catalog is nested deeper than ${limits.depth} directories`,
-          };
-        }
-        pending.push({ path, depth: depth + 1 });
-      } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
-        const size = statSync(path).size;
-        if (files.length + 1 > limits.files) {
-          return { files, issue: `the screen catalog holds more than ${limits.files} YAML files` };
-        }
-        totalBytes += Math.min(size, limits.fileBytes + 1);
-        if (totalBytes > limits.totalBytes) {
-          return { files, issue: `the screen catalog holds more than ${limits.totalBytes} bytes of YAML` };
-        }
-        files.push({ path, size });
-      }
+    } finally {
+      handle.closeSync();
     }
   }
   return { files: files.sort((left, right) => left.path.localeCompare(right.path)) };

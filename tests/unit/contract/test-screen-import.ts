@@ -460,6 +460,14 @@ await test("never writes the captures .gitignore through a symbolic link", async
   }
 });
 
+await test("writes nothing when the captures .gitignore cannot be created", async () => {
+  const ws = workspace();
+  // A file where the captures directory should be: it cannot be created.
+  ws.write(".tieline/captures", "not a directory\n");
+  await importFails(ws, [screen("a")], /EEXIST|ENOTDIR|file already exists|not a directory/);
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/NOTES.yaml")), false);
+});
+
 console.log("screens import: atomic writes");
 
 function moveBetweenCatalogs(ws: ScreensWorkspace) {
