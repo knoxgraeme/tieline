@@ -316,27 +316,55 @@ function manifestAtBase(
     .split("\0")
     .filter(Boolean)
     .flatMap((entry) => {
-      const match = /^(\d+) (\w+) [0-9a-f]+ +(\d+)\t(.+)$/s.exec(entry);
+      const match = /^(\d+) (\w+) ([0-9a-f]+) +(\d+)\t(.+)$/s.exec(entry);
       if (!match) return [];
-      const [, mode = "", type = "", size = "0", path = ""] = match;
+      const [, mode = "", type = "", object = "", size = "0", path = ""] = match;
       return type === "blob" && (mode === "100644" || mode === "100755") && path.endsWith(".json")
-        ? [{ path, size: Number(size) }]
+        ? [{ path, object, size: Number(size) }]
         : [];
     });
   if (files.length === 0) return null;
+  const contents = readBlobs(worktree, files);
   return parseContractManifestSnapshot(
-    files.map(({ path, size }) => ({
+    files.map(({ path }, index) => ({
       name: path.slice(`${directory}/`.length),
-      content: execFileSync("git", ["show", `${base}:${path}`], {
-        cwd: worktree,
-        encoding: "utf8",
-        // Exactly the blob's size, which the listing reports: no fixed cap
-        // to outgrow, and nothing read past what the base holds.
-        maxBuffer: size + 1,
-      }),
+      content: contents[index] ?? "",
     })),
     `ref '${base}'`
   );
+}
+
+/**
+ * Reads blobs through one `git cat-file --batch`, however many there are,
+ * rather than a process each. The output is exactly each blob behind a
+ * header naming its id, type, and size, so its buffer is the sizes the
+ * listing reported plus those headers: nothing past what the base holds.
+ */
+function readBlobs(
+  worktree: string,
+  blobs: ReadonlyArray<{ object: string; size: number }>
+): string[] {
+  const headerBytes = (blob: { object: string; size: number }) =>
+    `${blob.object} blob ${blob.size}\n`.length + 1;
+  const output = execFileSync("git", ["cat-file", "--batch"], {
+    cwd: worktree,
+    input: `${blobs.map((blob) => blob.object).join("\n")}\n`,
+    maxBuffer: blobs.reduce((total, blob) => total + blob.size + headerBytes(blob), 0) + 1,
+  });
+  const contents: string[] = [];
+  let offset = 0;
+  for (const blob of blobs) {
+    const headerEnd = output.indexOf(0x0a, offset);
+    const header = output.subarray(offset, headerEnd).toString("utf8");
+    const [object, type, size] = header.split(" ");
+    if (object !== blob.object || type !== "blob" || Number(size) !== blob.size) {
+      throw new Error(`git cat-file returned '${header}' for blob ${blob.object}.`);
+    }
+    const start = headerEnd + 1;
+    contents.push(output.subarray(start, start + blob.size).toString("utf8"));
+    offset = start + blob.size + 1;
+  }
+  return contents;
 }
 
 /** The root of the Git worktree holding `repositoryRoot`. */

@@ -421,6 +421,31 @@ await test("reads a base whose configuration and manifest listing exceed git's d
   assert.deepEqual(changes.stories, { added: 0, changed: 0, removed: 0 });
 });
 
+await test("reads every base manifest file through one git process", async () => {
+  if (process.platform === "win32") return;
+  const ws = branchWorkspace(true);
+  assert.equal(await runCli(["contract", "compile", ws.root], captureIO().io, {}), 0);
+  ws.commit("base");
+  // A `git` that records its arguments, then runs the real one.
+  const realGit = execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim();
+  const bin = mkdtempSync(resolve(tmpdir(), "tieline-git-log-"));
+  const log = resolve(bin, "calls.log");
+  writeFileSync(resolve(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nexec '${realGit}' "$@"\n`, { mode: 0o755 });
+  const path = process.env.PATH;
+  process.env.PATH = `${bin}:${path ?? ""}`;
+  try {
+    const capture = captureIO();
+    assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
+    assert.equal(JSON.parse(capture.output()).changes.base_has_manifest, true);
+  } finally {
+    process.env.PATH = path;
+  }
+  const calls = readFileSync(log, "utf8").split("\n").filter(Boolean);
+  rmSync(bin, { recursive: true, force: true });
+  assert.equal(calls.filter((call) => call === "cat-file --batch").length, 1);
+  assert.deepEqual(calls.filter((call) => /^show \S+:\.tieline\/manifest\//.test(call)), []);
+});
+
 await test("reads a base that predates the workspace configuration from the default location", async () => {
   const ws = branchWorkspace(false);
   const configPath = resolve(ws.root, ".tieline/config.json");
