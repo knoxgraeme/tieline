@@ -167,6 +167,33 @@ const screensCaptureConfigSchema = z
   })
   .strict();
 
+/**
+ * Hosted screens. When enabled, `tieline screens publish` stores a pull
+ * request's or branch's review page and the images it shows, and repository
+ * sync does the same for `main`. Images go to the S3-compatible `bucket`,
+ * whose endpoint and credentials come from the environment, never from this
+ * file. `retention` bounds what is kept: branches not published for
+ * `branch_days` are deleted, and `main` keeps the last `main_history` images
+ * each screen replaced.
+ */
+const screensHostedConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    bucket: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, "must be a valid S3 bucket name")
+      .refine((value) => !value.includes(".."), "must be a valid S3 bucket name"),
+    retention: z
+      .object({
+        branch_days: z.number().int().min(1).max(365).optional(),
+        main_history: z.number().int().min(0).max(100).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 export const screensConfigSchema = z
   .object({
     enabled: z.boolean(),
@@ -174,6 +201,7 @@ export const screensConfigSchema = z
     captures_directory: screensDirectorySchema.optional(),
     text_directory: screensDirectorySchema.optional(),
     capture: screensCaptureConfigSchema.optional(),
+    hosted: screensHostedConfigSchema.optional(),
   })
   .strict();
 
@@ -202,6 +230,18 @@ export interface ScreensCaptureConfig {
 }
 
 export const DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES = 30;
+export const DEFAULT_SCREENS_BRANCH_DAYS = 14;
+export const DEFAULT_SCREENS_MAIN_HISTORY = 5;
+
+export interface ScreensHostedConfig {
+  bucket: string;
+  retention: {
+    /** Days a branch's page is kept after its last publish. */
+    branch_days: number;
+    /** Replaced `main` images kept per screen. */
+    main_history: number;
+  };
+}
 
 export interface ScreensConfig {
   /** Catalog directory relative to `.tieline/`. */
@@ -211,6 +251,8 @@ export interface ScreensConfig {
   /** Committed ARIA snapshot directory relative to `.tieline/`. */
   text_directory: string;
   capture: ScreensCaptureConfig;
+  /** Null unless hosted screens are enabled. */
+  hosted: ScreensHostedConfig | null;
 }
 
 /**
@@ -251,6 +293,17 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
         parsed.data.capture?.timeout_minutes ?? DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES,
       pages: parsed.data.capture?.pages ?? [],
     },
+    hosted: parsed.data.hosted?.enabled
+      ? {
+          bucket: parsed.data.hosted.bucket,
+          retention: {
+            branch_days:
+              parsed.data.hosted.retention?.branch_days ?? DEFAULT_SCREENS_BRANCH_DAYS,
+            main_history:
+              parsed.data.hosted.retention?.main_history ?? DEFAULT_SCREENS_MAIN_HISTORY,
+          },
+        }
+      : null,
   };
 }
 
@@ -259,6 +312,7 @@ export interface Config {
   dbWriteUrl: string | undefined;
   dbSyncUrl: string | undefined;
   dbAdminUrl: string | undefined;
+  dbScreensPublishUrl: string | undefined;
   transport: "http" | "stdio";
   port: number;
   httpHost: string;
@@ -352,6 +406,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dbWriteUrl: env.DATABASE_URL_WRITE,
     dbSyncUrl: env.DATABASE_URL_SYNC,
     dbAdminUrl: env.DATABASE_URL_ADMIN,
+    dbScreensPublishUrl: env.DATABASE_URL_SCREENS_PUBLISH,
     transport: env.TRANSPORT === "http" ? "http" : "stdio",
     port: boundedNumber("PORT", env.PORT, 3000, {
       min: 1,

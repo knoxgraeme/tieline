@@ -132,11 +132,13 @@ async function provisionDatabaseRoles(ownerUrl: string): Promise<Record<string, 
   const reader = credential();
   const writer = credential();
   const sync = credential();
+  const publisher = credential();
   const sql = postgres(ownerUrl, { max: 1, prepare: false });
   try {
     await sql`alter role tieline_reader with login password ${reader}`;
     await sql`alter role tieline_planning_writer with login password ${writer}`;
     await sql`alter role tieline_repository_sync with login password ${sync}`;
+    await sql`alter role tieline_capture_publisher with login password ${publisher}`;
   } finally {
     await sql.end({ timeout: 5 });
   }
@@ -144,6 +146,7 @@ async function provisionDatabaseRoles(ownerUrl: string): Promise<Record<string, 
     DATABASE_URL: withDatabaseRole(ownerUrl, "tieline_reader", reader),
     DATABASE_URL_WRITE: withDatabaseRole(ownerUrl, "tieline_planning_writer", writer),
     DATABASE_URL_SYNC: withDatabaseRole(ownerUrl, "tieline_repository_sync", sync),
+    DATABASE_URL_SCREENS_PUBLISH: withDatabaseRole(ownerUrl, "tieline_capture_publisher", publisher),
     DATABASE_URL_ADMIN: ownerUrl,
   };
 }
@@ -312,6 +315,7 @@ export async function configureWorkspaceRuntime(options: SetupOptions): Promise<
     delete env.DATABASE_URL;
     delete env.DATABASE_URL_WRITE;
     delete env.DATABASE_URL_SYNC;
+    delete env.DATABASE_URL_SCREENS_PUBLISH;
     writeWorkspaceProfile(workspace, env, pendingRuntime);
     await local.waitUntilReady();
     if (!options.skipMigrate) {

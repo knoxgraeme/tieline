@@ -181,6 +181,18 @@ acceptance criteria no `@ac:`-tagged test proves, without capturing anything. `-
 on any of them, as a coverage gate. `--capture` re-captures every screen and reports the drift.
 See [Audit](screens.md#audit) and [Coverage](screens.md#coverage).
 
+```bash
+tieline screens publish (--pull-request <number> | --branch <name>) [--commit <sha>] [--json]
+tieline screens close --pull-request <number> [--json]
+tieline screens prune [--json]
+```
+
+With [hosted screens](screens.md#hosted-screens) enabled, `publish` stores a pull request's or
+branch's review page, compared with `main`, and uploads the screenshots the bucket lacks; it
+publishes nothing unless every screenshot the page shows is stored. `close` marks a pull request
+closed, and `prune`, run after sync on `main`, deletes what retention no longer keeps. `main` is
+published by `tieline contract sync`, never by `publish`.
+
 ## CI check
 
 ```bash
@@ -235,8 +247,10 @@ Sync is idempotent and checkpointed. A delayed job cannot overwrite a newer proj
 planning changed while a materializing pull request was open, the merged repository version wins
 and the later planning revision is preserved as a handoff conflict for reconciliation.
 
-Screens are not synced yet: sync removes screen catalogs and `shows` links before writing and
-reports what it skipped. See [Screens](screens.md#database-sync).
+Screens are not synced to the contract tables: sync removes screen catalogs and `shows` links
+before writing and reports what it skipped. With hosted screens enabled, sync then publishes
+`main`'s hosted page and exits 1 if it could not, after the contract was synced; running it again
+at the same commit retries only the screens. See [Screens](screens.md#database-sync).
 
 ## Derived code topology and blast radius
 

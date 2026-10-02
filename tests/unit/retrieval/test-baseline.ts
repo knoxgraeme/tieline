@@ -31,10 +31,11 @@ assert.deepEqual(migrations, [
   "0002_code_topology.sql",
   "0003_sql_topology_language.sql",
   "0004_help_article_discovery.sql",
+  "0005_hosted_screens.sql",
 ]);
 assert.deepEqual(
   migrations.map((filename) => Number(filename.slice(0, 4))),
-  [1, 2, 3, 4],
+  [1, 2, 3, 4, 5],
   "packaged migrations must remain a contiguous ordered sequence"
 );
 
@@ -156,6 +157,22 @@ assert.match(
   /pg_advisory_xact_lock\s*\(\s*hashtext\s*\(\s*'tieline-profile:'\s*\|\|\s*profile_key\s*\)\s*\)[\s\S]+order\s+by\s+profile_key/i,
   "built-in profile upgrades must take publisher-compatible locks in deterministic order"
 );
+
+const hostedScreensSql = readFileSync(resolve("migrations/0005_hosted_screens.sql"), "utf8");
+assert.match(hostedScreensSql, /create role tieline_capture_publisher nologin/);
+assert.match(hostedScreensSql, /alter table screen_snapshots enable row level security/);
+for (const policy of ["publisher_snapshot_insert", "publisher_snapshot_update"]) {
+  assert.match(
+    hostedScreensSql,
+    new RegExp(`create policy ${policy} on screen_snapshots[^;]*to tieline_capture_publisher[^;]*ref_kind <> 'main'`),
+    `${policy} must keep the capture publisher away from main`
+  );
+}
+for (const statement of hostedScreensSql.split(";")) {
+  if (!/to\s+tieline_capture_publisher/.test(statement) || !/^\s*grant/m.test(statement)) continue;
+  assert.doesNotMatch(statement, /\b(delete|truncate|references|trigger)\b/i, "the capture publisher never deletes");
+  assert.doesNotMatch(statement, /screen_history/, "only repository sync writes main's history");
+}
 
 const packaged = readPackagedMigrations();
 assert.deepEqual(packaged.map((migration) => migration.filename), migrations);

@@ -1500,3 +1500,115 @@ capability:
                 repository: tieline
                 path: tests/unit/runtime/test-tieline.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC12
+          criterion: With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.
+          rationale: A hosted page is reviewed as evidence of a change, so it must never show an image the store lacks or one the catalog does not record, and publishing a pull request must never change what main shows.
+          scenarios:
+            - given: a screenshot a page shows is neither in the object store nor usable in the captures directory
+              when: the page is published
+              then: Tieline must name the screen and publish nothing
+            - given: the capture publisher's database credentials
+              when: they are used to write main's page or history, or to delete anything
+              then: the database must refuse
+            - given: a sync of an older commit finishes after a sync of a newer one
+              when: main's hosted page is published
+              then: Tieline must keep the newer page
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:runScreensPublishCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:storeHostedImages
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:publishMainScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-hosting.ts
+                selector: function:readLocalHostedImage
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/object-store/s3.ts
+                selector: class:S3ObjectStore
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/hosted-screens-repository.ts
+                selector: class:PostgresHostedScreensRepository
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0005_hosted_screens.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-hosting.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-hosted-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC13
+          criterion: Tieline must delete a closed pull request's hosted page only after a grace period, a branch's page after the configured days without a publish, and main's image history beyond the configured number of replaced images per screen, and must delete an image only when no page or retained history references it and nothing referenced it within a grace period, removing it from the object store before its record and keeping the record of any image it could not remove.
+          rationale: Hosted screens must stay bounded without deleting an image a page still shows, a merge is about to make main show, or a publish has just claimed.
+          scenarios:
+            - given: the object store refuses to delete one of two unreferenced images
+              when: retention runs
+              then: Tieline must delete the other image and its record, and keep the refused image's record so the next run retries it
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:runScreensPruneCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/hosted-screens-repository.ts
+                selector: class:PostgresHostedScreensRepository
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-hosting.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-hosted-screens.ts
+                framework_hint: custom-script

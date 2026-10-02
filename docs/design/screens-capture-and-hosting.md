@@ -3,11 +3,14 @@
 [Screens](../screens.md) · **Capture and hosted review (proposal)**
 
 **Status: proposal for review. Capture (sections 1 to 4, step 2 of the
-[proposed order](#8-proposed-order)) is implemented; history and hosted review are not.** What
-exists today — the catalog, `shows` links, `tieline screens import`, the Screens view,
-`tieline contract review --base`, `tieline screens capture`, and `tieline screens audit` — is
-documented in [Screens](../screens.md), and [how capture was built](#how-capture-was-built)
-records where it refines this proposal. This page proposes how screenshots get produced for any
+[proposed order](#8-proposed-order)) is implemented, and so is hosted review's data layer:
+publishing, `main`'s sync, and retention. History and the hosted site are not.** What exists
+today — the catalog, `shows` links, `tieline screens import`, the Screens view,
+`tieline contract review --base`, `tieline screens capture`, `tieline screens audit`, and
+`tieline screens publish` — is documented in [Screens](../screens.md), and
+[how capture was built](#how-capture-was-built) and
+[how hosting's data layer was built](#how-hostings-data-layer-was-built) record where they refine
+this proposal. This page proposes how screenshots get produced for any
 app, and how a team can review them together, so that the later phases can be reviewed before
 any database, role, or hosting change is built.
 
@@ -341,8 +344,9 @@ implementing agent, as `AGENTS.md` requires.
    `--verify` with selection reasons, committed ARIA snapshots, capture records, and
    `screens audit`.
 3. Offline history: "last changed by" from git.
-4. Hosted: review of this design, then the migration and roles, `publish`, the core handler and
-   Netlify adapter, the sync of accepted screen state, and the pull-request comment.
+4. Hosted: review of this design, then the migration and roles, `publish`, the sync of accepted
+   screen state, and retention (done), then the core handler and Netlify adapter, CI templates,
+   and the pull-request comment.
 5. More hosts and image stores as teams need them.
 
 ## How capture was built
@@ -396,6 +400,37 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
   a gate once a backfill is done.
 - **Not built yet:** `screensFromCatalog()`, which would generate navigation tests for plain
   pages, and Tieline-drafted scene files. Both remain proposals.
+
+## How hosting's data layer was built
+
+Step 4's migration, roles, publishing, `main`'s sync, and retention follow section 5, simplified
+for the least moving parts:
+
+- **Pages are rendered once, at publish, and stored.** Each ref has one row holding its rendered
+  review page, the manifest it was rendered from, the image digests it shows, and its head commit;
+  publishing again replaces the row. The site will only serve stored pages, so it renders
+  nothing, and a pull request's page reflects `main` as it was when the pull request was last
+  published.
+- **`main`'s accepted state is its row plus an image history**, not separate `screens` and
+  `screen_links` tables: the row's stored manifest is the base pull requests are compared with,
+  and `screen_history` records each image a screen had on `main`, for retention and "before"
+  pictures. Change events for "last changed by" are left to the history step.
+- **Row policies keep the publisher off `main`.** `screen_snapshots` holds `main`, pull requests,
+  and branches; the capture publisher may insert and update only non-`main` rows and delete
+  nothing, and only repository sync writes `main` and history.
+- **Images are protected from retention by when they were last referenced.** Publishing records
+  every image it is about to show before checking the bucket, under a per-repository lock that
+  retention also takes, and retention deletes an image only once nothing has referenced it for
+  24 hours. A closed pull request's page stays 24 hours too, so a merge reaches `main`'s sync
+  before its images can go.
+- **Publishing works from a developer's machine as well as CI,** with the publisher credentials;
+  it never needs a deploy. The trusted CI job that publishes from a capture artifact comes with
+  the CI templates.
+- **Images are stored without an extension** (`<repository key>/sha256/<digest>`), with their type
+  recorded from the bytes; SVG is refused rather than served under a sandboxing policy.
+- **The bucket client is a few signed `fetch` calls** (Signature Version 4, path-style), checked
+  against AWS's published signing example and a local S3-compatible server, rather than an SDK
+  dependency.
 
 ## How this compares to existing tools
 

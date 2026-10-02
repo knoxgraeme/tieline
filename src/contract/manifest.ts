@@ -557,6 +557,25 @@ const contractManifestShardSchema = z
   })
   .strict();
 
+/** The whole manifest as one value, as `serializeContractManifest` writes it. */
+const storedContractManifestSchema = contractManifestIndexSchema
+  .extend({
+    inputs: z.array(manifestInputSchema),
+    capabilities: z.array(manifestCapabilitySchema).min(1),
+    screen_catalogs: z
+      .array(
+        z
+          .object({
+            capability: stableIdSchema,
+            input: manifestInputSchema,
+            screens: z.array(manifestScreenSchema),
+          })
+          .strict()
+      )
+      .optional(),
+  })
+  .strict();
+
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -1433,6 +1452,34 @@ export function serializeContractManifest(manifest: ContractManifest): string {
     ...manifest,
     capabilities: manifest.capabilities.map(reviewedCapability),
   });
+}
+
+/**
+ * The manifest as one JSON value, for storage outside the repository: hosted
+ * screens keep `main`'s in Postgres as the base pull requests are compared
+ * with. `parseStoredContractManifest` reads it back.
+ */
+export function storedContractManifest(manifest: ContractManifest): unknown {
+  return JSON.parse(serializeContractManifest(manifest)) as unknown;
+}
+
+/**
+ * Reads a manifest written by `storedContractManifest`, applying the same
+ * schemas as the manifest files. `origin` says where it came from, for errors.
+ */
+export function parseStoredContractManifest(value: unknown, origin: string): ContractManifest {
+  const parsed = parseManifestPart(
+    storedContractManifestSchema,
+    value,
+    "The stored contract manifest",
+    origin
+  ) as ContractManifest;
+  if (parsed.schema_version === CONTRACT_MANIFEST_VERSION && holdsScreenFields(parsed)) {
+    throw new ContractManifestError(
+      `The stored contract manifest '${origin}' records screens or shows links under schema version ${CONTRACT_MANIFEST_VERSION}, which cannot hold them.`
+    );
+  }
+  return parsed;
 }
 
 /**

@@ -9,7 +9,7 @@ import {
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { z, type ZodIssue } from "zod";
-import { readScreensConfig } from "../config.js";
+import { readScreensConfig, type ScreensHostedConfig } from "../config.js";
 import { readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { applicabilitySchema, stableKeySchema } from "./schema.js";
@@ -368,6 +368,8 @@ export interface ScreenSettings {
     /** Page file patterns, `!` excluding; empty when page coverage is not checked. */
     pages: string[];
   };
+  /** Where hosted screens are published; null unless hosting is enabled. */
+  hosted: ScreensHostedConfig | null;
 }
 
 function portable(path: string): string {
@@ -555,6 +557,7 @@ export function screenSettingsForRepository(
       timeoutMinutes: config.capture.timeout_minutes,
       pages: config.capture.pages,
     },
+    hosted: config.hosted,
   };
 }
 

@@ -612,6 +612,65 @@ function buildProgram(
       );
     });
 
+  screens
+    .command("publish")
+    .description(
+      "Publish a pull request's or branch's review page and screenshots to hosted screens (requires screens.hosted)"
+    )
+    .option("--pull-request <number>", "publish as this pull request")
+    .option("--branch <name>", "publish as this branch")
+    .option("--commit <sha>", "the commit published (default: HEAD)")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensPublishCommand } = await import("./commands/screens-hosting.js");
+      setExit(
+        await runScreensPublishCommand(
+          {
+            repository: opts.repository,
+            pullRequest: opts.pullRequest,
+            branch: opts.branch,
+            commit: opts.commit,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("close")
+    .description("Mark a pull request's hosted page closed, so prune deletes it")
+    .requiredOption("--pull-request <number>", "the closed pull request")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensCloseCommand } = await import("./commands/screens-hosting.js");
+      setExit(
+        await runScreensCloseCommand(
+          { repository: opts.repository, pullRequest: opts.pullRequest, json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("prune")
+    .description(
+      "Delete hosted pages and screenshots retention no longer keeps (run after sync on main)"
+    )
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensPruneCommand } = await import("./commands/screens-hosting.js");
+      setExit(
+        await runScreensPruneCommand(
+          { repository: opts.repository, json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
   program
     .command("check")
     .description("Evaluate semantic impact of changes against a base ref")

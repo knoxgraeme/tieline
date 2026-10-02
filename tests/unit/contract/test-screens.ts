@@ -112,6 +112,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
     captures_directory: "captures",
     text_directory: "screen-text",
     capture: { tests: null, global_paths: [], playwright_config: null, project: null, timeout_minutes: 30, pages: [] },
+    hosted: null,
   });
   assert.deepEqual(
     readScreensConfig({
