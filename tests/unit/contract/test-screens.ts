@@ -500,6 +500,36 @@ await test("round-trips screens through the manifest directory and git snapshots
   assert.throws(() => readContractManifest(directory), /duplicate screen key 'notes-list'/);
 });
 
+await test("writes manifest schema version 3 only when the manifest holds screens", () => {
+  const index = (directory: string) => JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8"));
+  const withScreens = workspace({ screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
+  const compiled = compile(withScreens);
+  assert.equal(compiled.manifest.schema_version, 3);
+  const directory = resolve(withScreens.root, ".tieline/manifest");
+  writeContractManifest(directory, compiled);
+  assert.equal(index(directory).schema_version, 3);
+
+  // Enabled, but nothing to hold yet; and never enabled: both stay version 2.
+  for (const plain of [workspace({ screens: ENABLED }), workspace({})]) {
+    assert.equal(compile(plain).manifest.schema_version, 2);
+  }
+
+  // Version 2 cannot hold screens, from disk or from a git snapshot.
+  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 2 })}\n`);
+  assert.throws(() => readContractManifest(directory), /records screens or shows links under schema version 2, which cannot hold them\. Run 'tieline contract compile \.'/);
+  const snapshot = () =>
+    parseContractManifestSnapshot(
+      readdirSync(directory).map((name) => ({ name, content: readFileSync(resolve(directory, name), "utf8") })),
+      "ref 'main'"
+    );
+  assert.throws(snapshot, /at ref 'main' records screens or shows links under schema version 2/);
+
+  // A newer format is named as one, not reported as damage.
+  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 4 })}\n`);
+  assert.throws(() => readContractManifest(directory), /declares schema version 4, newer than this version of Tieline reads \(up to 3\)\. Upgrade Tieline to read it\./);
+  assert.throws(snapshot, /at ref 'main' declares schema version 4, newer than this version of Tieline reads/);
+});
+
 await test("keeps contract hashes independent of shows links", () => {
   const withLinks = workspace({ screens: ENABLED, notes: { storyShows: ["notes-list"], criterionShows: ["notes-list"] }, catalog: CATALOG });
   const without = workspace({});
@@ -532,6 +562,7 @@ await test("strips screens for sync down to exactly the pre-screens manifest", (
   assert.deepEqual(paths(manifest.inputs), paths(expected.inputs));
   assert.deepEqual({ ...manifest, inputs: [] }, { ...expected, inputs: [] });
   assert.equal("screen_catalogs" in manifest, false);
+  assert.equal(manifest.schema_version, 2);
   const unchanged = manifestWithoutScreens(compile(disabled).manifest);
   assert.deepEqual(unchanged.skipped, { screens: 0, shows_links: 0 });
 });

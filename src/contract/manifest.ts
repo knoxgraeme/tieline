@@ -48,6 +48,17 @@ import {
 } from "./source-snapshot.js";
 
 export const CONTRACT_MANIFEST_VERSION = 2 as const;
+/**
+ * The manifest format that also holds screen catalogs and `shows` links. A
+ * manifest is written in it only when it holds them, so a repository that
+ * never enabled screens keeps writing version 2 byte for byte, while a reader
+ * that predates screens refuses this format by its version instead of
+ * mistaking the new fields for damage.
+ */
+export const CONTRACT_MANIFEST_SCREENS_VERSION = 3 as const;
+export type ContractManifestVersion =
+  | typeof CONTRACT_MANIFEST_VERSION
+  | typeof CONTRACT_MANIFEST_SCREENS_VERSION;
 
 export interface ManifestInput {
   path: string;
@@ -152,7 +163,8 @@ export interface ManifestCapability {
 }
 
 export interface ContractManifest {
-  schema_version: typeof CONTRACT_MANIFEST_VERSION;
+  /** 3 exactly when the manifest holds screen catalogs or `shows` links. */
+  schema_version: ContractManifestVersion;
   repository: {
     key: string;
   };
@@ -507,7 +519,10 @@ const manifestInputSchema = z
   .strict();
 const contractManifestIndexSchema = z
   .object({
-    schema_version: z.literal(CONTRACT_MANIFEST_VERSION),
+    schema_version: z.union([
+      z.literal(CONTRACT_MANIFEST_VERSION),
+      z.literal(CONTRACT_MANIFEST_SCREENS_VERSION),
+    ]),
     repository: z
       .object({
         key: stableIdSchema,
@@ -658,6 +673,24 @@ interface ManifestAssemblyErrors {
   ): string;
   noCapabilities(): string;
   duplicateScreen(key: string, firstShard: string, duplicateShard: string): string;
+  newerVersion(version: number): string;
+  screensInVersion2(): string;
+}
+
+/** Whether a manifest holds anything only the screens format can hold. */
+function holdsScreenFields(
+  manifest: Pick<ContractManifest, "capabilities" | "screen_catalogs">
+): boolean {
+  return (
+    manifest.screen_catalogs !== undefined ||
+    manifest.capabilities.some((capability) =>
+      capability.stories.some(
+        (story) =>
+          story.shows !== undefined ||
+          story.acceptance_criteria.some((criterion) => criterion.shows !== undefined)
+      )
+    )
+  );
 }
 
 type ManifestStableIdKind =
@@ -737,9 +770,22 @@ function assembleContractManifest(
   if (!index) {
     throw new ContractManifestError(errors.missingIndex());
   }
+  const rawIndex = parseJson(index);
+  const declaredVersion =
+    rawIndex !== null && typeof rawIndex === "object"
+      ? (rawIndex as { schema_version?: unknown }).schema_version
+      : undefined;
+  // A version past the newest this reader knows is a newer format, not a
+  // damaged one, and is reported as such.
+  if (
+    typeof declaredVersion === "number" &&
+    declaredVersion > CONTRACT_MANIFEST_SCREENS_VERSION
+  ) {
+    throw new ContractManifestError(errors.newerVersion(declaredVersion));
+  }
   const parsedIndex = parseManifestPart(
     contractManifestIndexSchema,
-    parseJson(index),
+    rawIndex,
     "The contract manifest index",
     errors.fileLabel(index.name)
   );
@@ -820,6 +866,15 @@ function assembleContractManifest(
   if (capabilities.length === 0) {
     throw new ContractManifestError(errors.noCapabilities());
   }
+  if (
+    parsedIndex.schema_version === CONTRACT_MANIFEST_VERSION &&
+    holdsScreenFields({
+      capabilities,
+      ...(screenCatalogs.length > 0 ? { screen_catalogs: screenCatalogs } : {}),
+    })
+  ) {
+    throw new ContractManifestError(errors.screensInVersion2());
+  }
   return {
     schema_version: parsedIndex.schema_version,
     repository: parsedIndex.repository,
@@ -867,6 +922,10 @@ export function readContractManifest(directory: string): ContractManifest {
       `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`,
     duplicateScreen: (key, firstShard, duplicateShard) =>
       `Contract manifest duplicate screen key '${key}' is used in '${resolve(root, firstShard)}' and '${resolve(root, duplicateShard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
+    newerVersion: (version) =>
+      `The contract manifest index '${resolve(root, CONTRACT_MANIFEST_INDEX_FILE)}' declares schema version ${version}, newer than this version of Tieline reads (up to ${CONTRACT_MANIFEST_SCREENS_VERSION}). Upgrade Tieline to read it.`,
+    screensInVersion2: () =>
+      `The contract manifest at '${root}' records screens or shows links under schema version ${CONTRACT_MANIFEST_VERSION}, which cannot hold them. Run 'tieline contract compile .' to regenerate it.`,
   });
 }
 
@@ -910,6 +969,10 @@ export function parseContractManifestSnapshot(
       `The contract manifest at ${origin} has an index but no capabilities.`,
     duplicateScreen: (key, firstShard, duplicateShard) =>
       `The contract manifest at ${origin} has duplicate screen key '${key}' in '${firstShard}' and '${duplicateShard}'.`,
+    newerVersion: (version) =>
+      `The contract manifest at ${origin} declares schema version ${version}, newer than this version of Tieline reads (up to ${CONTRACT_MANIFEST_SCREENS_VERSION}). Upgrade Tieline to read it.`,
+    screensInVersion2: () =>
+      `The contract manifest at ${origin} records screens or shows links under schema version ${CONTRACT_MANIFEST_VERSION}, which cannot hold them.`,
   });
 }
 
@@ -1285,17 +1348,25 @@ export function compileContractManifestWithSources(
     return capability;
   });
   const screenCatalogs = compileScreenCatalogs(loaded, sources);
+  const sortedCapabilities = capabilities.sort((left, right) =>
+    left.stable_id.localeCompare(right.stable_id)
+  );
+  const screenFields =
+    screenCatalogs.length > 0 ? { screen_catalogs: screenCatalogs } : {};
   return {
     manifest: {
-      schema_version: CONTRACT_MANIFEST_VERSION,
+      schema_version: holdsScreenFields({
+        capabilities: sortedCapabilities,
+        ...screenFields,
+      })
+        ? CONTRACT_MANIFEST_SCREENS_VERSION
+        : CONTRACT_MANIFEST_VERSION,
       repository: { key: repositoryKey },
       inputs: [...sources.values()].sort((left, right) =>
         left.path.localeCompare(right.path)
       ),
-      capabilities: capabilities.sort((left, right) =>
-        left.stable_id.localeCompare(right.stable_id)
-      ),
-      ...(screenCatalogs.length > 0 ? { screen_catalogs: screenCatalogs } : {}),
+      capabilities: sortedCapabilities,
+      ...screenFields,
     },
     sources,
   };
@@ -1411,7 +1482,8 @@ export interface SkippedScreens {
  * The manifest minus everything the Screens feature added: the catalogs and
  * every `shows` link. Database sync does not store screens yet, so it syncs this
  * instead — which is exactly the manifest the same contract compiled to before
- * screens existed, because `shows` links never contribute to a contract hash.
+ * screens existed, schema version 2 included, because `shows` links never
+ * contribute to a contract hash.
  */
 export function manifestWithoutScreens(manifest: ContractManifest): {
   manifest: ContractManifest;
@@ -1429,6 +1501,7 @@ export function manifestWithoutScreens(manifest: ContractManifest): {
   return {
     manifest: {
       ...rest,
+      schema_version: CONTRACT_MANIFEST_VERSION,
       capabilities: manifest.capabilities.map((capability) => ({
         ...capability,
         stories: capability.stories.map((story) => ({

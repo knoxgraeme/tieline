@@ -133,6 +133,11 @@ locator is deliberately excluded from that hash). `shows` links are written unde
 Story or AC, sorted by target. Both are omitted entirely when absent, so a repository without
 screens produces byte-identical manifests.
 
+A manifest that holds screens or `shows` links is written as `schema_version: 3` in
+`index.json`; every other manifest stays version 2. A Tieline release that predates screens
+refuses a version 3 manifest, so upgrade Tieline wherever the manifest is read, CI included,
+before committing one.
+
 When screens are enabled, `tieline check`:
 
 - validates the working-tree catalog and fails (`exit_reason: invalid_screen_catalog`) when it
