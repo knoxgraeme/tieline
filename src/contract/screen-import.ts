@@ -7,6 +7,7 @@ import {
   openSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -1102,6 +1103,20 @@ export function ensureCapturesIgnored(
   settings: ScreenSettings,
   workspaceDirectory = resolve(repositoryRoot, ".tieline")
 ): CapturesIgnoreStatus {
+  return prepareCapturesIgnore(repositoryRoot, settings, workspaceDirectory).status;
+}
+
+/**
+ * `ensureCapturesIgnored`, also able to undo what it created — the ignore
+ * file and any directories made for it — when the import it prepares for is
+ * refused, so a refused import leaves nothing behind.
+ */
+function prepareCapturesIgnore(
+  repositoryRoot: string,
+  settings: ScreenSettings,
+  workspaceDirectory = resolve(repositoryRoot, ".tieline")
+): { status: CapturesIgnoreStatus; undo: () => string[] } {
+  const nothing = (status: CapturesIgnoreStatus) => ({ status, undo: (): string[] => [] });
   // Judged, and written, where the directory really resolves: a captures path
   // under `.tieline/` that links to, say, `src/` must not get a match-all
   // ignore file that would hide new source files from Git. And only where it
@@ -1113,7 +1128,7 @@ export function ensureCapturesIgnored(
   }
   const workspace = realDestination(workspaceDirectory);
   if (directory === workspace || !withinRepository(workspace, directory)) {
-    return "not_managed";
+    return nothing("not_managed");
   }
   const ignorePath = resolve(directory, ".gitignore");
   // Inspect the path itself, not what it points at: a symbolic link here, even
@@ -1126,22 +1141,74 @@ export function ensureCapturesIgnored(
     existing = undefined;
   }
   if (existing) {
-    if (!existing.isFile()) return "unverified";
+    if (!existing.isFile()) return nothing("unverified");
     let content: Buffer;
     try {
       content = readBoundedFile(ignorePath, CAPTURES_GITIGNORE_MAX_BYTES, "captures .gitignore");
     } catch (error) {
       // Unreadable or oversized: reported as unverified rather than trusted.
-      if (error instanceof ScreenImportError) return "unverified";
+      if (error instanceof ScreenImportError) return nothing("unverified");
       throw error;
     }
-    return gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified";
+    return nothing(gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified");
   }
-  mkdirSync(directory, { recursive: true });
-  return createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE).status ===
-    "created"
-    ? "created"
-    : "unverified";
+  const firstMade = mkdirSync(directory, { recursive: true });
+  const created = createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE);
+  if (created.status === "exists") return nothing("unverified");
+  return {
+    status: "created",
+    undo: () => {
+      const leftovers: string[] = [];
+      try {
+        removeIfSameFile(ignorePath, created.file);
+      } catch (error) {
+        leftovers.push(`${ignorePath} (${message(error)})`);
+      }
+      // The directories made for the file, deepest first; one that is no
+      // longer empty is someone else's now and stays.
+      if (firstMade !== undefined) {
+        for (let current = directory; ; current = dirname(current)) {
+          try {
+            rmdirSync(current);
+          } catch (error) {
+            leftovers.push(`${current} (${message(error)})`);
+            break;
+          }
+          if (current === resolve(firstMade)) break;
+        }
+      }
+      return leftovers;
+    },
+  };
+}
+
+/**
+ * Writes a planned import: the captures ignore file first, so that if it
+ * cannot be made nothing has been written, then the catalog. If the catalog
+ * is refused, what the ignore step created is undone too — notably a new
+ * captures directory inside the catalog, which would count against the
+ * catalog's entry bound and leave it unreadable.
+ */
+export function writeScreenImport(
+  repositoryRoot: string,
+  settings: ScreenSettings,
+  plan: ScreenImportPlan,
+  fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
+): CapturesIgnoreStatus {
+  const ignore = prepareCapturesIgnore(repositoryRoot, settings);
+  try {
+    applyScreenImport(plan, fileSystem);
+  } catch (error) {
+    const leftovers = ignore.undo();
+    if (leftovers.length === 0) throw error;
+    const combined = new ScreenImportError(
+      message(error),
+      leftovers.map((leftover) => `left behind by the captures ignore step: ${leftover}`)
+    );
+    combined.cause = error;
+    throw combined;
+  }
+  return ignore.status;
 }
 
 /**
@@ -1156,7 +1223,10 @@ export function ensureCapturesIgnored(
 export function createInValidatedDirectory(
   directory: string,
   name: string,
-  content: string
+  content: string,
+  /** Writes the content; injectable so tests can make it fail. */
+  write: (descriptor: number, content: string) => void = (descriptor, text) =>
+    writeFileSync(descriptor, text)
 ): { status: "created"; file: Stats } | { status: "exists" } {
   const path = resolve(directory, name);
   let descriptor: number;
@@ -1181,7 +1251,20 @@ export function createInValidatedDirectory(
         `'${directory}' changed while '${name}' was being created in it, so nothing was written there. Import again.`
       );
     }
-    writeFileSync(descriptor, content);
+    try {
+      write(descriptor, content);
+    } catch (error) {
+      // An empty or partial file must not stay: a stale lock would block every
+      // later import, and a partial ignore file would never be repaired.
+      try {
+        removeIfSameFile(path, created);
+      } catch (cleanupError) {
+        throw new ScreenImportError(
+          `Writing '${name}' in '${directory}' failed (${message(error)}), and the partial file could not be removed (${message(cleanupError)}); delete it.`
+        );
+      }
+      throw error;
+    }
   } finally {
     closeSync(descriptor);
   }

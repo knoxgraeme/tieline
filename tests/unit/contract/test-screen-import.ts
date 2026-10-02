@@ -25,6 +25,7 @@ import {
   createCaptureDigester,
   createInValidatedDirectory,
   ensureCapturesIgnored,
+  writeScreenImport,
   gitignoreIgnoresEverything,
   NODE_FILE_SYSTEM,
   parseScreenImport,
@@ -38,6 +39,7 @@ import { report, test } from "../../support/harness.js";
 import {
   captureIO,
   createScreensWorkspace,
+  NOTES_CATALOG_YAML,
   type ScreensWorkspace,
 } from "../../support/screen-fixtures.js";
 import {
@@ -1082,6 +1084,46 @@ await test("creates the import lock only in the workspace it validated", () => {
     rmSync(resolve(ws.root, ".tieline"));
     renameSync(outside, resolve(ws.root, ".tieline"));
   }
+});
+
+await test("undoes the captures directory it made when the catalog write is refused", () => {
+  // Captures inside the catalog, not made yet; the catalog is at its entry
+  // bound, so the new captures directory is what would take it over.
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" } });
+  ws.write(".tieline/screens/NOTES.yaml", NOTES_CATALOG_YAML);
+  const before = catalog(ws, "NOTES");
+  const settings = screenSettingsForRepository(ws.root)!;
+  const plan = planImport(ws, [screen("c")], { entries: 1, files: 10, fileBytes: SCREEN_LIMITS.catalogFileBytes, totalBytes: 1_000_000 });
+  assert.throws(
+    () => writeScreenImport(ws.root, settings, plan),
+    (error: unknown) =>
+      error instanceof ScreenImportError &&
+      /the screen catalog holds more than 2 directory entries/.test(error.issues.join("\n"))
+  );
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/shots")), false, "the captures directory it made is gone");
+  assert.deepEqual(catalogDirectory(ws), ["NOTES.yaml"]);
+  assert.equal(catalog(ws, "NOTES"), before);
+
+  // Within the bound, the same import writes both.
+  const roomy = planImport(ws, [screen("c")], { entries: 10, files: 10, fileBytes: SCREEN_LIMITS.catalogFileBytes, totalBytes: 1_000_000 });
+  assert.equal(writeScreenImport(ws.root, settings, roomy), "created");
+  assert.equal(existsSync(resolve(ws.root, ".tieline/screens/shots/.gitignore")), true);
+  assert.match(catalog(ws, "NOTES"), /key: c/);
+});
+
+await test("removes a file it created exclusively when writing it fails", () => {
+  const ws = workspace();
+  const directory = realpathSync(resolve(ws.root, ".tieline"));
+  assert.throws(
+    () =>
+      createInValidatedDirectory(directory, "screens-import.lock", "{}\n", () => {
+        throw new Error("ENOSPC: no space left on device");
+      }),
+    /^Error: ENOSPC: no space left on device$/
+  );
+  assert.equal(existsSync(resolve(directory, "screens-import.lock")), false, "no stale lock blocks later imports");
+  // And the next import can take the lock.
+  assert.equal(createInValidatedDirectory(directory, "screens-import.lock", "{}\n").status, "created");
 });
 
 await test("names the files to restore from git when restoring fails too", async () => {

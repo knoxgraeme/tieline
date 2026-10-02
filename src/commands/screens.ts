@@ -6,14 +6,13 @@ import {
   validateScreenCatalogDocuments,
 } from "../contract/screen-catalog.js";
 import {
-  applyScreenImport,
   createCaptureDigester,
-  ensureCapturesIgnored,
   parseScreenImport,
   planScreenImport,
   readScreenImportFile,
   ScreenImportError,
   withScreenImportLock,
+  writeScreenImport,
   type CapturesIgnoreStatus,
   type CurrentScreenCatalogFile,
   type ScreenImportPlan,
@@ -90,10 +89,7 @@ export async function runScreensImportCommand(
     ? { plan: planAgainstCatalog(), capturesIgnore: "dry_run" as const }
     : withScreenImportLock(root, settings, () => {
         const planned = planAgainstCatalog();
-        // The ignore file comes first: if it cannot be made, nothing has been
-        // written, rather than reporting failure after the catalog changed.
-        const ignore: CapturesIgnoreStatus = ensureCapturesIgnored(root, settings);
-        applyScreenImport(planned);
+        const ignore: CapturesIgnoreStatus = writeScreenImport(root, settings, planned);
         return { plan: planned, capturesIgnore: ignore };
       });
 
