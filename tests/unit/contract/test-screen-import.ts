@@ -8,6 +8,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -17,11 +18,13 @@ import {
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runCli } from "../../../src/cli.js";
+import { readFileWithin } from "../../../src/contract/bounded-read.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
   applyScreenImport,
   createCaptureDigester,
   gitignoreIgnoresEverything,
+  isStillFile,
   NODE_FILE_SYSTEM,
   parseScreenImport,
   planScreenImport,
@@ -498,6 +501,33 @@ await test("refuses a screenshot it cannot resolve instead of calling it missing
     }
   } finally {
     chmodSync(locked, 0o755);
+  }
+});
+
+await test("reads only the screenshot that passed containment, not one swapped in after", () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/notes/list.png", "inside");
+  const outside = resolve(ws.root, "..", `${ws.root.split("/").pop()}-outside-capture`);
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(resolve(outside, "list.png"), "outside");
+  try {
+    const real = realpathSync(resolve(ws.root, ".tieline/captures/notes/list.png"));
+    // The opened file is the validated one.
+    assert.equal(isStillFile(real, statSync(real)), true);
+    // A different file was opened (a link swapped in before the open).
+    assert.equal(isStillFile(real, statSync(resolve(outside, "list.png"))), false);
+    // A directory on the validated path is now a link out of the captures.
+    renameSync(resolve(ws.root, ".tieline/captures/notes"), resolve(ws.root, ".tieline/captures/notes-moved"));
+    symlinkSync(outside, resolve(ws.root, ".tieline/captures/notes"));
+    assert.equal(isStillFile(real, statSync(resolve(outside, "list.png"))), false);
+    // The bounded read stops before reading when the opened file is refused.
+    assert.deepEqual(readFileWithin(real, 1024, () => false), { status: "changed" });
+    assert.deepEqual(readFileWithin(resolve(outside, "list.png"), 1024, () => true), {
+      status: "read",
+      bytes: Buffer.from("outside"),
+    });
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
   }
 });
 

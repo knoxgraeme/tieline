@@ -1,4 +1,4 @@
-import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readSync, type Stats } from "node:fs";
 
 /**
  * Opening a FIFO for reading blocks until something writes to it, before the
@@ -16,7 +16,9 @@ export type BoundedRead =
   | { status: "read"; bytes: Buffer }
   /** `size`: the size reported, or the bytes read once they passed the bound. */
   | { status: "too_large"; size: number }
-  | { status: "not_file" };
+  | { status: "not_file" }
+  /** `verify` refused the file that was opened. */
+  | { status: "changed" };
 
 /**
  * Reads a regular file of at most `maxBytes` bytes through one descriptor.
@@ -24,12 +26,21 @@ export type BoundedRead =
  * against the bytes actually read, so a file that grows or is replaced after
  * someone else measured it cannot be read past the bound. A failure to open
  * the file is thrown, with its cause.
+ *
+ * `verify` sees the opened file's own metadata before anything is read, so a
+ * caller that validated a path can confirm it opened that file and not one
+ * swapped in since.
  */
-export function readFileWithin(path: string, maxBytes: number): BoundedRead {
+export function readFileWithin(
+  path: string,
+  maxBytes: number,
+  verify?: (opened: Stats) => boolean
+): BoundedRead {
   const descriptor = openSync(path, READ_FLAGS);
   try {
     const stat = fstatSync(descriptor);
     if (!stat.isFile()) return { status: "not_file" };
+    if (verify && !verify(stat)) return { status: "changed" };
     if (stat.size > maxBytes) return { status: "too_large", size: stat.size };
     const chunks: Buffer[] = [];
     const buffer = Buffer.allocUnsafe(Math.min(CHUNK_BYTES, maxBytes + 1));

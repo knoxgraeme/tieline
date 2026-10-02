@@ -608,7 +608,7 @@ export function readScreenCatalogSources(
       );
       continue;
     }
-    if (read.status === "not_file") {
+    if (read.status === "not_file" || read.status === "changed") {
       issues.push(`${path}: screen catalog file is no longer a regular file`);
       continue;
     }

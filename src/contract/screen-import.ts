@@ -5,7 +5,9 @@ import {
   realpathSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
+  type Stats,
 } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { Document, isMap, isSeq, parseDocument, type YAMLSeq } from "yaml";
@@ -70,13 +72,17 @@ function readBoundedFile(
   path: string,
   maxBytes: number,
   label: string,
-  /** Replaces the default message when the file is over `maxBytes`. */
-  tooLargeMessage?: string
+  options: {
+    /** Replaces the default message when the file is over `maxBytes`. */
+    tooLargeMessage?: string;
+    /** Confirms the opened file is the one the caller validated. */
+    verify?: (opened: Stats) => boolean;
+  } = {}
 ): Buffer {
   const name = `${label[0]!.toUpperCase()}${label.slice(1)}`;
   let read: BoundedRead;
   try {
-    read = readFileWithin(path, maxBytes);
+    read = readFileWithin(path, maxBytes, options.verify);
   } catch (error) {
     throw new ScreenImportError(
       `Cannot open ${label} '${path}': ${error instanceof Error ? error.message : String(error)}`
@@ -89,8 +95,10 @@ function readBoundedFile(
       throw new ScreenImportError(`${name} '${path}' is not a file.`);
     case "too_large":
       throw new ScreenImportError(
-        tooLargeMessage ?? `${name} '${path}' is larger than the ${maxBytes}-byte limit.`
+        options.tooLargeMessage ?? `${name} '${path}' is larger than the ${maxBytes}-byte limit.`
       );
+    case "changed":
+      throw new ScreenImportError(`${name} '${path}' changed while it was being read; import again.`);
   }
 }
 
@@ -655,6 +663,24 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Whether the file opened as `real` is still the one at that real path: the
+ * path still resolves to itself (no link has been put anywhere along it) and
+ * names the same file as the open descriptor. Together these mean the opened
+ * file is the one that passed validation, whatever was swapped in between.
+ */
+export function isStillFile(real: string, opened: Stats): boolean {
+  let now: string | null;
+  try {
+    now = realPathIfPresent(real);
+  } catch {
+    return false;
+  }
+  if (now !== real) return false;
+  const current = statSync(real, { throwIfNoEntry: false });
+  return current !== undefined && current.dev === opened.dev && current.ino === opened.ino;
+}
+
 function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
 }
@@ -917,14 +943,17 @@ export function createCaptureDigester(
         // The read itself is bounded by what is left of the total, so a file
         // that would cross it is refused from its size, not read first.
         const remaining = limits.totalBytes - bytesRead;
-        const bytes = readBoundedFile(
-          target,
-          Math.min(limits.fileBytes, remaining),
-          "screenshot",
-          remaining < limits.fileBytes
-            ? `The screenshots this import references exceed the ${limits.totalBytes}-byte total it may read; import in smaller batches.`
-            : undefined
-        );
+        // The validated real path is what is read, and the opened file must
+        // still be it, so a link swapped in after the containment check
+        // cannot redirect the read outside the captures directory.
+        const bytes = readBoundedFile(real, Math.min(limits.fileBytes, remaining), "screenshot", {
+          ...(remaining < limits.fileBytes
+            ? {
+                tooLargeMessage: `The screenshots this import references exceed the ${limits.totalBytes}-byte total it may read; import in smaller batches.`,
+              }
+            : {}),
+          verify: (opened) => isStillFile(real, opened),
+        });
         bytesRead += bytes.length;
         sha256 = createHash("sha256").update(bytes).digest("hex");
         digests.set(real, sha256);
