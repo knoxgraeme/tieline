@@ -730,7 +730,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "db39c0ba57b9d294e33bd02060e531935793461b79c6fbac9f7e9dabb5295e6f",
+                "reviewed_content_hash": "4b7025d70ab33a7cd297285513e1fc7a999de109c2077ef6a2ee739f4bdfbbe9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2027,7 +2027,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5b0f24e46a19351d67fc46ab2ed1298b03da3cbb78c9afc38450d7b2e0403675",
+                "reviewed_content_hash": "8ebff6a7359dfd98f1dc0bc7f67d1972c4c466883eb248e1ccceca56fc71e847",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/screens.md",
@@ -2047,7 +2047,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "db39c0ba57b9d294e33bd02060e531935793461b79c6fbac9f7e9dabb5295e6f",
+                "reviewed_content_hash": "4b7025d70ab33a7cd297285513e1fc7a999de109c2077ef6a2ee739f4bdfbbe9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2377,6 +2377,60 @@
               }
             ],
             "stable_id": "CONTRACT-005-AC15",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "cb21e649f9b54292d539581db81370678a6f39267a4e20d9df4f38e891963744",
+            "criterion": "The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b69ad3afb2181cfe66a0db4cee0c24b495a848d3927e2da27314186f1847f19b",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/hosted-screens.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "73a4c023377ba448ad7181c5c210382386406aa1e25f0a34d383b01afc815238",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/provisioning.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8ebff6a7359dfd98f1dc0bc7f67d1972c4c466883eb248e1ccceca56fc71e847",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "4b7025d70ab33a7cd297285513e1fc7a999de109c2077ef6a2ee739f4bdfbbe9",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 15,
+            "rationale": "Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.",
+            "scenarios": [],
+            "stable_id": "CONTRACT-005-AC16",
             "supersedes": null
           },
           {
@@ -3066,6 +3120,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "a1ec5e6f9c24227d4e22aace9e4cc50a5827cb93710070a948bb55d3e75da7a9"
+    "sha256": "2dfbfc6464f3630aaac74f4c4ffc7f6c0d275cc7754412df65edfb0c31e939b1"
   }
 }

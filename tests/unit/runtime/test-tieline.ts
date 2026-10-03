@@ -1991,6 +1991,35 @@ capability:
   assert.match(reportReference, /pull-request body/);
   assert.match(tielineSkill, /references\/report\.md/);
   assert.match(onboardingReference, /references\/report\.md/);
+  const hostedScreensReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/hosted-screens.md"),
+    "utf8"
+  );
+  assert.match(
+    hostedScreensReference,
+    /Never print a secret, read\s+one back into the conversation, or ask the user\s+to paste one/,
+    "hosted screens provisioning must keep secrets out of the conversation"
+  );
+  for (const region of ["aws-us-east-2", "aws-us-east-1", "aws-eu-central-1", "aws-ap-southeast-1"]) {
+    assert.match(hostedScreensReference, new RegExp(region), `Object Storage region ${region} must be listed`);
+  }
+  assert.match(
+    hostedScreensReference,
+    /--scope storage:read --scope storage:write[^\n]*> "\$dir\/publish\.json"/,
+    "the publishing credential must be written straight to a private file"
+  );
+  assert.match(
+    hostedScreensReference,
+    /--scope storage:read --name tieline-screens-site --output json > "\$dir\/site\.json"/,
+    "the hosted site must get a read-only credential"
+  );
+  assert.match(hostedScreensReference, /umask 077/, "credential files must be private");
+  assert.match(hostedScreensReference, /TIELINE_SCREENS_S3_ACCESS_KEY_ID/, "hand-off uses names Lambda hosts accept");
+  assert.match(hostedScreensReference, /tieline hosted check --url/, "the site's access control must be verified");
+  assert.match(
+    readFileSync(resolve(process.cwd(), "skills/tieline/references/screens.md"), "utf8"),
+    /\[hosted-screens\.md\]\(hosted-screens\.md\)/
+  );
   const provisioningReference = readFileSync(
     resolve(
       process.cwd(),
@@ -2004,6 +2033,11 @@ capability:
     "picking the menu option is the consent; no double-ask"
   );
   assert.match(provisioningReference, /neonctl orgs list.*--output json/);
+  assert.match(
+    provisioningReference,
+    /hosted screens, also follow \[hosted-screens\.md\]\(hosted-screens\.md\)[\s\S]*before\s+creating the project/,
+    "provisioning must route hosted screens to its reference before the project is created"
+  );
   assert.match(
     provisioningReference,
     /exactly one.*--org-id/s,
