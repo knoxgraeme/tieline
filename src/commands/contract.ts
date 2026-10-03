@@ -20,6 +20,7 @@ import {
   type ContractManifest,
 } from "../contract/manifest.js";
 import { resolveComparisonBase } from "../contract/comparison-base.js";
+import { readReviewHistory } from "../contract/history.js";
 import { screenSettingsForRepository } from "../contract/screen-catalog.js";
 import {
   DEFAULT_HOSTED_SCREENS_DEPENDENCIES,
@@ -383,6 +384,7 @@ async function publishSyncedMainScreens(
       root: parsed.repositoryRoot,
       repositoryKey: manifest.repository.key,
       specDirectory: parsed.specDirectory,
+      manifestPath: parsed.outputPath,
       manifest,
       commit,
       settings,
@@ -662,12 +664,16 @@ export async function runContractCommand(
 
   if (parsed.action === "review") {
     const branch = parsed.base ? reviewChangesAgainstBase(parsed, parsed.base) : undefined;
+    // When each item last changed is read from git; a page without it is
+    // still complete, so history that cannot be read is only reported.
+    const history = readReviewHistory(parsed.repositoryRoot, parsed.manifestPath);
     const result = writeWorkspaceReviewPage(
       parsed.repositoryRoot,
       parsed.repositoryKey,
       parsed.specDirectory,
       parsed.outputPath,
-      branch
+      branch,
+      history.status === "read" ? { items: history.items, truncated: history.truncated } : undefined
     );
     const changes = branch
       ? branch.changes
@@ -682,6 +688,10 @@ export async function runContractCommand(
       acceptance_criteria: result.acceptance_criteria,
       ...(result.screens ? { screens: result.screens } : {}),
       ...(changes ? { changes } : {}),
+      history:
+        history.status === "read"
+          ? { changes: history.changes, items: history.items.size, truncated: history.truncated, unreadable_commits: history.unreadable }
+          : { unavailable: history.detail },
       warnings: result.warnings,
     };
     io.write(
@@ -694,6 +704,12 @@ export async function runContractCommand(
               ? `Changes against ${parsed.base}: ${branch.changes.records.filter((record) => record.kind === "story").length} Stories, ${branch.changes.records.filter((record) => record.kind === "acceptance_criterion").length} acceptance criteria, ${branch.changes.screens.length} screens.\n`
               : branch
                 ? `Changes against ${parsed.base} are not shown: ${branch.unavailable}\n`
+                : ""
+          }${
+            history.status === "unavailable"
+              ? `When each item last changed is not shown: ${history.detail}\n`
+              : history.unreadable > 0
+                ? `${history.unreadable} commit(s) in the history could not be read, so some items may show an older last change.\n`
                 : ""
           }`
     );

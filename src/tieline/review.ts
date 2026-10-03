@@ -8,6 +8,7 @@ import {
 import {
   renderContractReviewPage,
   type ContractReviewDocument,
+  type ReviewHistory,
 } from "../contract/review-page.js";
 import {
   buildScreenReviewModel,
@@ -65,7 +66,8 @@ export function writeWorkspaceReviewPage(
   repositoryKey: string,
   specDirectory = ".tieline/spec",
   outputPath?: string,
-  comparison?: ReviewComparison
+  comparison?: ReviewComparison,
+  history?: ReviewHistory
 ): ReviewPageResult {
   const defaultPath = resolve(root, TIELINE_REVIEW_PAGE);
   const path = outputPath ?? defaultPath;
@@ -81,6 +83,7 @@ export function writeWorkspaceReviewPage(
     onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
     ...(screens ? { screens } : {}),
     ...(comparison ? { comparison } : {}),
+    ...(history ? { history } : {}),
   });
   writeFileSync(path, serialized);
   if (path === defaultPath) ensureReviewPageIgnored(root);
@@ -146,6 +149,7 @@ export function renderHostedReviewPage(options: {
   specDirectory: string;
   hosted: HostedReviewImages;
   comparison?: ReviewComparison;
+  history?: ReviewHistory;
 }): string {
   const { documents, warnings, screens } = loadReviewInputs(
     options.root,
@@ -159,6 +163,7 @@ export function renderHostedReviewPage(options: {
     onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
     ...(screens ? { screens } : {}),
     ...(options.comparison ? { comparison: options.comparison } : {}),
+    ...(options.history ? { history: options.history } : {}),
   });
 }
 

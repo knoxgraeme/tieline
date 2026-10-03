@@ -1,5 +1,6 @@
 import { escapeHtml } from "./html.js";
 import type { ReviewChangeIndex } from "./review-changes-page.js";
+import type { ItemHistory } from "./history.js";
 import type { ScreenRecordChange } from "./review-changes.js";
 import type { AcceptedContractDocument, Applicability } from "./schema.js";
 import type {
@@ -29,6 +30,8 @@ export interface ContractReviewScreens {
   capturesUrl: string;
   /** Present on a hosted page, which serves images by digest. */
   hosted?: HostedReviewImages;
+  /** When each screen last changed, keyed `screen:<key>`. */
+  history?: { items: ReadonlyMap<string, ItemHistory>; truncated: boolean };
 }
 
 /**
@@ -69,6 +72,8 @@ export interface ScreenReviewEntry {
   before_image?: { src: string; label: string };
   /** Why the screen is deliberately not captured, or null. */
   not_captured: { reason: string; detail: string } | null;
+  /** When the screen last changed, from git history. */
+  last_changed?: ItemHistory & { truncated: boolean };
   shown_by: ScreenShownBy[];
   /** Present only on a page built against a base ref, for changed screens. */
   change?: Pick<ScreenRecordChange, "status" | "aspects">;
@@ -255,6 +260,9 @@ export function buildScreenReviewModel(
           image: imageSource(entry.image, screens),
           ...beforeImage(entry.key, entry.image?.sha256, screens, change),
           not_captured: entry.not_captured ?? null,
+          ...(screens.history?.items.has(`screen:${entry.key}`)
+            ? { last_changed: { ...screens.history.items.get(`screen:${entry.key}`)!, truncated: screens.history.truncated } }
+            : {}),
           shown_by: shownBy.get(entry.key) ?? [],
           ...change,
         });
@@ -1211,6 +1219,22 @@ export const SCREEN_REVIEW_SCRIPT = `
         }
       }
 
+      function lastChangedNode(history) {
+        const node = element("span");
+        node.append("Last changed in ");
+        if (history.url) {
+          const link = element("a", "", history.label);
+          link.href = history.url;
+          link.rel = "noreferrer";
+          node.append(link);
+        } else {
+          node.append(history.label);
+        }
+        const count = history.changes + (history.truncated ? "+" : "") + (history.changes === 1 && !history.truncated ? " change" : " changes");
+        node.append(" · " + history.date + " · " + count);
+        return node;
+      }
+
       function renderBefore(screen) {
         const figure = document.getElementById("screen-detail-before");
         figure.replaceChildren();
@@ -1282,6 +1306,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         meta.replaceChildren();
         if (screen.change) definition(meta, "On this branch", changeTag(screen.change));
         definition(meta, "Kind", kindLabel(screen.kind));
+        if (screen.last_changed) definition(meta, "Last changed", lastChangedNode(screen.last_changed));
         definition(meta, "Route", screen.route);
         definition(meta, "Appears when", screen.when);
         const applies = Object.entries(screen.applies_to || {});

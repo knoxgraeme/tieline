@@ -315,8 +315,10 @@ the `contract_hash` (content), its `shows` links (which are kept out of that has
 screens the image digest and the ARIA snapshot. The commit maps to a pull request through the
 squash-merge title (`… (#123)`) or the host's API.
 
-- **Offline:** the review page can show "Last changed in #71 · 4 changes" by walking manifest
-  history with a bounded depth.
+- **Offline (built):** `tieline contract history` reads it from git, and the review page, local
+  and hosted, shows "Last changed in #71 · 4 changes" on each Story, AC, and screen, walking at
+  most 200 commits that changed the manifest by default. It applies to every Tieline repository,
+  not only those with screens.
 - **Hosted:** the post-merge sync records a change event only when one of those identities changes,
   and records which one. Today every
   sync increments the revision of every Story and AC and records the last synced commit, so
@@ -343,7 +345,7 @@ implementing agent, as `AGENTS.md` requires.
 2. Done: capture. The Playwright fixture and reporter, `capture --all`, `--changed`, and
    `--verify` with selection reasons, committed ARIA snapshots, capture records, and
    `screens audit`.
-3. Offline history: "last changed by" from git.
+3. Done: offline history, "last changed by" from git, for Stories, ACs, and screens.
 4. Done: hosted. The migration and roles, `publish`, the sync of accepted screen state,
    retention, the core handler and Netlify adapter, `hosted check`, CI templates, and the
    pull-request comment.

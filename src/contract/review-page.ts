@@ -18,6 +18,7 @@ import {
   REVIEW_CHANGE_STYLES,
   type ReviewChangeIndex,
 } from "./review-changes-page.js";
+import type { ItemHistory } from "./history.js";
 import type { ReviewComparison } from "./review-changes.js";
 import {
   buildScreenReviewModel,
@@ -57,6 +58,32 @@ export interface ContractReviewPageOptions {
    * the page is unchanged.
    */
   comparison?: ReviewComparison;
+  /**
+   * When each Story, criterion, and screen last changed, from git history.
+   * Without it the page shows no history.
+   */
+  history?: ReviewHistory;
+}
+
+/** Each item's last change, keyed `<kind>:<stable id>`, and whether older history was read. */
+export interface ReviewHistory {
+  items: ReadonlyMap<string, ItemHistory>;
+  /** True when older commits were not read, so change counts may be low. */
+  truncated: boolean;
+}
+
+/**
+ * "#71 · 2026-09-30 · 4 changes", linked when the host is known, after
+ * "Last changed in " unless a label already says so.
+ */
+function renderLastChanged(history: ReviewHistory | undefined, key: string, prefix = true): string {
+  const item = history?.items.get(key);
+  if (!history || !item) return "";
+  const label = item.url
+    ? `<a href="${escapeHtml(item.url)}" rel="noreferrer">${escapeHtml(item.label)}</a>`
+    : escapeHtml(item.label);
+  const count = `${item.changes}${history.truncated ? "+" : ""} change${item.changes === 1 && !history.truncated ? "" : "s"}`;
+  return `${prefix ? "Last changed in " : ""}${label} · ${escapeHtml(item.date)} · ${count}`;
 }
 
 function renderApplicability(applicability: Applicability | undefined): string {
@@ -168,7 +195,8 @@ function renderStoryDocument(
   capabilityDescription: string,
   story: AcceptedStory,
   screens?: ScreenReviewModel,
-  changes?: ReviewChangeIndex
+  changes?: ReviewChangeIndex,
+  history?: ReviewHistory
 ): string {
   const criteria = story.acceptance_criteria
     .map(
@@ -179,6 +207,10 @@ function renderStoryDocument(
         <div>
           <code>${escapeHtml(criterion.key)}</code>${
             changes ? renderChangeBadge(changes.records.get(criterion.key)) : ""
+          }${
+            history?.items.has(`acceptance_criterion:${criterion.key}`)
+              ? `<span class="last-changed">${renderLastChanged(history, `acceptance_criterion:${criterion.key}`)}</span>`
+              : ""
           }
           <p class="criterion-text">${escapeHtml(criterion.criterion)}</p>
           ${
@@ -241,6 +273,14 @@ function renderStoryDocument(
             <dt>Criteria</dt>
             <dd>${story.acceptance_criteria.length}</dd>
           </div>${
+            history?.items.has(`story:${story.key}`)
+              ? `
+          <div>
+            <dt>Last changed</dt>
+            <dd class="last-changed">${renderLastChanged(history, `story:${story.key}`, false)}</dd>
+          </div>`
+              : ""
+          }${
             screens
               ? `
           <div>
@@ -273,7 +313,7 @@ export function renderContractReviewPage(
   const screens = options.screens
     ? buildScreenReviewModel(
         options.documents.map(({ document }) => document),
-        options.screens,
+        options.history ? { ...options.screens, history: options.history } : options.screens,
         changes
       )
     : undefined;
@@ -329,7 +369,8 @@ export function renderContractReviewPage(
           capability.description,
           story,
           screens,
-          changes
+          changes,
+          options.history
         )}</template>`
     )
     .join("");
@@ -340,7 +381,8 @@ export function renderContractReviewPage(
         firstEntry.capability.description,
         firstEntry.story,
         screens,
-        changes
+        changes,
+        options.history
       )
     : `<div class="empty-state">
         <h1>No capabilities yet</h1>
@@ -640,6 +682,8 @@ export function renderContractReviewPage(
       font: 700 .66rem var(--mono);
     }
     .criterion-text { margin: .3rem 0 0; font-size: .84rem; font-weight: 700; line-height: 1.45; }
+    .last-changed { color: var(--muted); font-size: .7rem; }
+    span.last-changed { margin-left: .5rem; }
     .rationale {
       margin: .65rem 0 0;
       padding: .5rem .65rem;

@@ -430,6 +430,42 @@ capability:
                 repository: tieline
                 path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC9
+          criterion: Tieline must report, from git alone, when each Story, acceptance criterion, and screen was added, changed, or removed and in which pull request, by comparing each first-parent commit's compiled manifest with its parent's, must show each one's last change on the review page, and must say when older history was not read or a commit's manifest is not held by the clone instead of attributing changes it cannot see.
+          rationale: Reviewers and agents need to know which change last touched a piece of behavior, and a shallow or partial clone must not make every item look newly added.
+          scenarios:
+            - given: a pull request merged with a merge commit changed an acceptance criterion on its branch
+              when: the history of main is read
+              then: the change must be attributed to the merge commit and its pull request
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/history.ts
+                selector: function:readContractHistory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/history.ts
+                selector: function:readReviewHistory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract-history.ts
+                selector: function:runContractHistoryCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-contract-history.ts
+                framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
       actor: implementing agent

@@ -141,6 +141,27 @@ tieline contract review . --base origin/main
 relative to the manifest committed where the branch left that ref (`git merge-base <ref> HEAD`).
 It reads only git, so it works offline. See [Changes on a branch](screens.md#changes-on-a-branch).
 
+`contract review` also shows when each Story, AC, and screen last changed ("Last changed in #71 ·
+2026-09-30 · 4 changes"), linked to the pull request when `origin` is on GitHub, from the history
+`contract history` reads. Without git history the page is written without it and says why.
+
+### History
+
+```bash
+tieline contract history [--key <stable-id>] [--limit <n>] [--ref <ref>] [--json]
+```
+
+Lists when Stories, ACs, and screens were added, changed, or removed, newest first, with the pull
+request that did it, or one item's changes with `--key`. A commit changed an item when the
+manifest it commits differs from its first parent's for that item: its content, its `shows`
+links, its place, or a screen's screenshot digest or ARIA snapshot. History follows the
+first-parent line, so on `main` a pull request merged with a merge commit counts as that commit,
+and the pull request number is read from the commit subject (`… (#123)` or
+`Merge pull request #123`). It reads at most `--limit` commits that changed the contract (200 by
+default, up to 2000) and says when older history was not read. A shallow clone's history is
+reported as cut short, and commits a partial clone does not hold are listed as unreadable
+instead of being fetched.
+
 ## Screens
 
 Screens are an optional feature; see [Screens](screens.md) to opt in. Once enabled, import

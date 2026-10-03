@@ -38,6 +38,8 @@ import {
   type HostedImageReference,
   type HostedImageType,
 } from "../contract/screen-hosting.js";
+import { readReviewHistory } from "../contract/history.js";
+import type { ReviewHistory } from "../contract/review-page.js";
 import { renderHostedReviewPage } from "../tieline/review.js";
 import { escapeTerminalText, resolveCommandContext, type CommandIO } from "./shared.js";
 
@@ -205,6 +207,12 @@ export async function storeHostedImages(input: {
   };
 }
 
+/** When each item last changed, for a hosted page; none when git history cannot be read. */
+function pageHistory(root: string, manifestPath: string): { history?: ReviewHistory } {
+  const history = readReviewHistory(root, manifestPath);
+  return history.status === "read" ? { history: { items: history.items, truncated: history.truncated } } : {};
+}
+
 function boundedPage(page: string): string {
   const bytes = Buffer.byteLength(page);
   if (bytes > HOSTED_SCREEN_LIMITS.pageBytes) {
@@ -328,7 +336,7 @@ export async function runScreensPublishCommand(
   dependencies: HostedScreensDependencies = DEFAULT_HOSTED_SCREENS_DEPENDENCIES
 ): Promise<number> {
   const ref = parseHostedRef({ pullRequest: options.pullRequest, branch: options.branch });
-  const { root, repositoryKey, specDirectory } = resolveCommandContext(options);
+  const { root, repositoryKey, specDirectory, manifestPath } = resolveCommandContext(options);
   const settings = hostedSettings(root);
   const commit = fullCommit(options.commit ?? dependencies.headCommit(root));
   const current = compileContractManifestWithSources({
@@ -360,6 +368,7 @@ export async function runScreensPublishCommand(
         specDirectory,
         hosted: { served: new Set(digests), base: baseImages, baseLabel: "main" },
         comparison,
+        ...pageHistory(root, manifestPath),
       })
     );
     const images = await storeHostedImages({
@@ -482,6 +491,8 @@ export async function publishMainScreens(input: {
   root: string;
   repositoryKey: string;
   specDirectory: string;
+  /** The committed manifest's directory, for each item's history; none shown when omitted. */
+  manifestPath?: string;
   manifest: ContractManifest;
   commit: string;
   settings: HostedSettings;
@@ -505,6 +516,7 @@ export async function publishMainScreens(input: {
       repositoryKey: input.repositoryKey,
       specDirectory: input.specDirectory,
       hosted: { served: new Set(digests), base: new Map(), baseLabel: "main" },
+      ...(input.manifestPath ? pageHistory(input.root, input.manifestPath) : {}),
     })
   );
   const manifest = boundedManifest(input.manifest);

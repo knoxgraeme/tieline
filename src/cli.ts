@@ -168,7 +168,7 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "contract") {
-    if (args[0] === "criteria" || args[0] === "context") {
+    if (args[0] === "criteria" || args[0] === "context" || args[0] === "history") {
       return optionValue(args, "repository") ?? process.cwd();
     }
     return (
@@ -459,6 +459,31 @@ function buildProgram(
             paths,
             repository: opts.repository,
             repo: opts.repo,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+  contract
+    .command("history")
+    .description(
+      "Show when Stories, acceptance criteria, and screens changed, and in which pull request"
+    )
+    .option("--key <stable-id>", "one Story, acceptance criterion, or screen")
+    .option("--limit <n>", "commits that changed the contract to read (default 200, at most 2000)")
+    .option("--ref <ref>", "read history back from this ref (default HEAD)")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runContractHistoryCommand } = await import("./commands/contract-history.js");
+      setExit(
+        runContractHistoryCommand(
+          {
+            repository: opts.repository,
+            key: opts.key,
+            ...(opts.limit === undefined ? {} : { limit: Number(opts.limit) }),
+            ref: opts.ref,
             json: Boolean(opts.json),
           },
           io
