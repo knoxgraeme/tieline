@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import postgres from "postgres";
-import { readObjectStoreSettings, S3ObjectStore, type ObjectStore } from "../adapters/object-store/s3.js";
+import {
+  hasObjectStoreCredentials,
+  readObjectStoreSettings,
+  S3ObjectStore,
+  type ObjectStore,
+} from "../adapters/object-store/s3.js";
 import type { ScreensHostedConfig } from "../config.js";
 import { withinRepository } from "../contract/paths.js";
 import { realDestination, screenSettingsForRepository } from "../contract/screen-catalog.js";
@@ -58,7 +63,7 @@ export function netlifySiteFiles(input: { repositoryKey: string; bucket: string;
       `// Tieline hosted screens, written by \`tieline hosted init --host netlify\`.
 // Serves the review pages and screenshots that \`tieline screens publish\` and
 // \`tieline contract sync\` stored. Set DATABASE_URL (the Tieline reader role)
-// and the AWS_* object storage variables in the site's environment.
+// and the TIELINE_SCREENS_S3_* object storage variables in the site's environment.
 import { createHostedScreensSite } from "tieline/hosted";
 
 export default createHostedScreensSite(${JSON.stringify({ repository: input.repositoryKey, bucket: input.bucket })});
@@ -79,9 +84,11 @@ or \`/?ref=<branch>\`. It was written by \`tieline hosted init --host netlify\`.
    this directory.
 2. Set the site's environment variables:
    - \`DATABASE_URL\`: the Tieline reader role's connection string;
-   - \`AWS_ENDPOINT_URL_S3\`, \`AWS_REGION\`, \`AWS_ACCESS_KEY_ID\`, and
-     \`AWS_SECRET_ACCESS_KEY\`: credentials that can read the
-     \`${input.bucket}\` bucket.
+   - \`TIELINE_SCREENS_S3_ENDPOINT\`, \`TIELINE_SCREENS_S3_REGION\`,
+     \`TIELINE_SCREENS_S3_ACCESS_KEY_ID\`, and
+     \`TIELINE_SCREENS_S3_SECRET_ACCESS_KEY\`: a credential that can only
+     read the \`${input.bucket}\` bucket. Netlify reserves the \`AWS_*\`
+     names for its functions' own AWS role.
 3. Turn on the site's access control (Visitor access or password
    protection). Tieline does not log visitors in; everyone who can reach the
    site can read every published page.
@@ -230,8 +237,8 @@ async function checkStorage(
   repositoryKey: string,
   dependencies: HostedCheckDependencies
 ): Promise<HostedCheckResult> {
-  if (!dependencies.env.AWS_ACCESS_KEY_ID || !dependencies.env.AWS_SECRET_ACCESS_KEY) {
-    return { check: "storage", status: "skip", detail: "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set" };
+  if (!hasObjectStoreCredentials(dependencies.env)) {
+    return { check: "storage", status: "skip", detail: "no object storage credentials are set (TIELINE_SCREENS_S3_* or AWS_*)" };
   }
   try {
     const store = dependencies.store(hosted, dependencies.env);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
+  hasObjectStoreCredentials,
   ObjectStoreError,
   OBJECT_STORE_LIMITS,
   readObjectStoreSettings,
@@ -372,6 +373,39 @@ await test("reads the store from the standard AWS variables and refuses unsafe e
     assert.throws(() => readObjectStoreSettings(env, BUCKET), pattern);
   }
   assert.throws(() => readObjectStoreSettings(STORE_ENV, "Not A Bucket"), /not a valid bucket name/);
+});
+
+await test("reads only the TIELINE_SCREENS_S3_* settings when any is set, so a host's own AWS role never mixes in", () => {
+  // What AWS Lambda, under Netlify or Vercel functions, sets for the function's own role.
+  const lambda = {
+    AWS_ACCESS_KEY_ID: "ASIALAMBDAROLE",
+    AWS_SECRET_ACCESS_KEY: "lambda-secret",
+    AWS_SESSION_TOKEN: "lambda-session",
+    AWS_REGION: "us-east-1",
+  };
+  const settings = readObjectStoreSettings(
+    {
+      ...lambda,
+      TIELINE_SCREENS_S3_ENDPOINT: "https://br-example.storage.c-1.us-east-2.aws.neon.tech",
+      TIELINE_SCREENS_S3_REGION: "us-east-2",
+      TIELINE_SCREENS_S3_ACCESS_KEY_ID: "nak_live_example",
+      TIELINE_SCREENS_S3_SECRET_ACCESS_KEY: "nsk_live_example",
+    },
+    BUCKET
+  );
+  assert.equal(settings.accessKeyId, "nak_live_example");
+  assert.equal(settings.secretAccessKey, "nsk_live_example");
+  assert.equal(settings.region, "us-east-2");
+  assert.equal(settings.sessionToken, null, "Lambda's session token is not sent with Tieline's credentials");
+  assert.equal(settings.endpoint.href, "https://br-example.storage.c-1.us-east-2.aws.neon.tech/");
+  assert.throws(
+    () => readObjectStoreSettings({ ...lambda, TIELINE_SCREENS_S3_ENDPOINT: "https://storage.example.test" }, BUCKET),
+    /TIELINE_SCREENS_S3_ACCESS_KEY_ID and TIELINE_SCREENS_S3_SECRET_ACCESS_KEY must hold/,
+    "an incomplete Tieline set never falls back to the host's AWS role"
+  );
+  assert.equal(hasObjectStoreCredentials(lambda), true);
+  assert.equal(hasObjectStoreCredentials({ ...lambda, TIELINE_SCREENS_S3_REGION: "us-east-2" }), false);
+  assert.equal(hasObjectStoreCredentials({}), false);
 });
 
 interface FetchCall {

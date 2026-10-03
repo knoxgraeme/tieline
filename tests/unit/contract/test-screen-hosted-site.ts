@@ -262,7 +262,10 @@ await test("writes a self-contained Netlify site for the repository's bucket", (
   assert.deepEqual(JSON.parse(readFileSync(`${directory}/package.json`, "utf8")).dependencies, { tieline: TIELINE_VERSION });
   assert.match(readFileSync(`${directory}/netlify.toml`, "utf8"), /\[functions\]\n  directory = "functions"/);
   assert.equal(readFileSync(`${directory}/public/robots.txt`, "utf8"), "User-agent: *\nDisallow: /\n");
-  assert.match(readFileSync(`${directory}/README.md`, "utf8"), /Turn on the site's access control/);
+  const readme = readFileSync(`${directory}/README.md`, "utf8");
+  assert.match(readme, /Turn on the site's access control/);
+  assert.match(readme, /TIELINE_SCREENS_S3_ACCESS_KEY_ID/);
+  assert.doesNotMatch(readme, /`AWS_ACCESS_KEY_ID`/, "Netlify refuses the AWS_* names, so the README never asks for them");
   assert.match(output(), /created   \.tieline\/hosted\/functions\/screens\.mjs/);
 
   const again = captureIO();
@@ -414,7 +417,7 @@ await test("skips what this environment cannot check and refuses an http site UR
   const ws = hostedWorkspace();
   const { io, output } = captureIO();
   assert.equal(await runHostedCheckCommand({ repository: ws.root }, io, checkDependencies({})), 0);
-  assert.match(output(), /skip  storage: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set/);
+  assert.match(output(), /skip  storage: no object storage credentials are set \(TIELINE_SCREENS_S3_\* or AWS_\*\)/);
   assert.match(output(), /skip  site: pass --url or set screens.hosted.site_url/);
   await assert.rejects(runHostedCheckCommand({ repository: ws.root, url: "http://screens.example.test" }, io, checkDependencies({})), /must use https/);
   const unknown = checkDependencies({ site: { "/": new Response("hello", { status: 200 }) } });

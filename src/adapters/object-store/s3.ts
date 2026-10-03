@@ -70,53 +70,107 @@ export function isBucketName(bucket: string): boolean {
   return BUCKET.test(bucket) && !bucket.includes("..");
 }
 
+interface ObjectStoreVariables {
+  endpoint: readonly string[];
+  region: readonly string[];
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+}
+
+const TIELINE_VARIABLES: ObjectStoreVariables = {
+  endpoint: ["TIELINE_SCREENS_S3_ENDPOINT"],
+  region: ["TIELINE_SCREENS_S3_REGION"],
+  accessKeyId: "TIELINE_SCREENS_S3_ACCESS_KEY_ID",
+  secretAccessKey: "TIELINE_SCREENS_S3_SECRET_ACCESS_KEY",
+  sessionToken: "TIELINE_SCREENS_S3_SESSION_TOKEN",
+};
+
+const AWS_VARIABLES: ObjectStoreVariables = {
+  endpoint: ["AWS_ENDPOINT_URL_S3", "AWS_ENDPOINT_URL"],
+  region: ["AWS_REGION", "AWS_DEFAULT_REGION"],
+  accessKeyId: "AWS_ACCESS_KEY_ID",
+  secretAccessKey: "AWS_SECRET_ACCESS_KEY",
+  sessionToken: "AWS_SESSION_TOKEN",
+};
+
 /**
- * Reads the object store from the standard AWS variables, which Neon's
- * storage credentials also use: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
- * optional `AWS_SESSION_TOKEN`, `AWS_REGION` (or `AWS_DEFAULT_REGION`), and
- * `AWS_ENDPOINT_URL_S3` (or `AWS_ENDPOINT_URL`). Without an endpoint the AWS
- * S3 endpoint for the region is used. The endpoint must use HTTPS, except on
- * a loopback host, so credentials and images never cross the network in
- * clear text.
+ * Which variables hold the object store's settings. Hosts that run functions
+ * on AWS Lambda (Netlify, Vercel) set the standard `AWS_*` names to the
+ * function's own role and refuse to let a site override them, so the same
+ * settings can be given as `TIELINE_SCREENS_S3_*`. When any of those is set,
+ * every setting comes from them, so a host's own AWS credentials are never
+ * mixed in; otherwise the standard names are read.
+ */
+function objectStoreVariables(env: Environment): ObjectStoreVariables {
+  return Object.keys(env).some((name) => name.startsWith("TIELINE_SCREENS_S3_") && env[name]?.trim())
+    ? TIELINE_VARIABLES
+    : AWS_VARIABLES;
+}
+
+/** Whether `env` holds object storage credentials, under either set of names. */
+export function hasObjectStoreCredentials(env: Environment): boolean {
+  const names = objectStoreVariables(env);
+  return Boolean(env[names.accessKeyId]?.trim() && env[names.secretAccessKey]?.trim());
+}
+
+function first(env: Environment, names: readonly string[]): string {
+  for (const name of names) {
+    const value = env[name]?.trim();
+    if (value) return value;
+  }
+  return "";
+}
+
+/**
+ * Reads the object store from the environment: the access key, secret, and
+ * optional session token, the region, and the endpoint, under the
+ * `TIELINE_SCREENS_S3_*` names or the standard `AWS_*` ones that Neon
+ * Object Storage, AWS S3, and Cloudflare R2 credentials use. Without an
+ * endpoint the AWS S3 endpoint for the region is used. The endpoint must use
+ * HTTPS, except on a loopback host, so credentials and images never cross the
+ * network in clear text.
  */
 export function readObjectStoreSettings(env: Environment, bucket: string): ObjectStoreSettings {
   if (!isBucketName(bucket)) throw new Error(`'${bucket}' is not a valid bucket name.`);
-  const accessKeyId = env.AWS_ACCESS_KEY_ID?.trim() ?? "";
-  const secretAccessKey = env.AWS_SECRET_ACCESS_KEY?.trim() ?? "";
+  const names = objectStoreVariables(env);
+  const endpointName = names.endpoint[0]!;
+  const accessKeyId = env[names.accessKeyId]?.trim() ?? "";
+  const secretAccessKey = env[names.secretAccessKey]?.trim() ?? "";
   if (!accessKeyId || !secretAccessKey) {
     throw new Error(
-      "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must hold the object storage credentials for hosted screens."
+      `${names.accessKeyId} and ${names.secretAccessKey} must hold the object storage credentials for hosted screens.`
     );
   }
   if (!ACCESS_KEY.test(accessKeyId) || secretAccessKey.length > 256) {
-    throw new Error("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY is malformed.");
+    throw new Error(`${names.accessKeyId} or ${names.secretAccessKey} is malformed.`);
   }
-  const region = (env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? "").trim();
+  const region = first(env, names.region);
   if (!REGION.test(region)) {
-    throw new Error("AWS_REGION must name the object storage region (for example aws-us-east-2).");
+    throw new Error(`${names.region[0]} must name the object storage region (for example us-east-2).`);
   }
-  const rawEndpoint = (env.AWS_ENDPOINT_URL_S3 ?? env.AWS_ENDPOINT_URL ?? "").trim();
+  const rawEndpoint = first(env, names.endpoint);
   let endpoint: URL;
   try {
     endpoint = new URL(rawEndpoint || `https://s3.${region}.amazonaws.com`);
   } catch {
-    throw new Error("AWS_ENDPOINT_URL_S3 is not a valid URL.");
+    throw new Error(`${endpointName} is not a valid URL.`);
   }
   if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
-    throw new Error("AWS_ENDPOINT_URL_S3 must not carry credentials, a query, or a fragment.");
+    throw new Error(`${endpointName} must not carry credentials, a query, or a fragment.`);
   }
   if (endpoint.pathname !== "/") {
-    throw new Error("AWS_ENDPOINT_URL_S3 must be an origin without a path; the bucket is added as one.");
+    throw new Error(`${endpointName} must be an origin without a path; the bucket is added as one.`);
   }
   if (
     endpoint.protocol !== "https:" &&
     !(endpoint.protocol === "http:" && LOOPBACK_HOSTS.has(endpoint.hostname))
   ) {
-    throw new Error("AWS_ENDPOINT_URL_S3 must use https (plain http is allowed only on a loopback host).");
+    throw new Error(`${endpointName} must use https (plain http is allowed only on a loopback host).`);
   }
-  const sessionToken = env.AWS_SESSION_TOKEN?.trim() || null;
+  const sessionToken = env[names.sessionToken]?.trim() || null;
   if (sessionToken !== null && sessionToken.length > 4_096) {
-    throw new Error("AWS_SESSION_TOKEN is malformed.");
+    throw new Error(`${names.sessionToken} is malformed.`);
   }
   return { endpoint, region, bucket, accessKeyId, secretAccessKey, sessionToken };
 }
