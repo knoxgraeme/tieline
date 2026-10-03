@@ -62,3 +62,6 @@ Tieline's private profile outside the checkout.
    `DATABASE_URL` and `DATABASE_URL_WRITE` in their environment. A solo
    user needs none of this — the profile on this machine already holds
    everything.
+8. For hosted screens, also follow [hosted-screens.md](hosted-screens.md):
+   it needs the project in a region with Object Storage, so read it before
+   creating the project in step 4.

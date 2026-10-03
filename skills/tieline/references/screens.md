@@ -90,3 +90,9 @@ Point reviewers at `.tieline/review.html`, whose Screens view shows the catalog,
 and each Story's and AC's linked screens. For branch work, render it with
 `tieline contract review . --base <base-ref>` so the new, changed, and removed Stories, ACs, and
 screens are highlighted.
+
+## Hosted screens
+
+When `screens.hosted` is enabled, CI publishes each pull request's screens to the team's hosted
+site, and sync on `main` publishes `main`; nothing in this workflow changes. To set up the
+bucket and its credentials, read [hosted-screens.md](hosted-screens.md).
