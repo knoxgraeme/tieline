@@ -1684,3 +1684,32 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-hosted-site.ts
                 framework_hint: custom-script
+        - key: CONTRACT-005-AC16
+          criterion: The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.
+          rationale: Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/hosted-screens.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/provisioning.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
