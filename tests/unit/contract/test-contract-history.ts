@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runContractHistoryCommand } from "../../../src/commands/contract-history.js";
 import {
+  criterionHistory,
   githubRepositoryUrl,
   itemHistories,
   lastChanges,
@@ -142,7 +143,24 @@ await test("stops at the limit without calling the oldest commit read the beginn
   assert.deepEqual(history.commits.map((entry) => entry.pull_request), [4, 3]);
   assert.ok(history.changes.every((change) => change.status !== "added"));
   assert.throws(() => readContractHistory(ws.root, MANIFEST, { limit: 0 }), /from 1 to 2000/);
-  assert.throws(() => readContractHistory(ws.root, MANIFEST, { ref: "--output=x" }), /not a git ref/);
+  assert.throws(() => readContractHistory(ws.root, MANIFEST, { ref: "--output=x" }), /must not start with '-'/);
+  assert.throws(() => readContractHistory(ws.root, MANIFEST, { until: "--output=x" }), /must not start with '-'/);
+});
+
+await test("reads only the changes after a given commit, with its first parent as the base", () => {
+  const ws = historyWorkspace();
+  const second = git(ws.root, "log", "--first-parent", "--format=%H", "--grep", "(#2)").trim();
+  const since = readContractHistory(ws.root, MANIFEST, { until: second });
+  assert.equal(since.truncated, false);
+  assert.deepEqual(since.commits.map((entry) => entry.pull_request), [4, 3]);
+  assert.deepEqual(
+    since.changes.map((change) => [change.commit.pull_request, change.stable_id, change.status]),
+    [
+      [4, "notes-list", "changed"],
+      [3, "NOTES-001-AC2", "changed"],
+    ]
+  );
+  assert.deepEqual(readContractHistory(ws.root, MANIFEST, { until: "HEAD" }).changes, []);
 });
 
 await test("treats a shallow clone's history as cut short", () => {
@@ -190,6 +208,24 @@ await test("links pull requests and commits for GitHub remotes only", () => {
     date: items.get("acceptance_criterion:NOTES-001-AC2")!.date,
     changes: 2,
   });
+});
+
+await test("gives one criterion's changes for exact context reads, or why there are none", () => {
+  const ws = historyWorkspace();
+  const history = criterionHistory(ws.root, resolve(ws.root, MANIFEST), "NOTES-001-AC2");
+  assert.equal(history.unavailable, null);
+  assert.equal(history.total, 2);
+  assert.deepEqual(
+    history.changes.map((change) => [change.status, change.pull_request, change.aspects]),
+    [
+      ["changed", 3, ["content"]],
+      ["added", 1, []],
+    ]
+  );
+  assert.equal(criterionHistory(ws.root, resolve(ws.root, MANIFEST), "NOTES-404").total, 0);
+  const outside = mkdtempSync(join(tmpdir(), "tieline-history-none-"));
+  directories.push(outside);
+  assert.match(criterionHistory(outside, resolve(outside, MANIFEST), "NOTES-001-AC1").unavailable ?? "", /git history could not be read/);
 });
 
 console.log("contract history: command and review page");

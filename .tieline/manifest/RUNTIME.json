@@ -971,7 +971,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5080fb53418edd299ec4c7261ff78c4c05e41c5bd5fbe4b775950822ab78058c",
+                "reviewed_content_hash": "bacbd1328e01ce4af665a3acd441e0da0589f5877d5e8120204bf1aea81d9d7a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

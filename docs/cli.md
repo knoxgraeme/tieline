@@ -36,7 +36,9 @@ Asset context returns `has_context`, `no_criteria`, or `not_found`. A selector-q
 includes exact-selector and file-level claims while excluding claims for other selectors in the
 same file; a path-only query keeps every claim's full kind, repository, path, selector, and
 framework-hint identity. AC context returns the exact Capability, Story, AC, scenarios, direct
-links, and Story-fallback links. Both entry points stop after one AC-mediated hop.
+links, and Story-fallback links, and its `history`: the AC's latest 20 changes, newest first,
+each with its commit, date, and pull request, read from git as [`contract history`](#history)
+reads it, or why there is none. Both entry points stop after one AC-mediated hop.
 
 The associated code and tests are an **intent neighborhood** and their shared AC links are
 **contract coupling** — not a runtime dependency graph or a comprehensive blast radius.
@@ -291,6 +293,16 @@ tieline contract sync . --expected-previous-commit <previous-main-sha>
 Sync is idempotent and checkpointed. A delayed job cannot overwrite a newer projection. If
 planning changed while a materializing pull request was open, the merged repository version wins
 and the later planning revision is preserved as a handoff conflict for reconciliation.
+
+Sync also records **change events**: when each Story, AC, and screen was added, changed, or
+removed on the synced branch, and in which pull request, read from the committed manifest's git
+history as [`contract history`](#history) reads it. The first sync records the history git holds
+(at most 2000 commits that changed the contract); each later one records what changed after the
+last recorded commit, so several pull requests merged between syncs are each recorded. Recording
+the same commit again changes nothing. When the synced commit is not a git commit (an explicit
+`--commit` label) or git history cannot be read, sync says so and is otherwise unchanged; when the
+database refuses the events, the contract stays synced, sync exits 1, and running it again
+records what was missed. Run `tieline migrate` after upgrading so the table exists.
 
 Screens are not synced to the contract tables: sync removes screen catalogs and `shows` links
 before writing and reports what it skipped. With hosted screens enabled, sync then publishes

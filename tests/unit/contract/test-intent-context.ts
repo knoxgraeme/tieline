@@ -878,8 +878,12 @@ await test("registers primitive offline MCP context reads with strict parity", a
 
     const acResult = await acTool.handler({ stable_id: "INTENT-001-AC1" });
     assert.notEqual(acResult.isError, true);
+    // The MCP read adds the criterion's git history; everything else is the
+    // CLI lookup, exactly.
+    const { history: acHistory, ...acContext } = acResult.structuredContent as Record<string, unknown>;
+    assert.ok(typeof acHistory === "object" && acHistory !== null && "changes" in acHistory);
     assert.deepEqual(
-      acResult.structuredContent,
+      acContext,
       await lookupAcceptanceCriterionIntentContext({
         manifest: fixture.manifest,
         repositoryRoot: fixture.root,

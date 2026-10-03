@@ -1,3 +1,4 @@
+import { criterionHistory, type CriterionHistory } from "../contract/history.js";
 import {
   readContractManifest,
   type ContractManifest,
@@ -159,6 +160,17 @@ export function renderIntentContextText(
   return text;
 }
 
+function renderCriterionHistoryText(history: CriterionHistory): string {
+  if (history.unavailable !== null) return `History: not available (${escapeTerminalText(history.unavailable)})\n`;
+  let text = `History: ${history.total}${history.truncated ? "+" : ""} change(s), newest first\n`;
+  for (const change of history.changes) {
+    text += `  ${change.date.slice(0, 10)}  ${change.pull_request !== null ? `#${change.pull_request}` : change.commit.slice(0, 7)}  ${change.status}${
+      change.aspects.length > 0 ? ` (${change.aspects.join(", ")})` : ""
+    }  ${escapeTerminalText(change.subject)}\n`;
+  }
+  return text;
+}
+
 function readIntentContextManifest(
   parsed: ContractContextCommand
 ): ContractManifest {
@@ -213,10 +225,15 @@ export async function runContractContext(
           repositoryRoot: parsed.repositoryRoot,
           stableId: parsed.ac!,
         });
+  // A found criterion also says when it changed, from git, as the MCP read does.
+  const history =
+    "requested_stable_id" in result && result.status === "found"
+      ? criterionHistory(parsed.repositoryRoot, parsed.manifestPath, result.requested_stable_id)
+      : undefined;
   io.write(
     parsed.json
-      ? `${JSON.stringify(result, null, 2)}\n`
-      : renderIntentContextText(result)
+      ? `${JSON.stringify(history ? { ...result, history } : result, null, 2)}\n`
+      : `${renderIntentContextText(result)}${history ? renderCriterionHistoryText(history) : ""}`
   );
   return 0;
 }

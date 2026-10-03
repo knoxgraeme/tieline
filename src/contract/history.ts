@@ -122,14 +122,19 @@ const MISSING_OBJECTS =
 export function readContractHistory(
   root: string,
   manifestDirectory: string,
-  options: { ref?: string; limit?: number } = {}
+  /**
+   * `until`: read only the commits after this one, whose first parent then
+   * serves as the base of the oldest; for recording what changed since the
+   * last recorded commit.
+   */
+  options: { ref?: string; limit?: number; until?: string } = {}
 ): ContractHistory {
   const ref = options.ref ?? "HEAD";
   const limit = options.limit ?? CONTRACT_HISTORY_LIMITS.commits;
   if (!Number.isInteger(limit) || limit < 1 || limit > CONTRACT_HISTORY_LIMITS.maxCommits) {
     throw new Error(`The history limit must be a whole number from 1 to ${CONTRACT_HISTORY_LIMITS.maxCommits}.`);
   }
-  if (ref.startsWith("-")) throw new Error(`'${ref}' is not a git ref.`);
+  if (ref.startsWith("-") || options.until?.startsWith("-")) throw new Error("A history ref must not start with '-'.");
   // One more than asked: the oldest commit read is only the base of the one after it.
   const log = git(root, [
     "log",
@@ -137,7 +142,7 @@ export function readContractHistory(
     "--no-color",
     `--max-count=${limit + 1}`,
     "--format=%H%x1f%cI%x1f%s",
-    ref,
+    options.until ? `${options.until}..${ref}` : ref,
     "--",
     manifestDirectory,
   ]);
@@ -151,7 +156,24 @@ export function readContractHistory(
   // A shallow clone's oldest commit is not where the manifest began, so its
   // history is cut short however few commits it lists.
   const shallow = git(root, ["rev-parse", "--is-shallow-repository"]).trim() === "true";
-  const truncated = listed.length > limit || shallow;
+  let truncated = listed.length > limit || shallow;
+  // Whether the oldest commit listed is there only as the base of the next.
+  let baseOnly = truncated;
+  if (options.until && listed.length > 0 && listed.length <= limit) {
+    // Every commit since `until` is listed; the oldest's base is its first
+    // parent, which may predate the manifest (and then lists no files).
+    let parent: string | null = null;
+    try {
+      parent = git(root, ["rev-parse", "--verify", "--quiet", `${listed.at(-1)!.commit}^1`]).trim() || null;
+    } catch {
+      parent = null;
+    }
+    if (parent) {
+      listed.push({ commit: parent, date: "", subject: "", pull_request: null });
+      truncated = false;
+      baseOnly = true;
+    }
+  }
   const trees = listed.map(({ commit }) =>
     git(root, ["ls-tree", "-r", commit, "--", manifestDirectory])
       .split("\n")
@@ -182,9 +204,9 @@ export function readContractHistory(
 
   const commits: ContractHistory["commits"] = [];
   const changes: ContractHistoryChange[] = [];
-  // Past the limit, or in a shallow clone, the oldest commit listed is only a
-  // base: what it changed is unknown.
-  const read = listed.length > limit || shallow ? Math.min(limit, listed.length - 1) : listed.length;
+  // Past the limit, in a shallow clone, or before `until`, the oldest commit
+  // listed is only a base: what it changed is not read.
+  const read = baseOnly ? listed.length - 1 : listed.length;
   for (let index = 0; index < read; index += 1) {
     const after = manifests[index];
     const commit = listed[index]!;
@@ -306,4 +328,75 @@ export function readReviewHistory(
     const detail = typeof stderr === "string" && stderr.trim() ? stderr.trim().split("\n")[0]! : error instanceof Error ? error.message : String(error);
     return { status: "unavailable", detail };
   }
+}
+
+/** The pull request a commit merged, from its subject; null when it names none or git cannot say. */
+export function commitPullRequest(root: string, commit: string): number | null {
+  if (commit.startsWith("-")) return null;
+  try {
+    return pullRequestNumber(git(root, ["log", "-1", "--format=%s", commit, "--"]).trim());
+  } catch {
+    return null;
+  }
+}
+
+/** Changes listed in one item's history before the rest are only counted. */
+export const ITEM_HISTORY_CHANGES = 20;
+
+export type CriterionHistory =
+  | {
+      /** The latest changes, newest first. */
+      changes: Array<{
+        status: ReviewChangeStatus;
+        aspects: string[];
+        commit: string;
+        date: string;
+        subject: string;
+        pull_request: number | null;
+      }>;
+      /** Every change the history read, including those not listed. */
+      total: number;
+      /** True when older history was not read, so the first change may be missing. */
+      truncated: boolean;
+      unavailable: null;
+    }
+  | { changes: []; total: 0; truncated: false; unavailable: string };
+
+let cachedHistory: { key: string; history: ContractHistory } | null = null;
+
+/**
+ * The history of one acceptance criterion, for exact context reads. The whole
+ * history is read once per commit and kept for the next read in the same
+ * process, so an agent asking about several criteria pays for it once.
+ */
+export function criterionHistory(root: string, manifestPath: string, stableId: string): CriterionHistory {
+  const directory = relative(resolve(root), resolve(manifestPath)).split(sep).join("/");
+  if (!directory || directory === ".." || directory.startsWith("../") || isAbsolute(directory)) {
+    return { changes: [], total: 0, truncated: false, unavailable: "the manifest is outside the repository" };
+  }
+  let history: ContractHistory;
+  try {
+    const head = git(root, ["rev-parse", "HEAD"]).trim();
+    const key = `${resolve(root)}\0${directory}\0${head}`;
+    if (cachedHistory?.key !== key) cachedHistory = { key, history: readContractHistory(root, directory) };
+    history = cachedHistory.history;
+  } catch (error) {
+    const stderr = (error as { stderr?: unknown } | null)?.stderr;
+    const detail = typeof stderr === "string" && stderr.trim() ? stderr.trim().split("\n")[0]! : error instanceof Error ? error.message : String(error);
+    return { changes: [], total: 0, truncated: false, unavailable: `git history could not be read: ${detail}` };
+  }
+  const changes = history.changes.filter((change) => change.kind === "acceptance_criterion" && change.stable_id === stableId);
+  return {
+    changes: changes.slice(0, ITEM_HISTORY_CHANGES).map((change) => ({
+      status: change.status,
+      aspects: change.aspects,
+      commit: change.commit.commit,
+      date: change.commit.date,
+      subject: change.commit.subject,
+      pull_request: change.commit.pull_request,
+    })),
+    total: changes.length,
+    truncated: history.truncated,
+    unavailable: null,
+  };
 }

@@ -32,10 +32,11 @@ assert.deepEqual(migrations, [
   "0003_sql_topology_language.sql",
   "0004_help_article_discovery.sql",
   "0005_hosted_screens.sql",
+  "0006_contract_change_events.sql",
 ]);
 assert.deepEqual(
   migrations.map((filename) => Number(filename.slice(0, 4))),
-  [1, 2, 3, 4, 5],
+  [1, 2, 3, 4, 5, 6],
   "packaged migrations must remain a contiguous ordered sequence"
 );
 
@@ -173,6 +174,11 @@ for (const statement of hostedScreensSql.split(";")) {
   assert.doesNotMatch(statement, /\b(delete|truncate|references|trigger)\b/i, "the capture publisher never deletes");
   assert.doesNotMatch(statement, /screen_history/, "only repository sync writes main's history");
 }
+
+const changeEventsSql = readFileSync(resolve("migrations/0006_contract_change_events.sql"), "utf8");
+assert.match(changeEventsSql, /unique \(repository_id, commit_sha, entity_kind, stable_id\)/, "recording a commit again must change nothing");
+assert.match(changeEventsSql, /grant select, insert on contract_change_events to tieline_repository_sync;/);
+assert.doesNotMatch(changeEventsSql, /grant[^;]*(update|delete)[^;]*contract_change_events/i, "change events are append-only");
 
 const packaged = readPackagedMigrations();
 assert.deepEqual(packaged.map((migration) => migration.filename), migrations);
