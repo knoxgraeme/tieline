@@ -609,6 +609,43 @@ export function planCaptureOutputs(input: {
 }
 
 /**
+ * Keeps each screenshot a verification reproduced exactly in the git-ignored
+ * captures directory. A fresh screenshot whose digest equals the committed
+ * one is byte for byte the committed screenshot, so keeping it changes
+ * nothing committed, and hosted screens can then publish it. A file already
+ * holding those bytes is left alone. Returns the keys of the screenshots
+ * written.
+ */
+export function keepVerifiedScreenshots(
+  repositoryRoot: string,
+  settings: ScreenSettings,
+  catalog: ValidatedScreenCatalog,
+  captured: readonly CapturedScreen[]
+): { kept: string[]; ignore: CapturesIgnoreStatus | null } {
+  const verified = captured.filter((fresh) => {
+    const image = catalog.screens.get(fresh.key)?.entry.image;
+    return image !== undefined && "path" in image && image.path === `${fresh.key}.png` && image.sha256 === fresh.image_sha256;
+  });
+  const kept: string[] = [];
+  let ignore: CapturesIgnoreStatus | null = null;
+  for (const fresh of verified) {
+    const path = resolve(settings.capturesDirectory, `${fresh.key}.png`);
+    if (existsSync(path)) {
+      try {
+        const current = readBoundedFile(path, SCREEN_CAPTURE_RUN_LIMITS.imageBytes, "screenshot");
+        if (createHash("sha256").update(current).digest("hex") === fresh.image_sha256) continue;
+      } catch {
+        // Unreadable or oversized: replace it with the verified screenshot.
+      }
+    }
+    ignore ??= ensureCapturesIgnored(repositoryRoot, settings);
+    writeAtomically(path, fresh.image);
+    kept.push(fresh.key);
+  }
+  return { kept: kept.sort((left, right) => left.localeCompare(right)), ignore };
+}
+
+/**
  * Replaces a file through a temporary file created exclusively, so a link
  * planted at the temporary path is never followed, and a rename, so a reader
  * never sees half a file.

@@ -1,0 +1,82 @@
+name: Screens
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# One run per pull request at a time, so an older push never publishes over a
+# newer one, and closing a pull request stops a run still publishing it.
+concurrency:
+  group: screens-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-publish:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    # Captures that count are made in the pinned Playwright image, so exact
+    # digests compare like for like. Keep this tag equal to the app's
+    # @playwright/test version.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      TIELINE_CAPTURE_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: npm ci
+      # Fails, naming each screen, when the committed outputs differ from a
+      # fresh capture. With hosted screens on, it keeps the screenshots it
+      # reproduced exactly, for the next step. Needs no credentials.
+      - run: npx tieline screens capture --all --verify
+      # Pull requests from forks get no secrets: they are verified, not
+      # published.
+      - name: Publish
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
+          AWS_ENDPOINT_URL_S3: ${{ secrets.TIELINE_SCREENS_AWS_ENDPOINT_URL_S3 }}
+          AWS_REGION: ${{ secrets.TIELINE_SCREENS_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.TIELINE_SCREENS_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TIELINE_SCREENS_AWS_SECRET_ACCESS_KEY }}
+        run: >-
+          npx tieline screens publish
+          --pull-request ${{ github.event.pull_request.number }}
+          --commit ${{ github.event.pull_request.head.sha }}
+          --summary-file screens-summary.md
+      # Keeps one comment per pull request up to date.
+      - name: Comment
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require("fs").readFileSync("screens-summary.md", "utf8");
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((comment) => comment.body?.startsWith("<!-- tieline-screens -->"));
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+  # Marks the pull request closed; `screens prune` on main deletes its page
+  # a day later, after the merge has reached main.
+  close:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      # The base branch, not the closed pull request, which may be gone.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - env:
+          DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
+        run: npx tieline screens close --pull-request ${{ github.event.pull_request.number }}

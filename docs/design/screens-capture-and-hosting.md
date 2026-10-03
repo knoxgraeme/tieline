@@ -3,14 +3,12 @@
 [Screens](../screens.md) · **Capture and hosted review (proposal)**
 
 **Status: proposal for review. Capture (sections 1 to 4, step 2 of the
-[proposed order](#8-proposed-order)) is implemented, and so is hosted review's data layer:
-publishing, `main`'s sync, and retention. History and the hosted site are not.** What exists
-today — the catalog, `shows` links, `tieline screens import`, the Screens view,
-`tieline contract review --base`, `tieline screens capture`, `tieline screens audit`, and
-`tieline screens publish` — is documented in [Screens](../screens.md), and
-[how capture was built](#how-capture-was-built) and
-[how hosting's data layer was built](#how-hostings-data-layer-was-built) record where they refine
-this proposal. This page proposes how screenshots get produced for any
+[proposed order](#8-proposed-order)) and hosted review (section 5, step 4) are implemented;
+history is not.** What exists today — the catalog, `shows` links, `tieline screens import`, the
+Screens view, `tieline contract review --base`, `tieline screens capture`, `tieline screens
+audit`, `tieline screens publish`, and the hosted site — is documented in
+[Screens](../screens.md), and [how capture was built](#how-capture-was-built) and
+[how hosting was built](#how-hosting-was-built) record where they refine this proposal. This page proposes how screenshots get produced for any
 app, and how a team can review them together, so that the later phases can be reviewed before
 any database, role, or hosting change is built.
 
@@ -299,8 +297,9 @@ after the host's access check, instead of streaming them.
 
 Each host's own feature: Netlify "Private" project visibility (viewers log in to Netlify and must
 be invited; Free, Personal, and Pro), a shared password (Pro, optionally previews only), or team
-SSO (Enterprise). Tieline documents the setup per host and never implements login. To confirm
-before building: that Netlify's protection also covers the site's functions.
+SSO (Enterprise). Tieline documents the setup per host and never implements login.
+`tieline hosted check --url <site>` confirms, for each deployment, that the protection also
+covers the site's functions.
 
 ### Pull-request comment
 
@@ -344,9 +343,9 @@ implementing agent, as `AGENTS.md` requires.
    `--verify` with selection reasons, committed ARIA snapshots, capture records, and
    `screens audit`.
 3. Offline history: "last changed by" from git.
-4. Hosted: review of this design, then the migration and roles, `publish`, the sync of accepted
-   screen state, and retention (done), then the core handler and Netlify adapter, CI templates,
-   and the pull-request comment.
+4. Done: hosted. The migration and roles, `publish`, the sync of accepted screen state,
+   retention, the core handler and Netlify adapter, `hosted check`, CI templates, and the
+   pull-request comment.
 5. More hosts and image stores as teams need them.
 
 ## How capture was built
@@ -374,7 +373,8 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
 - **`check` and `audit` find `@screen` tests by reading tags as text**, bounded, without loading
   the app's Playwright configuration or running repository code; the capture run itself is the
   authority on which test captured which screen. A tag must be written literally to be found.
-- **`--verify` writes nothing**, not even git-ignored screenshots.
+- **`--verify` writes nothing**, not even git-ignored screenshots, unless hosted screens are
+  enabled; then it keeps the screenshots it reproduced exactly, so the same job can publish them.
 - **The fixture and reporter are CommonJS** (`tieline/playwright`), so they load in test projects
   Playwright compiles to CommonJS on every Node version Tieline supports, as well as in ESM
   projects. Tieline's package gained an `exports` map for that subpath; every existing file path
@@ -401,10 +401,9 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
 - **Not built yet:** `screensFromCatalog()`, which would generate navigation tests for plain
   pages, and Tieline-drafted scene files. Both remain proposals.
 
-## How hosting's data layer was built
+## How hosting was built
 
-Step 4's migration, roles, publishing, `main`'s sync, and retention follow section 5, simplified
-for the least moving parts:
+Step 4 follows section 5, simplified for the least moving parts:
 
 - **Pages are rendered once, at publish, and stored.** Each ref has one row holding its rendered
   review page, the manifest it was rendered from, the image digests it shows, and its head commit;
@@ -424,8 +423,26 @@ for the least moving parts:
   24 hours. A closed pull request's page stays 24 hours too, so a merge reaches `main`'s sync
   before its images can go.
 - **Publishing works from a developer's machine as well as CI,** with the publisher credentials;
-  it never needs a deploy. The trusted CI job that publishes from a capture artifact comes with
-  the CI templates.
+  it never needs a deploy.
+- **The CI template publishes from the capture job, not a separate trusted job.** The data-flow
+  table above splits an untrusted capture job from a trusted publish job. The template instead
+  publishes in the capture job for pull requests from the repository itself and only verifies
+  pull requests from forks, which GitHub gives no secrets. Someone who can push a branch can
+  already change the workflows it runs, so the split protects only fork pull requests, which are
+  not published. What a misused credential can do stays small: the publisher role cannot touch
+  `main` or delete, and the site refuses an image whose bytes no longer match its digest. A
+  `workflow_run` publish job for fork pull requests can be added later without changing
+  `publish`.
+- **The site re-checks every image's digest before serving it,** because a bucket credential
+  could overwrite an object, and hands an image larger than the host can return to a presigned
+  link that expires within a minute.
+- **`tieline hosted check` replaces the manual check** of whether the host's access control also
+  covers its functions: it asks the deployed site for a page and an image without logging in and
+  fails if the site answers. It also round-trips a probe object through the bucket and checks
+  that each database credential can do its job, which is how a Neon Object Storage bucket is
+  verified.
+- **The pull-request comment is posted by the workflow** from a Markdown summary
+  `publish --summary-file` writes, so Tieline holds no GitHub token.
 - **Images are stored without an extension** (`<repository key>/sha256/<digest>`), with their type
   recorded from the bytes; SVG is refused rather than served under a sandboxing policy.
 - **The bucket client is a few signed `fetch` calls** (Signature Version 4, path-style), checked

@@ -2409,6 +2409,24 @@ capability:
   assert.equal(bareContract.status, 1);
   assert.match(bareContract.stderr, /Usage: tieline contract/);
   assert.doesNotMatch(bareContract.stderr, /Tieline error:/);
+
+  // `tieline/hosted` resolves through the package's exports and loads in a
+  // host's function runtime without the CLI's configuration, which throws on
+  // a non-loopback HTTP_HOST.
+  const hostedEntry = spawnSync(
+    "node",
+    [
+      "--input-type=module",
+      "-e",
+      'const hosted = await import("tieline/hosted"); console.log(Object.keys(hosted).sort().join(","));',
+    ],
+    { cwd: process.cwd(), encoding: "utf8", env: { ...process.env, HTTP_HOST: "0.0.0.0" } }
+  );
+  assert.equal(hostedEntry.status, 0, hostedEntry.stderr);
+  assert.equal(
+    hostedEntry.stdout.trim(),
+    "HOSTED_SITE_HEADER,HOSTED_SITE_LIMITS,createHostedScreensHandler,createHostedScreensSite"
+  );
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

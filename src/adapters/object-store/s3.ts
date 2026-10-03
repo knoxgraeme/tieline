@@ -17,6 +17,14 @@ export interface ObjectStoreSettings {
   sessionToken: string | null;
 }
 
+/** Reading objects, which only the hosted site needs. */
+export interface ObjectReader {
+  /** The object's bytes, or null when it does not exist; refuses one larger than `maxBytes`. */
+  get(key: string, maxBytes: number, signal?: AbortSignal): Promise<Uint8Array | null>;
+  /** A URL that fetches `key` without credentials until it expires. */
+  presignGet(key: string, expiresSeconds: number): string;
+}
+
 export interface ObjectStore {
   /** Whether `key` exists. */
   head(key: string, signal?: AbortSignal): Promise<boolean>;
@@ -172,17 +180,60 @@ export function signRequest(
     request.payloadHash,
   ].join("\n");
   const scope = `${date}/${credentials.region}/${SERVICE}/aws4_request`;
-  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n");
-  const signingKey = hmac(
-    hmac(hmac(hmac(`AWS4${credentials.secretAccessKey}`, date), credentials.region), SERVICE),
-    "aws4_request"
-  );
-  const signature = createHmac("sha256", signingKey).update(stringToSign, "utf8").digest("hex");
+  const signature = sign(credentials, date, ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n"));
   const { host: _host, ...sent } = headers;
   return {
     ...sent,
     authorization: `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
   };
+}
+
+function sign(
+  credentials: Pick<ObjectStoreSettings, "secretAccessKey" | "region">,
+  date: string,
+  stringToSign: string
+): string {
+  const signingKey = hmac(
+    hmac(hmac(hmac(`AWS4${credentials.secretAccessKey}`, date), credentials.region), SERVICE),
+    "aws4_request"
+  );
+  return createHmac("sha256", signingKey).update(stringToSign, "utf8").digest("hex");
+}
+
+/**
+ * A presigned GET URL (Signature Version 4 in the query string), valid for
+ * `expiresSeconds` from `now`. Only the host header is signed, so the URL
+ * works from any client until it expires.
+ */
+export function presignGetUrl(
+  endpoint: URL,
+  path: string,
+  credentials: Pick<ObjectStoreSettings, "accessKeyId" | "secretAccessKey" | "sessionToken" | "region">,
+  now: Date,
+  expiresSeconds: number
+): string {
+  if (!Number.isInteger(expiresSeconds) || expiresSeconds < 1 || expiresSeconds > 604_800) {
+    throw new Error("A presigned URL must expire within 1 second to 7 days.");
+  }
+  const url = new URL(path, endpoint);
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const date = amzDate.slice(0, 8);
+  const scope = `${date}/${credentials.region}/${SERVICE}/aws4_request`;
+  const query: Array<[string, string]> = [
+    ["X-Amz-Algorithm", "AWS4-HMAC-SHA256"],
+    ["X-Amz-Credential", `${credentials.accessKeyId}/${scope}`],
+    ["X-Amz-Date", amzDate],
+    ["X-Amz-Expires", String(expiresSeconds)],
+    ...(credentials.sessionToken ? ([["X-Amz-Security-Token", credentials.sessionToken]] as Array<[string, string]>) : []),
+    ["X-Amz-SignedHeaders", "host"],
+  ];
+  const canonicalQuery = query
+    .map(([name, value]) => `${encodeSegment(name)}=${encodeSegment(value)}`)
+    .sort()
+    .join("&");
+  const canonicalRequest = ["GET", path, canonicalQuery, `host:${url.host}`, "", "host", "UNSIGNED-PAYLOAD"].join("\n");
+  const signature = sign(credentials, date, ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonicalRequest)].join("\n"));
+  return `${url.origin}${path}?${canonicalQuery}&X-Amz-Signature=${signature}`;
 }
 
 async function errorDetail(response: Response): Promise<string> {
@@ -234,7 +285,7 @@ export interface S3ObjectStoreOptions {
   sleep?: (milliseconds: number, signal: AbortSignal | undefined) => Promise<void>;
 }
 
-export class S3ObjectStore implements ObjectStore {
+export class S3ObjectStore implements ObjectStore, ObjectReader {
   private readonly fetch: typeof fetch;
   private readonly now: () => Date;
   private readonly sleep: (milliseconds: number, signal: AbortSignal | undefined) => Promise<void>;
@@ -249,19 +300,54 @@ export class S3ObjectStore implements ObjectStore {
   }
 
   async head(key: string, signal?: AbortSignal): Promise<boolean> {
-    const status = await this.send("HEAD", key, null, {}, signal, [200, 404]);
-    return status === 200;
+    return (await this.sendAndDiscard("HEAD", key, null, {}, signal, [200, 404])) === 200;
   }
 
   async put(key: string, body: Uint8Array, contentType: string, signal?: AbortSignal): Promise<void> {
-    await this.send("PUT", key, body, { "content-type": contentType }, signal, [200]);
+    await this.sendAndDiscard("PUT", key, body, { "content-type": contentType }, signal, [200]);
   }
 
   async delete(key: string, signal?: AbortSignal): Promise<void> {
-    await this.send("DELETE", key, null, {}, signal, [200, 204, 404]);
+    await this.sendAndDiscard("DELETE", key, null, {}, signal, [200, 204, 404]);
   }
 
-  private async send(
+  async get(key: string, maxBytes: number, signal?: AbortSignal): Promise<Uint8Array | null> {
+    const response = await this.send("GET", key, null, {}, signal, [200, 404]);
+    if (response.status === 404 || !response.body) {
+      await response.body?.cancel().catch(() => undefined);
+      return null;
+    }
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        length += value.byteLength;
+        if (length > maxBytes) {
+          throw new ObjectStoreError(`Object '${key}' is larger than ${maxBytes} bytes.`, response.status, key);
+        }
+        chunks.push(value);
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined);
+    }
+    return Buffer.concat(chunks, length);
+  }
+
+  presignGet(key: string, expiresSeconds: number): string {
+    return presignGetUrl(this.settings.endpoint, this.objectPath(key), this.settings, this.now(), expiresSeconds);
+  }
+
+  private objectPath(key: string): string {
+    if (key.length === 0 || key.length > 1_024 || key.startsWith("/")) {
+      throw new ObjectStoreError(`Object key '${key}' is not valid.`, null, key);
+    }
+    return `/${encodeSegment(this.settings.bucket)}/${key.split("/").map(encodeSegment).join("/")}`;
+  }
+
+  private async sendAndDiscard(
     method: "HEAD" | "PUT" | "DELETE",
     key: string,
     body: Uint8Array | null,
@@ -269,10 +355,21 @@ export class S3ObjectStore implements ObjectStore {
     signal: AbortSignal | undefined,
     accepted: readonly number[]
   ): Promise<number> {
-    if (key.length === 0 || key.length > 1_024 || key.startsWith("/")) {
-      throw new ObjectStoreError(`Object key '${key}' is not valid.`, null, key);
-    }
-    const path = `/${encodeSegment(this.settings.bucket)}/${key.split("/").map(encodeSegment).join("/")}`;
+    const response = await this.send(method, key, body, headers, signal, accepted);
+    await response.body?.cancel().catch(() => undefined);
+    return response.status;
+  }
+
+  /** Sends a signed request, retrying, and returns an accepted response with its body unread. */
+  private async send(
+    method: "GET" | "HEAD" | "PUT" | "DELETE",
+    key: string,
+    body: Uint8Array | null,
+    headers: Record<string, string>,
+    signal: AbortSignal | undefined,
+    accepted: readonly number[]
+  ): Promise<Response> {
+    const path = this.objectPath(key);
     const url = new URL(path, this.settings.endpoint);
     const payloadHash = body ? sha256Hex(body) : UNSIGNED_EMPTY;
     let lastFailure = "";
@@ -300,10 +397,7 @@ export class S3ObjectStore implements ObjectStore {
         lastFailure = error instanceof Error ? error.message : String(error);
         continue;
       }
-      if (accepted.includes(response.status)) {
-        await response.body?.cancel().catch(() => undefined);
-        return response.status;
-      }
+      if (accepted.includes(response.status)) return response;
       const detail = await errorDetail(response);
       lastFailure = `HTTP ${response.status}${detail}`;
       if (!retryable(response.status)) {

@@ -172,9 +172,10 @@ const screensCaptureConfigSchema = z
  * request's or branch's review page and the images it shows, and repository
  * sync does the same for `main`. Images go to the S3-compatible `bucket`,
  * whose endpoint and credentials come from the environment, never from this
- * file. `retention` bounds what is kept: branches not published for
- * `branch_days` are deleted, and `main` keeps the last `main_history` images
- * each screen replaced.
+ * file. `site_url` is the deployed site, used to link to a published page.
+ * `retention` bounds what is kept: branches not published for `branch_days`
+ * are deleted, and `main` keeps the last `main_history` images each screen
+ * replaced.
  */
 const screensHostedConfigSchema = z
   .object({
@@ -184,6 +185,19 @@ const screensHostedConfigSchema = z
       .trim()
       .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, "must be a valid S3 bucket name")
       .refine((value) => !value.includes(".."), "must be a valid S3 bucket name"),
+    site_url: z
+      .string()
+      .trim()
+      .max(200)
+      .refine((value) => {
+        try {
+          const url = new URL(value);
+          return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash;
+        } catch {
+          return false;
+        }
+      }, "must be the hosted site's https URL, without credentials, a query, or a fragment")
+      .optional(),
     retention: z
       .object({
         branch_days: z.number().int().min(1).max(365).optional(),
@@ -235,6 +249,8 @@ export const DEFAULT_SCREENS_MAIN_HISTORY = 5;
 
 export interface ScreensHostedConfig {
   bucket: string;
+  /** The deployed site, without a trailing slash, for links; null when not set. */
+  site_url: string | null;
   retention: {
     /** Days a branch's page is kept after its last publish. */
     branch_days: number;
@@ -296,6 +312,7 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
     hosted: parsed.data.hosted?.enabled
       ? {
           bucket: parsed.data.hosted.bucket,
+          site_url: parsed.data.hosted.site_url?.replace(/\/+$/, "") ?? null,
           retention: {
             branch_days:
               parsed.data.hosted.retention?.branch_days ?? DEFAULT_SCREENS_BRANCH_DAYS,

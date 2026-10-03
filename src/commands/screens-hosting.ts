@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import {
   readObjectStoreSettings,
   S3ObjectStore,
@@ -267,8 +268,52 @@ export interface ScreensPublishOptions {
   branch?: string;
   /** The commit published; defaults to HEAD. CI passes the event's head commit. */
   commit?: string;
+  /** Where to write a Markdown summary for a pull-request comment, once published. */
+  summaryFile?: string;
   json?: boolean;
   signal?: AbortSignal;
+}
+
+/** Marks the one pull-request comment CI keeps up to date. */
+export const SCREENS_COMMENT_MARKER = "<!-- tieline-screens -->";
+
+function countPhrase(counts: Record<"added" | "changed" | "removed", number>, noun: string): string | null {
+  const parts = [
+    counts.added > 0 ? `${counts.added} new` : null,
+    counts.changed > 0 ? `${counts.changed} changed` : null,
+    counts.removed > 0 ? `${counts.removed} removed` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? `${noun} ${parts.join(", ")}` : null;
+}
+
+/**
+ * The Markdown CI posts as the pull request's screens comment: what changed
+ * against `main`, and a link to the published page when the site's URL is
+ * configured. Everything in it is counts, a validated ref, a commit SHA, and
+ * the configured URL, so nothing from the branch can inject Markdown.
+ */
+export function renderPublishSummary(input: {
+  label: string;
+  commit: string;
+  siteUrl: string | null;
+  comparison: ReviewComparison;
+}): string {
+  let changes: string;
+  if (input.comparison.changes) {
+    const summary = summarizeReviewChanges(input.comparison.changes);
+    const phrases = [
+      countPhrase(summary.stories, "Stories:"),
+      countPhrase(summary.acceptance_criteria, "acceptance criteria:"),
+      countPhrase(summary.screens, "screens:"),
+    ].filter((phrase): phrase is string => phrase !== null);
+    changes = phrases.length > 0 ? `Changes against \`main\`: ${phrases.join(" · ")}.` : "No changes against `main`.";
+  } else {
+    changes = "Changes against `main` are not shown: main has not been published yet, or its page cannot be read.";
+  }
+  const link = input.siteUrl
+    ? `[Open the review of ${input.label}](${input.siteUrl}/?ref=${encodeURIComponent(input.label)}) · `
+    : "";
+  return `${SCREENS_COMMENT_MARKER}\n### Screens\n\n${changes}\n\n${link}published at \`${input.commit.slice(0, 12)}\`\n`;
 }
 
 /**
@@ -340,11 +385,25 @@ export async function runScreensPublishCommand(
       return 1;
     }
     await repository.publishRef(repositoryId, ref, { headCommit: commit, manifest, images: digests, pageHtml: page });
+    if (options.summaryFile) {
+      writeFileSync(
+        options.summaryFile,
+        renderPublishSummary({ label, commit, siteUrl: settings.hosted.site_url, comparison })
+      );
+    }
     const changes = comparison.changes ? summarizeReviewChanges(comparison.changes) : { base: "main", unavailable: comparison.unavailable };
     if (options.json) {
       io.write(
         `${JSON.stringify(
-          { published: true, ref: label, commit, page_bytes: Buffer.byteLength(page), images, changes },
+          {
+            published: true,
+            ref: label,
+            commit,
+            url: settings.hosted.site_url ? `${settings.hosted.site_url}/?ref=${encodeURIComponent(label)}` : null,
+            page_bytes: Buffer.byteLength(page),
+            images,
+            changes,
+          },
           null,
           2
         )}\n`
@@ -356,7 +415,7 @@ export async function runScreensPublishCommand(
         comparison.changes
           ? `Changes against main: ${comparison.changes.records.filter((record) => record.kind === "story").length} Stories, ${comparison.changes.records.filter((record) => record.kind === "acceptance_criterion").length} acceptance criteria, ${comparison.changes.screens.length} screens.\n`
           : `Changes against main are not shown: ${comparison.unavailable}\n`
-      }`
+      }${settings.hosted.site_url ? `View it at ${settings.hosted.site_url}/?ref=${encodeURIComponent(label)}\n` : ""}`
     );
     return 0;
   } finally {

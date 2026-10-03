@@ -278,8 +278,14 @@ await test("leaves hosting off unless the hosted block enables it, and applies r
   );
   assert.deepEqual(readScreensConfig({ screens: { enabled: true, hosted: { enabled: true, bucket: BUCKET } } })?.hosted, {
     bucket: BUCKET,
+    site_url: null,
     retention: { branch_days: 14, main_history: 5 },
   });
+  assert.equal(
+    readScreensConfig({ screens: { enabled: true, hosted: { enabled: true, bucket: BUCKET, site_url: "https://screens.example.test/" } } })
+      ?.hosted?.site_url,
+    "https://screens.example.test"
+  );
   assert.deepEqual(
     readScreensConfig({
       screens: { enabled: true, hosted: { enabled: true, bucket: BUCKET, retention: { branch_days: 3, main_history: 0 } } },
@@ -299,6 +305,9 @@ await test("rejects an invalid bucket, out-of-range retention, and unknown hoste
     { enabled: true, bucket: BUCKET, retention: { main_history: -1 } },
     { enabled: true, bucket: BUCKET, retention: { main_history: 101 } },
     { enabled: true, bucket: BUCKET, endpoint: "https://storage.example.test" },
+    { enabled: true, bucket: BUCKET, site_url: "http://screens.example.test" },
+    { enabled: true, bucket: BUCKET, site_url: "https://user:pass@screens.example.test" },
+    { enabled: true, bucket: BUCKET, site_url: "https://screens.example.test/?ref=main" },
   ]) {
     assert.throws(() => readScreensConfig({ screens: { enabled: true, hosted } }), /screens\.hosted/, JSON.stringify(hosted));
   }
@@ -515,6 +524,7 @@ await test("parses the ref a publish targets and keeps main out of reach", () =>
     [{ pullRequest: "12a" }, /pull request number/],
     [{ branch: "main" }, /contract sync/],
     [{ branch: "master" }, /contract sync/],
+    [{ branch: "pr-12" }, /reads \?ref=pr-12 as a pull request/],
     [{ branch: "../etc" }, /not a branch name/],
     [{ branch: "a..b" }, /not a branch name/],
     [{ branch: "trailing/" }, /not a branch name/],

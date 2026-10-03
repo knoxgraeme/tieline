@@ -392,7 +392,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "37f67ca6de82d500d3674c1f05bc73fd2bccbd375572511e4903b42cbfb80c3c",
+                "reviewed_content_hash": "96f7c83bedd01341fad63f38bd389dc703fa6039dab66df8450df4c75a2179d5",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -606,7 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "37f67ca6de82d500d3674c1f05bc73fd2bccbd375572511e4903b42cbfb80c3c",
+                "reviewed_content_hash": "96f7c83bedd01341fad63f38bd389dc703fa6039dab66df8450df4c75a2179d5",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -730,7 +730,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "48cbf947fa340e03c6aaa0ea458b186b15d929e91e996c896377dd804601a5ae",
+                "reviewed_content_hash": "db39c0ba57b9d294e33bd02060e531935793461b79c6fbac9f7e9dabb5295e6f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -795,7 +795,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "37f67ca6de82d500d3674c1f05bc73fd2bccbd375572511e4903b42cbfb80c3c",
+                "reviewed_content_hash": "96f7c83bedd01341fad63f38bd389dc703fa6039dab66df8450df4c75a2179d5",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -1851,7 +1851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ed37382ecf9296982333c409ef05f1699d705fa49fd495ff9e2c13051e325534",
+                "reviewed_content_hash": "087a96ecdb77c93a8fd10e05b7feed75fdb2e298c85f0a2b2df605c9d0b3465f",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1923,7 +1923,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
+                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -1978,7 +1978,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6e64f9e6bae6df554e184b1d77cca403d13c365e78055fc82a2272ea35b4c7d9",
+                "reviewed_content_hash": "ee8d344775641efe18194c6fc4ae61335f95d8f5dc7ef737c6413a956c947038",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2047,7 +2047,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "48cbf947fa340e03c6aaa0ea458b186b15d929e91e996c896377dd804601a5ae",
+                "reviewed_content_hash": "db39c0ba57b9d294e33bd02060e531935793461b79c6fbac9f7e9dabb5295e6f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2081,7 +2081,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5ec7b7d7b58ded4b9b42edf1221f599d477ec115b393e0a02993741f5087e661",
+                "reviewed_content_hash": "94410f85a8e8dcc642f549b6059faa355072168d710b885da581ef6a9c51255f",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/object-store/s3.ts",
@@ -2092,7 +2092,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "34c319bfe18cc0ac4c9341ecccc0fd0f8b5c37686889f9717ae08a18b37c7327",
+                "reviewed_content_hash": "74a4343cb94a2426e49d80f304e4a7a634de351ba4d0b938c6ef49f21ce4a98d",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/hosted-screens-repository.ts",
@@ -2103,7 +2103,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "reviewed_content_hash": "87ece527143a0908cb72d8815d01a40ccec7a70f0e56e61930007356f575f617",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2114,7 +2114,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "reviewed_content_hash": "87ece527143a0908cb72d8815d01a40ccec7a70f0e56e61930007356f575f617",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2125,7 +2125,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "reviewed_content_hash": "87ece527143a0908cb72d8815d01a40ccec7a70f0e56e61930007356f575f617",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2136,7 +2136,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e964c02b6fe4b6e795254c9cd5897093a27abcb9a1fa57240cf5a67186d10506",
+                "reviewed_content_hash": "9242d05ab6924149238a48e94d5f4b89f35630329cce117ef00b221b23055486",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-hosting.ts",
@@ -2158,7 +2158,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b47aedd9a046595a42abea34cce1fd1ee567c58e3b8883b1bed9d2f44726e1a2",
+                "reviewed_content_hash": "70aeb302b3013c83de6da7db3f24f7e8d676387e2ff0fc17b82a18a504a6b227",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2204,7 +2204,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "34c319bfe18cc0ac4c9341ecccc0fd0f8b5c37686889f9717ae08a18b37c7327",
+                "reviewed_content_hash": "74a4343cb94a2426e49d80f304e4a7a634de351ba4d0b938c6ef49f21ce4a98d",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/hosted-screens-repository.ts",
@@ -2215,7 +2215,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eec34ce18c56b336aa342c6535242f72ee12552179a495a467d38548bebcb3d9",
+                "reviewed_content_hash": "87ece527143a0908cb72d8815d01a40ccec7a70f0e56e61930007356f575f617",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2237,7 +2237,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b47aedd9a046595a42abea34cce1fd1ee567c58e3b8883b1bed9d2f44726e1a2",
+                "reviewed_content_hash": "70aeb302b3013c83de6da7db3f24f7e8d676387e2ff0fc17b82a18a504a6b227",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2258,6 +2258,125 @@
               }
             ],
             "stable_id": "CONTRACT-005-AC13",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "8833d7d458c9e497357ff34779dea72059b9c527051c2012f32eedfaa6cf49ff",
+            "criterion": "The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "94410f85a8e8dcc642f549b6059faa355072168d710b885da581ef6a9c51255f",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/object-store/s3.ts",
+                  "repository": "tieline",
+                  "selector": "function:presignGetUrl"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "eb1ae346951673009d44508e0dcb8c9cd1e01d1ab653d968fa827a432d825574",
+                "target": {
+                  "kind": "code",
+                  "path": "src/hosted/handler.ts",
+                  "repository": "tieline",
+                  "selector": "function:createHostedScreensHandler"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5e4ecc22fedc7095068416fefd65a5505b60dd689d65aa794db32f3054285c0e",
+                "target": {
+                  "kind": "code",
+                  "path": "src/hosted/index.ts",
+                  "repository": "tieline",
+                  "selector": "function:createHostedScreensSite"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "8c523ee61d441ea7dcfb94aee1d5ec59ecbbfc20dcbd6b7d9ad3886bbf2d10e5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosted-site.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 13,
+            "rationale": "The site exposes review evidence over the network behind only the host's access control, so it must never serve anything publishing did not record, nor bytes that changed after they were verified.",
+            "scenarios": [
+              {
+                "given": "an object in the bucket was overwritten after its image was published",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC14-S1",
+                "then": "the site must refuse it rather than serve the new bytes",
+                "when": "a visitor requests that image"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC14",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "e52b9ed28869a8371e97d1e4fcbd20b223c85c831b96972f864bd424fe46745a",
+            "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d57e8629f650d34dd19742745751e36890b0599c573199d757c6dbe7333cf558",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/hosted.ts",
+                  "repository": "tieline",
+                  "selector": "function:runHostedCheckCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d57e8629f650d34dd19742745751e36890b0599c573199d757c6dbe7333cf558",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/hosted.ts",
+                  "repository": "tieline",
+                  "selector": "function:runHostedInitCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "8c523ee61d441ea7dcfb94aee1d5ec59ecbbfc20dcbd6b7d9ad3886bbf2d10e5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosted-site.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 14,
+            "rationale": "Hosted screens depend on a bucket, three database credentials, and the host's access control being right, and a team must be able to prove all of them before trusting the site with its review evidence.",
+            "scenarios": [
+              {
+                "given": "the host's access control protects static files but not the site's functions",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC15-S1",
+                "then": "Tieline must fail because the site answered a visitor who had not logged in",
+                "when": "tieline hosted check runs against the site"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC15",
             "supersedes": null
           },
           {
@@ -2696,7 +2815,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
+                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2707,7 +2826,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
+                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2773,13 +2892,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "10cc3b00cbd39b80035acf32cc8710621bb6eac2ae6702876315b1c079791736",
-            "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must write nothing and fail when a selected screen's committed outputs differ from a fresh capture.",
+            "contract_hash": "4d468a313cf27d01eef6171232135dc1b537e7dbaf1a8685a32e4af289bd1139",
+            "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
+                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2790,7 +2909,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5d61d0c7569a7f096d17d03ee3da9f8d970fb4ab14e44b09876bbae88c787e18",
+                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2801,7 +2920,18 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "42225280e0c63f467b8602c5df69c3e5d2839a1b9101c592c998088f317e4788",
+                "reviewed_content_hash": "cc7fafc606a0e11095117ffcb0d229d90860a0ff3da89ca9509e7fef4d026a48",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-run.ts",
+                  "repository": "tieline",
+                  "selector": "function:keepVerifiedScreenshots"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "cc7fafc606a0e11095117ffcb0d229d90860a0ff3da89ca9509e7fef4d026a48",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -2812,7 +2942,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "42225280e0c63f467b8602c5df69c3e5d2839a1b9101c592c998088f317e4788",
+                "reviewed_content_hash": "cc7fafc606a0e11095117ffcb0d229d90860a0ff3da89ca9509e7fef4d026a48",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -2823,7 +2953,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "42225280e0c63f467b8602c5df69c3e5d2839a1b9101c592c998088f317e4788",
+                "reviewed_content_hash": "cc7fafc606a0e11095117ffcb0d229d90860a0ff3da89ca9509e7fef4d026a48",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -2865,7 +2995,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6e64f9e6bae6df554e184b1d77cca403d13c365e78055fc82a2272ea35b4c7d9",
+                "reviewed_content_hash": "ee8d344775641efe18194c6fc4ae61335f95d8f5dc7ef737c6413a956c947038",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2936,6 +3066,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "3106a696f2883c2550490fc1ffdc58434962adffddfe881a65a59314eca08b95"
+    "sha256": "a1ec5e6f9c24227d4e22aace9e4cc50a5827cb93710070a948bb55d3e75da7a9"
   }
 }

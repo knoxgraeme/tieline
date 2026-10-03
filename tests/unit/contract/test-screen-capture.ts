@@ -647,6 +647,36 @@ await test("verifies committed outputs against a fresh capture without writing a
   assert.deepEqual(tielineFiles(ws), before, "verification writes nothing");
 });
 
+await test("with hosted screens on, keeps the screenshots verification reproduced exactly, and nothing else", async () => {
+  const ws = notesWorkspace({ enabled: true, hosted: { enabled: true, bucket: "acme-screens" } });
+  await capture(ws, { all: true });
+  ws.commit("captured");
+  // Screenshots are not committed, so a fresh checkout has none.
+  ws.remove(".tieline/captures/notes-list.png");
+  ws.remove(".tieline/captures/notes-list-empty.png");
+  ws.write(".tieline/captures/notes-share-denied.png", "a stale screenshot");
+  const committed = tielineFiles(ws);
+  const result = await capture(
+    ws,
+    { all: true, verify: true, json: true },
+    { screens: () => ({ "notes-list": {}, "notes-list-empty": { image: png("drifted") }, "notes-share-denied": {} }) }
+  );
+  assert.equal(result.exit, 1);
+  assert.equal((JSON.parse(result.output) as { kept_screenshots: number }).kept_screenshots, 2);
+  const after = tielineFiles(ws);
+  const catalogKey = (key: string): string => `.tieline/captures/${key}.png`;
+  assert.equal(sha256(Buffer.from(after[catalogKey("notes-list")]!, "base64")), sha256(png("picture of notes-list")));
+  assert.equal(sha256(Buffer.from(after[catalogKey("notes-share-denied")]!, "base64")), sha256(png("picture of notes-share-denied")));
+  assert.equal(after[catalogKey("notes-list-empty")], undefined, "a screenshot that did not verify is not kept");
+  for (const [path, content] of Object.entries(committed)) {
+    if (!path.startsWith(".tieline/captures/")) assert.equal(after[path], content, `${path} is unchanged`);
+  }
+
+  const again = await capture(ws, { all: true, verify: true });
+  assert.equal(again.exit, 0);
+  assert.match(again.output, /Kept 1 screenshot\(s\) the capture reproduced exactly in \.tieline\/captures, for publishing\.\n/);
+});
+
 await test("fails verification for hand edits, uncaptured screens, and orphaned snapshots, naming the fix", async () => {
   const ws = notesWorkspace();
   await capture(ws, { screens: ["notes-list"] });

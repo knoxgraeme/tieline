@@ -11,6 +11,7 @@ import { readDeclaredCapabilityKeys } from "../contract/load.js";
 import {
   applyCaptureOutputs,
   caseCollidingKeys,
+  keepVerifiedScreenshots,
   planCaptureOutputs,
   readCapturedScreens,
   readCaptureRunRecord,
@@ -663,6 +664,11 @@ export async function runScreensCaptureCommand(
       : await captureScreens({ root, settings, keys, repeat, dependencies, signal: options.signal });
 
   if (options.verify) {
+    // With hosted screens on, the screenshots verified exactly stay in the
+    // git-ignored captures directory, so the same job can publish them.
+    const keptScreenshots = settings.hosted
+      ? withScreenImportLock(root, () => keepVerifiedScreenshots(root, settings, catalog, captured.captured)).kept
+      : null;
     const mismatches = [
       ...verifyCapturedScreens({ catalog, text, captured: captured.captured }),
       ...captured.unstable.map((key): ScreenVerifyMismatch => ({ key, causes: ["unstable"] })),
@@ -681,6 +687,7 @@ export async function runScreensCaptureCommand(
             mismatches,
             orphaned_text: orphanedText,
             not_covered: notCovered,
+            ...(keptScreenshots ? { kept_screenshots: keptScreenshots.length } : {}),
             fix: passed ? null : fix,
           },
           null,
@@ -703,6 +710,11 @@ export async function runScreensCaptureCommand(
     renderCoverage(selection, notCovered, io);
     for (const rule of selection.unavailable) {
       io.write(`  note  ${rule.rule} rule incomplete: ${escapeTerminalText(rule.detail)}\n`);
+    }
+    if (keptScreenshots && keptScreenshots.length > 0) {
+      io.write(
+        `Kept ${keptScreenshots.length} screenshot(s) the capture reproduced exactly in ${escapeTerminalText(settings.capturesPath)}, for publishing.\n`
+      );
     }
     if (!passed) {
       io.write(

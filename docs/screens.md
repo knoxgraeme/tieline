@@ -228,7 +228,9 @@ Use it when backfilling a whole catalog.
 
 `--verify` captures into a temporary directory, compares each selected screen with what the
 branch commits, writes nothing, and exits 1 on any difference, naming each screen and the
-command that fixes it:
+command that fixes it. With [hosted screens](#hosted-screens) enabled, it keeps the screenshots
+it reproduced exactly in the git-ignored captures directory, so the same job can publish them;
+it still changes nothing committed.
 
 | Cause | Meaning |
 | --- | --- |
@@ -587,7 +589,9 @@ own Postgres and S3-compatible bucket, so a team can review screens together wit
 checking out the branch. A hosted page is the same page `contract review` writes, with images
 served by digest; a pull request's page is compared with `main` and shows a changed screen's
 previous image beside the new one. Publishing only stores pages and images: nothing is rebuilt or
-redeployed. The site that serves them is the next step and is not built yet.
+redeployed. One site per repository serves them: `main` at `/`, and a pull request or branch at
+`/?ref=pr-<number>` or `/?ref=<branch>`, with the page's usual deep links such as
+`#screen/<key>`.
 
 Opt in beside `enabled`:
 
@@ -598,13 +602,15 @@ Opt in beside `enabled`:
     "hosted": {
       "enabled": true,
       "bucket": "acme-screens",
+      "site_url": "https://acme-screens.netlify.app",
       "retention": { "branch_days": 14, "main_history": 5 }
     }
   }
 }
 ```
 
-`retention` is optional; the values shown are the defaults. The bucket's endpoint and
+`site_url` and `retention` are optional; `site_url` lets publishing link to the page, and the
+retention values shown are the defaults. The bucket's endpoint and
 credentials come from the environment, never from this file: `AWS_ENDPOINT_URL_S3`,
 `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY`, the variables Neon Object Storage
 credentials, AWS S3, and Cloudflare R2 all use. The endpoint must use HTTPS. Images are stored
@@ -637,6 +643,65 @@ image and its last `main_history` replaced ones. An image is deleted only when n
 retained history references it and nothing has referenced it for 24 hours, from the bucket
 first; one the bucket refuses to delete is kept and retried by the next `prune`.
 
+### The site
+
+```bash
+tieline hosted init --host netlify
+```
+
+writes a small Netlify site into `.tieline/hosted/` (`--directory` to choose another): one
+function that imports `tieline/hosted`, its `netlify.toml`, and a README with these steps.
+
+1. Add a Netlify site from the repository with that directory as its base directory. The site
+   holds no data, so publishing never redeploys it.
+2. Set its environment: `DATABASE_URL` with the **reader** role, and `AWS_*` credentials that can
+   read the bucket. The site never writes.
+3. Turn on the site's access control (Visitor access or password protection). Tieline does not
+   log visitors in: anyone who reaches the site can read every published page.
+4. Check it, with the URL of the deployed site:
+
+   ```bash
+   tieline hosted check --url https://acme-screens.netlify.app
+   ```
+
+The site serves only what publishing stored. Pages are sent with a content security policy that
+allows only their own inline script and style, and are never cached by a shared cache. An image
+is served only while its bytes still match its digest, and one larger than the host can return
+(about 4 MB on Netlify) is redirected to a link to the bucket that expires within a minute.
+
+`tieline hosted check` proves the setup with the credentials in its environment, skipping any
+that are not set:
+
+- **storage:** writes, finds, and deletes a probe object in the bucket;
+- **database:** `DATABASE_URL` can read published screens and cannot write them;
+  `DATABASE_URL_SCREENS_PUBLISH` and `DATABASE_URL_SYNC` can write them;
+- **site:** asks for `/` and an image without logging in, and fails if the site answered instead
+  of a login.
+
+Another host needs only a few lines that hand its requests to `createHostedScreensSite` from
+`tieline/hosted`, which takes a standard `Request` and returns a `Response`.
+
+### CI
+
+[`screens-hosted.yml`](examples/screens-hosted.yml) runs on pull requests:
+
+1. `capture --all --verify`, which with hosted screens on also keeps the screenshots it reproduced
+   exactly;
+2. `screens publish`;
+3. one pull-request comment kept up to date with the changes and a link to the page;
+4. `screens close` when the pull request closes.
+
+Pull requests from forks get no secrets, so they are verified but not published.
+[`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync`,
+which publishes `main`; when it reports a screenshot the bucket lacks, a capture and a second
+sync; then `screens prune`.
+
+The publishing job runs the pull request's code with the publisher's database credentials and
+bucket write access, as any job that captures and publishes in one step does. That is why the
+publisher role can do so little, why the site re-checks every image's digest, and why forks are
+never published. A bucket credential can still overwrite or delete objects; the site then refuses
+the image rather than serve it, and the next publish of a page that shows it uploads it again.
+
 ## Database sync
 
 The contract tables do not store screens. `tieline contract sync` removes the screen catalogs and
@@ -654,7 +719,5 @@ These phases are planned and not implemented.
 [Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work:
 
 1. **History.** "Last changed in #71" for Stories, ACs, and screens, derived offline from git.
-2. **The hosted site.** One deployed site serving `main` and every published pull request and
-   branch, behind the host's own access control, with CI templates and a pull-request comment.
-3. **Database and agents.** Sync catalogs, links, and fingerprints to the contract tables and add
+2. **Database and agents.** Sync catalogs, links, and fingerprints to the contract tables and add
    MCP tools such as "screens for this AC".

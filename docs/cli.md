@@ -165,8 +165,9 @@ tieline screens capture --changed --base origin/main [--dry-run | --verify] [--r
 Captures the screens a branch may have changed with the repository's own Playwright tests tagged
 `@screen:<key>`, each selected with the rule and file that selected it. `--all` and
 `--screen <key>` select every screen or named ones. `--dry-run` only reports the selection;
-`--verify` compares a fresh capture with the committed outputs, writes nothing, and exits 1 on any
-difference; `capture --all --verify` is the recommended pull-request check. `--repeat <n>` keeps
+`--verify` compares a fresh capture with the committed outputs, writes nothing (with hosted
+screens on, it keeps the screenshots it reproduced exactly in the git-ignored captures directory),
+and exits 1 on any difference; `capture --all --verify` is the recommended pull-request check. `--repeat <n>` keeps
 only screens captured identically n times. Screens marked not captured are skipped, and selected
 screens no test tags are listed as not covered. See [Capture with Playwright](screens.md#capture-with-playwright) and
 [Selecting screens to capture](screens.md#selecting-screens-to-capture).
@@ -182,7 +183,7 @@ on any of them, as a coverage gate. `--capture` re-captures every screen and rep
 See [Audit](screens.md#audit) and [Coverage](screens.md#coverage).
 
 ```bash
-tieline screens publish (--pull-request <number> | --branch <name>) [--commit <sha>] [--json]
+tieline screens publish (--pull-request <number> | --branch <name>) [--commit <sha>] [--summary-file <path>] [--json]
 tieline screens close --pull-request <number> [--json]
 tieline screens prune [--json]
 ```
@@ -191,7 +192,19 @@ With [hosted screens](screens.md#hosted-screens) enabled, `publish` stores a pul
 branch's review page, compared with `main`, and uploads the screenshots the bucket lacks; it
 publishes nothing unless every screenshot the page shows is stored. `close` marks a pull request
 closed, and `prune`, run after sync on `main`, deletes what retention no longer keeps. `main` is
-published by `tieline contract sync`, never by `publish`.
+published by `tieline contract sync`, never by `publish`. `--summary-file` writes the Markdown
+CI posts as the pull request's screens comment.
+
+```bash
+tieline hosted init --host netlify [--directory <path>] [--force] [--json]
+tieline hosted check [--url <site>] [--json]
+```
+
+`hosted init` writes a Netlify site that serves hosted screens into `.tieline/hosted/`, without
+replacing edited files unless `--force` is passed. `hosted check` writes, finds, and deletes a
+probe object in the bucket, checks that each database credential set in the environment can do
+its job, and, given the site's URL (or `screens.hosted.site_url`), fails if the site answers a
+visitor who has not logged in. See [Hosted screens](screens.md#hosted-screens).
 
 ## CI check
 

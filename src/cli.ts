@@ -200,7 +200,7 @@ export function workspaceStartForCommand(
   if (command === "status") {
     return firstPositional(args, new Set()) ?? process.cwd();
   }
-  if (command === "screens") {
+  if (command === "screens" || command === "hosted") {
     return optionValue(args, "repository") ?? process.cwd();
   }
   return process.cwd();
@@ -612,6 +612,50 @@ function buildProgram(
       );
     });
 
+  const hosted = program
+    .command("hosted")
+    .description("Set up and check the hosted screens site (requires screens.hosted)");
+  hosted
+    .command("init")
+    .description("Write a site that serves hosted screens, for a host to deploy")
+    .requiredOption("--host <host>", "the host to deploy to: netlify")
+    .option("--directory <path>", "where to write the site (default: .tieline/hosted)")
+    .option("--force", "replace files that already exist with other content")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runHostedInitCommand } = await import("./commands/hosted.js");
+      setExit(
+        runHostedInitCommand(
+          {
+            repository: opts.repository,
+            host: opts.host,
+            directory: opts.directory,
+            force: Boolean(opts.force),
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+  hosted
+    .command("check")
+    .description(
+      "Check the bucket, the database credentials set here, and that the site asks visitors to log in"
+    )
+    .option("--url <url>", "the deployed site (default: screens.hosted.site_url)")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runHostedCheckCommand } = await import("./commands/hosted.js");
+      setExit(
+        await runHostedCheckCommand(
+          { repository: opts.repository, url: opts.url, json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
   screens
     .command("publish")
     .description(
@@ -620,6 +664,7 @@ function buildProgram(
     .option("--pull-request <number>", "publish as this pull request")
     .option("--branch <name>", "publish as this branch")
     .option("--commit <sha>", "the commit published (default: HEAD)")
+    .option("--summary-file <path>", "once published, write a Markdown summary for a pull-request comment")
     .option("--repository <path>", "repository path")
     .option("--json", "emit machine-readable JSON")
     .action(async (opts) => {
@@ -631,6 +676,7 @@ function buildProgram(
             pullRequest: opts.pullRequest,
             branch: opts.branch,
             commit: opts.commit,
+            summaryFile: opts.summaryFile,
             json: Boolean(opts.json),
           },
           io

@@ -6,7 +6,7 @@
  * and the database enforces that split, not this class.
  */
 import type { Sql, TransactionSql } from "postgres";
-import type { HostedRef } from "../../contract/screen-hosting.js";
+import type { HostedRef } from "../../contract/hosted-ref.js";
 
 type Tx = TransactionSql<Record<string, never>>;
 
@@ -296,5 +296,44 @@ export class PostgresHostedScreensRepository {
       }
       return result;
     });
+  }
+}
+
+export interface HostedPage {
+  html: string;
+  headCommit: string;
+  publishedAt: Date;
+}
+
+export interface HostedImage {
+  contentType: string;
+  byteSize: number;
+}
+
+/** What the hosted site reads, with the reader role. */
+export class PostgresHostedScreensReader {
+  constructor(private readonly sqlProvider: () => Sql) {}
+
+  async page(repositoryKey: string, ref: { kind: "main" } | HostedRef): Promise<HostedPage | null> {
+    const name = ref.kind === "main" ? "main" : ref.name;
+    const rows = await this.sqlProvider()<{ page_html: string; head_commit: string; published_at: Date }[]>`
+      select snapshot.page_html, snapshot.head_commit, snapshot.published_at
+      from screen_snapshots snapshot
+      join repositories repository on repository.id = snapshot.repository_id
+      where repository.key = ${repositoryKey}
+        and snapshot.ref_kind = ${ref.kind}
+        and snapshot.ref_name = ${name}`;
+    const row = rows[0];
+    return row ? { html: row.page_html, headCommit: row.head_commit, publishedAt: row.published_at } : null;
+  }
+
+  async image(repositoryKey: string, digest: string): Promise<HostedImage | null> {
+    const rows = await this.sqlProvider()<{ content_type: string; byte_size: number }[]>`
+      select image.content_type, image.byte_size
+      from screen_images image
+      join repositories repository on repository.id = image.repository_id
+      where repository.key = ${repositoryKey} and image.digest = ${digest}`;
+    const row = rows[0];
+    return row ? { contentType: row.content_type, byteSize: row.byte_size } : null;
   }
 }
