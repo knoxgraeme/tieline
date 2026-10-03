@@ -95,6 +95,18 @@ await test("renders the Screens view, linked screens, and coverage from the cata
   assert.match(story, /id="NOTES-001-AC1"[\s\S]*Screens <span>2<\/span>[\s\S]*data-open-screen="notes-share-denied"/);
   assert.match(story, /<img data-src="captures\/notes\/notes-list.png" alt="">/);
   assert.doesNotMatch(story, / src="captures/, "thumbnails load only when scrolled into view");
+  // A Story's thumbnail says whether it has an image to load; a criterion
+  // lists its screens as one-line chips with no thumbnail at all.
+  assert.match(story, /<span class="chip-shot" data-kind="page" data-state="loading"><img data-src="captures\/notes\/notes-list.png" alt=""><i aria-hidden="true">Page<\/i><\/span>/);
+  const criterion = /id="NOTES-001-AC1"[\s\S]*?<\/section>/.exec(story)![0];
+  assert.match(criterion, /<div class="shown-screens shown-screens-compact">/);
+  assert.match(criterion, /<button type="button" class="screen-chip-text" data-open-screen="notes-share-denied"><b>Sharing not allowed<\/b><small>Inline error<\/small><\/button>/);
+  assert.doesNotMatch(criterion, /<img|chip-shot/);
+  // Lifecycle is drawn as a shape and named for assistive technology, and
+  // no glyph depends on font coverage.
+  assert.match(page, /<i class="lifecycle lifecycle-in_progress" role="img" aria-label="In progress" title="In progress"><\/i>/);
+  assert.match(story, /<dt>Status<\/dt>\s*<dd><span class="status"><i class="lifecycle lifecycle-production" aria-hidden="true"><\/i>Production<\/span><\/dd>/);
+  assert.doesNotMatch(page, /⌕/);
 });
 
 await test("embeds catalog text inertly", () => {

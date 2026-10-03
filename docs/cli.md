@@ -129,9 +129,10 @@ fresh grading contexts so authors do not judge their own rationale.
 tieline contract review .
 ```
 
-Writes `.tieline/review.html`, a self-contained page with capability navigation, Story and AC
-cards, scenario steps, evidence links, search, lifecycle filters, and a print layout. Open the
-file directly in a browser. Use `--output <path>` to write it elsewhere. When
+Writes `.tieline/review.html`, a self-contained page with capability navigation, each Story's
+lifecycle and acceptance criteria, scenarios and evidence links folded under each criterion,
+search (`/`), `j` and `k` to move between Stories, links to a single criterion (`#<AC key>`), and
+a print layout that expands everything. Open the file directly in a browser. Use `--output <path>` to write it elsewhere. When
 [screens](screens.md) are enabled, the page adds a Screens view and shows each Story's and AC's
 linked screens.
 

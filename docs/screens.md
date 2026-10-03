@@ -582,15 +582,19 @@ self-contained file. With screens enabled it gains:
 - a **Screens** view with every screen grouped by capability and then group. Section and group
   labels stay pinned while scrolling and readable at every zoom level. A zoom control (or `+` and
   `-`) switches between a dense overview with small thumbnails and larger cards.
-- filters for kind, each `applies_to` dimension (a screen without that dimension applies to every
-  value), and linked or unlinked, plus a search whose matches are listed in the sidebar so they
-  are reachable at any zoom level.
-- a detail panel with the full image or a placeholder, the metadata, key copy, and the Stories
-  and ACs that show the screen. `←`/`→` (or `j`/`k`) step through the current results; `Esc`
-  closes it. `#screen/<key>` links to a screen.
+- filters, folded under **Filters** with a count of those in use, for kind, each `applies_to`
+  dimension (a screen without that dimension applies to every value), and linked or unlinked,
+  plus a search whose matches are listed in the sidebar so they are reachable at any zoom level.
+- a placeholder on each card without a picture that says why: **Not captured** with its reason,
+  **No capture**, or **Image unavailable** when the image fails to load.
+- a detail panel with the full image or a placeholder, when the screen appears, the Stories and
+  ACs that show it, key copy, and the metadata. `←`/`→` (or `j`/`k`) step through the current
+  results, starting from the first or last when none is open; `Esc` closes it.
+  `#screen/<key>` links to a screen.
 - coverage counts: screens shown by Stories, screens with no links, and Stories that show no
   screens.
-- on every Story and AC, its linked screens as thumbnail chips that open the detail panel.
+- on every Story, its linked screens as thumbnails, and on every AC as one-line chips; both open
+  the detail panel.
 
 Only images scrolled into view are requested, so a catalog of about a thousand screens opens
 quickly. The page works without any screenshots present.
@@ -611,10 +615,15 @@ branch's own. It highlights what the branch changed, offline and without a datab
   and screens that are new, changed (`details` for their catalog fields, `image` for a new
   screenshot digest, `text` for a new ARIA snapshot), or removed. Its links open the Story or
   screen they name;
-- changed Stories are badged in the navigation and changed ACs in their Story, while every other
-  record stays navigable;
-- screen cards and the detail panel carry the same badges, and a **Branch** filter narrows the
-  map to new or changed screens.
+- changed Stories are badged in the navigation and in their header, and changed ACs in their
+  Story, where their scenarios open; an AC the branch removed stays at the end of its Story,
+  struck through. Every other record stays navigable;
+- screen cards, at every zoom level, and the detail panel carry the same badges;
+- a **Changed** toggle beside each view narrows the navigation to changed Stories, or the map to
+  new or changed screens, as the **Branch** filter does.
+
+Changes are marked without colour, so they survive greyscale and print: **New** is a solid tag,
+**Changed** an outlined one, and **Removed** a dashed one beside struck-through text.
 
 The page still renders when the working tree does not compile; it then explains that changes are
 not shown. A base ref without a compiled manifest reports everything as new. The "before" picture

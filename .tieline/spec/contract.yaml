@@ -1279,6 +1279,12 @@ capability:
             - given: a branch re-captures a screen whose committed ARIA snapshot changed
               when: the review page is rendered against the base ref
               then: the screen must be reported as changed with a text aspect, apart from its image and catalog fields
+            - given: a branch removes an acceptance criterion from a Story
+              when: the review page is rendered against the base ref
+              then: the criterion must stay at the end of that Story, struck through and marked removed, and the Story's header must say it changed
+            - given: a reviewer wants only what the branch changed
+              when: they press Changed in the Stories or Screens view
+              then: the navigation must list only changed Stories, or the map only new and changed screens, and pressing it again must restore the rest
           links:
             - relation: implements
               provenance: authored
@@ -1321,6 +1327,13 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-review-changes.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-review-page-browser.ts
                 framework_hint: custom-script
         - key: CONTRACT-005-AC7
           criterion: Tieline must report screens missing a screenshot digest, a capture record, a committed ARIA snapshot, or a literal @screen test tag, ARIA snapshots that differ from their capture record or belong to no catalogued screen, and screens captured in different environments, through screens audit and as check warnings that never change the check's exit code, reading test files and snapshots only within fixed bounds and never through symbolic links.

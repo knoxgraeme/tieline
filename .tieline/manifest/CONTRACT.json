@@ -343,7 +343,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "497cf067f7f47a7157f584f7bdab54411b4844c86b2f368b2af2c8791f6a9895",
+                "reviewed_content_hash": "db071eec1f004b481d2f0455021dbe3c5df85906bd3decfdae93b0d8e525c13e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/html.ts",
@@ -354,7 +354,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "37b010b38809b49172a29b6c5ec104f4395bf435d887c4bef979e4f684d5c645",
+                "reviewed_content_hash": "3b9cae0c83d518acab1da236630b4489a9ffe2a21a5d7678af7d0ac0777e3e18",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-page.ts",
@@ -2886,7 +2886,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "37b010b38809b49172a29b6c5ec104f4395bf435d887c4bef979e4f684d5c645",
+                "reviewed_content_hash": "3b9cae0c83d518acab1da236630b4489a9ffe2a21a5d7678af7d0ac0777e3e18",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-page.ts",
@@ -2897,7 +2897,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "71b159e2b16445bab515c64ae6f764753a144678c52e34bfd8a0d9ca98b1987d",
+                "reviewed_content_hash": "c56b9a1b92d1c04737983e59612cf1a8f85d904d96c5cdc7a4b15abbfe3c479d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -2908,7 +2908,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c3191f8d2688af33a2535cc503dcd0dd6430c0885e46327b7978e6ba2aa9b4a5",
+                "reviewed_content_hash": "08298baf24f8a27745a344afcbdeb40d2ed5613a0ca00786cce44d7d36ae9383",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2926,7 +2926,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b4ae398fa3533c64a9f321be221b7369b833388e171330a62d3a3491aa3cd633",
+            "contract_hash": "68da381349d5ac5a1e0a6eef3aed8f1a47b691d964393593be3b1f142a8bf912",
             "criterion": "The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.",
             "links": [
               {
@@ -2954,7 +2954,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d2a8b91a00c834668e0261b0d116c3322696dfb87e7ee7e55b01e7f3194fc19",
+                "reviewed_content_hash": "38ced7f46dbd0dabfc037ed077255eefc413f04666a4290fedc68d98020eb567",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-changes-page.ts",
@@ -2987,7 +2987,18 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "78123809092874278be74e0c3934aeb760446a9c4100fbb8fa49932f750bc9ba",
+                "reviewed_content_hash": "85c73eeb04b1e5c33f8b52aa6d92ddb0ce426e48203a8ea451ee07fb7fed9b5d",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-review-page-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "2d2b6d6e54caf7ee82b1e90d12132cc66048e508bd89bdc6a257b6616954dcdf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3019,6 +3030,20 @@
                 "stable_id": "CONTRACT-005-AC6-S3",
                 "then": "the screen must be reported as changed with a text aspect, apart from its image and catalog fields",
                 "when": "the review page is rendered against the base ref"
+              },
+              {
+                "given": "a branch removes an acceptance criterion from a Story",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC6-S4",
+                "then": "the criterion must stay at the end of that Story, struck through and marked removed, and the Story's header must say it changed",
+                "when": "the review page is rendered against the base ref"
+              },
+              {
+                "given": "a reviewer wants only what the branch changed",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC6-S5",
+                "then": "the navigation must list only changed Stories, or the map only new and changed screens, and pressing it again must restore the rest",
+                "when": "they press Changed in the Stories or Screens view"
               }
             ],
             "stable_id": "CONTRACT-005-AC6",
@@ -3378,6 +3403,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "160af1c5df2a9d95db5ced6946f3007cc1b2593b4eed439e03531a05eb3f4151"
+    "sha256": "071e03a7e57da97d98689dcc3ca4a5be8febdacf9e207facc15aacdae289ad53"
   }
 }
