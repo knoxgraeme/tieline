@@ -138,7 +138,10 @@ const screensPathPatternSchema = z
  * `playwright_config` and `project` choose the Playwright configuration file
  * and the one project that captures (one viewport per screen), and
  * `timeout_minutes` bounds a whole capture run. `pages` names the files that
- * define pages, so a page no screen claims is reported.
+ * define pages, so a page no screen claims is reported. `generated_scenes`
+ * names the file `tieline screens scenes` writes, with a scene for each
+ * catalogued page no other test captures, and the agent-written `setup`
+ * module that signs in, seeds data, and fills in route parameters.
  */
 const screensCaptureConfigSchema = z
   .object({
@@ -163,6 +166,15 @@ const screensCaptureConfigSchema = z
       )
       .min(1)
       .max(50)
+      .optional(),
+    generated_scenes: z
+      .object({
+        file: screensPathPatternSchema.refine((value) => !value.includes("*"), "must name a file, not a pattern"),
+        setup: screensPathPatternSchema
+          .refine((value) => !value.includes("*"), "must name a file, not a pattern")
+          .optional(),
+      })
+      .strict()
       .optional(),
   })
   .strict();
@@ -241,6 +253,8 @@ export interface ScreensCaptureConfig {
    * file must be claimed by some screen's `paths`. Empty means not checked.
    */
   pages: string[];
+  /** The generated page scenes file and its setup module; null when not used. */
+  generated_scenes: { file: string; setup: string | null } | null;
 }
 
 export const DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES = 30;
@@ -308,6 +322,12 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
       timeout_minutes:
         parsed.data.capture?.timeout_minutes ?? DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES,
       pages: parsed.data.capture?.pages ?? [],
+      generated_scenes: parsed.data.capture?.generated_scenes
+        ? {
+            file: parsed.data.capture.generated_scenes.file,
+            setup: parsed.data.capture.generated_scenes.setup ?? null,
+          }
+        : null,
     },
     hosted: parsed.data.hosted?.enabled
       ? {

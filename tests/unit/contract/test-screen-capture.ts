@@ -615,13 +615,46 @@ await test("verifies committed outputs against a fresh capture without writing a
     },
     {
       async dependents() {
-        return { status: "unavailable", detail: "no topology in this test" };
+        return { status: "complete", files: [], truncated: false };
       },
     }
   );
   // Nothing changed on the branch, so nothing was selected or verified.
   assert.equal(failed.exit, 0);
   assert.match(failed.output, /^Verified 0 screen\(s\)/);
+
+  // When a selection rule cannot run, the narrower selection proves nothing,
+  // so the gate verifies every screen and names the ones to fix.
+  const widened = await capture(
+    ws,
+    { changed: true, base: "HEAD", verify: true, json: true },
+    { screens: () => ({ "notes-list": { image: png("drifted") }, "notes-list-empty": {}, "notes-share-denied": {} }) },
+    {
+      async dependents() {
+        return { status: "unavailable", detail: "no topology in this test" };
+      },
+    }
+  );
+  assert.equal(widened.exit, 1);
+  const widenedResult = JSON.parse(widened.output) as {
+    verified: number;
+    selection: { widened?: { reason: string } };
+    mismatches: unknown;
+    fix: string;
+  };
+  assert.equal(widenedResult.verified, 3);
+  assert.deepEqual(widenedResult.selection.widened, { reason: "the dependency selection rule(s) could not run" });
+  assert.deepEqual(widenedResult.mismatches, [{ key: "notes-list", causes: ["image"] }]);
+  assert.equal(widenedResult.fix, "tieline screens capture --screen notes-list");
+  const widenedText = await capture(ws, { changed: true, base: "HEAD", verify: true }, {}, {
+    async dependents() {
+      return { status: "unavailable", detail: "no topology in this test" };
+    },
+  });
+  assert.match(
+    widenedText.output,
+    /note  the dependency selection rule\(s\) could not run, so every screen was verified, not only the ones this branch may have changed\./
+  );
 
   const all = await capture(
     ws,

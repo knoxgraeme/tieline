@@ -158,8 +158,8 @@ stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` f
 machine-readable summary.
 
 ```bash
-tieline screens capture --all --verify
 tieline screens capture --changed --base origin/main [--dry-run | --verify] [--repeat <n>] [--json]
+tieline screens capture --all [--verify]
 ```
 
 Captures the screens a branch may have changed with the repository's own Playwright tests tagged
@@ -167,10 +167,20 @@ Captures the screens a branch may have changed with the repository's own Playwri
 `--screen <key>` select every screen or named ones. `--dry-run` only reports the selection;
 `--verify` compares a fresh capture with the committed outputs, writes nothing (with hosted
 screens on, it keeps the screenshots it reproduced exactly in the git-ignored captures directory),
-and exits 1 on any difference; `capture --all --verify` is the recommended pull-request check. `--repeat <n>` keeps
+and exits 1 on any difference; `capture --changed --base <base> --verify` is the recommended
+pull-request check, and verifies every screen when a selection rule cannot run. `--repeat <n>` keeps
 only screens captured identically n times. Screens marked not captured are skipped, and selected
 screens no test tags are listed as not covered. See [Capture with Playwright](screens.md#capture-with-playwright) and
 [Selecting screens to capture](screens.md#selecting-screens-to-capture).
+
+```bash
+tieline screens scenes [--check] [--json]
+```
+
+Writes `screens.capture.generated_scenes.file`: a scene for every catalogued page no other test
+captures, each calling the configured setup module and capturing the page, so no one writes a
+test just to open a page. `--check` writes nothing and exits 1 when the file is out of date with
+the catalog. See [Generated page scenes](screens.md#generated-page-scenes).
 
 ```bash
 tieline screens audit [--strict | --capture] [--json]
@@ -178,7 +188,8 @@ tieline screens audit [--strict | --capture] [--json]
 
 Lists screens missing a screenshot digest, capture record, committed ARIA snapshot, or
 `@screen` test, mismatched and orphaned ARIA snapshots, page files no screen claims, and UI
-acceptance criteria no `@ac:`-tagged test proves, without capturing anything. `--strict` exits 1
+acceptance criteria no `@ac:`-tagged test proves, and generated page scenes that are out of date,
+without capturing anything. `--strict` exits 1
 on any of them, as a coverage gate. `--capture` re-captures every screen and reports the drift.
 See [Audit](screens.md#audit) and [Coverage](screens.md#coverage).
 

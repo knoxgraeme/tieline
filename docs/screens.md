@@ -38,6 +38,7 @@ Add a `screens` block to `.tieline/config.json`:
 | `capture.project` | every project | The one Playwright project that captures. Name it when the configuration has several, since each screen is captured at exactly one viewport. |
 | `capture.timeout_minutes` | `30` | Longest a whole capture run may take, from 1 to 240. A run that exceeds it is stopped and writes nothing. |
 | `capture.pages` | not checked | Path patterns for the files that define pages, such as `app/**/page.tsx`; a pattern starting with `!` excludes. A page file no screen's `paths` claims is reported by the [audit](#audit) and by `check`. |
+| `capture.generated_scenes` | not generated | `file`: where `tieline screens scenes` writes a scene for each catalogued page no other test captures; it must be a scene file the app's Playwright configuration runs. `setup`: the module those scenes call to sign in, seed data, and choose the URL for a route with parameters. See [Generated page scenes](#generated-page-scenes). |
 
 A malformed block fails loudly rather than silently leaving the feature off. Defaults are applied
 when the block is read and are never written back into the file.
@@ -152,7 +153,9 @@ before.
 
 Capture is Playwright-native: a screen's scene is an ordinary Playwright test tagged
 `@screen:<key>` that calls `tielineSnapshot`. The app keeps its own Playwright configuration,
-`webServer`, logins, and seeding.
+`webServer`, logins, and seeding. Scenes are generated for pages and written by an agent for
+everything else, so no one writes a test by hand: the Tieline skill's
+[capture reference](../skills/tieline/references/screens-capture.md) is how agents write them.
 
 ```ts
 // e2e/sharing.screens.ts
@@ -224,6 +227,38 @@ captured identically. A screen that differs is **unstable**: it is not written, 
 1, and the screen is listed so it can be fixed or marked `not_captured` with reason `unstable`.
 Use it when backfilling a whole catalog.
 
+### Generated page scenes
+
+A page's default state needs no written scene. With `capture.generated_scenes` set,
+
+```bash
+tieline screens scenes           # write or update the generated file
+tieline screens scenes --check   # write nothing; fail when it is out of date
+```
+
+writes one file with a scene for every catalogued `page` screen that no other test captures and
+that is not marked not captured. Each scene runs the setup module's `prepare(page, screen)`, opens
+the page, and captures it:
+
+```ts
+// e2e/screens.setup.ts, written once
+import type { Page } from "@playwright/test";
+import type { GeneratedScreen } from "tieline/playwright";
+
+export async function prepare(page: Page, screen: GeneratedScreen): Promise<string | void> {
+  await signInAs(page, screen.applies_to?.role?.[0] ?? "member"); // the app's own login helper
+  if (screen.route === "/notes/:noteId") return "/notes/note-seed-1";
+}
+```
+
+A route with parameters needs `prepare` to return the URL to open; without a setup module such
+pages are skipped and listed. A page that answers with an error fails its scene instead of being
+captured. The tags are written out, so selection, the audit, and `--verify` treat the file like
+any other scene file. A page that needs steps, assertions, or an acceptance criterion's test gets
+its own scene in another file and leaves the generated file when it is regenerated, so no screen
+is captured twice. The strict [audit](#audit) fails while the file is out of date with the
+catalog, and `check` warns.
+
 ### Verify
 
 `--verify` captures into a temporary directory, compares each selected screen with what the
@@ -245,12 +280,16 @@ ARIA snapshots of screens the catalog no longer has also fail verification. Scre
 covered or marked not captured are listed but do not fail it; the
 [strict audit](#audit) is the coverage gate.
 
-**Run `capture --all --verify` as a required pull-request check.** Re-checking every covered
-screen, rather than the ones selection predicts, is what guarantees that every change to a
-covered screen is caught: impact is observed, not predicted, so a change in server code, data,
-translations, or a dependency is caught as surely as one in a page's own file. Selection
-(`--changed`) remains for fast local runs and to explain why a screen changed. See
-[the GitHub Actions example](examples/screens-verify.yml); it needs no credentials.
+**Run `capture --changed --base <base> --verify` as a required pull-request check.** It
+re-captures only the screens the branch may have changed, each with the rule that selected it,
+so a pull request's capture time grows with its change, not with the app. A rule that cannot run,
+such as the dependency rule in a repository that does not commit its code topology
+(`tieline code compile .`), would make that selection narrower than it should be, so the check
+then verifies every screen and says why. Changes the rules cannot see, such as server code or
+data that no screen's `paths` name, are not selected: name such files in `global_paths` or a
+screen's `paths`, and run `tieline screens audit --capture` (or `capture --all --verify`) from
+time to time to find drift. See [the GitHub Actions example](examples/screens-verify.yml); it
+needs no credentials.
 
 ### A pinned capture environment
 
@@ -390,7 +429,7 @@ There are two ways to reach full coverage, and they combine:
   the screens it touches, and a new screen's first capture becomes its recorded version. The
   audit shows the remaining gap.
 
-Either way, the pull-request gate is `capture --all --verify` for every covered screen, plus
+Either way, the pull-request gate is `capture --changed --base <base> --verify`, plus
 `audit --strict` once the backfill is done. `check` warns about the same gaps without failing,
 and names page files a branch added that no screen claims.
 
@@ -691,8 +730,8 @@ Another host needs only a few lines that hand its requests to `createHostedScree
 
 [`screens-hosted.yml`](examples/screens-hosted.yml) runs on pull requests:
 
-1. `capture --all --verify`, which with hosted screens on also keeps the screenshots it reproduced
-   exactly;
+1. `capture --changed --base <base> --verify`, which with hosted screens on also keeps the
+   screenshots it reproduced exactly; every other screen keeps the image `main` published;
 2. `screens publish`;
 3. one pull-request comment kept up to date with the changes and a link to the page;
 4. `screens close` when the pull request closes.

@@ -2134,7 +2134,10 @@ capability:
   );
   assert.match(screensCaptureReference, /tieline screens capture --all --repeat 3/);
   assert.match(screensCaptureReference, /tieline screens audit --strict/);
-  assert.match(screensCaptureReference, /tieline screens capture --all --verify/);
+  assert.match(screensCaptureReference, /tieline screens capture --changed --base <base-ref> --verify/);
+  assert.match(screensCaptureReference, /never by a person: do not ask the user to write a test/);
+  assert.match(screensCaptureReference, /tieline screens scenes/);
+  assert.match(screensCaptureReference, /exports `prepare\(page, screen\)`/);
   assert.match(screensCaptureReference, /Never write capture outputs by hand/);
 
   // Public documentation structure is under test: keep the README concise while ensuring the

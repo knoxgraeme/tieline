@@ -392,7 +392,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "96f7c83bedd01341fad63f38bd389dc703fa6039dab66df8450df4c75a2179d5",
+                "reviewed_content_hash": "5198f227bb14c3769150b55103b219d4f4a28587497c8de88972153854aa29a3",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -606,7 +606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "96f7c83bedd01341fad63f38bd389dc703fa6039dab66df8450df4c75a2179d5",
+                "reviewed_content_hash": "5198f227bb14c3769150b55103b219d4f4a28587497c8de88972153854aa29a3",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -730,7 +730,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4b7025d70ab33a7cd297285513e1fc7a999de109c2077ef6a2ee739f4bdfbbe9",
+                "reviewed_content_hash": "cf6f905aab47a3c6253880e509e2a1618fddbc74b36a5ecfe69d2129b0f71639",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -795,7 +795,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "96f7c83bedd01341fad63f38bd389dc703fa6039dab66df8450df4c75a2179d5",
+                "reviewed_content_hash": "5198f227bb14c3769150b55103b219d4f4a28587497c8de88972153854aa29a3",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -1851,7 +1851,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "087a96ecdb77c93a8fd10e05b7feed75fdb2e298c85f0a2b2df605c9d0b3465f",
+                "reviewed_content_hash": "dc2c13d90482d9ff5beb967d67b78ff9c9314fd35dd179934e30f7d7d76af37f",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1873,7 +1873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "77820d650312b6c717fe4e81c498bc87d0e4851223b6e96545feb58ab1dc4399",
+                "reviewed_content_hash": "a6fa8a4e64de547ddb7f57be59a752e33bac570361aa3247bbfe05cfbc13a7a7",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +1884,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ba170beefea4035de70e95820047d08956419ec37483395b99bdc99648033e10",
+                "reviewed_content_hash": "fbb59c1b933083bc067ca5b2a8f1f89d5e0c02c5de3ab3e20a22815dc81550b6",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1923,7 +1923,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
+                "reviewed_content_hash": "eb41c31902c525ee1d79a436ff956d22a29a460729bc49ed6848680d0060f7e3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -1934,7 +1934,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3a0668cb555e0e63ee1e6c5d8420a7060556d57f5868a3a873a05ee2f031b2b2",
+                "reviewed_content_hash": "c3ecfb3cf829f82f15969479359dc9e58a7e0176ecd1f805aa766275e7b1dce9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-audit.ts",
@@ -1945,7 +1945,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2bb4902ebc6c527fe19d32c7a48d4c53cca8d3484794488aedb0adcc51fee3ee",
+                "reviewed_content_hash": "6a877b4dfca0546ed278c0e75c93e9b73c2876deed37366ad3ad96116e344a22",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-selection.ts",
@@ -1978,7 +1978,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ee8d344775641efe18194c6fc4ae61335f95d8f5dc7ef737c6413a956c947038",
+                "reviewed_content_hash": "be300059c2edef507bd1bc0c68dee97874e4d9e48a9cc8d52401a0dfc225e38b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2017,7 +2017,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "324f772ba9a78886c6b631c5cb5278e37c3260e5a562ed1e071117155b66a22c",
+                "reviewed_content_hash": "0316a24c2cd26d9f098e653479c987dff40e10ae8363f54e32c3782ce30229c0",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/screens-capture.md",
@@ -2047,7 +2047,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4b7025d70ab33a7cd297285513e1fc7a999de109c2077ef6a2ee739f4bdfbbe9",
+                "reviewed_content_hash": "cf6f905aab47a3c6253880e509e2a1618fddbc74b36a5ecfe69d2129b0f71639",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2418,7 +2418,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4b7025d70ab33a7cd297285513e1fc7a999de109c2077ef6a2ee739f4bdfbbe9",
+                "reviewed_content_hash": "cf6f905aab47a3c6253880e509e2a1618fddbc74b36a5ecfe69d2129b0f71639",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2431,6 +2431,103 @@
             "rationale": "Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.",
             "scenarios": [],
             "stable_id": "CONTRACT-005-AC16",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "7bdbcbf87938e44c1ef34e050c0b464f280bbe4a82b9510ceb900071a97aa292",
+            "criterion": "Tieline must generate, as one committed scene file, a scene for every catalogued page that no other test captures and that is not marked not captured, each running the repository's setup module before opening the page, must skip and report a route with parameters when no setup module chooses its URL, must fail a generated scene whose page answers with an error or whose route keeps a parameter, and must fail the strict audit while the generated file differs from what the catalog generates.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0316a24c2cd26d9f098e653479c987dff40e10ae8363f54e32c3782ce30229c0",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens-capture.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "233b66a5f6b5fb427b436c9ae3796255c335389e1dd8a9ed46c28c13cc8a15c5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensScenesCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "deab34822aa2f833a9941e90698e7f23a4a9e6f309c38787161010e9cf8ab538",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-generated-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:generatedScenesStatus"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "deab34822aa2f833a9941e90698e7f23a4a9e6f309c38787161010e9cf8ab538",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-generated-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:planGeneratedScenes"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3aa2055fa6f6ac843780b2bf7381a1c7ce8299e614198356c77049799c6d6c13",
+                "target": {
+                  "kind": "code",
+                  "path": "src/playwright/page-scene.cts",
+                  "repository": "tieline",
+                  "selector": "function:openAndCapture"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "2e56c9fc461180d156a55c325a8da1cce4e2f0eedc30abcc748ce7217674b834",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-screens-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "dfa35275bcf662cd0be29109e6e59d0ea023fd4c417b12f5d67c849db1bb1045",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-generated-scenes.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 16,
+            "rationale": "Scenes are written by agents, not people, so every page must be captured without anyone writing a test just to open it, and a stale or wrong generated scene must never stand in for the screen.",
+            "scenarios": [
+              {
+                "given": "an agent writes its own scene for a page that has a generated scene",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC17-S1",
+                "then": "the page must leave the generated file so it is captured once",
+                "when": "the generated scenes are regenerated"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC17",
             "supersedes": null
           },
           {
@@ -2453,7 +2550,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "77820d650312b6c717fe4e81c498bc87d0e4851223b6e96545feb58ab1dc4399",
+                "reviewed_content_hash": "a6fa8a4e64de547ddb7f57be59a752e33bac570361aa3247bbfe05cfbc13a7a7",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -2475,7 +2572,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ba170beefea4035de70e95820047d08956419ec37483395b99bdc99648033e10",
+                "reviewed_content_hash": "fbb59c1b933083bc067ca5b2a8f1f89d5e0c02c5de3ab3e20a22815dc81550b6",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2532,7 +2629,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ba170beefea4035de70e95820047d08956419ec37483395b99bdc99648033e10",
+                "reviewed_content_hash": "fbb59c1b933083bc067ca5b2a8f1f89d5e0c02c5de3ab3e20a22815dc81550b6",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2556,7 +2653,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b91d11bed168cdaa7971d9fb03de2326b8d84b700c655a377b0cbc52834e3cbe",
+                "reviewed_content_hash": "233b66a5f6b5fb427b436c9ae3796255c335389e1dd8a9ed46c28c13cc8a15c5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2786,7 +2883,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b91d11bed168cdaa7971d9fb03de2326b8d84b700c655a377b0cbc52834e3cbe",
+                "reviewed_content_hash": "233b66a5f6b5fb427b436c9ae3796255c335389e1dd8a9ed46c28c13cc8a15c5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2797,7 +2894,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3a0668cb555e0e63ee1e6c5d8420a7060556d57f5868a3a873a05ee2f031b2b2",
+                "reviewed_content_hash": "c3ecfb3cf829f82f15969479359dc9e58a7e0176ecd1f805aa766275e7b1dce9",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-audit.ts",
@@ -2869,7 +2966,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
+                "reviewed_content_hash": "eb41c31902c525ee1d79a436ff956d22a29a460729bc49ed6848680d0060f7e3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2880,7 +2977,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
+                "reviewed_content_hash": "eb41c31902c525ee1d79a436ff956d22a29a460729bc49ed6848680d0060f7e3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2891,7 +2988,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2bb4902ebc6c527fe19d32c7a48d4c53cca8d3484794488aedb0adcc51fee3ee",
+                "reviewed_content_hash": "6a877b4dfca0546ed278c0e75c93e9b73c2876deed37366ad3ad96116e344a22",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-selection.ts",
@@ -2902,7 +2999,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2bb4902ebc6c527fe19d32c7a48d4c53cca8d3484794488aedb0adcc51fee3ee",
+                "reviewed_content_hash": "6a877b4dfca0546ed278c0e75c93e9b73c2876deed37366ad3ad96116e344a22",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-selection.ts",
@@ -2946,13 +3043,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "4d468a313cf27d01eef6171232135dc1b537e7dbaf1a8685a32e4af289bd1139",
-            "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture.",
+            "contract_hash": "4a3e90eddbfc6eaa43b306a9ce68857c8c40b576dc03421526814f77aa59bc17",
+            "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
+                "reviewed_content_hash": "eb41c31902c525ee1d79a436ff956d22a29a460729bc49ed6848680d0060f7e3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2963,7 +3060,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eeb23a06646c126eee606d065752fa25ae74904a490306a2bcc182b5e6210a9f",
+                "reviewed_content_hash": "eb41c31902c525ee1d79a436ff956d22a29a460729bc49ed6848680d0060f7e3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3038,7 +3135,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "83091d8e1070602247038431cd0805f8d9daa3d54e2261d53aab06025e5ef9b2",
+                "reviewed_content_hash": "2e56c9fc461180d156a55c325a8da1cce4e2f0eedc30abcc748ce7217674b834",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3049,7 +3146,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ee8d344775641efe18194c6fc4ae61335f95d8f5dc7ef737c6413a956c947038",
+                "reviewed_content_hash": "be300059c2edef507bd1bc0c68dee97874e4d9e48a9cc8d52401a0dfc225e38b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3120,6 +3217,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "2dfbfc6464f3630aaac74f4c4ffc7f6c0d275cc7754412df65edfb0c31e939b1"
+    "sha256": "429ef37444c5b3c8192c06d8fa1f762435bcdd20164195729636523962492561"
   }
 }

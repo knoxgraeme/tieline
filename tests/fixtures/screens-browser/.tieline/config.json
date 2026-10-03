@@ -34,7 +34,11 @@
       "timeout_minutes": 5,
       "pages": [
         "app/*.html"
-      ]
+      ],
+      "generated_scenes": {
+        "file": "e2e/pages.generated.screens.ts",
+        "setup": "e2e/screens.setup.ts"
+      }
     }
   },
   "created_at": "2026-08-01T00:00:00.000Z",

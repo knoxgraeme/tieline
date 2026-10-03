@@ -1,17 +1,29 @@
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { readDeclaredCapabilityKeys } from "../contract/load.js";
 import { compileContractManifest } from "../contract/manifest.js";
+import { withinRepository } from "../contract/paths.js";
 import {
+  loadScreenCatalog,
   readScreenCatalogSources,
+  realDestination,
   screenSettingsForRepository,
   validateScreenCatalogDocuments,
 } from "../contract/screen-catalog.js";
+import {
+  GENERATED_SCENES_FILE_BYTES,
+  generatedScenesFileProblem,
+  planGeneratedScenes,
+  type GeneratedSceneSkip,
+} from "../contract/screen-generated-scenes.js";
+import { scanScreenScenes } from "../contract/screen-scenes.js";
 import {
   applyScreenImport,
   createCaptureDigester,
   ensureCapturesIgnored,
   parseScreenImport,
   planScreenImport,
+  readBoundedFile,
   readScreenImportFile,
   ScreenImportError,
   withScreenImportLock,
@@ -305,12 +317,105 @@ export async function runScreensAuditCommand(
   if (alignment.status === "unavailable" && alignment.detail) {
     io.write(`  note  acceptance criteria were not checked: ${escapeTerminalText(alignment.detail)}\n`);
   }
+  if (audit.generated_scenes.status === "stale" || audit.generated_scenes.status === "invalid") {
+    io.write(
+      `  scenes    ${escapeTerminalText(audit.generated_scenes.file ?? "")}: ${escapeTerminalText(
+        audit.generated_scenes.detail ?? ""
+      )}; run \`tieline screens scenes\`\n`
+    );
+  }
   if (options.strict) {
     io.write(
       exitCode === 0
         ? "Strict audit passed: every screen, page, and documented UI behavior is accounted for.\n"
         : `Strict audit failed: ${failures.map(escapeTerminalText).join("; ")}.\n`
     );
+  }
+  return exitCode;
+}
+
+export interface ScreensScenesOptions {
+  repository?: string;
+  /** Report whether the file is current and write nothing. */
+  check?: boolean;
+  json?: boolean;
+}
+
+const SKIP_PHRASES: Record<GeneratedSceneSkip["reason"], string> = {
+  has_scene: "captured by another test",
+  not_captured: "marked not captured",
+  route_parameters: "route has parameters and no setup module chooses its URL",
+};
+
+/**
+ * `tieline screens scenes`: writes the generated page scenes file, with a
+ * scene for each catalogued page no other test captures, so no one writes a
+ * test just to open a page. `--check` writes nothing and fails when the file
+ * is not the one the catalog generates.
+ */
+export function runScreensScenesCommand(options: ScreensScenesOptions, io: CommandIO): number {
+  const { root, specDirectory } = resolveCommandContext(options);
+  const settings = screenSettingsForRepository(root);
+  if (!settings) throw new Error(NOT_ENABLED);
+  const problem = generatedScenesFileProblem(settings);
+  if (problem) {
+    throw new Error(
+      `Cannot generate page scenes: ${problem}. Set screens.capture.generated_scenes.file to a scene file the app's Playwright configuration runs, such as e2e/pages.generated.screens.ts.`
+    );
+  }
+  const { catalog, issues } = loadScreenCatalog(root, settings, readDeclaredCapabilityKeys(root, specDirectory));
+  if (issues.length > 0) throw new ScreenImportError("The screen catalog is invalid; fix it before generating scenes.", issues);
+  const scan = scanScreenScenes(root, settings.sceneTests);
+  if (scan.status !== "complete") {
+    throw new Error(
+      `The test scan is ${scan.status} (${scan.detail ?? ""}), so which pages already have a scene is unknown; nothing was generated.`
+    );
+  }
+  const plan = planGeneratedScenes({ settings, catalog, scan });
+  const path = resolve(root, plan.file);
+  const real = realDestination(path);
+  if (!withinRepository(realpathSync(root), real)) {
+    throw new Error(`'${plan.file}' resolves to '${real}', outside the repository; nothing was generated.`);
+  }
+  const current = existsSync(path)
+    ? readBoundedFile(path, GENERATED_SCENES_FILE_BYTES, "generated scenes file").toString("utf8")
+    : null;
+  const status = current === null ? "created" : current === plan.content ? "unchanged" : "updated";
+  if (!options.check && status !== "unchanged") {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, plan.content);
+  }
+  const exitCode = options.check && status !== "unchanged" ? 1 : 0;
+  if (options.json) {
+    io.write(
+      `${JSON.stringify(
+        {
+          file: plan.file,
+          check: Boolean(options.check),
+          status: options.check ? (status === "unchanged" ? "current" : "stale") : status,
+          scenes: plan.scenes,
+          skipped: plan.skipped,
+        },
+        null,
+        2
+      )}\n`
+    );
+    return exitCode;
+  }
+  const counts = (reason: GeneratedSceneSkip["reason"]): number => plan.skipped.filter((skip) => skip.reason === reason).length;
+  if (options.check) {
+    io.write(
+      status === "unchanged"
+        ? `${escapeTerminalText(plan.file)} is current: ${plan.scenes.length} generated page scene(s).\n`
+        : `${escapeTerminalText(plan.file)} is out of date with the catalog; run \`tieline screens scenes\`.\n`
+    );
+    return exitCode;
+  }
+  io.write(
+    `${status === "unchanged" ? "Kept" : status === "created" ? "Created" : "Updated"} ${escapeTerminalText(plan.file)}: ${plan.scenes.length} generated page scene(s); ${counts("has_scene")} page(s) captured by another test, ${counts("not_captured")} marked not captured.\n`
+  );
+  for (const skip of plan.skipped.filter((entry) => entry.reason === "route_parameters")) {
+    io.write(`  setup     ${escapeTerminalText(skip.key)}: ${SKIP_PHRASES[skip.reason]}\n`);
   }
   return exitCode;
 }

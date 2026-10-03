@@ -617,6 +617,19 @@ export async function runScreensCaptureCommand(
     const { screens, excluded } = excludeNotCaptured(catalog, selectRequestedScreens(catalog, scope));
     selection = { scope: scope.kind, base: null, screens, excluded, changed_files: 0, unavailable: [] };
   }
+  // A gate that checks only the screens a branch may have changed must not
+  // pass because a rule could not run and so missed some: verify every screen.
+  if (options.verify && scope.kind === "changed" && selection.unavailable.length > 0) {
+    const everything = excludeNotCaptured(catalog, selectRequestedScreens(catalog, { kind: "all" }));
+    selection = {
+      ...selection,
+      screens: everything.screens,
+      excluded: everything.excluded,
+      widened: {
+        reason: `the ${[...new Set(selection.unavailable.map((rule) => rule.rule))].join(", ")} selection rule(s) could not run`,
+      },
+    };
+  }
 
   // A selected screen with no test tagged for it is not covered: it is
   // reported, not a failure, so coverage can grow screen by screen; the
@@ -674,7 +687,15 @@ export async function runScreensCaptureCommand(
       ...captured.unstable.map((key): ScreenVerifyMismatch => ({ key, causes: ["unstable"] })),
     ].sort((left, right) => left.key.localeCompare(right.key));
     const passed = mismatches.length === 0 && orphanedText.length === 0;
-    const fix = `tieline screens capture ${scopeFlags(scope)}`;
+    // After widening, the mismatches can lie outside what --changed selects,
+    // so the fix names them.
+    const fix = selection.widened
+      ? `tieline screens capture ${
+          mismatches.length > 0 && mismatches.length <= 10
+            ? mismatches.map((mismatch) => `--screen ${mismatch.key}`).join(" ")
+            : "--all"
+        }`
+      : `tieline screens capture ${scopeFlags(scope)}`;
     if (options.json) {
       io.write(
         `${JSON.stringify(
@@ -710,6 +731,11 @@ export async function runScreensCaptureCommand(
     renderCoverage(selection, notCovered, io);
     for (const rule of selection.unavailable) {
       io.write(`  note  ${rule.rule} rule incomplete: ${escapeTerminalText(rule.detail)}\n`);
+    }
+    if (selection.widened) {
+      io.write(
+        `  note  ${escapeTerminalText(selection.widened.reason)}, so every screen was verified, not only the ones this branch may have changed.\n`
+      );
     }
     if (keptScreenshots && keptScreenshots.length > 0) {
       io.write(

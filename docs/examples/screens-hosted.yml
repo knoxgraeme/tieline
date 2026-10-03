@@ -30,10 +30,15 @@ jobs:
           fetch-depth: 0
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: npm ci
-      # Fails, naming each screen, when the committed outputs differ from a
-      # fresh capture. With hosted screens on, it keeps the screenshots it
-      # reproduced exactly, for the next step. Needs no credentials.
-      - run: npx tieline screens capture --all --verify
+      # Re-captures the screens this pull request may have changed (every
+      # screen if a selection rule cannot run) and fails, naming each screen,
+      # when the committed outputs differ. With hosted screens on, it keeps the
+      # screenshots it reproduced exactly, for the next step; every other
+      # screen keeps the image main already published. Needs no credentials.
+      - run: npx tieline screens capture --changed --base "origin/${{ github.base_ref }}" --verify
+      # Turn on once the catalog is backfilled: fails while any screen, page,
+      # or UI acceptance criterion is unaccounted for.
+      # - run: npx tieline screens audit --strict
       # Pull requests from forks get no secrets: they are verified, not
       # published.
       - name: Publish

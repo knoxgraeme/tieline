@@ -110,6 +110,11 @@ export interface ScreenSelection {
   excluded: ExcludedScreen[];
   changed_files: number;
   unavailable: UnavailableSelectionRule[];
+  /**
+   * Present when verification widened a `changed` selection to every screen,
+   * because a rule could not run and the narrower selection proves nothing.
+   */
+  widened?: { reason: string };
 }
 
 /**
