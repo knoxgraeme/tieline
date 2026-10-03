@@ -613,8 +613,13 @@ Opt in beside `enabled`:
 retention values shown are the defaults. The bucket's endpoint and
 credentials come from the environment, never from this file: `AWS_ENDPOINT_URL_S3`,
 `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY`, the variables Neon Object Storage
-credentials, AWS S3, and Cloudflare R2 all use. The endpoint must use HTTPS. Images are stored
-once, at `<repository key>/sha256/<digest>`.
+credentials, AWS S3, and Cloudflare R2 all use. The same settings can be given as
+`TIELINE_SCREENS_S3_ENDPOINT`, `TIELINE_SCREENS_S3_REGION`, `TIELINE_SCREENS_S3_ACCESS_KEY_ID`,
+and `TIELINE_SCREENS_S3_SECRET_ACCESS_KEY`; when any of those is set, Tieline reads only them.
+Hosts that run functions on AWS Lambda, such as Netlify, reserve the `AWS_*` names for the
+function's own role, so the site uses the `TIELINE_SCREENS_S3_*` names, and so do the example
+workflows, so they never mix with other AWS credentials. The endpoint must use HTTPS. Images are
+stored once, at `<repository key>/sha256/<digest>`.
 
 | Command | Database role | Does |
 | --- | --- | --- |
@@ -654,8 +659,9 @@ function that imports `tieline/hosted`, its `netlify.toml`, and a README with th
 
 1. Add a Netlify site from the repository with that directory as its base directory. The site
    holds no data, so publishing never redeploys it.
-2. Set its environment: `DATABASE_URL` with the **reader** role, and `AWS_*` credentials that can
-   read the bucket. The site never writes.
+2. Set its environment: `DATABASE_URL` with the **reader** role, and `TIELINE_SCREENS_S3_*`
+   credentials that can only read the bucket (Netlify refuses the `AWS_*` names). The site
+   never writes.
 3. Turn on the site's access control (Visitor access or password protection). Tieline does not
    log visitors in: anyone who reaches the site can read every published page.
 4. Check it, with the URL of the deployed site:

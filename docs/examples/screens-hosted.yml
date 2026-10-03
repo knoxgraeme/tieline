@@ -40,10 +40,10 @@ jobs:
         if: github.event.pull_request.head.repo.full_name == github.repository
         env:
           DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
-          AWS_ENDPOINT_URL_S3: ${{ secrets.TIELINE_SCREENS_AWS_ENDPOINT_URL_S3 }}
-          AWS_REGION: ${{ secrets.TIELINE_SCREENS_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.TIELINE_SCREENS_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TIELINE_SCREENS_AWS_SECRET_ACCESS_KEY }}
+          TIELINE_SCREENS_S3_ENDPOINT: ${{ secrets.TIELINE_SCREENS_S3_ENDPOINT }}
+          TIELINE_SCREENS_S3_REGION: ${{ secrets.TIELINE_SCREENS_S3_REGION }}
+          TIELINE_SCREENS_S3_ACCESS_KEY_ID: ${{ secrets.TIELINE_SCREENS_S3_ACCESS_KEY_ID }}
+          TIELINE_SCREENS_S3_SECRET_ACCESS_KEY: ${{ secrets.TIELINE_SCREENS_S3_SECRET_ACCESS_KEY }}
         run: >-
           npx tieline screens publish
           --pull-request ${{ github.event.pull_request.number }}

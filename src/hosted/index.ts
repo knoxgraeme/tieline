@@ -5,7 +5,9 @@
  *   export default createHostedScreensSite({ repository: "acme-notes", bucket: "acme-screens" });
  *
  * The site reads with the database reader role (`DATABASE_URL`) and with
- * object storage credentials that need only read access (`AWS_*`). Nothing is
+ * object storage credentials that need only read access
+ * (`TIELINE_SCREENS_S3_*`, or `AWS_*` where the host does not reserve them).
+ * Nothing is
  * opened until the first request, so a missing setting is reported on the
  * page instead of failing the deployment.
  */
