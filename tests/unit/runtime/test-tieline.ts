@@ -1863,6 +1863,20 @@ capability:
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
+    /Only when the repository has a user interface[\s\S]*\*\*Capture your app's screens too\?\*\*[\s\S]*Skip the\s+question for repositories without a user interface/,
+    "onboarding offers screen capture only for repositories with a user interface"
+  );
+  assert.match(
+    onboardingReference,
+    /If screens were enabled, backfill them now[\s\S]*screens-capture\.md[\s\S]*`tieline screens audit --strict` passes[\s\S]*never the screenshots/,
+    "an onboarding that enabled screens backfills them before the report"
+  );
+  assert.ok(
+    onboardingReference.indexOf("Capture your app's screens too") < onboardingReference.indexOf("Close the conversation with a handoff"),
+    "the screens question comes before the autonomous handoff"
+  );
+  assert.match(
+    onboardingReference,
     /Set expectations first/,
     "onboarding must open by orienting the user before asking questions"
   );
