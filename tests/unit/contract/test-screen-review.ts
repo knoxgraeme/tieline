@@ -139,6 +139,24 @@ await test("ships syntactically valid scripts", () => {
   assert.doesNotMatch(scripts[1]!, /innerHTML|insertAdjacentHTML|document\.write/);
 });
 
+await test("routes the Screens view under a hash no Story key can take", () => {
+  // Story keys cannot contain "/", so `#view/screens` cannot be a Story,
+  // while a Story keyed `screens` (a valid key) keeps its own `#screens`.
+  const ws = workspace({ screens: { enabled: true }, catalog: CATALOG });
+  ws.write(".tieline/spec/notes.yaml", readFileSync(resolve(ws.root, ".tieline/spec/notes.yaml"), "utf8").replace("- key: NOTES-001\n", "- key: screens\n").replaceAll("NOTES-001-AC", "screens-AC"));
+  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec").path, "utf8");
+  assert.match(page, /data-story-key="screens"/);
+  // The only links to `#screens` are the Story's own.
+  const storyLinks = [...page.matchAll(/<a\b[^>]*href="#screens"[^>]*>/g)].map((match) => match[0]);
+  assert.ok(storyLinks.length > 0);
+  for (const link of storyLinks) assert.match(link, /data-story-(?:link|jump)/, link);
+  assert.match(page, /<a href="#view\/screens" data-outline-section=/);
+  const script = inlineScripts(page).find((source) => source.includes("function routeFromHash"))!;
+  assert.match(script, /hash === "view\/screens"/);
+  assert.match(script, /history\.pushState\(null, "", "#view\/screens"\)/);
+  assert.equal(/hash === "screens"|"#screens"/.test(script), false);
+});
+
 await test("resolves capture paths relative to a page written elsewhere", () => {
   const ws = workspace({ screens: { enabled: true, captures_directory: "shots dir" }, catalog: CATALOG });
   const result = writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", resolve(ws.root, "out/review.html"));

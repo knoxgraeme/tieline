@@ -64,6 +64,11 @@ export function loadAcceptedContractWithSources(
   specDirectory = ".tieline/spec"
 ): LoadedAcceptedContract {
   const root = resolve(repositoryRoot);
+  // The screen settings are read, and validated, before the spec is walked:
+  // a layout they refuse (screenshots inside the spec directory) must be
+  // refused before that walk visits it. Null, and untouched, when the
+  // repository has not opted in.
+  const screenSettings = screenSettingsForRepository(root, { specDirectory });
   const directory = resolve(root, specDirectory);
   if (!existsSync(directory) || !statSync(directory).isDirectory()) {
     throw new ContractValidationError([
@@ -94,7 +99,6 @@ export function loadAcceptedContractWithSources(
   }
   // The catalog is read only when the repository opted in, so a disabled
   // feature never touches the catalog directory.
-  const screenSettings = screenSettingsForRepository(root);
   const catalog = screenSettings
     ? readScreenCatalogSources(root, screenSettings)
     : undefined;

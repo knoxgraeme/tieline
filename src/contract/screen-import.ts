@@ -1,17 +1,22 @@
 import { createHash } from "node:crypto";
 import {
-  existsSync,
+  closeSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
+  openSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   rmSync,
+  statSync,
   writeFileSync,
+  type Stats,
 } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { Document, isMap, isSeq, parseDocument, type YAMLSeq } from "yaml";
 import { z, type ZodIssue } from "zod";
-import { readFileWithin, type BoundedRead } from "./bounded-read.js";
+import { isSameFile, isStillFile, readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { stableKeySchema } from "./schema.js";
 import {
@@ -71,13 +76,17 @@ export function readBoundedFile(
   path: string,
   maxBytes: number,
   label: string,
-  /** Replaces the default message when the file is over `maxBytes`. */
-  tooLargeMessage?: string
+  options: {
+    /** Replaces the default message when the file is over `maxBytes`. */
+    tooLargeMessage?: string;
+    /** Confirms the opened file is the one the caller validated. */
+    verify?: (opened: Stats) => boolean;
+  } = {}
 ): Buffer {
   const name = `${label[0]!.toUpperCase()}${label.slice(1)}`;
   let read: BoundedRead;
   try {
-    read = readFileWithin(path, maxBytes);
+    read = readFileWithin(path, maxBytes, options.verify);
   } catch (error) {
     throw new ScreenImportError(
       `Cannot open ${label} '${path}': ${error instanceof Error ? error.message : String(error)}`
@@ -90,8 +99,10 @@ export function readBoundedFile(
       throw new ScreenImportError(`${name} '${path}' is not a file.`);
     case "too_large":
       throw new ScreenImportError(
-        tooLargeMessage ?? `${name} '${path}' is larger than the ${maxBytes}-byte limit.`
+        options.tooLargeMessage ?? `${name} '${path}' is larger than the ${maxBytes}-byte limit.`
       );
+    case "changed":
+      throw new ScreenImportError(`${name} '${path}' changed while it was being read; import again.`);
   }
 }
 
@@ -261,6 +272,11 @@ export interface PlannedScreenCatalogFile {
   content: string;
   /** The file's content before the import, or null when the import creates it. */
   original: string | null;
+  /**
+   * The real directory the file was read from (or, for a new file, the
+   * validated catalog directory): where its write must land.
+   */
+  realParent: string;
 }
 
 export interface ScreenImportPlan {
@@ -400,6 +416,8 @@ interface EditableCatalog {
   capability: string;
   path: string;
   absolutePath: string;
+  /** The real directory the file was read from, or will be created in. */
+  realParent: string;
   document: Document;
   sequence: YAMLSeq;
   original: string | null;
@@ -474,6 +492,7 @@ export function planScreenImport(
       capability: document.capability,
       path: source.path,
       absolutePath: source.absolutePath,
+      realParent: dirname(source.realPath),
       document: parsed,
       sequence,
       original: source.content,
@@ -491,7 +510,20 @@ export function planScreenImport(
         `Capability '${capability}' cannot name a catalog file inside '${options.settings.catalogPath}'.`
       );
     }
-    if (existsSync(absolutePath)) {
+    let present: boolean;
+    try {
+      // The path itself, link or not: anything there is in the way.
+      lstatSync(absolutePath);
+      present = true;
+    } catch (error) {
+      if (!isMissing(error)) {
+        throw new ScreenImportError(
+          `Cannot create the screen catalog for '${capability}': '${portable(relative(root, absolutePath))}' cannot be checked (${message(error)}).`
+        );
+      }
+      present = false;
+    }
+    if (present) {
       throw new ScreenImportError(
         `Cannot create the screen catalog for '${capability}': '${portable(relative(root, absolutePath))}' already exists and is not that capability's catalog.`
       );
@@ -505,6 +537,8 @@ export function planScreenImport(
       capability,
       path: portable(relative(root, absolutePath)),
       absolutePath,
+      // A new catalog file is always made at the top of the catalog.
+      realParent: options.settings.realCatalogDirectory,
       document,
       sequence,
       original: null,
@@ -652,6 +686,7 @@ export function planScreenImport(
             : ("updated" as const),
       content,
       original: catalog.original,
+      realParent: catalog.realParent,
     }))
     .sort((left, right) => left.path.localeCompare(right.path));
   return plan;
@@ -662,28 +697,49 @@ export function planScreenImport(
  * that a catalog file is still as expected read the real file system.
  */
 export interface ScreenImportFileSystem {
-  mkdirSync(path: string, options: { recursive: true }): void;
+  /** Returns the first directory made, as `mkdirSync` does, if any. */
+  mkdirSync(path: string, options: { recursive: true }): string | undefined;
   /**
    * Creates a new file, failing with `EEXIST` when anything — including a
    * symbolic link, even a dangling one — is already at the path, so a scratch
-   * write can never land wherever a planted link leads.
+   * write can never land wherever a planted link leads. Returns what it
+   * created; if writing fails, removes that (only while the path still names
+   * it) before throwing, so a failed creation leaves nothing behind.
    */
-  createFileSync(path: string, content: string): void;
+  createFileSync(path: string, content: string): Stats;
   renameSync(from: string, to: string): void;
   rmSync(path: string, options: { force: true }): void;
 }
 
 export const NODE_FILE_SYSTEM: ScreenImportFileSystem = {
-  mkdirSync: (path, options) => {
-    mkdirSync(path, options);
-  },
-  createFileSync: (path, content) => writeFileSync(path, content, { flag: "wx" }),
+  mkdirSync: (path, options) => mkdirSync(path, options),
+  createFileSync: (path, content) => createExclusiveFile(path, content),
   renameSync: (from, to) => renameSync(from, to),
   rmSync: (path, options) => rmSync(path, options),
 };
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function capturesMoved(settings: ScreenSettings, now: string): ScreenImportError {
+  return new ScreenImportError(
+    `The captures directory '${settings.capturesPath}' now resolves to '${now}', not to '${settings.realCapturesDirectory}' where it was validated; nothing was written. Import again.`
+  );
+}
+
+function isMissing(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+}
+
+/** The real path of `path`, or null when nothing is there; other failures throw. */
+function realPathIfPresent(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch (error) {
+    if (isMissing(error)) return null;
+    throw error;
+  }
 }
 
 function alreadyExists(error: unknown): boolean {
@@ -743,13 +799,28 @@ export function applyScreenImport(
   fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
 ): void {
   const changed = plan.files.filter((file) => file.status !== "unchanged");
-  const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string }> = [];
+  const staged: Array<{ file: PlannedScreenCatalogFile; temporary: string; created: Stats }> = [];
+  // Only a file the import creates may need its directory made: the catalog
+  // directory itself. A file that was read already had one, and making it
+  // again could make it wherever a link swapped in since leads. What is made
+  // is undone if the import is refused.
+  const made: MadeDirectory[] = [];
+  const unmake = (): string[] => removeMadeDirectories(made);
   // Cleanup never throws: a temporary file that cannot be removed is reported,
   // and never stops the restoration that matters more.
   const discardStaged = (from: number): string[] => {
     const leftovers: string[] = [];
-    for (const { temporary } of staged.slice(from)) {
+    // Removed only while the path still names the file staged there: one
+    // replaced since, or reached through a directory swapped for a link, is
+    // someone else's and stays, named.
+    for (const { temporary, created } of staged.slice(from)) {
       try {
+        const current = lstatSync(temporary, { throwIfNoEntry: false });
+        if (current === undefined) continue;
+        if (!isSameFile(current, created)) {
+          leftovers.push(`${temporary} (no longer the file staged there; left as it is)`);
+          continue;
+        }
         fileSystem.rmSync(temporary, { force: true });
       } catch (error) {
         leftovers.push(`${temporary} (${message(error)})`);
@@ -759,25 +830,28 @@ export function applyScreenImport(
   };
   try {
     for (const file of changed) {
-      fileSystem.mkdirSync(dirname(file.absolutePath), { recursive: true });
-      const temporary = `${file.absolutePath}.${process.pid}.tmp`;
-      try {
-        fileSystem.createFileSync(temporary, file.content);
-      } catch (error) {
-        // A file this import created but could not fill is its own to remove;
-        // whatever was already at the path is not.
-        if (!alreadyExists(error)) staged.push({ file, temporary });
-        throw error;
+      if (file.original === null) {
+        const directory = dirname(file.absolutePath);
+        made.push(
+          ...recordMadeDirectories(directory, fileSystem.mkdirSync(directory, { recursive: true }))
+        );
       }
-      staged.push({ file, temporary });
+      const temporary = `${file.absolutePath}.${process.pid}.tmp`;
+      // A failed creation leaves nothing behind (the file system's contract),
+      // so only what was created is ever staged, with its identity.
+      staged.push({ file, temporary, created: fileSystem.createFileSync(temporary, file.content) });
     }
   } catch (error) {
     const leftovers = discardStaged(0);
+    const directories = unmake();
     throw new ScreenImportError(
       `Could not stage the screen catalog files (${message(error)}); nothing was written${
-        leftovers.length > 0 ? ", but some staged files could not be removed" : ""
+        leftovers.length + directories.length > 0 ? ", but some staged files could not be removed" : ""
       }.`,
-      leftovers.map((leftover) => `staged file left behind: ${leftover}`)
+      [
+        ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+        ...directories.map((directory) => `directory left behind: ${directory}`),
+      ]
     );
   }
 
@@ -808,11 +882,45 @@ export function applyScreenImport(
       stale.push(`${shown} was created after the import read it`);
     }
   }
+  // Each file was read from (or will be made in) a directory validated by
+  // where it really resolved. A directory swapped for a link since then would
+  // send its writes, staged or final, wherever the link leads — even
+  // somewhere else inside the catalog, such as nested captures — so each
+  // target's directory must still resolve to exactly that one. (Node cannot
+  // rename relative to an open directory, so this is checked here, as close
+  // to the writes as it can be.)
+  const validated = plan.catalog.settings.realCatalogDirectory;
+  for (const { file } of staged) {
+    let directory: string | null;
+    try {
+      directory = realPathIfPresent(dirname(file.absolutePath));
+    } catch (error) {
+      stale.push(`${file.path} could not be checked (${message(error)})`);
+      continue;
+    }
+    if (directory === null || !withinRepository(validated, directory)) {
+      stale.push(`${file.path} now resolves outside the screen catalog directory`);
+    } else if (directory !== file.realParent) {
+      stale.push(`${file.path} now resolves to '${directory}', not to '${file.realParent}' where it was read`);
+    }
+  }
+  // The staged copies sit at predictable paths, and the import lock does not
+  // keep other processes out, so each must still be a regular file holding
+  // exactly what this import staged before it is installed.
+  for (const { file, temporary } of staged) {
+    const change = changedFrom(temporary, file.content);
+    if (change !== null) stale.push(`${file.path}: its staged copy ${change} before it was installed`);
+  }
   if (stale.length > 0) {
     const leftovers = discardStaged(0);
+    const directories = unmake();
     throw new ScreenImportError(
       "The screen catalog changed after the import read it, so nothing was written. Run the import again.",
-      [...stale, ...leftovers.map((leftover) => `staged file left behind: ${leftover}`)]
+      [
+        ...stale,
+        ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+        ...directories.map((directory) => `directory left behind: ${directory}`),
+      ]
     );
   }
 
@@ -821,6 +929,15 @@ export function applyScreenImport(
     try {
       fileSystem.renameSync(temporary, file.absolutePath);
       replaced.push(file);
+      // Renamed by path, so what landed is checked against the plan: a staged
+      // copy changed between the check above and the rename is caught here.
+      // Whether that content came through the rename or from a writer just
+      // after it cannot be told apart, so the rollback below leaves it in
+      // place and names it, as it does any file changed since it was written.
+      const installed = changedFrom(file.absolutePath, file.content);
+      if (installed !== null) {
+        throw new Error(`the installed file ${installed} on its way in`);
+      }
     } catch (error) {
       // Restore first, then clean up, so a cleanup failure cannot prevent it.
       const unrestored: string[] = [];
@@ -837,14 +954,35 @@ export function applyScreenImport(
             fileSystem.rmSync(done.absolutePath, { force: true });
           } else {
             const restore = `${done.absolutePath}.${process.pid}.restore`;
-            fileSystem.createFileSync(restore, done.original);
-            fileSystem.renameSync(restore, done.absolutePath);
+            // A copy that cannot be filled is removed by the creation itself.
+            const restoreFile = fileSystem.createFileSync(restore, done.original);
+            try {
+              fileSystem.renameSync(restore, done.absolutePath);
+            } catch (renameError) {
+              // The restore copy is this rollback's own: it must not stay as
+              // a stray entry in the catalog directory. One that is no longer
+              // the file created there is not ours to remove.
+              const current = lstatSync(restore, { throwIfNoEntry: false });
+              if (current !== undefined && !isSameFile(current, restoreFile)) {
+                unrestored.push(`${restore} (restore copy is no longer the file created there; left as it is)`);
+              } else if (current !== undefined) {
+                try {
+                  fileSystem.rmSync(restore, { force: true });
+                } catch (cleanupError) {
+                  unrestored.push(`${restore} (restore copy left behind: ${message(cleanupError)})`);
+                }
+              }
+              throw renameError;
+            }
           }
         } catch (restoreError) {
           unrestored.push(`${done.path} (${message(restoreError)})`);
         }
       }
       const leftovers = discardStaged(index);
+      // Directories made for created files are empty again once those files
+      // are removed; ones still holding something stay, and are named.
+      const directories = unrestored.length === 0 ? unmake() : [];
       throw new ScreenImportError(
         unrestored.length === 0
           ? `Writing '${file.path}' failed (${message(error)}); the ${replaced.length} file(s) already written were restored, so the catalog is unchanged.`
@@ -852,6 +990,7 @@ export function applyScreenImport(
         [
           ...unrestored,
           ...leftovers.map((leftover) => `staged file left behind: ${leftover}`),
+          ...directories.map((directory) => `directory left behind: ${directory}`),
         ]
       );
     }
@@ -885,9 +1024,27 @@ export function createCaptureDigester(
     totalBytes: SCREEN_IMPORT_LIMITS.captureTotalBytes,
   }
 ): CaptureDigester {
-  const realCaptures = existsSync(settings.capturesDirectory)
-    ? realpathSync(settings.capturesDirectory)
-    : null;
+  // Resolved on first use, so an import that names no screenshots never
+  // touches the captures directory. Only a missing path means "no capture";
+  // any other failure to resolve one is an error, never a silent "missing",
+  // which would keep a stale reviewed digest unremarked.
+  let realCaptures: string | null | undefined;
+  const capturesRoot = (): string | null => {
+    if (realCaptures === undefined) {
+      try {
+        realCaptures = realPathIfPresent(settings.capturesDirectory);
+      } catch (error) {
+        throw new ScreenImportError(
+          `The captures directory '${settings.capturesPath}' cannot be read: ${message(error)}`
+        );
+      }
+      // Containment is judged against the directory the settings validated.
+      if (realCaptures !== null && realCaptures !== settings.realCapturesDirectory) {
+        throw capturesMoved(settings, realCaptures);
+      }
+    }
+    return realCaptures;
+  };
   const digests = new Map<string, string>();
   const missing: string[] = [];
   let computed = 0;
@@ -895,12 +1052,22 @@ export function createCaptureDigester(
   return {
     digest(path, key) {
       const target = resolve(settings.capturesDirectory, path);
-      if (!realCaptures || !existsSync(target)) {
+      const root = capturesRoot();
+      let real: string | null = null;
+      if (root !== null) {
+        try {
+          real = realPathIfPresent(target);
+        } catch (error) {
+          throw new ScreenImportError(
+            `Screenshot '${path}' for screen '${key}' cannot be read: ${message(error)}`
+          );
+        }
+      }
+      if (root === null || real === null) {
         missing.push(key);
         return undefined;
       }
-      const real = realpathSync(target);
-      if (!withinRepository(realCaptures, real)) {
+      if (!withinRepository(root, real)) {
         throw new ScreenImportError(
           `Screenshot '${path}' for screen '${key}' resolves outside the captures directory '${settings.capturesPath}'.`
         );
@@ -910,14 +1077,17 @@ export function createCaptureDigester(
         // The read itself is bounded by what is left of the total, so a file
         // that would cross it is refused from its size, not read first.
         const remaining = limits.totalBytes - bytesRead;
-        const bytes = readBoundedFile(
-          target,
-          Math.min(limits.fileBytes, remaining),
-          "screenshot",
-          remaining < limits.fileBytes
-            ? `The screenshots this import references exceed the ${limits.totalBytes}-byte total it may read; import in smaller batches.`
-            : undefined
-        );
+        // The validated real path is what is read, and the opened file must
+        // still be it, so a link swapped in after the containment check
+        // cannot redirect the read outside the captures directory.
+        const bytes = readBoundedFile(real, Math.min(limits.fileBytes, remaining), "screenshot", {
+          ...(remaining < limits.fileBytes
+            ? {
+                tooLargeMessage: `The screenshots this import references exceed the ${limits.totalBytes}-byte total it may read; import in smaller batches.`,
+              }
+            : {}),
+          verify: (opened) => isStillFile(real, opened),
+        });
         bytesRead += bytes.length;
         sha256 = createHash("sha256").update(bytes).digest("hex");
         digests.set(real, sha256);
@@ -953,29 +1123,31 @@ export const SCREEN_IMPORT_LOCK = "screens-import.lock";
  */
 export function withScreenImportLock<T>(
   repositoryRoot: string,
+  settings: ScreenSettings,
   work: () => T,
   workspaceDirectory = resolve(repositoryRoot, ".tieline")
 ): T {
-  const lockPath = resolve(workspaceDirectory, SCREEN_IMPORT_LOCK);
-  const shown = relative(resolve(repositoryRoot), lockPath).split(sep).join("/");
-  try {
-    // Exclusive creation never follows a link planted at the path.
-    writeFileSync(
-      lockPath,
-      `${JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() })}\n`,
-      { flag: "wx" }
+  // Created in the workspace where the settings validated it, through the
+  // same anchored creation as the captures .gitignore, so a workspace swapped
+  // for a link since cannot receive it.
+  const lockPath = resolve(settings.realWorkspaceDirectory, SCREEN_IMPORT_LOCK);
+  const shown = relative(resolve(repositoryRoot), resolve(workspaceDirectory, SCREEN_IMPORT_LOCK))
+    .split(sep)
+    .join("/");
+  const lock = createInValidatedDirectory(
+    settings.realWorkspaceDirectory,
+    SCREEN_IMPORT_LOCK,
+    `${JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() })}\n`
+  );
+  if (lock.status === "exists") {
+    throw new ScreenImportError(
+      `Another screen import is in progress: '${shown}' exists. If no import is running (one may have been interrupted), delete that file and import again.`
     );
-  } catch (error) {
-    if (alreadyExists(error)) {
-      throw new ScreenImportError(
-        `Another screen import is in progress: '${shown}' exists. If no import is running (one may have been interrupted), delete that file and import again.`
-      );
-    }
-    throw error;
   }
+  // Only the lock this import created is removed, wherever the path leads now.
   const release = (): string | null => {
     try {
-      rmSync(lockPath, { force: true });
+      removeIfSameFile(lockPath, lock.file);
       return null;
     } catch (error) {
       return message(error);
@@ -1051,13 +1223,34 @@ export function ensureCapturesIgnored(
   settings: ScreenSettings,
   workspaceDirectory = resolve(repositoryRoot, ".tieline")
 ): CapturesIgnoreStatus {
+  return prepareCapturesIgnore(repositoryRoot, settings, workspaceDirectory).status;
+}
+
+/**
+ * `ensureCapturesIgnored`, also able to undo what it created — the ignore
+ * file and any directories made for it — when the import it prepares for is
+ * refused, so a refused import leaves nothing behind.
+ */
+export function prepareCapturesIgnore(
+  repositoryRoot: string,
+  settings: ScreenSettings,
+  workspaceDirectory = resolve(repositoryRoot, ".tieline"),
+  /** Writes the ignore file's content; injectable so tests can make it fail. */
+  write?: (descriptor: number, content: string) => void
+): { status: CapturesIgnoreStatus; undo: () => string[] } {
+  const nothing = (status: CapturesIgnoreStatus) => ({ status, undo: (): string[] => [] });
   // Judged, and written, where the directory really resolves: a captures path
   // under `.tieline/` that links to, say, `src/` must not get a match-all
-  // ignore file that would hide new source files from Git.
+  // ignore file that would hide new source files from Git. And only where it
+  // resolved when the settings validated it: a link swapped in since, even to
+  // another directory inside `.tieline/` such as the spec, is refused.
   const directory = realDestination(settings.capturesDirectory);
+  if (directory !== settings.realCapturesDirectory) {
+    throw capturesMoved(settings, directory);
+  }
   const workspace = realDestination(workspaceDirectory);
   if (directory === workspace || !withinRepository(workspace, directory)) {
-    return "not_managed";
+    return nothing("not_managed");
   }
   const ignorePath = resolve(directory, ".gitignore");
   // Inspect the path itself, not what it points at: a symbolic link here, even
@@ -1070,24 +1263,223 @@ export function ensureCapturesIgnored(
     existing = undefined;
   }
   if (existing) {
-    if (!existing.isFile()) return "unverified";
+    if (!existing.isFile()) return nothing("unverified");
     let content: Buffer;
     try {
-      content = readBoundedFile(ignorePath, CAPTURES_GITIGNORE_MAX_BYTES, "captures .gitignore");
+      // The file read must be the regular file inspected above: Git ignores
+      // a `.gitignore` that is a link, so one swapped in since must not pass.
+      const inspected = existing;
+      content = readBoundedFile(ignorePath, CAPTURES_GITIGNORE_MAX_BYTES, "captures .gitignore", {
+        verify: (opened) => isSameFile(opened, inspected),
+      });
     } catch (error) {
       // Unreadable or oversized: reported as unverified rather than trusted.
-      if (error instanceof ScreenImportError) return "unverified";
+      if (error instanceof ScreenImportError) return nothing("unverified");
       throw error;
     }
-    return gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified";
+    return nothing(gitignoreIgnoresEverything(content.toString("utf8")) ? "exists" : "unverified");
   }
-  mkdirSync(directory, { recursive: true });
+  const madeDirectories = recordMadeDirectories(directory, mkdirSync(directory, { recursive: true }));
+  let created: ReturnType<typeof createInValidatedDirectory>;
   try {
-    // Exclusive creation never follows a link that appears in the meantime.
-    writeFileSync(ignorePath, CAPTURES_GITIGNORE, { flag: "wx" });
+    created = createInValidatedDirectory(directory, ".gitignore", CAPTURES_GITIGNORE, write);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code === "EEXIST") return "unverified";
+    // The directories just made for the file go with it, or a captures
+    // directory inside the catalog could keep the catalog over its bound.
+    const leftovers = removeMadeDirectories(madeDirectories);
+    if (leftovers.length === 0) throw error;
+    const combined = new ScreenImportError(
+      message(error),
+      leftovers.map((leftover) => `left behind by the captures ignore step: ${leftover}`)
+    );
+    combined.cause = error;
+    throw combined;
+  }
+  if (created.status === "exists") return nothing("unverified");
+  const file = created.file;
+  return {
+    status: "created",
+    undo: () => {
+      const leftovers: string[] = [];
+      try {
+        removeIfSameFile(ignorePath, file);
+      } catch (error) {
+        leftovers.push(`${ignorePath} (${message(error)})`);
+      }
+      leftovers.push(...removeMadeDirectories(madeDirectories));
+      return leftovers;
+    },
+  };
+}
+
+/** A directory this process made, with the identity it had when made. */
+interface MadeDirectory {
+  path: string;
+  identity: Stats;
+}
+
+/**
+ * The directories `mkdirSync(directory, { recursive: true })` made, deepest
+ * first up to `firstMade`, each with its identity, recorded as soon as they
+ * exist.
+ */
+function recordMadeDirectories(directory: string, firstMade: string | undefined): MadeDirectory[] {
+  if (firstMade === undefined) return [];
+  const made: MadeDirectory[] = [];
+  for (let current = directory; ; current = dirname(current)) {
+    const identity = lstatSync(current, { throwIfNoEntry: false });
+    if (identity) made.push({ path: current, identity });
+    if (current === resolve(firstMade) || dirname(current) === current) return made;
+  }
+}
+
+/**
+ * Removes the directories this process made, deepest first, each only while
+ * its path still names the directory made there: one renamed away and
+ * replaced, or reached through an ancestor swapped for a link, is someone
+ * else's. One no longer empty stays too. What stays is named.
+ */
+function removeMadeDirectories(made: readonly MadeDirectory[]): string[] {
+  for (const { path, identity } of made) {
+    try {
+      const current = lstatSync(path, { throwIfNoEntry: false });
+      if (current === undefined) continue;
+      if (!isSameFile(current, identity)) {
+        return [`${path} (no longer the directory made there; left as it is)`];
+      }
+      rmdirSync(path);
+    } catch (error) {
+      return [`${path} (${message(error)})`];
+    }
+  }
+  return [];
+}
+
+/**
+ * Writes a planned import: the captures ignore file first, so that if it
+ * cannot be made nothing has been written, then the catalog. If the catalog
+ * is refused, what the ignore step created is undone too — notably a new
+ * captures directory inside the catalog, which would count against the
+ * catalog's entry bound and leave it unreadable.
+ */
+export function writeScreenImport(
+  repositoryRoot: string,
+  settings: ScreenSettings,
+  plan: ScreenImportPlan,
+  fileSystem: ScreenImportFileSystem = NODE_FILE_SYSTEM
+): CapturesIgnoreStatus {
+  const ignore = prepareCapturesIgnore(repositoryRoot, settings);
+  try {
+    applyScreenImport(plan, fileSystem);
+  } catch (error) {
+    const leftovers = ignore.undo();
+    if (leftovers.length === 0) throw error;
+    const combined = new ScreenImportError(
+      message(error),
+      leftovers.map((leftover) => `left behind by the captures ignore step: ${leftover}`)
+    );
+    combined.cause = error;
+    throw combined;
+  }
+  return ignore.status;
+}
+
+/**
+ * Creates `path` exclusively (never through a link at the path) and writes
+ * `content` through the descriptor it opened. If the write fails, the file
+ * is removed while the path still names it, so nothing partial stays.
+ */
+export function createExclusiveFile(
+  path: string,
+  content: string,
+  /** Writes the content; injectable so tests can make it fail. */
+  write: (descriptor: number, content: string) => void = (descriptor, text) =>
+    writeFileSync(descriptor, text)
+): Stats {
+  const descriptor = openSync(path, "wx");
+  let created: Stats;
+  try {
+    created = fstatSync(descriptor);
+    try {
+      write(descriptor, content);
+    } catch (error) {
+      try {
+        removeIfSameFile(path, created);
+      } catch (cleanupError) {
+        throw new ScreenImportError(
+          `Writing '${path}' failed (${message(error)}), and the partial file could not be removed (${message(cleanupError)}); delete it.`
+        );
+      }
+      throw error;
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return created;
+}
+
+/**
+ * Creates `name` in `directory`, a validated real path, so that its content
+ * can only ever land there. The file is created exclusively (never through a
+ * link at its own path) and empty; only once it is confirmed to sit in
+ * `directory` is the content written, through the same descriptor, which no
+ * later swap of a parent directory can redirect. If a parent was swapped
+ * before the file was created, the empty file is removed from wherever it
+ * landed and the creation is refused. `exists`: something is already there.
+ */
+export function createInValidatedDirectory(
+  directory: string,
+  name: string,
+  content: string,
+  /** Writes the content; injectable so tests can make it fail. */
+  write: (descriptor: number, content: string) => void = (descriptor, text) =>
+    writeFileSync(descriptor, text)
+): { status: "created"; file: Stats } | { status: "exists" } {
+  const path = resolve(directory, name);
+  let descriptor: number;
+  try {
+    descriptor = openSync(path, "wx");
+  } catch (error) {
+    if (alreadyExists(error)) return { status: "exists" };
     throw error;
   }
-  return "created";
+  let created: Stats;
+  try {
+    created = fstatSync(descriptor);
+    let landed: boolean;
+    try {
+      landed = realPathIfPresent(dirname(path)) === directory && isSameFile(statSync(path), created);
+    } catch {
+      landed = false;
+    }
+    if (!landed) {
+      removeIfSameFile(path, created);
+      throw new ScreenImportError(
+        `'${directory}' changed while '${name}' was being created in it, so nothing was written there. Import again.`
+      );
+    }
+    try {
+      write(descriptor, content);
+    } catch (error) {
+      // An empty or partial file must not stay: a stale lock would block every
+      // later import, and a partial ignore file would never be repaired.
+      try {
+        removeIfSameFile(path, created);
+      } catch (cleanupError) {
+        throw new ScreenImportError(
+          `Writing '${name}' in '${directory}' failed (${message(error)}), and the partial file could not be removed (${message(cleanupError)}); delete it.`
+        );
+      }
+      throw error;
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return { status: "created", file: created };
+}
+
+/** Removes `path` only if it is still the file this process created. */
+function removeIfSameFile(path: string, created: Stats): void {
+  const current = lstatSync(path, { throwIfNoEntry: false });
+  if (current && isSameFile(current, created)) rmSync(path, { force: true });
 }

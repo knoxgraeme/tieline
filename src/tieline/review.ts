@@ -17,6 +17,7 @@ import {
 } from "../contract/screen-review-page.js";
 import type { ValidatedScreenCatalog } from "../contract/screen-catalog.js";
 import type { ReviewComparison } from "../contract/review-changes.js";
+import { screenSettingsForRepository } from "../contract/screen-catalog.js";
 import { ContractValidationError } from "../contract/validate.js";
 import { ONBOARDING_AGENT_INSTRUCTION } from "./status.js";
 
@@ -119,6 +120,9 @@ function loadReviewInputs(
   specDirectory: string,
   screensFor: (catalog: ValidatedScreenCatalog, capturesDirectory: string) => ContractReviewScreens
 ): ReviewInputs {
+  // An invalid screens layout is refused before the preflight walks the spec
+  // directory, which a refused layout could fill with screenshots.
+  screenSettingsForRepository(root, { specDirectory });
   if (!hasAcceptedContractSources(root, specDirectory)) return { documents: [], warnings: [] };
   try {
     const loaded = loadAcceptedContractWithSources(root, specDirectory);

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, posix, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
 import { PostgresSemanticRepository } from "../adapters/postgres/semantic-repository.js";
@@ -119,6 +119,8 @@ interface ParsedContractCommand {
   commit?: string;
   outputPath: string;
   manifestPath: string;
+  /** The workspace configuration file, when there is a workspace. */
+  configPath?: string;
   specDirectory: string;
   sourceRoots: string[];
   ignore: string[];
@@ -181,6 +183,7 @@ function resolveContractCommand(
     // manifest is still the default directory, never the page.
     manifestPath:
       workspace?.manifestPath ?? (action === "review" ? manifestPath : resolvedOutput),
+    ...(workspace ? { configPath: workspace.configPath } : {}),
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
@@ -235,10 +238,11 @@ async function runGrade(
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
+    // Read where the base kept it, which a branch may have moved.
     baseManifest: manifestAtBase(
       parsed.repositoryRoot,
       comparison.commit,
-      parsed.manifestPath
+      manifestPathAtCommit(parsed, comparison.commit)
     ),
     changes: changesSince(parsed.repositoryRoot, comparison.commit),
     sourceRoots: parsed.sourceRoots,
@@ -288,41 +292,195 @@ async function runGrade(
  * manifest configured elsewhere is refused: treating it as absent would grade
  * the whole contract as newly claimed, which is a fabricated scope.
  */
-function manifestAtBase(
+/**
+ * The most a base revision's workspace configuration may be: a real one is a
+ * few kilobytes, and it is checked before Git is asked for it.
+ */
+const BASE_CONFIG_BYTES = 4 * 1024 * 1024;
+/** The most a base manifest directory listing may take: about 600,000 entries. */
+const MANIFEST_LISTING_BYTES = 64 * 1024 * 1024;
+/**
+ * The most a base manifest may hold in all, read into memory at once: far
+ * past any real contract, and checked from the listing before Git is asked
+ * for a byte, so a pathological base is refused rather than exhausting memory.
+ */
+const MANIFEST_SNAPSHOT_BYTES = 256 * 1024 * 1024;
+
+/** @internal Exported for tests, which pass a small `maxBytes`. */
+export function manifestAtBase(
   repositoryRoot: string,
   base: string,
-  manifestPath: string
+  manifestPath: string,
+  maxBytes = MANIFEST_SNAPSHOT_BYTES
 ): ContractManifest | null {
-  const directory = relative(resolve(repositoryRoot), resolve(manifestPath))
-    .split(sep)
-    .join("/");
-  if (
-    directory === ".." ||
-    directory.startsWith("../") ||
-    isAbsolute(directory)
-  ) {
+  // Paths are taken from Git's worktree root, not `repository.root`: with a
+  // nested root the workspace, and so the manifest, sits above it, yet is
+  // still in the repository that `base` belongs to.
+  const worktree = gitWorktree(repositoryRoot);
+  const directory = worktreePath(worktree, repositoryRoot, manifestPath);
+  if (directory === null) {
     throw new Error(
       `Cannot derive claim-side grading scope: the manifest at '${manifestPath}' is outside the repository, so '${base}' cannot hold a version of it.`
     );
   }
-  const names = execFileSync(
-    "git",
-    ["ls-tree", "-r", "--name-only", base, "--", directory],
-    { cwd: repositoryRoot, encoding: "utf8" }
-  )
-    .split("\n")
-    .filter(Boolean);
-  if (names.length === 0) return null;
+  // Only what the working-tree reader takes: the directory's own regular
+  // `.json` files. Not subdirectories, links, or other files.
+  let listing: string;
+  try {
+    listing = execFileSync("git", ["ls-tree", "-l", "-z", base, "--", `${directory}/`], {
+      cwd: worktree.root,
+      encoding: "utf8",
+      // Metadata only, about 100 bytes an entry; far past any real manifest.
+      maxBuffer: MANIFEST_LISTING_BYTES,
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === "ENOBUFS") {
+      throw new Error(
+        `The manifest directory '${directory}' at '${base}' lists more than ${MANIFEST_LISTING_BYTES} bytes of entries, so it is not read.`
+      );
+    }
+    throw error;
+  }
+  const files = listing
+    .split("\0")
+    .filter(Boolean)
+    .flatMap((entry) => {
+      const match = /^(\d+) (\w+) ([0-9a-f]+) +(\d+)\t(.+)$/s.exec(entry);
+      if (!match) return [];
+      const [, mode = "", type = "", object = "", size = "0", path = ""] = match;
+      return type === "blob" && (mode === "100644" || mode === "100755") && path.endsWith(".json")
+        ? [{ path, object, size: Number(size) }]
+        : [];
+    });
+  if (files.length === 0) return null;
+  const totalBytes = files.reduce((total, file) => total + file.size, 0);
+  if (totalBytes > maxBytes) {
+    throw new Error(
+      `The manifest at '${directory}' in '${base}' holds ${totalBytes} bytes; more than the ${maxBytes} a base manifest may hold, so it is not read.`
+    );
+  }
+  const contents = readBlobs(worktree.root, files);
   return parseContractManifestSnapshot(
-    names.map((name) => ({
-      name: name.slice(`${directory}/`.length),
-      content: execFileSync("git", ["show", `${base}:${name}`], {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-      }),
+    files.map(({ path }, index) => ({
+      name: path.slice(`${directory}/`.length),
+      content: contents[index] ?? "",
     })),
     `ref '${base}'`
   );
+}
+
+/**
+ * Reads blobs through one `git cat-file --batch`, however many there are,
+ * rather than a process each. The output is exactly each blob behind a
+ * header naming its id, type, and size, so its buffer is the sizes the
+ * listing reported plus those headers: nothing past what the base holds.
+ */
+function readBlobs(
+  worktree: string,
+  blobs: ReadonlyArray<{ object: string; size: number }>
+): string[] {
+  const headerBytes = (blob: { object: string; size: number }) =>
+    `${blob.object} blob ${blob.size}\n`.length + 1;
+  const output = execFileSync("git", ["cat-file", "--batch"], {
+    cwd: worktree,
+    input: `${blobs.map((blob) => blob.object).join("\n")}\n`,
+    maxBuffer: blobs.reduce((total, blob) => total + blob.size + headerBytes(blob), 0) + 1,
+  });
+  const contents: string[] = [];
+  let offset = 0;
+  for (const blob of blobs) {
+    const headerEnd = output.indexOf(0x0a, offset);
+    const header = output.subarray(offset, headerEnd).toString("utf8");
+    const [object, type, size] = header.split(" ");
+    if (object !== blob.object || type !== "blob" || Number(size) !== blob.size) {
+      throw new Error(`git cat-file returned '${header}' for blob ${blob.object}.`);
+    }
+    const start = headerEnd + 1;
+    contents.push(output.subarray(start, start + blob.size).toString("utf8"));
+    offset = start + blob.size + 1;
+  }
+  return contents;
+}
+
+/**
+ * Where `repositoryRoot` sits in its Git worktree: the worktree's root, to
+ * run Git from, and the root's own path within it (Git's prefix).
+ */
+function gitWorktree(repositoryRoot: string): { root: string; prefix: string } {
+  const [root = "", prefix = ""] = execFileSync(
+    "git",
+    ["rev-parse", "--show-toplevel", "--show-prefix"],
+    { cwd: repositoryRoot, encoding: "utf8" }
+  ).split("\n");
+  return { root, prefix };
+}
+
+/**
+ * `path` as a `<commit>:<path>` object name takes it: relative to the
+ * worktree root, `/`-separated, or null when outside the worktree. Derived
+ * from the configured path as written, never through the current file
+ * system, since what a link points at now says nothing about the base.
+ */
+function worktreePath(
+  worktree: { prefix: string },
+  repositoryRoot: string,
+  path: string
+): string | null {
+  const fromRoot = relative(resolve(repositoryRoot), resolve(path)).split(sep).join("/");
+  const relativePath = posix.normalize(posix.join(worktree.prefix || ".", fromRoot));
+  return relativePath === ".." || relativePath.startsWith("../") || posix.isAbsolute(relativePath)
+    ? null
+    : relativePath;
+}
+
+/**
+ * Where the manifest lived at `commit`: that revision's own configured
+ * `files.manifest`, so a branch that moved the manifest still compares with
+ * the base's. A commit without a usable workspace configuration there (none,
+ * one that does not parse, or one naming no manifest) kept it where Tieline
+ * does by default, `.tieline/manifest`.
+ */
+function manifestPathAtCommit(parsed: ParsedContractCommand, commit: string): string {
+  if (parsed.configPath === undefined) return parsed.manifestPath;
+  const defaultPath = resolve(parsed.repositoryRoot, ".tieline/manifest");
+  const worktree = gitWorktree(parsed.repositoryRoot);
+  const configPath = worktreePath(worktree, parsed.repositoryRoot, parsed.configPath);
+  if (configPath === null) return parsed.manifestPath;
+  const object = `${commit}:${configPath}`;
+  let size: number;
+  try {
+    size = Number(
+      execFileSync("git", ["cat-file", "-s", object], {
+        cwd: worktree.root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim()
+    );
+  } catch {
+    // Not in that commit: the base predates this workspace configuration.
+    return defaultPath;
+  }
+  if (size > BASE_CONFIG_BYTES) {
+    throw new Error(
+      `The workspace configuration '${configPath}' at '${commit}' is ${size} bytes; more than the ${BASE_CONFIG_BYTES} a configuration may be, so it is not read.`
+    );
+  }
+  const text = execFileSync("git", ["show", object], {
+    cwd: worktree.root,
+    encoding: "utf8",
+    // Exactly the blob's size, whatever the configuration holds.
+    maxBuffer: size + 1,
+  });
+  let config: unknown;
+  try {
+    config = JSON.parse(text);
+  } catch {
+    return defaultPath;
+  }
+  const manifest = (config as { files?: { manifest?: unknown } } | null)?.files?.manifest;
+  return typeof manifest === "string" && manifest.length > 0
+    ? resolve(dirname(parsed.configPath), manifest)
+    : defaultPath;
 }
 
 /**
@@ -340,10 +498,11 @@ function reviewChangesAgainstBase(
   // whatever state the working tree is in. The manifest is read where this
   // branch left the base, so work that reached the base afterwards is not
   // shown as this branch's changes.
+  const commit = resolveComparisonBase(parsed.repositoryRoot, base).commit;
   const baseManifest = manifestAtBase(
     parsed.repositoryRoot,
-    resolveComparisonBase(parsed.repositoryRoot, base).commit,
-    parsed.manifestPath
+    commit,
+    manifestPathAtCommit(parsed, commit)
   );
   let current: ContractManifest;
   try {

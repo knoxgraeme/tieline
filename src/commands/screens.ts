@@ -18,15 +18,14 @@ import {
 } from "../contract/screen-generated-scenes.js";
 import { scanScreenScenes } from "../contract/screen-scenes.js";
 import {
-  applyScreenImport,
   createCaptureDigester,
-  ensureCapturesIgnored,
   parseScreenImport,
   planScreenImport,
   readBoundedFile,
   readScreenImportFile,
   ScreenImportError,
   withScreenImportLock,
+  writeScreenImport,
   type CapturesIgnoreStatus,
   type CurrentScreenCatalogFile,
   type ScreenImportPlan,
@@ -65,7 +64,7 @@ export async function runScreensImportCommand(
   io: CommandIO
 ): Promise<number> {
   const { root, specDirectory } = resolveCommandContext(options);
-  const settings = screenSettingsForRepository(root);
+  const settings = screenSettingsForRepository(root, { specDirectory });
   if (!settings) throw new Error(NOT_ENABLED);
 
   const inputPath = resolve(file);
@@ -107,12 +106,9 @@ export async function runScreensImportCommand(
   // the catalog to replacing it, so imports never interleave.
   const { plan, capturesIgnore } = dryRun
     ? { plan: planAgainstCatalog(), capturesIgnore: "dry_run" as const }
-    : withScreenImportLock(root, () => {
+    : withScreenImportLock(root, settings, () => {
         const planned = planAgainstCatalog();
-        // The ignore file comes first: if it cannot be made, nothing has been
-        // written, rather than reporting failure after the catalog changed.
-        const ignore: CapturesIgnoreStatus = ensureCapturesIgnored(root, settings);
-        applyScreenImport(planned);
+        const ignore: CapturesIgnoreStatus = writeScreenImport(root, settings, planned);
         return { plan: planned, capturesIgnore: ignore };
       });
 

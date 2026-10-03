@@ -12,6 +12,7 @@ import {
 } from "../playwright/protocol.cjs";
 import { withinRepository } from "./paths.js";
 import {
+  realDestination,
   repositoryFilePathProblem,
   SCREEN_LIMITS,
   validateScreenCatalogDocuments,
@@ -527,6 +528,7 @@ export function planCaptureOutputs(input: {
         status: "unchanged",
         content: source.content,
         original: source.content,
+        realParent: dirname(source.realPath),
       });
       return { source, content: source.content };
     }
@@ -554,6 +556,7 @@ export function planCaptureOutputs(input: {
       status: content === source.content ? "unchanged" : "updated",
       content,
       original: source.content,
+      realParent: dirname(source.realPath),
     });
     return { source, content };
   });
@@ -599,6 +602,7 @@ export function planCaptureOutputs(input: {
           status: original === null ? "created" : "updated",
           content: fresh.text,
           original,
+          realParent: realDestination(dirname(file.absolutePath)),
         };
       }),
     orphanedText: [...input.text.digests.keys()]

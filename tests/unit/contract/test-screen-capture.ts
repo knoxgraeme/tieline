@@ -43,6 +43,7 @@ import {
   validateScreenCatalogDocuments,
   type ScreenEntry,
 } from "../../../src/contract/screen-catalog.js";
+import { NODE_FILE_SYSTEM } from "../../../src/contract/screen-import.js";
 import { readScreenTextDirectory, screenTextDigest } from "../../../src/contract/screen-text.js";
 import {
   RUN_DIRECTORY_ENV,
@@ -458,13 +459,11 @@ await test("restores every committed output when writing the catalog fails part-
     [".tieline/screen-text/notes-share-denied.yml", "updated"],
   ]);
   const failing = {
-    mkdirSync: (path: string, options: { recursive: true }) => void mkdirSync(path, options),
-    createFileSync: (path: string, content: string) => writeFileSync(path, content, { flag: "wx" }),
+    ...NODE_FILE_SYSTEM,
     renameSync: (from: string, to: string) => {
       if (to.endsWith("SHARING.yaml")) throw new Error("disk full");
       renameSync(from, to);
     },
-    rmSync: (path: string, options: { force: true }) => rmSync(path, options),
   };
   assert.throws(
     () => applyCaptureOutputs(ws.root, settings, plan, failing),

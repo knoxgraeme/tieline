@@ -173,7 +173,7 @@ try {
   });
 
   await test("keeps change tags visible at every zoom and says why a thumbnail has no image", async () => {
-    const page = await open("#screens");
+    const page = await open("#view/screens");
     const list = page.locator('.screen-card[data-key="notes-list"]');
     for (const key of ["-", "+", "+", "+"]) {
       await page.keyboard.press(key);
@@ -193,7 +193,7 @@ try {
   });
 
   await test("filters the Screens view to what changed and opens the first screen from the keyboard", async () => {
-    const page = await open("#screens");
+    const page = await open("#view/screens");
     assert.equal(await page.textContent("#screen-visible-count"), "");
     assert.equal(await page.locator("#screen-clear-filters").isHidden(), true);
     const toggle = page.locator("#screen-change-toggle");

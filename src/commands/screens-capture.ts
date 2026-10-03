@@ -680,7 +680,7 @@ export async function runScreensCaptureCommand(
     // With hosted screens on, the screenshots verified exactly stay in the
     // git-ignored captures directory, so the same job can publish them.
     const keptScreenshots = settings.hosted
-      ? withScreenImportLock(root, () => keepVerifiedScreenshots(root, settings, catalog, captured.captured)).kept
+      ? withScreenImportLock(root, settings, () => keepVerifiedScreenshots(root, settings, catalog, captured.captured)).kept
       : null;
     const mismatches = [
       ...verifyCapturedScreens({ catalog, text, captured: captured.captured }),
@@ -753,7 +753,7 @@ export async function runScreensCaptureCommand(
   // The catalog and snapshots are read again under the import lock, since an
   // import or an edit may have changed them while Playwright ran; the writer
   // then refuses to replace anything that changed after this read.
-  const { plan, ignore } = withScreenImportLock(root, () => {
+  const { plan, ignore } = withScreenImportLock(root, settings, () => {
     const current = loadCaptureCatalog(root, specDirectory, settings);
     const plan = planCaptureOutputs({
       repositoryRoot: root,

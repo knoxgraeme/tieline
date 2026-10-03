@@ -185,7 +185,7 @@ function checkScreens(
   manifest: ContractManifest,
   audited: { contract: ScreenAuditContract; added: ReadonlySet<string> }
 ): { check: ScreenCheck; warnings: string[] } | null {
-  const settings = screenSettingsForRepository(root);
+  const settings = screenSettingsForRepository(root, { specDirectory });
   if (!settings) {
     // A repository that never enabled screens has no screen data in its
     // manifest, so this stays null and check is unchanged for it.
@@ -555,7 +555,7 @@ export async function runCheckCommand(
       : { manifest: null, detail: `the working-tree contract does not compile: ${manifestCompileError ?? "unknown error"}` },
     // New files a developer has not added to git yet count as added here, so
     // a page file created locally is named before it is committed.
-    added: screenSettingsForRepository(root)
+    added: screenSettingsForRepository(root, { specDirectory })
       ? new Set(
           workingTreeChangesSince(root, comparison.commit).flatMap((change) =>
             change.status === "added" || change.status === "renamed" ? [change.path] : []

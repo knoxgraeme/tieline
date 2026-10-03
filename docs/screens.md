@@ -30,7 +30,7 @@ Add a `screens` block to `.tieline/config.json`:
 | --- | --- | --- |
 | `enabled` | required | `true` turns the feature on. `false`, or no block at all, leaves it off. |
 | `catalog_directory` | `"screens"` | Reviewed catalog YAML, relative to `.tieline/`. Must stay inside `.tieline/`, outside the captures directory (which is git-ignored), and neither inside nor around `files.spec_directory`, since every YAML file in either directory is read as that directory's kind of document. |
-| `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored. |
+| `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored, and not inside the spec directory, whose every YAML file is read as a contract document. |
 | `text_directory` | `"screen-text"` | Committed ARIA snapshots, relative to `.tieline/`. Must stay inside `.tieline/`, judged by where symbolic links really lead, apart from the catalog and the spec directory and outside the git-ignored captures directory. |
 | `capture.tests` | Playwright naming | Path patterns (`*` within a segment, `**` across) for the test files whose `@screen:<key>` tags link screens to the tests that capture them. When omitted, files named `*.spec.*`, `*.test.*`, or `*.screens.*` with a JavaScript or TypeScript extension are read. |
 | `capture.global_paths` | none | Path patterns for files whose change may affect every screen (themes, layouts, global styles, translations). A branch that changes one selects every screen for capture. |
@@ -86,8 +86,9 @@ Validation also rejects duplicate screen keys anywhere in the catalog, two catal
 capability, a catalog for a capability the spec does not declare, catalog files larger than
 4 MiB, and more than 10,000 screens in total. The catalog directory is walked with bounds — 8
 levels deep, 10,000 entries, 1,000 YAML files, 64 MiB — and symbolic links are judged by where they
-really lead. The byte bounds apply to what is actually read, so a file that grows while the catalog
-is read cannot exceed them. Unknown fields are errors.
+really lead. Catalog files themselves must be regular files: a link or special file with a `.yaml`
+or `.yml` name is an error, never skipped. The byte bounds apply to what is actually read, so a
+file that grows while the catalog is read cannot exceed them. Unknown fields are errors.
 
 ### Image locators
 

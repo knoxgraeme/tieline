@@ -10,7 +10,7 @@ import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { z, type ZodIssue } from "zod";
 import { readScreensConfig, type ScreensHostedConfig } from "../config.js";
-import { readFileWithin, type BoundedRead } from "./bounded-read.js";
+import { isStillFile, readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { applicabilitySchema, stableKeySchema } from "./schema.js";
 
@@ -345,6 +345,21 @@ export type ScreenCatalogDocument = z.infer<typeof screenCatalogDocumentSchema>;
 export interface ScreenSettings {
   /** Absolute catalog directory. */
   catalogDirectory: string;
+  /**
+   * Where the catalog directory really resolved when the settings were read
+   * and validated; writers check it again before writing.
+   */
+  realCatalogDirectory: string;
+  /** Where the captures directory really resolved when validated, likewise. */
+  realCapturesDirectory: string;
+  /** Where the Tieline workspace directory really resolved when validated. */
+  realWorkspaceDirectory: string;
+  /**
+   * Whether the catalog directory existed when validated. One that existed
+   * and is gone by the time it is read was deleted or swapped mid-command,
+   * which is not the same as a repository with no catalog yet.
+   */
+  catalogExisted: boolean;
   /** Absolute captures directory. */
   capturesDirectory: string;
   /** Absolute directory of committed ARIA snapshots, one `<key>.yml` per screen. */
@@ -427,8 +442,16 @@ export const CODE_TOPOLOGY_PATH = ".tieline/topology";
  */
 export function screenSettingsForRepository(
   repositoryRoot: string,
-  configPath = ".tieline/config.json"
+  options: {
+    /**
+     * The spec directory a command actually reads, repository-relative, when
+     * `--spec` overrides the configured one; it is held to the same rules.
+     */
+    specDirectory?: string;
+    configPath?: string;
+  } = {}
 ): ScreenSettings | null {
+  const configPath = options.configPath ?? ".tieline/config.json";
   const root = resolve(repositoryRoot);
   let parsed: unknown;
   try {
@@ -487,23 +510,36 @@ export function screenSettingsForRepository(
   }
   // Every YAML file below the spec directory is read as a contract document,
   // and every one below the catalog as a screen catalog, so neither may hold
-  // the other. The spec directory is the configured one, as commands use it.
+  // the other. Both the configured spec directory and, when a command
+  // overrides it with `--spec`, the one it actually reads are held to that.
   const files = (parsed as { files?: { spec_directory?: unknown; manifest?: unknown } } | null)
     ?.files;
   const specSetting =
     typeof files?.spec_directory === "string" ? files.spec_directory : "spec";
   const realSpec = realDestination(resolve(workspace, specSetting));
-  if (withinRepository(realSpec, realCatalog) || withinRepository(realCatalog, realSpec)) {
-    throw new Error(
-      `Invalid screens configuration: the catalog directory '${config.catalog_directory}' and the spec directory '${specSetting}' overlap. Every YAML file below the spec directory is read as a contract document, and every one below the catalog as a screen catalog, so each must be outside the other.`
-    );
+  const specs = [{ setting: specSetting, real: realSpec }];
+  if (options.specDirectory !== undefined) {
+    const effective = realDestination(resolve(root, options.specDirectory));
+    if (effective !== realSpec) specs.push({ setting: options.specDirectory, real: effective });
+  }
+  for (const spec of specs) {
+    if (withinRepository(spec.real, realCatalog) || withinRepository(realCatalog, spec.real)) {
+      throw new Error(
+        `Invalid screens configuration: the catalog directory '${config.catalog_directory}' and the spec directory '${spec.setting}' overlap. Every YAML file below the spec directory is read as a contract document, and every one below the catalog as a screen catalog, so each must be outside the other.`
+      );
+    }
   }
   // The captures directory is git-ignored wholesale, so it must not hold
   // anything Tieline commits: the spec, the compiled manifest, or the code
   // topology would silently drop out of commits.
   const manifestSetting = typeof files?.manifest === "string" ? files.manifest : "manifest";
   const committed: Array<{ label: string; setting: string; noun: string; real: string }> = [
-    { label: "spec directory", setting: specSetting, noun: "spec", real: realSpec },
+    ...specs.map((spec) => ({
+      label: "spec directory",
+      setting: spec.setting,
+      noun: "spec",
+      real: spec.real,
+    })),
     {
       label: "manifest",
       setting: manifestSetting,
@@ -524,6 +560,16 @@ export function screenSettingsForRepository(
       );
     }
   }
+  // Nor may screenshots sit inside the spec directory: the spec loader walks
+  // all of it, so every capture directory would be read on every command, and
+  // a YAML file among the captures would be loaded as a contract document.
+  for (const spec of specs) {
+    if (withinRepository(spec.real, realCaptures)) {
+      throw new Error(
+        `Invalid screens configuration: the captures directory '${config.captures_directory}' is inside the spec directory '${spec.setting}', where every YAML file is read as a contract document; keep screenshots outside it.`
+      );
+    }
+  }
   // Committed ARIA snapshots are written by capture, so the text directory is
   // judged like the catalog: inside `.tieline/` by where it really resolves,
   // apart from the catalog and the spec (whose loaders read every YAML file
@@ -537,7 +583,7 @@ export function screenSettingsForRepository(
         ? `it resolves to '${realText}' through a symbolic link, outside '${portable(relative(root, workspace))}'`
         : withinRepository(realCatalog, realText) || withinRepository(realText, realCatalog)
           ? "the text directory must not overlap the screen catalog, whose loader reads every YAML file in it"
-          : withinRepository(realSpec, realText) || withinRepository(realText, realSpec)
+          : specs.some((spec) => withinRepository(spec.real, realText) || withinRepository(realText, spec.real))
             ? "the text directory must not overlap the spec directory, whose loader reads every YAML file in it"
           : withinRepository(realCaptures, realText)
             ? "the text directory must not be inside the git-ignored captures directory"
@@ -549,8 +595,12 @@ export function screenSettingsForRepository(
   }
   return {
     catalogDirectory,
+    realCatalogDirectory: realCatalog,
     capturesDirectory,
     textDirectory,
+    realCapturesDirectory: realCaptures,
+    realWorkspaceDirectory: realWorkspace,
+    catalogExisted: pathExists(catalogDirectory),
     catalogPath: portable(relative(root, catalogDirectory)),
     capturesPath: portable(relative(root, capturesDirectory)) || ".",
     textPath: portable(relative(root, textDirectory)),
@@ -571,6 +621,8 @@ export interface ScreenCatalogSource {
   /** Repository-relative, `/`-separated. */
   path: string;
   absolutePath: string;
+  /** Where the walk found the file and read it, below the validated catalog. */
+  realPath: string;
   content: string;
   document: unknown;
 }
@@ -631,6 +683,17 @@ function catalogYamlFiles(
     // Read entries one at a time, so the entry budget bounds memory too: a
     // directory holding millions of entries is never materialized at once.
     const handle = opendirSync(current);
+    // Every path here is built from the validated real directory, so it must
+    // still resolve to itself: a directory swapped for a link after it was
+    // queued is not walked into, wherever the link leads.
+    if (realpathSync(current) !== current) {
+      handle.closeSync();
+      return {
+        files,
+        entries,
+        issue: `${displayPath(current)}: the screen catalog directory changed while it was walked`,
+      };
+    }
     try {
       let entry: Dirent | null;
       while ((entry = handle.readSync()) !== null) {
@@ -649,7 +712,17 @@ function catalogYamlFiles(
             };
           }
           pending.push({ path, depth: depth + 1 });
-        } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
+        } else if (/\.ya?ml$/i.test(entry.name)) {
+          // Links and special files are never followed, but a catalog-named
+          // one is not silently skipped either: its screens would vanish
+          // from the next compile without a word.
+          if (!entry.isFile()) {
+            return {
+              files,
+              entries,
+              issue: `${displayPath(path)}: screen catalog file is not a regular file; symbolic links and special files are not read`,
+            };
+          }
           if (files.length + 1 > limits.files) {
             return { files, entries, issue: `the screen catalog holds more than ${limits.files} YAML files` };
           }
@@ -661,6 +734,16 @@ function catalogYamlFiles(
     }
   }
   return { files: files.sort((left, right) => left.localeCompare(right)), entries };
+}
+
+/** Whether anything is at `path`; only ENOENT means nothing is. */
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException | null)?.code !== "ENOENT";
+  }
 }
 
 /**
@@ -675,36 +758,71 @@ function catalogDirectoryState(settings: ScreenSettings): "missing" | "directory
       ? "directory"
       : { issue: `screen catalog '${settings.catalogPath}' is not a directory` };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") return "missing";
+    if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") {
+      // Missing now but present when validated: removed or swapped for a
+      // dangling link since, so the catalog cannot be read as empty.
+      return settings.catalogExisted
+        ? { issue: `screen catalog '${settings.catalogPath}' existed when the settings were read and is gone now` }
+        : "missing";
+    }
     return {
       issue: `screen catalog '${settings.catalogPath}' cannot be read: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
 
-/** The bounded walk of an existing catalog directory, past any captures in it. */
+const STRICT_UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
+/**
+ * The bounded walk of an existing catalog directory, past any captures in it.
+ * Each file is given twice: `path` under the configured catalog directory,
+ * which names it everywhere, and `real` under the validated real directory,
+ * which is what gets read.
+ */
 function walkCatalogDirectory(
   root: string,
   settings: ScreenSettings,
   limits: CatalogWalkLimits
-): ReturnType<typeof catalogYamlFiles> {
+): { files: Array<{ path: string; real: string }>; entries: number; issue?: string } {
   const directory = settings.catalogDirectory;
+  // Walked where the settings validated it, not through the configured path,
+  // which a link swapped in since could send anywhere; a catalog that no
+  // longer resolves there is not read at all.
+  const realDirectory = realpathSync(directory);
+  if (realDirectory !== settings.realCatalogDirectory) {
+    return {
+      files: [],
+      entries: 0,
+      issue: `screen catalog '${settings.catalogPath}' now resolves to '${realDirectory}', not to '${settings.realCatalogDirectory}' where it was validated`,
+    };
+  }
+  const configured = (real: string): string => resolve(directory, relative(realDirectory, real));
   // The captures directory may sit inside the catalog. Its screenshots are not
   // catalog files, and walking them would spend the walk's bounds on images.
   // The walk never follows links, so a directory it reaches really is the
   // same path below the catalog's real path.
-  const realDirectory = realpathSync(directory);
+  // A captures directory moved since validation would make the walk skip the
+  // wrong subtree, hiding catalog files or walking screenshots, so it is
+  // refused like a moved catalog.
   const realCaptures = realDestination(settings.capturesDirectory);
+  if (realCaptures !== settings.realCapturesDirectory) {
+    return {
+      files: [],
+      entries: 0,
+      issue: `captures directory '${settings.capturesPath}' now resolves to '${realCaptures}', not to '${settings.realCapturesDirectory}' where it was validated`,
+    };
+  }
   const capturesInCatalog =
     realCaptures !== realDirectory && withinRepository(realDirectory, realCaptures)
-      ? resolve(directory, relative(realDirectory, realCaptures))
+      ? realCaptures
       : undefined;
-  return catalogYamlFiles(
-    directory,
+  const walk = catalogYamlFiles(
+    realDirectory,
     limits,
-    (absolutePath) => portable(relative(root, absolutePath)),
+    (real) => portable(relative(root, configured(real))),
     capturesInCatalog
   );
+  return { ...walk, files: walk.files.map((real) => ({ path: configured(real), real })) };
 }
 
 /**
@@ -727,7 +845,7 @@ export function listScreenCatalogFiles(
   });
   return walk.issue
     ? { paths: [], issue: walk.issue }
-    : { paths: walk.files };
+    : { paths: walk.files.map((file) => file.path) };
 }
 
 /**
@@ -765,20 +883,24 @@ export function readScreenCatalogSources(
     entries: walk.entries,
   });
   let totalBytes = 0;
-  for (const absolutePath of walk.files) {
+  for (const { path: absolutePath, real } of walk.files) {
     const path = portable(relative(root, absolutePath));
     const remaining = limits.totalBytes - totalBytes;
     let read: BoundedRead;
     try {
-      read = readFileWithin(absolutePath, Math.min(limits.fileBytes, remaining));
+      // The opened file must be the regular file the walk found there, not a
+      // link or file swapped in since, which could lead outside the catalog.
+      read = readFileWithin(real, Math.min(limits.fileBytes, remaining), (opened) =>
+        isStillFile(real, opened)
+      );
     } catch (error) {
       issues.push(
         `${path}: screen catalog file cannot be read: ${error instanceof Error ? error.message : String(error)}`
       );
       continue;
     }
-    if (read.status === "not_file") {
-      issues.push(`${path}: screen catalog file is no longer a regular file`);
+    if (read.status === "not_file" || read.status === "changed") {
+      issues.push(`${path}: screen catalog file changed after the catalog was walked; it is no longer the regular file found there`);
       continue;
     }
     if (read.status === "too_large") {
@@ -789,9 +911,18 @@ export function readScreenCatalogSources(
       continue;
     }
     totalBytes += read.bytes.length;
-    const content = read.bytes.toString("utf8");
+    // Decoded strictly: lenient decoding would turn malformed bytes into
+    // U+FFFD, so distinct files could validate, and hash, as the same text.
+    // A byte order mark is kept, so the content is exactly what the file holds.
+    let content: string;
     try {
-      sources.push({ path, absolutePath, content, document: parse(content) });
+      content = STRICT_UTF8.decode(read.bytes);
+    } catch {
+      issues.push(`${path}: screen catalog file is not valid UTF-8`);
+      continue;
+    }
+    try {
+      sources.push({ path, absolutePath, realPath: real, content, document: parse(content) });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       issues.push(`${path}: invalid YAML: ${message}`);

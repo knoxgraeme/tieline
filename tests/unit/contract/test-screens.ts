@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -14,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runCli } from "../../../src/cli.js";
-import { readFileWithin } from "../../../src/contract/bounded-read.js";
+import { isStillFile, readFileWithin } from "../../../src/contract/bounded-read.js";
 import { runCheckCommand } from "../../../src/commands/check.js";
 import { readScreensConfig } from "../../../src/config.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
@@ -37,6 +38,7 @@ import {
 } from "../../../src/contract/screen-catalog.js";
 import { CODE_TOPOLOGY_DIRECTORY } from "../../../src/contract/topology-role-snapshot.js";
 import { ContractValidationError } from "../../../src/contract/validate.js";
+import { writeWorkspaceReviewPage } from "../../../src/tieline/review.js";
 import { workspaceFromConfig } from "../../../src/tieline/workspace.js";
 import { report, test } from "../../support/harness.js";
 import {
@@ -262,7 +264,7 @@ await test("refuses a catalog the captures .gitignore would hide", () => {
   assert.equal(screenSettingsForRepository(nested.root)?.capturesPath, ".tieline/screens/shots");
 });
 
-await test("refuses a catalog and spec directory that overlap, or committed files the captures would hide", () => {
+await test("refuses catalog, spec, and captures directories that overlap, or captures hiding committed files", () => {
   const withConfig = (screens: Record<string, unknown>, specDirectory = "spec", manifest = "manifest") => {
     const ws = workspace({ screens: { enabled: true, ...screens } });
     const config = JSON.parse(readFileSync(resolve(ws.root, ".tieline/config.json"), "utf8"));
@@ -299,9 +301,31 @@ await test("refuses a catalog and spec directory that overlap, or committed file
     () => screenSettingsForRepository(withConfig({ captures_directory: "topology" }).root),
     /the code topology directory '\.tieline\/topology' is inside the captures directory 'topology', which is git-ignored, so the code topology would never be committed/
   );
-  // Siblings, and screenshots below the spec directory, are fine.
+  // Screenshots below the spec directory would be walked, and any YAML among
+  // them loaded, as contract documents.
+  assert.throws(
+    () => screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root),
+    /the captures directory 'spec\/shots' is inside the spec directory 'spec', where every YAML file is read as a contract document/
+  );
+  // A command's `--spec` override is held to the same rules as the configured
+  // spec directory, before anything walks it.
+  const overridden = withConfig({});
+  assert.throws(
+    () => screenSettingsForRepository(overridden.root, { specDirectory: ".tieline/captures" }),
+    /the spec directory '\.tieline\/captures' is inside the captures directory 'captures', which is git-ignored/
+  );
+  assert.throws(
+    () => screenSettingsForRepository(overridden.root, { specDirectory: ".tieline/screens" }),
+    /the catalog directory 'screens' and the spec directory '\.tieline\/screens' overlap/
+  );
+  assert.throws(
+    () => loadAcceptedContractWithSources(overridden.root, ".tieline/captures"),
+    /the spec directory '\.tieline\/captures' is inside the captures directory/
+  );
+  assert.equal(screenSettingsForRepository(overridden.root, { specDirectory: ".tieline/spec" })?.catalogPath, ".tieline/screens");
+  // Siblings are fine.
   assert.equal(screenSettingsForRepository(withConfig({ catalog_directory: "screens" }, "spec").root)?.catalogPath, ".tieline/screens");
-  assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "spec/shots" }).root)?.capturesPath, ".tieline/spec/shots");
+  assert.equal(screenSettingsForRepository(withConfig({ captures_directory: "shots" }).root)?.capturesPath, ".tieline/shots");
 });
 
 await test("keeps committed ARIA snapshots inside .tieline, apart from the catalog and ignored captures", () => {
@@ -608,6 +632,138 @@ await test("bounds a file read by the bytes read, not a size measured beforehand
     assert.equal(read.status, "too_large");
     assert.ok(read.status === "too_large" && read.size > 16);
   }
+});
+
+await test("reports catalog-named links and special files instead of skipping them", () => {
+  const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+  const settings = screenSettingsForRepository(ws.root)!;
+  // A link to a catalog inside the repository is still not followed.
+  ws.write("elsewhere/SHARING.yaml", SHARING_CATALOG_YAML);
+  ws.remove(".tieline/screens/SHARING.yaml");
+  symlinkSync(resolve(ws.root, "elsewhere/SHARING.yaml"), resolve(ws.root, ".tieline/screens/SHARING.yaml"));
+  const read = readScreenCatalogSources(ws.root, settings);
+  assert.equal(read.complete, false);
+  assert.deepEqual(read.issues, [
+    ".tieline/screens/SHARING.yaml: screen catalog file is not a regular file; symbolic links and special files are not read",
+  ]);
+  assert.throws(() => compile(ws), /SHARING\.yaml: screen catalog file is not a regular file/);
+  // Other names are not catalog files, links or not.
+  ws.remove(".tieline/screens/SHARING.yaml");
+  symlinkSync(resolve(ws.root, "elsewhere/SHARING.yaml"), resolve(ws.root, ".tieline/screens/notes.txt"));
+  assert.equal(readScreenCatalogSources(ws.root, settings).complete, true);
+});
+
+await test("reads the catalog where it was validated, not through a link swapped in since", () => {
+  const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+  // A catalog directory that is itself a link inside `.tieline` is read
+  // through its real directory, but named by its configured path.
+  renameSync(resolve(ws.root, ".tieline/screens"), resolve(ws.root, ".tieline/catalog-real"));
+  symlinkSync(resolve(ws.root, ".tieline/catalog-real"), resolve(ws.root, ".tieline/screens"));
+  const settings = screenSettingsForRepository(ws.root)!;
+  const read = readScreenCatalogSources(ws.root, settings);
+  assert.deepEqual(read.sources.map((source) => source.path), [".tieline/screens/NOTES.yaml", ".tieline/screens/SHARING.yaml"]);
+
+  // Swapped after validation for a link out of the repository: nothing is read.
+  const outside = mkdtempSync(resolve(tmpdir(), "tieline-swapped-catalog-"));
+  try {
+    writeFileSync(resolve(outside, "NOTES.yaml"), NOTES_CATALOG_YAML);
+    rmSync(resolve(ws.root, ".tieline/screens"));
+    symlinkSync(outside, resolve(ws.root, ".tieline/screens"));
+    const swapped = readScreenCatalogSources(ws.root, settings);
+    assert.equal(swapped.complete, false);
+    assert.deepEqual(swapped.sources, []);
+    assert.match(swapped.issues[0]!, /^screen catalog '\.tieline\/screens' now resolves to '.*tieline-swapped-catalog-.*', not to '.*catalog-real' where it was validated$/);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+await test("reads only the catalog file the walk found, and refuses moved captures", () => {
+  const ws = workspace({ screens: { enabled: true, captures_directory: "screens/shots" }, catalog: CATALOG });
+  ws.write(".tieline/screens/shots/list.png", "png");
+  const settings = screenSettingsForRepository(ws.root)!;
+  assert.equal(readScreenCatalogSources(ws.root, settings).complete, true);
+
+  // A walked file replaced by a link before it is read: the opened file is
+  // not the one found there, so it is refused rather than read.
+  const real = realpathSync(resolve(ws.root, ".tieline/screens/NOTES.yaml"));
+  assert.equal(readFileWithin(real, 1 << 20, (opened) => isStillFile(real, opened)).status, "read");
+  ws.write("elsewhere/NOTES.yaml", NOTES_CATALOG_YAML);
+  rmSync(real);
+  symlinkSync(resolve(ws.root, "elsewhere/NOTES.yaml"), real);
+  assert.deepEqual(readFileWithin(real, 1 << 20, (opened) => isStillFile(real, opened)), { status: "changed" });
+  rmSync(real);
+  writeFileSync(real, NOTES_CATALOG_YAML);
+  // Likewise for a file below a directory swapped for a link: its path no
+  // longer resolves to itself, so nothing under the link is read.
+  ws.write(".tieline/screens/sub/MORE.yaml", "version: 1\ncapability: NOTES\nscreens: []\n");
+  const nested = realpathSync(resolve(ws.root, ".tieline/screens/sub/MORE.yaml"));
+  renameSync(resolve(ws.root, ".tieline/screens/sub"), resolve(ws.root, "elsewhere/sub"));
+  symlinkSync(resolve(ws.root, "elsewhere/sub"), resolve(ws.root, ".tieline/screens/sub"));
+  assert.deepEqual(readFileWithin(nested, 1 << 20, (opened) => isStillFile(nested, opened)), { status: "changed" });
+  rmSync(resolve(ws.root, ".tieline/screens/sub"));
+
+  // Captures moved after validation to another directory in the catalog: the
+  // walk would skip the wrong subtree, so the catalog is not read at all.
+  ws.write(".tieline/screens/more/EXTRA.yaml", "version: 1\ncapability: NOTES\nscreens: []\n");
+  renameSync(resolve(ws.root, ".tieline/screens/shots"), resolve(ws.root, ".tieline/screens/shots-moved"));
+  symlinkSync(resolve(ws.root, ".tieline/screens/more"), resolve(ws.root, ".tieline/screens/shots"));
+  const moved = readScreenCatalogSources(ws.root, settings);
+  assert.equal(moved.complete, false);
+  assert.match(moved.issues[0]!, /^captures directory '\.tieline\/screens\/shots' now resolves to '.*\/screens\/more', not to '.*\/screens\/shots' where it was validated$/);
+});
+
+await test("does not read a catalog that vanished after validation as empty", () => {
+  for (const replace of [
+    (catalog: string) => rmSync(catalog, { recursive: true }),
+    (catalog: string) => {
+      rmSync(catalog, { recursive: true });
+      symlinkSync(resolve(catalog, "..", "nowhere"), catalog);
+    },
+  ]) {
+    const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+    const settings = screenSettingsForRepository(ws.root)!;
+    replace(resolve(ws.root, ".tieline/screens"));
+    const read = readScreenCatalogSources(ws.root, settings);
+    assert.equal(read.complete, false);
+    assert.deepEqual(read.issues, ["screen catalog '.tieline/screens' existed when the settings were read and is gone now"]);
+  }
+  // A catalog that never existed is still simply empty.
+  const fresh = workspace({ screens: ENABLED });
+  assert.deepEqual(readScreenCatalogSources(fresh.root, screenSettingsForRepository(fresh.root)!).complete, true);
+});
+
+await test("refuses a screens layout before walking the spec directory", () => {
+  // Screenshots inside the spec, among them a YAML sidecar that does not
+  // parse: the layout is refused first, not the sidecar's YAML.
+  const ws = workspace({ screens: { enabled: true, captures_directory: "spec/shots" } });
+  ws.write(".tieline/spec/shots/capture-log.yaml", "{ not: [valid");
+  assert.throws(
+    () => loadAcceptedContractWithSources(ws.root, ".tieline/spec"),
+    /the captures directory 'spec\/shots' is inside the spec directory 'spec'/
+  );
+  assert.throws(
+    () => writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec"),
+    /the captures directory 'spec\/shots' is inside the spec directory 'spec'/
+  );
+});
+
+await test("refuses catalog files that are not valid UTF-8, and keeps a byte order mark", () => {
+  const ws = workspace({ screens: ENABLED, catalog: CATALOG });
+  const settings = screenSettingsForRepository(ws.root)!;
+  // A malformed byte in a title would otherwise read as U+FFFD and validate.
+  const path = resolve(ws.root, ".tieline/screens/NOTES.yaml");
+  const [head, tail] = NOTES_CATALOG_YAML.split("title: Notes list\n", 2) as [string, string];
+  writeFileSync(path, Buffer.concat([Buffer.from(`${head}title: Notes `), Buffer.from([0xff]), Buffer.from(` list\n${tail}`)]));
+  const read = readScreenCatalogSources(ws.root, settings);
+  assert.deepEqual(read.issues, [".tieline/screens/NOTES.yaml: screen catalog file is not valid UTF-8"]);
+  assert.throws(() => compile(ws), /NOTES\.yaml: screen catalog file is not valid UTF-8/);
+
+  // A byte order mark is valid and kept, so the content is the file's own.
+  writeFileSync(path, `\uFEFF${NOTES_CATALOG_YAML}`);
+  const withMark = readScreenCatalogSources(ws.root, settings);
+  assert.deepEqual(withMark.issues, []);
+  assert.equal(withMark.sources.find((source) => source.path.endsWith("NOTES.yaml"))!.content, `\uFEFF${NOTES_CATALOG_YAML}`);
 });
 
 await test("bounds the catalog walk by depth, entries, files, and total bytes", () => {
