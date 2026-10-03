@@ -65,10 +65,23 @@ a human first sees them. Verify, do not re-ask.
      `npx -y tieline@latest init . --yes --skip-skill-install --database existing`.
    - Provision: follow [provisioning.md](provisioning.md) to create a Neon
      Postgres in the user's own account and connect it.
-4. Do not ask whether to install or pin the Tieline CLI in the repository.
+4. Only when the repository has a user interface a browser can open (a web
+   app with pages or routes), ask whether to capture its screens, using this
+   phrasing verbatim:
+
+   > **Capture your app's screens too?**
+   >
+   > 1. **Yes** — catalog every screen users see, link each to the Stories
+   >    that show it, and keep screenshots current on every pull request
+   > 2. **Not now** — turn it on any time
+
+   On yes, set `"screens": { "enabled": true }` in `.tieline/config.json`;
+   the capture setup itself happens after the contract is authored. Skip the
+   question for repositories without a user interface.
+5. Do not ask whether to install or pin the Tieline CLI in the repository.
    Setup runs through `npx` and does not modify the application's dependency
    manifest or lockfile.
-5. Close the conversation with a handoff so the coming silence is expected:
+6. Close the conversation with a handoff so the coming silence is expected:
    setup is complete, the rest runs without input, and the next thing the
    user sees is the completion report with the review page. Everything after
    this point is autonomous — do not ask further questions unless unresolved
@@ -147,13 +160,22 @@ size, while avoiding duplicate or speculative definitions.
 
     Review and include the generated `.tieline/topology/graph.json` in the
     onboarding pull request.
-12. Read [grading.md](grading.md) and grade the initial contract. With no manifest
+12. If screens were enabled, backfill them now: follow the backfill in
+    [screens-capture.md](screens-capture.md) from the acceptance criteria
+    just authored, generate the page scenes, write every other scene
+    yourself, and capture in the app's pinned Playwright image. The backfill
+    is done only when `tieline screens audit --strict` passes; include the
+    catalog, scenes, ARIA snapshots, and manifest in the onboarding pull
+    request, never the screenshots. When the app cannot run under Playwright
+    here (no way to start it, or no test data), stop the backfill, keep the
+    catalog you have, and list what is missing under "Needs your review".
+13. Read [grading.md](grading.md) and grade the initial contract. With no manifest
    at the comparison base, every authored link enters the grading scope as
    `link_added`. You authored every one of them, so dispatch fresh subagents
    batched by artifact path, passing only the emitted scope entries and never
    the authoring rationale; a link none of your reasoning can defend to a cold
    reader should be graded down, not argued for.
-13. Close with the completion report shaped by
+14. Close with the completion report shaped by
    [report.md](references/report.md): `.tieline/review.html` is the
    deliverable and leads the reply, followed by at most three
    needs-your-review bullets and two caveats. Do not enumerate the authored

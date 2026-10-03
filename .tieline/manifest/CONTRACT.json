@@ -730,7 +730,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "cf6f905aab47a3c6253880e509e2a1618fddbc74b36a5ecfe69d2129b0f71639",
+                "reviewed_content_hash": "52d016874a3c8f6c019c0630fab3a69443f711ab13b046f04a74d1c94944814f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2011,9 +2011,19 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "64b3db5a278e97eb3a1a1197155951317479ca6c01a1e49ee4ee62b8aa72284b",
-            "criterion": "The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, and keep a screens-enabled repository's captures current before handing off a change to what users see.",
+            "contract_hash": "313b1bf9cc802bbd3bce08c6b65efbd973864b51b91d64fe8a869c723395b7d3",
+            "criterion": "The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, offer screen capture during onboarding of a repository with a user interface and backfill before reporting when the user accepts, and keep a screens-enabled repository's captures current before handing off a change to what users see.",
             "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "92a23bf68a1710ae51ad7e5dd0941f9f423a8188b47bc01f2ec9404ba08f9525",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/onboarding.md",
+                  "repository": "tieline"
+                }
+              },
               {
                 "provenance": "authored",
                 "relation": "implements",
@@ -2047,7 +2057,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "cf6f905aab47a3c6253880e509e2a1618fddbc74b36a5ecfe69d2129b0f71639",
+                "reviewed_content_hash": "52d016874a3c8f6c019c0630fab3a69443f711ab13b046f04a74d1c94944814f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2418,7 +2428,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "cf6f905aab47a3c6253880e509e2a1618fddbc74b36a5ecfe69d2129b0f71639",
+                "reviewed_content_hash": "52d016874a3c8f6c019c0630fab3a69443f711ab13b046f04a74d1c94944814f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3217,6 +3227,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "429ef37444c5b3c8192c06d8fa1f762435bcdd20164195729636523962492561"
+    "sha256": "8c1fcc4733fc8cf268ae3d1e569e001a02780490d8dc6541c3e098c8077d6422"
   }
 }
