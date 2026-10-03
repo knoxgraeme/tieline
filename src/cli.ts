@@ -575,6 +575,24 @@ function buildProgram(
     });
 
   screens
+    .command("scenes")
+    .description(
+      "Generate a scene for each catalogued page no other test captures (screens.capture.generated_scenes)"
+    )
+    .option("--check", "write nothing; fail when the generated file is out of date with the catalog")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensScenesCommand } = await import("./commands/screens.js");
+      setExit(
+        runScreensScenesCommand(
+          { repository: opts.repository, check: Boolean(opts.check), json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
+  screens
     .command("audit")
     .description(
       "List screens whose capture outputs are missing or inconsistent, without capturing"

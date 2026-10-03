@@ -111,7 +111,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
     catalog_directory: "screens",
     captures_directory: "captures",
     text_directory: "screen-text",
-    capture: { tests: null, global_paths: [], playwright_config: null, project: null, timeout_minutes: 30, pages: [] },
+    capture: { tests: null, global_paths: [], playwright_config: null, project: null, timeout_minutes: 30, pages: [], generated_scenes: null },
     hosted: null,
   });
   assert.deepEqual(
@@ -122,7 +122,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
         capture: { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"] },
       },
     })?.capture,
-    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"], playwright_config: null, project: null, timeout_minutes: 30, pages: [] }
+    { tests: ["e2e/**"], global_paths: ["src/styles/**", "src/i18n/*.json"], playwright_config: null, project: null, timeout_minutes: 30, pages: [], generated_scenes: null }
   );
   assert.deepEqual(
     readScreensConfig({
@@ -131,7 +131,7 @@ await test("treats an absent or disabled screens block as off and applies defaul
         capture: { playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10 },
       },
     })?.capture,
-    { tests: null, global_paths: [], playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10, pages: [] }
+    { tests: null, global_paths: [], playwright_config: "e2e/playwright.config.ts", project: "screens", timeout_minutes: 10, pages: [], generated_scenes: null }
   );
   for (const capture of [
     { playwright_config: "e2e/*.config.ts" },

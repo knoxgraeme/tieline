@@ -7,6 +7,7 @@ const routes = {
   "/notes": ["app/notes.html", "text/html"],
   "/notes/empty": ["app/notes-empty.html", "text/html"],
   "/notes/1": ["app/note.html", "text/html"],
+  "/about": ["app/about.html", "text/html"],
   "/app.css": ["app/app.css", "text/css"],
 };
 

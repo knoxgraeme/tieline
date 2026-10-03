@@ -19,3 +19,21 @@ screens:
     when: A member without notes opens Notes.
     paths:
       - app/notes-empty.html
+  - key: notes-about
+    title: About Acme Notes
+    group: Help
+    route: /about
+    kind: page
+    when: Anyone opens About.
+    paths:
+      - app/about.html
+  - key: note-page
+    title: A note
+    group: Browsing
+    route: /notes/:noteId
+    kind: page
+    when: A member opens a note.
+    applies_to:
+      role: [member]
+    paths:
+      - app/note.html

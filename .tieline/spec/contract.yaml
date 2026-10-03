@@ -1337,7 +1337,7 @@ capability:
                 path: tests/unit/contract/test-screen-capture-selection.ts
                 framework_hint: custom-script
         - key: CONTRACT-005-AC9
-          criterion: Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture.
+          criterion: Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.
           rationale: Committed screen outputs are reviewed as the truth about how screens look, so a partial, untrusted, or stale capture must never replace them, and pull requests must not merge with outputs a fresh capture would not reproduce.
           scenarios:
             - given: one selected screen's test fails or captures nothing
@@ -1712,4 +1712,60 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC17
+          criterion: Tieline must generate, as one committed scene file, a scene for every catalogued page that no other test captures and that is not marked not captured, each running the repository's setup module before opening the page, must skip and report a route with parameters when no setup module chooses its URL, must fail a generated scene whose page answers with an error or whose route keeps a parameter, and must fail the strict audit while the generated file differs from what the catalog generates.
+          rationale: Scenes are written by agents, not people, so every page must be captured without anyone writing a test just to open it, and a stale or wrong generated scene must never stand in for the screen.
+          scenarios:
+            - given: an agent writes its own scene for a page that has a generated scene
+              when: the generated scenes are regenerated
+              then: the page must leave the generated file so it is captured once
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-generated-scenes.ts
+                selector: function:planGeneratedScenes
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-generated-scenes.ts
+                selector: function:generatedScenesStatus
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens.ts
+                selector: function:runScreensScenesCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/playwright/page-scene.cts
+                selector: function:openAndCapture
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens-capture.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-generated-scenes.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-screens-browser.ts
                 framework_hint: custom-script

@@ -367,6 +367,11 @@ export interface ScreenSettings {
     timeoutMinutes: number;
     /** Page file patterns, `!` excluding; empty when page coverage is not checked. */
     pages: string[];
+    /**
+     * Repository-relative paths of the generated page scenes file and its
+     * setup module, or null when scenes are not generated.
+     */
+    generatedScenes: { file: string; setup: string | null } | null;
   };
   /** Where hosted screens are published; null unless hosting is enabled. */
   hosted: ScreensHostedConfig | null;
@@ -556,6 +561,7 @@ export function screenSettingsForRepository(
       project: config.capture.project,
       timeoutMinutes: config.capture.timeout_minutes,
       pages: config.capture.pages,
+      generatedScenes: config.capture.generated_scenes,
     },
     hosted: config.hosted,
   };

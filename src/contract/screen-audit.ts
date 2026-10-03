@@ -6,6 +6,7 @@ import {
   type ScreenSettings,
   type ValidatedScreenCatalog,
 } from "./screen-catalog.js";
+import { generatedScenesStatus, type GeneratedScenesStatus } from "./screen-generated-scenes.js";
 import {
   scanPageFiles,
   scanScreenScenes,
@@ -104,6 +105,8 @@ export interface ScreenAudit {
   acceptance_criteria: ScreenAcceptanceAlignment;
   /** Scene test files that intercept the page's requests, for review. */
   intercepting: Array<{ file: string; keys: string[] }>;
+  /** Whether the generated page scenes match the catalog. */
+  generated_scenes: GeneratedScenesStatus;
 }
 
 export interface ScreenAuditSummary {
@@ -203,6 +206,8 @@ export function auditScreenCaptures(input: {
   scenes: ScreenSceneScan;
   pages: ScreenPageScan;
   contract: ScreenAuditContract;
+  /** Defaults to not configured. */
+  generatedScenes?: GeneratedScenesStatus;
 }): ScreenAudit {
   const { settings, catalog, text, scenes } = input;
   const sceneEvaluated = scenes.status === "complete";
@@ -272,6 +277,7 @@ export function auditScreenCaptures(input: {
     },
     acceptance_criteria: acceptanceAlignment(input.contract, scenes),
     intercepting: scenes.intercepting.map(({ file, keys: tagged }) => ({ file, keys: [...tagged] })),
+    generated_scenes: input.generatedScenes ?? { status: "not_configured", file: null, detail: null },
   };
 }
 
@@ -326,6 +332,12 @@ export function screenAuditStrictFailures(audit: ScreenAudit): string[] {
     ...(alignment.untested.length > 0 ? [`${alignment.untested.length} acceptance criteria show screens but no test tags them`] : []),
     ...(alignment.unlinked.length > 0 ? [`${alignment.unlinked.length} acceptance criteria are tagged in tests their links do not name`] : []),
     ...(alignment.unknown_tags.length > 0 ? [`${alignment.unknown_tags.length} @ac: tag(s) name no acceptance criterion`] : []),
+    ...(audit.generated_scenes.status === "stale"
+      ? [`the generated page scenes are out of date (${audit.generated_scenes.detail ?? "stale"}); run \`tieline screens scenes\``]
+      : []),
+    ...(audit.generated_scenes.status === "invalid"
+      ? [`the generated page scenes cannot be checked: ${audit.generated_scenes.detail ?? ""}`]
+      : []),
   ];
 }
 
@@ -342,14 +354,16 @@ export function loadScreenAudit(
 ): { audit: ScreenAudit; issues: [] } | { audit: null; issues: string[] } {
   const { catalog, issues } = loadScreenCatalog(repositoryRoot, settings, capabilityKeys);
   if (issues.length > 0) return { audit: null, issues };
+  const scenes = scanScreenScenes(repositoryRoot, settings.sceneTests);
   return {
     audit: auditScreenCaptures({
       settings,
       catalog,
       text: readScreenTextDirectory(settings),
-      scenes: scanScreenScenes(repositoryRoot, settings.sceneTests),
+      scenes,
       pages: scanPageFiles(repositoryRoot, settings.capture.pages),
       contract,
+      generatedScenes: generatedScenesStatus({ repositoryRoot, settings, catalog, scan: scenes }),
     }),
     issues: [],
   };
@@ -417,6 +431,11 @@ export function screenAuditWarnings(audit: ScreenAudit, added: ReadonlySet<strin
       : []),
     ...(newPages.length > 0
       ? [`${newPages.length} page file(s) added on this branch are claimed by no screen (${firstFew(newPages)}); add a screen whose paths name them.`]
+      : []),
+    ...(audit.generated_scenes.status === "stale" || audit.generated_scenes.status === "invalid"
+      ? [
+          `The generated page scenes in ${audit.generated_scenes.file ?? "the configured file"} are out of date (${audit.generated_scenes.detail ?? "stale"}); run \`tieline screens scenes\`.`,
+        ]
       : []),
     ...(audit.pages.unclaimed.length > newPages.length
       ? [

@@ -88,8 +88,9 @@ records the ARIA snapshot, and hands both to the reporter.
   only some of them, the reporter discards the others, so a screen that was not selected always
   keeps `main`'s digest.
 
-Plain pages need no hand-written test: a `screensFromCatalog()` helper generates one navigation
-test per `page` entry, filling route parameters from a small fixtures map. (Not built yet.)
+Plain pages need no hand-written test: `tieline screens scenes` generates one navigation scene
+per `page` entry, and an agent-written setup module fills in route parameters, logins, and seed
+data (built as a committed file; see [how capture was built](#how-capture-was-built)).
 
 ### Three ways to adopt, lowest effort first
 
@@ -144,8 +145,8 @@ a pull request in one of two ways:
 - for same-repository pull requests, the trusted publish job (section 5) pushes a commit with the
   updated outputs to the pull request's branch, when the repository opts in.
 
-Either way, pull-request CI runs `tieline screens capture --all --verify` in the pinned image
-(as built; this proposal first had `--changed --verify`, see
+Either way, pull-request CI runs `tieline screens capture --changed --base <base> --verify` in the
+pinned image, which verifies every screen instead when a selection rule cannot run (see
 [how capture was built](#how-capture-was-built)). It fails, naming each screen and the command to
 fix it, when a screen's fresh digest or ARIA snapshot differs from what the branch commits. A required `--verify` check means a pull
 request cannot merge with stale screen outputs, so the post-merge sync of `main` reads a
@@ -379,11 +380,14 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
   Playwright compiles to CommonJS on every Node version Tieline supports, as well as in ESM
   projects. Tieline's package gained an `exports` map for that subpath; every existing file path
   stays importable.
-- **The pull-request gate verifies every covered screen** (`capture --all --verify`), not only the
-  screens selection predicts. Prediction cannot see changes in server code, data, translations,
-  or dependencies; re-checking every screen observes them. Selection (`--changed`) remains for
-  fast local runs and to explain why a screen changed. This refines "only affected screens on
-  every pull request" for the gate.
+- **The pull-request gate verifies the screens a branch may have changed**
+  (`capture --changed --base <base> --verify`), so a pull request's capture time grows with its
+  change, as with Chromatic's TurboSnap. It was briefly `--all --verify`, which re-checked every
+  screen on every pull request; that observes changes selection cannot see, such as server code
+  or data, but costs a full capture per pull request. Instead, a selection that may be narrower
+  than it should be, because a rule could not run, falls back to verifying every screen and says
+  why, and drift outside what the rules see is found with `audit --capture` or `--all --verify`
+  when wanted.
 - **Every screen is captured or marked not captured with a reason** (`not_captured`: flag off,
   external, unreachable, needs a real trigger, unstable, other). Captures never come from faked
   responses: a state that would need one is marked `needs-real-trigger` until seeded data or a
@@ -398,8 +402,13 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
   instead of failing the run; `--repeat` finds unstable screens during a backfill; page files
   (`capture.pages`) that no screen claims are reported; and `audit --strict` turns all of it into
   a gate once a backfill is done.
-- **Not built yet:** `screensFromCatalog()`, which would generate navigation tests for plain
-  pages, and Tieline-drafted scene files. Both remain proposals.
+- **Page scenes are generated, as a committed file, not at run time.** `tieline screens scenes`
+  writes one scene per catalogued page no other test captures, calling an agent-written setup
+  module that signs in, seeds data, and fills in route parameters (this proposal's
+  `screensFromCatalog()` and its fixtures map). A committed file keeps the tags written out, so the
+  scan, selection, audit, and `--verify` need nothing new, and reviewers see which pages it
+  captures; the strict audit fails while it is out of date. Every other scene is written by an
+  agent, following the skill, so no one writes a test by hand.
 
 ## How hosting was built
 
@@ -491,8 +500,10 @@ side-by-side and overlay diff views. Those are candidates for later, not prerequ
   (implemented in this change for `check`, `reconcile`, `grade`, `blast-radius`, and `review`).
 - Committed screen outputs must match a fresh capture (`capture --verify`), and capture runs
   without credentials while a separate trusted job publishes.
-- The pull-request gate verifies every covered screen (`capture --all --verify`); selection is
-  for local runs and explanations.
+- The pull-request gate verifies the screens a branch may have changed
+  (`capture --changed --base <base> --verify`), and every screen when a selection rule cannot run.
+- Scenes are generated for pages and written by agents for everything else; no scene is written
+  by hand.
 - Every screen is captured or marked not captured with a reason; captures never use faked
   responses.
 - A screen that shows an acceptance criterion is captured by that criterion's test, tagged

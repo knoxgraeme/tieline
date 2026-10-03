@@ -6,8 +6,10 @@
  * chromium`, or the official Playwright Docker image) and is deliberately not
  * part of `npm run check`. It proves what the unit tests can only fake: that
  * `tieline/playwright` loads in both CommonJS and ESM test projects, that the
- * reporter loads by path, that two captures of an unchanged app are
- * byte-identical, and that `--verify` catches a real copy change.
+ * reporter loads by path, that generated page scenes import their setup
+ * module and capture pages no one wrote a test for, that two captures of an
+ * unchanged app are byte-identical, and that `--verify` catches a real copy
+ * change.
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -21,7 +23,7 @@ import { report, test } from "../support/harness.js";
 const repository = fileURLToPath(new URL("../..", import.meta.url));
 const fixture = resolve(repository, "tests/fixtures/screens-browser");
 const cli = resolve(repository, "dist/cli.js");
-const KEYS = ["notes-list", "notes-list-empty", "notes-share-denied"];
+const KEYS = ["note-page", "notes-about", "notes-list", "notes-list-empty", "notes-share-denied"];
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 if (!existsSync(cli)) {
@@ -94,6 +96,20 @@ for (const moduleType of ["commonjs", "module"] as const) {
   const ws = await workspace(moduleType);
   workspaces.push(ws);
 
+  await test("generates scenes for the pages no test captures", () => {
+    const result = json(tieline(ws, "screens", "scenes", "--json"), 0) as { status: string; scenes: unknown; skipped: Array<{ key: string; reason: string }> };
+    assert.equal(result.status, "created");
+    assert.deepEqual(result.scenes, [
+      { key: "note-page", route: "/notes/:noteId" },
+      { key: "notes-about", route: "/about" },
+    ]);
+    assert.deepEqual(
+      result.skipped.map((skip) => [skip.key, skip.reason]),
+      [["notes-list", "has_scene"]]
+    );
+    commit(ws, "generate page scenes");
+  });
+
   await test("captures every screen with the app's own Playwright tests", () => {
     const result = json(tieline(ws, "screens", "capture", "--all", "--json"), 0);
     assert.deepEqual(
@@ -120,13 +136,13 @@ for (const moduleType of ["commonjs", "module"] as const) {
       pages: { checked: number; unclaimed: string[] };
     };
     assert.deepEqual(audit.strict, { passed: true, failures: [] });
-    assert.deepEqual(audit.pages, { status: "complete", detail: null, checked: 3, unclaimed: [] });
+    assert.deepEqual(audit.pages, { status: "complete", detail: null, checked: 4, unclaimed: [] });
   });
 
   await test("verifies an unchanged app against a fresh capture", () => {
     const result = json(tieline(ws, "screens", "capture", "--all", "--verify", "--json"), 0);
     assert.equal(result.passed, true);
-    assert.equal(result.verified, 3);
+    assert.equal(result.verified, KEYS.length);
   });
 
   await test("selects, fails verification for, and re-captures a copy change", () => {
@@ -143,7 +159,13 @@ for (const moduleType of ["commonjs", "module"] as const) {
     ]);
     const failed = json(tieline(ws, "screens", "capture", "--changed", "--base", "HEAD", "--verify", "--json"), 1);
     assert.deepEqual(failed.mismatches, [{ key: "notes-list", causes: ["image", "text"] }]);
-    assert.equal(failed.fix, "tieline screens capture --changed --base HEAD");
+    // This app commits no code topology, so the dependency rule cannot run and
+    // the gate verifies every screen rather than trust a narrower selection.
+    assert.deepEqual((failed.selection as { widened?: unknown }).widened, {
+      reason: "the dependency selection rule(s) could not run",
+    });
+    assert.equal(failed.verified, KEYS.length);
+    assert.equal(failed.fix, "tieline screens capture --screen notes-list");
 
     const recaptured = json(tieline(ws, "screens", "capture", "--changed", "--base", "HEAD", "--json"), 0);
     assert.deepEqual(recaptured.screens, [{ key: "notes-list", status: "updated", aspects: ["image", "text"] }]);

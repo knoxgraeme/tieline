@@ -7,7 +7,11 @@ backfilling a catalog, or keeping one current on a branch. Read
 ## Rules for every scene
 
 A scene is an ordinary Playwright test tagged `@screen:<key>` that ends in
-`tielineSnapshot(page, "<key>")` from `tieline/playwright`.
+`tielineSnapshot(page, "<key>")` from `tieline/playwright`. Scenes are generated or written by
+you, never by a person: do not ask the user to write a test. A page whose default state is the
+screen needs no written scene, because Tieline generates it (see below). Write a scene only for
+a screen an acceptance criterion shows, or a state that takes steps to reach: dialogs, toasts,
+errors, empty and permission states.
 
 - **Capture the real app, never a faked response.** Reach a state with seeded data, or with a
   test-only switch the app honors only in test builds, so the real server code runs. Never use
@@ -29,6 +33,22 @@ A scene is an ordinary Playwright test tagged `@screen:<key>` that ends in
   `.tieline/screen-text/` files are written by `tieline screens capture` only.
 - **Use synthetic data only.** Never capture against production or shared staging data.
 
+## Generated page scenes
+
+Set this up once per repository, then keep it current:
+
+1. Set `screens.capture.generated_scenes` in `.tieline/config.json`: `file`, a scene file the
+   app's Playwright configuration runs (for example `e2e/pages.generated.screens.ts`), and
+   `setup`, the module you write next (for example `e2e/screens.setup.ts`).
+2. Write the setup module. It exports `prepare(page, screen)`, which every generated scene calls
+   before opening the page: sign in as the screen's role (`screen.applies_to.role`) when the app
+   needs it, seed what the page shows with synthetic data, and return the URL to open when the
+   route has parameters (`/notes/:noteId` → `/notes/note-1`).
+3. Run `tieline screens scenes` after every catalog change and commit the file. Never edit it.
+   A page you write a scene for elsewhere leaves the file when it is regenerated, so the two
+   never capture the same screen. A page that answers with an error, or whose route keeps a
+   parameter, fails its scene rather than capture the wrong thing.
+
 ## Backfill: catalog and capture every reachable state
 
 Work one capability at a time; independent capabilities can go to parallel subagents. Keep each
@@ -48,9 +68,10 @@ catalog file and scene file to that capability.
 4. **Mark what cannot be captured,** with `not_captured` and the closest reason: `flag-off`,
    `external`, `unreachable`, `needs-real-trigger`, `unstable`, or `other`. Every catalogued
    screen ends captured or marked.
-5. **Configure page coverage.** Set `screens.capture.pages` to the patterns for page files (for
-   example `app/**/page.tsx`, with `!` exclusions for API routes), so a page no screen claims is
-   reported.
+5. **Configure page coverage, and generate page scenes.** Set `screens.capture.pages` to the
+   patterns for page files (for example `app/**/page.tsx`, with `!` exclusions for API routes),
+   so a page no screen claims is reported. Catalog every page as a `page` screen whose `paths`
+   name its file, then generate its scene as above.
 6. **Capture in the pinned environment,** the Playwright Docker image the app pins:
 
    ```sh
@@ -76,18 +97,20 @@ Run this whenever a change touches what users see, as part of semantic closeout.
 1. **Find what changed.** `tieline screens capture --changed --base <base-ref> --dry-run` lists the
    catalogued screens the branch may affect and why. Then read the diff for what no catalog
    entry covers yet: new pages, dialogs, toasts, errors, and changed copy.
-2. **Update the catalog and scenes.** Catalog new states and write their scenes under the rules
-   above. When a criterion's behavior changes, change its scene's assertions with it. Remove the
-   entries and scenes of screens that no longer exist.
+2. **Update the catalog and scenes.** Catalog new pages and states and write the scenes the
+   rules above call for; run `tieline screens scenes` for new pages. When a criterion's behavior
+   changes, change its scene's assertions with it. Remove the entries and scenes of screens that
+   no longer exist, and regenerate.
 3. **Capture what changed,** in the pinned environment:
 
    ```sh
    tieline screens capture --changed --base <base-ref>
-   tieline screens capture --all --verify
+   tieline screens capture --changed --base <base-ref> --verify
    ```
 
    The second command is the pull-request check; it must pass before the branch is handed off.
-   When the repository requires it, `tieline screens audit --strict` must pass too.
+   It verifies every screen instead when a selection rule cannot run. When the repository
+   requires it, `tieline screens audit --strict` must pass too.
 4. **Compile and commit** the catalog, the ARIA snapshots under `.tieline/screen-text/`, and the
    manifest. Never commit screenshots.
 
