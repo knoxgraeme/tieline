@@ -466,6 +466,55 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-contract-history.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC10
+          criterion: Repository sync must record each Story, acceptance criterion, and screen a synced commit's history added, changed, or removed, with its commit and pull request, backfilling from git history on its first record and recording only what changed after the last recorded commit afterwards, must record nothing twice, must leave sync unchanged when the synced commit is not a git commit, and exact acceptance criterion context must include the criterion's changes.
+          rationale: Agents and hosted readers without a checkout need to know when and in which pull request behavior last changed, and a sync that runs again or late must neither duplicate nor lose that history.
+          scenarios:
+            - given: two pull requests merged between two syncs
+              when: the second sync runs
+              then: each change must be recorded with the pull request that made it
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:recordSyncedChangeEvents
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-change-events-repository.ts
+                selector: class:PostgresContractChangeEventsRepository
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/history.ts
+                selector: function:criterionHistory
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0006_contract_change_events.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-change-events.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-contract-history.ts
+                framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
       actor: implementing agent

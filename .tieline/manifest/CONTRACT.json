@@ -69,13 +69,99 @@
           {
             "aliases": [],
             "applies_to": null,
+            "contract_hash": "38957643a06f4918467f31f00e145cb0cb384ce90586a0e3fa6491e5c70b7980",
+            "criterion": "Repository sync must record each Story, acceptance criterion, and screen a synced commit's history added, changed, or removed, with its commit and pull request, backfilling from git history on its first record and recording only what changed after the last recorded commit afterwards, must record nothing twice, must leave sync unchanged when the synced commit is not a git commit, and exact acceptance criterion context must include the criterion's changes.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "10e30fdcfd787bed532061325a032b9aa9ed3c9234cdde827b4d26b30a82503b",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0006_contract_change_events.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5387d6dd4258917ff30890a945e1e49459b35613866ab69178c4d6d6e182baf5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-change-events-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresContractChangeEventsRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:recordSyncedChangeEvents"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d2894aea2cb340c151762621edbaddcc9320b60fccbfc250714d158bbbaf95a0",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/history.ts",
+                  "repository": "tieline",
+                  "selector": "function:criterionHistory"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "f12824193f5b3181b63b0f3273ba5401c5341c6196c538c88f868c0cf842c228",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-change-events.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "95f3f6c4416a6a34c0606281b9a4614752cd60594533c51210e49502113d7c48",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-contract-history.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 9,
+            "rationale": "Agents and hosted readers without a checkout need to know when and in which pull request behavior last changed, and a sync that runs again or late must neither duplicate nor lose that history.",
+            "scenarios": [
+              {
+                "given": "two pull requests merged between two syncs",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC10-S1",
+                "then": "each change must be recorded with the pull request that made it",
+                "when": "the second sync runs"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC10",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
             "contract_hash": "c02e83c8aa3e04461c0f91cb43c36e8beb69dfbc61595e95bf42c76fb1c28dbd",
             "criterion": "Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -247,7 +333,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -312,7 +398,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -616,7 +702,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -787,7 +873,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f4918cb7c90d75cd2e68189104e25bc86fbbfd3ffc1ea058d70d931bb4d27655",
+                "reviewed_content_hash": "d2894aea2cb340c151762621edbaddcc9320b60fccbfc250714d158bbbaf95a0",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -798,7 +884,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f4918cb7c90d75cd2e68189104e25bc86fbbfd3ffc1ea058d70d931bb4d27655",
+                "reviewed_content_hash": "d2894aea2cb340c151762621edbaddcc9320b60fccbfc250714d158bbbaf95a0",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -809,7 +895,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ea60b4a4ea55edbe290f3f010cfb8e997a6df076c137ecc1863f84a8ca1a4d48",
+                "reviewed_content_hash": "95f3f6c4416a6a34c0606281b9a4614752cd60594533c51210e49502113d7c48",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -870,7 +956,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1046,7 +1132,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1096,7 +1182,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1179,7 +1265,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1225,7 +1311,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "024072c37883377c56552d1f79544bc931318007a8fa502b13d22f5eaa042192",
+                "reviewed_content_hash": "caa08d08dca71ca3b6c1650f8e35ea0c036fb19f96ebb16f1da261c076028339",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract-context.ts",
@@ -1236,7 +1322,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1247,7 +1333,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dff57fe5e86c1764135899f0ec8667a7fe0d06c97262d808d675823db1fd0d80",
+                "reviewed_content_hash": "7fdac86f99e28604ce71ec47f414a9a267f0aecc64030b69f58d6598608672ba",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/intent-context.ts",
@@ -1269,7 +1355,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f1199d9262c191d8eeeab0ae8cf5bd5a905abd3526a7e53a6e7465de480a94b5",
+                "reviewed_content_hash": "65050bdd6e2f8f1b7c01bc92e8ca426f0b85e9add42201e731219323dd57a264",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1280,7 +1366,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2167,7 +2253,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "74a4343cb94a2426e49d80f304e4a7a634de351ba4d0b938c6ef49f21ce4a98d",
+                "reviewed_content_hash": "45f44af69e74872e315877f530f1b691ca43ef165de0a36dbec32daabf67a514",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/hosted-screens-repository.ts",
@@ -2178,7 +2264,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b681789ef264241e53bb10e7853a47aaf09010ce248ae1c5fb6ac5afa7551ff2",
+                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2189,7 +2275,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b681789ef264241e53bb10e7853a47aaf09010ce248ae1c5fb6ac5afa7551ff2",
+                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2200,7 +2286,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b681789ef264241e53bb10e7853a47aaf09010ce248ae1c5fb6ac5afa7551ff2",
+                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2279,7 +2365,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "74a4343cb94a2426e49d80f304e4a7a634de351ba4d0b938c6ef49f21ce4a98d",
+                "reviewed_content_hash": "45f44af69e74872e315877f530f1b691ca43ef165de0a36dbec32daabf67a514",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/hosted-screens-repository.ts",
@@ -2290,7 +2376,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b681789ef264241e53bb10e7853a47aaf09010ce248ae1c5fb6ac5afa7551ff2",
+                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2846,7 +2932,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c751a571d040cafb124c25058643ddfe844c8580bfa45cce0fe8bb21755e7042",
+                "reviewed_content_hash": "1893108c4146fbec3792603458317ac9b1ebca29f3ac79e984fcc0735c02d352",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -3292,6 +3378,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "53e703ffeb193e9c18a50384bfc01e010c7138b2aa488cac67433cc7d56323d1"
+    "sha256": "160af1c5df2a9d95db5ced6946f3007cc1b2593b4eed439e03531a05eb3f4151"
   }
 }

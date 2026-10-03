@@ -21,6 +21,7 @@ import {
   type GetAcceptanceCriterionContextInput,
   type GetAssetIntentContextInput,
 } from "./schemas/intent-context.js";
+import { criterionHistory } from "../contract/history.js";
 import { findTielineWorkspace } from "../tieline/workspace.js";
 import {
   errorResult,
@@ -48,6 +49,7 @@ export type ManifestIntentContextResolution =
   | {
       status: "resolved";
       repositoryRoot: string;
+      manifestPath: string;
       manifest: ContractManifest;
     }
   | { status: "no_workspace" | "no_manifest"; message: string };
@@ -67,6 +69,7 @@ export function resolveManifestIntentContext(
     return {
       status: "resolved",
       repositoryRoot: workspace.root,
+      manifestPath: workspace.manifestPath,
       manifest: readContractManifest(workspace.manifestPath),
     };
   } catch (error) {
@@ -137,12 +140,16 @@ function registerAcceptanceCriterionContext(server: McpServer): void {
         if (resolved.status !== "resolved") {
           return errorResult(resolved.message);
         }
+        const result = await lookupAcceptanceCriterionIntentContext({
+          manifest: resolved.manifest,
+          repositoryRoot: resolved.repositoryRoot,
+          stableId: input.stable_id,
+        });
         return jsonResult({
-          ...(await lookupAcceptanceCriterionIntentContext({
-            manifest: resolved.manifest,
-            repositoryRoot: resolved.repositoryRoot,
-            stableId: input.stable_id,
-          })),
+          ...result,
+          ...(result.status === "found"
+            ? { history: criterionHistory(resolved.repositoryRoot, resolved.manifestPath, result.requested_stable_id) }
+            : {}),
         });
       } catch (error) {
         return errorResult(formatError(error));

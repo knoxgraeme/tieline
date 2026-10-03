@@ -156,7 +156,9 @@ export class PostgresHostedScreensRepository {
     repositoryId: string,
     snapshot: HostedSnapshotInput,
     screenImages: ReadonlyMap<string, string>,
-    changedImages: (previous: ReadonlyMap<string, string>, current: ReadonlyMap<string, string>) => Array<{ key: string; digest: string }>
+    changedImages: (previous: ReadonlyMap<string, string>, current: ReadonlyMap<string, string>) => Array<{ key: string; digest: string }>,
+    /** The pull request the commit merged, recorded with each image change. */
+    pullRequest: number | null = null
   ): Promise<MainPublishResult> {
     return this.sqlProvider().begin(async (tx) => {
       await lockScreens(tx, repositoryKey);
@@ -172,8 +174,8 @@ export class PostgresHostedScreensRepository {
       const changed = changedImages(new Map(latest.map((row) => [row.screen_key, row.digest])), screenImages);
       if (changed.length > 0) {
         await tx`
-          insert into screen_history (repository_id, screen_key, digest, commit_sha)
-          select ${repositoryId}, screen_key, digest, ${snapshot.headCommit}
+          insert into screen_history (repository_id, screen_key, digest, commit_sha, pull_request)
+          select ${repositoryId}, screen_key, digest, ${snapshot.headCommit}, ${pullRequest}
           from unnest(
             ${changed.map((row) => row.key)}::text[],
             ${changed.map((row) => row.digest)}::text[]

@@ -319,10 +319,11 @@ squash-merge title (`… (#123)`) or the host's API.
   and hosted, shows "Last changed in #71 · 4 changes" on each Story, AC, and screen, walking at
   most 200 commits that changed the manifest by default. It applies to every Tieline repository,
   not only those with screens.
-- **Hosted:** the post-merge sync records a change event only when one of those identities changes,
-  and records which one. Today every
-  sync increments the revision of every Story and AC and records the last synced commit, so
-  "last changed" cannot be read from the database yet; the new events fix that.
+- **Hosted (built):** the post-merge sync records a change event, with its commit and pull
+  request, only when one of those identities changes, and records which one, in
+  `contract_change_events`. It backfills from git on its first run and records what changed after
+  the last recorded commit afterwards, idempotently. `main`'s screen history records the pull
+  request too, and `get_acceptance_criterion_context` returns an AC's changes from git.
 
 ## 7. Risks and required review
 

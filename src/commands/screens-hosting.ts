@@ -38,7 +38,7 @@ import {
   type HostedImageReference,
   type HostedImageType,
 } from "../contract/screen-hosting.js";
-import { readReviewHistory } from "../contract/history.js";
+import { commitPullRequest, readReviewHistory } from "../contract/history.js";
 import type { ReviewHistory } from "../contract/review-page.js";
 import { renderHostedReviewPage } from "../tieline/review.js";
 import { escapeTerminalText, resolveCommandContext, type CommandIO } from "./shared.js";
@@ -542,7 +542,8 @@ export async function publishMainScreens(input: {
     repositoryId,
     { headCommit: commit, manifest, images: digests, pageHtml: page },
     screenImageDigests(input.manifest),
-    changedScreenImages
+    changedScreenImages,
+    commitPullRequest(input.root, commit)
   );
   return result.outcome === "published"
     ? { outcome: "published", commit, images, history_added: result.history_added }

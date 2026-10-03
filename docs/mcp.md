@@ -11,7 +11,7 @@ use discovery only when it is not.
 | Tool | Purpose | Data source | Database |
 | --- | --- | --- | --- |
 | `get_asset_intent_context` | Read the selector-aware intent neighborhood for a known code or test locator | Compiled manifest | No |
-| `get_acceptance_criterion_context` | Read one exact AC and its associated code and tests | Compiled manifest | No |
+| `get_acceptance_criterion_context` | Read one exact AC, its associated code and tests, and when it changed, in which pull request | Compiled manifest and git history | No |
 | `get_path_criteria` | List the ACs linked to one or more repository paths | Compiled manifest | No |
 | `trace_code_dependencies` | Follow statically derived imports or references from an exact symbol | Topology snapshot | No |
 | `analyze_code_blast_radius` | Find code and linked ACs that may be affected by changes since a Git base | Topology plus manifest | No |
