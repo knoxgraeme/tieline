@@ -277,7 +277,8 @@ export function selectChangedScreens(input: ChangedScreenInputs): {
   const sceneFiles = settings.sceneTests ? settings.sceneTests.map(screenPathPattern) : null;
   const unreadableScenes: string[] = [];
   for (const change of changes) {
-    if (!isSceneTestCandidate(change.path, sceneFiles)) continue;
+    // A rename out of a test file name still drops the tags its old file had.
+    if (!touchedPaths(change).some((path) => isSceneTestCandidate(path, sceneFiles))) continue;
     const keys = input.sceneTags(change);
     if (keys === null) {
       unreadableScenes.push(change.path);
@@ -488,9 +489,10 @@ export function readBaseScreenCatalog(
 }
 
 /**
- * Reads the `@screen` tags of a changed test file: from the working tree, or
- * from the branch point when the change deleted it. Bounded like the audit's
- * scan; null when the file cannot be read within the bound.
+ * Reads the `@screen` tags of a changed test file, both as the branch point
+ * had it (at its old path, for a rename) and as the working tree has it, so a
+ * tag the change removed or renamed still selects its screen. Bounded like
+ * the audit's scan; null when either side cannot be read within the bound.
  */
 export function changedSceneTagReader(
   repositoryRoot: string,
@@ -499,11 +501,17 @@ export function changedSceneTagReader(
   const root = resolve(repositoryRoot);
   return (change) => {
     try {
-      const content =
+      const before =
+        change.status === "added"
+          ? []
+          : screenTagsIn(
+              git(root, ["show", `${commit}:${change.status === "renamed" ? change.old_path : change.path}`], SCREEN_SCENE_LIMITS.fileBytes).toString("utf8")
+            );
+      const after =
         change.status === "deleted"
-          ? git(root, ["show", `${commit}:${change.path}`], SCREEN_SCENE_LIMITS.fileBytes)
-          : readBoundedFile(resolve(root, change.path), SCREEN_SCENE_LIMITS.fileBytes, "test file");
-      return screenTagsIn(content.toString("utf8"));
+          ? []
+          : screenTagsIn(readBoundedFile(resolve(root, change.path), SCREEN_SCENE_LIMITS.fileBytes, "test file").toString("utf8"));
+      return [...new Set([...before, ...after])];
     } catch {
       return null;
     }

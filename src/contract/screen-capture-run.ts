@@ -56,6 +56,8 @@ export const SCREEN_CAPTURE_RUN_LIMITS = {
   totalImageBytes: SCREEN_IMPORT_LIMITS.captureTotalBytes,
   /** Largest ARIA snapshot read. */
   textBytes: CAPTURE_LIMITS.textBytes,
+  /** Most ARIA snapshot bytes one capture holds across its batches. */
+  totalTextBytes: 256 * 1024 * 1024,
   /** Problems listed in an error before the rest are counted. */
   reportedIssues: 20,
 } as const;
@@ -234,7 +236,7 @@ interface ReadCapturedScreensInput {
   environment: CaptureEnvironment;
   limits?: Pick<
     typeof SCREEN_CAPTURE_RUN_LIMITS,
-    "imageBytes" | "totalImageBytes" | "textBytes" | "settingsBytes"
+    "imageBytes" | "totalImageBytes" | "textBytes" | "totalTextBytes" | "settingsBytes"
   >;
   /**
    * Screenshot bytes the capture already holds from earlier batches. They
@@ -242,6 +244,8 @@ interface ReadCapturedScreensInput {
    * is batched.
    */
   imageBytesHeld?: number;
+  /** ARIA snapshot bytes the capture already holds, counted toward `totalTextBytes` the same way. */
+  textBytesHeld?: number;
 }
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -363,6 +367,7 @@ export function readCapturedScreens(input: ReadCapturedScreensInput & { retain?:
 
   const captured: CaptureDigest[] = [];
   let imageBytes = input.imageBytesHeld ?? 0;
+  let textBytes = input.textBytesHeld ?? 0;
   const directory = resolve(input.runDirectory, SCREENS_DIRECTORY);
   for (const key of [...input.selected].sort((left, right) => left.localeCompare(right))) {
     const test = capturedBy.get(key)![0]!;
@@ -378,11 +383,16 @@ export function readCapturedScreens(input: ReadCapturedScreensInput & { retain?:
           `the capture's screenshots exceed the ${limits.totalImageBytes}-byte total; capture fewer screens at once`
         );
       }
+      const textFile = readRunFile(resolve(directory, `${key}.yml`), limits.textBytes, "ARIA snapshot");
+      if (input.retain !== false) textBytes += textFile.length;
+      if (textBytes > limits.totalTextBytes) {
+        throw new ScreenCaptureError(
+          `the capture's ARIA snapshots exceed the ${limits.totalTextBytes}-byte total; capture fewer screens at once`
+        );
+      }
       let text: string;
       try {
-        text = new TextDecoder("utf-8", { fatal: true }).decode(
-          readRunFile(resolve(directory, `${key}.yml`), limits.textBytes, "ARIA snapshot")
-        );
+        text = new TextDecoder("utf-8", { fatal: true }).decode(textFile);
       } catch (error) {
         throw error instanceof ScreenCaptureError
           ? error

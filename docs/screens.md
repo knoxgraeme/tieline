@@ -776,8 +776,11 @@ Three workflows, with the hosted screens secrets kept in a GitHub environment na
    capture, as the default branch has it: it finds the open pull request whose head is the captured
    commit, installs Tieline from the default branch, checks the pull request out beside it only to
    read, runs `screens publish --repository` against it (which re-hashes every screenshot against
-   the digest its catalog commits), and keeps one pull-request comment up to date with the changes
-   and a link to the page. When a pull request closes, it runs `screens close`.
+   the digest its catalog commits, and with `--trusted` refuses a pull request that names another
+   repository key, bucket, or site URL than the default branch), and keeps one pull-request comment
+   up to date with the changes and a link to the page. When a pull request closes, it runs
+   `screens close`; runs wait their turn rather than replace each other, so a close is never
+   dropped, and a publish that runs after it finds the pull request closed.
 3. [`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync` of
    `main` as it is when the run starts, which publishes `main` (so a run that waited, ran out of
    order, or replaced another pending run never syncs an older commit); when it reports a

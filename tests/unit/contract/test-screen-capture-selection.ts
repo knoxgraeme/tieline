@@ -355,6 +355,33 @@ await test("reads a deleted scene test's tags from the branch point", () => {
   assert.equal(reader(modified("e2e/never-existed.spec.ts")), null);
 });
 
+await test("reads a changed scene test's tags as the branch point and the working tree have them, so a removed tag still selects", () => {
+  const ws = notesWorkspace();
+  ws.write("e2e/list.spec.ts", 'test("x", { tag: "@screen:notes-list" }, () => {});\n');
+  ws.write("e2e/toast.spec.ts", 'test("y", { tag: "@screen:note-saved-toast" }, () => {});\n');
+  ws.write("e2e/share.spec.ts", 'test("z", { tag: "@screen:notes-share-denied" }, () => {});\n');
+  ws.commit("baseline");
+  const reader = changedSceneTagReader(ws.root, gitHead(ws));
+  // Retagged in place: the screen it no longer captures is selected too.
+  ws.write("e2e/list.spec.ts", 'test("x", { tag: "@screen:notes-list-empty" }, () => {});\n');
+  assert.deepEqual(reader(modified("e2e/list.spec.ts"))?.sort(), ["notes-list", "notes-list-empty"]);
+  // Renamed and untagged: the old path's tag is read at the branch point.
+  ws.remove("e2e/toast.spec.ts");
+  ws.write("e2e/toast-renamed.spec.ts", 'test("y", () => {});\n');
+  assert.deepEqual(reader({ status: "renamed", old_path: "e2e/toast.spec.ts", path: "e2e/toast-renamed.spec.ts" }), ["note-saved-toast"]);
+  // Renamed out of a test file name: still a scene change, by its old path.
+  const result = selectChangedScreens(
+    inputs(ws, {
+      changes: [{ status: "renamed", old_path: "e2e/share.spec.ts", path: "e2e/share-helpers.ts" }],
+      sceneTags: () => ["notes-share-denied"],
+    })
+  );
+  assert.deepEqual(picks(result), { "notes-share-denied": [{ rule: "scene", path: "e2e/share-helpers.ts" }] });
+  // A new file has no branch-point side.
+  ws.write("e2e/new.spec.ts", 'test("n", { tag: "@screen:notes-list" }, () => {});\n');
+  assert.deepEqual(reader({ status: "added", path: "e2e/new.spec.ts" }), ["notes-list"]);
+});
+
 console.log("screens selection: capture --dry-run");
 
 /** A dry run selects only: anything that would start Playwright fails the test. */

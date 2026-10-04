@@ -1436,6 +1436,9 @@ capability:
             - given: a branch changes a screen's committed screenshot digest by hand
               when: screens changed since the base are selected
               then: the screen must be selected so that verification re-captures it
+            - given: a branch removes or renames a test's @screen tag, or renames the test out of a test file name, and nothing else selects that screen
+              when: the screens it may have changed are selected
+              then: the screen must be selected, from the tags the test had at the branch point
           links:
             - relation: implements
               provenance: authored
@@ -1493,7 +1496,7 @@ capability:
               then: it must stop without writing, the limit covering every batch and repeat together
             - given: a capture that runs in several batches or is repeated
               when: its screenshots are read back
-              then: the screenshots it keeps must stay within one byte bound across every batch, and a repeat run must keep only the digests it is compared by
+              then: the screenshots and ARIA snapshots it keeps must each stay within one byte bound across every batch, and a repeat run must keep only the digests it is compared by
           links:
             - relation: implements
               provenance: authored
@@ -1680,6 +1683,12 @@ capability:
             - given: the example pull-request workflow, and a pull request whose dependencies or tests are compromised
               when: the workflow captures and publishes
               then: the publishing credentials must be held only by a workflow the default branch owns, in an environment only the default branch can use, that installs Tieline from the default branch and runs none of the pull request's code
+            - given: the bucket holds an image the database has no record of, as after restoring the database apart from its bucket, and the captures directory cannot supply it
+              when: a page that shows it is published
+              then: Tieline must publish nothing and name the image, since the site would not serve it
+            - given: a trusted checkout, and a pull request whose configuration names another repository key, bucket, or site URL
+              when: the pull request is published with --trusted
+              then: Tieline must publish nothing and touch neither the database nor the bucket
           links:
             - relation: implements
               provenance: authored
@@ -1753,6 +1762,9 @@ capability:
             - given: a screen main's page no longer shows
               when: screens prune runs
               then: its history must be deleted, so its images can go once nothing else references them; when main's page cannot be read, history is kept and the prune says why
+            - given: object storage stalls while a prune deletes unreferenced images
+              when: screens prune runs
+              then: it must stop deleting at its time limit and release the screens lock, keeping what it did not delete for the next prune
           links:
             - relation: implements
               provenance: authored

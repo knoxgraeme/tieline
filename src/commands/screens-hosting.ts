@@ -71,6 +71,8 @@ export interface HostedScreensDependencies {
   /** Releases every connection `repository` opened. */
   close(): Promise<void>;
   headCommit(root: string): string;
+  /** How long a prune may spend deleting from the bucket; HOSTED_SCREEN_LIMITS.pruneDeleteSeconds unless set. */
+  pruneDeleteMs?: number;
 }
 
 export const DEFAULT_HOSTED_SCREENS_DEPENDENCIES: HostedScreensDependencies = {
@@ -174,22 +176,37 @@ export async function storeHostedImages(input: {
         : read
     );
   }
-  await input.repository.touchImages(
-    input.repositoryKey,
-    input.repositoryId,
-    input.references.flatMap((reference) => {
-      const state = local.get(reference.digest)!;
-      return state.status === "ok"
-        ? [{ digest: reference.digest, contentType: state.contentType, byteSize: state.byteSize }]
-        : [];
-    }),
-    input.references.map((reference) => reference.digest)
+  const recorded = new Set(
+    await input.repository.touchImages(
+      input.repositoryKey,
+      input.repositoryId,
+      input.references.flatMap((reference) => {
+        const state = local.get(reference.digest)!;
+        return state.status === "ok"
+          ? [{ digest: reference.digest, contentType: state.contentType, byteSize: state.byteSize }]
+          : [];
+      }),
+      input.references.map((reference) => reference.digest)
+    )
   );
   const present = await settleEach(input.references, (reference) =>
     input.store.head(hostedImageKey(input.repositoryKey, reference.digest), input.signal)
   );
   const absent = input.references.filter((_, index) => !present[index]);
   const missing: MissingHostedImage[] = [];
+  // The site serves no image without its metadata row, so one in the bucket
+  // that the database does not record (a database restored apart from its
+  // bucket, say) is missing too. The captures directory records every image
+  // it can supply, so only one it cannot is unrecorded.
+  const unrecorded = input.references.filter((reference, index) => present[index] && !recorded.has(reference.digest));
+  for (const reference of unrecorded) {
+    const state = local.get(reference.digest)!;
+    missing.push({
+      digest: reference.digest,
+      screens: reference.screens,
+      detail: `in the bucket, but the database has no record of it, and ${state.status === "ok" ? "recording it failed" : state.detail}`,
+    });
+  }
   let uploaded = 0;
   // A stored image the captures directory can supply is read back and
   // compared, and stored again when its bytes are not the ones its digest
@@ -199,7 +216,7 @@ export async function storeHostedImages(input: {
   // and the site refuses mismatched bytes anyway.
   let repaired = 0;
   const verifiable = input.references.filter(
-    (reference, index) => present[index] && local.get(reference.digest)?.status === "ok"
+    (reference, index) => present[index] && recorded.has(reference.digest) && local.get(reference.digest)?.status === "ok"
   );
   await settleEach(verifiable, async (reference) => {
     const key = hostedImageKey(input.repositoryKey, reference.digest);
@@ -238,7 +255,7 @@ export async function storeHostedImages(input: {
   return {
     referenced: input.references.length,
     uploaded,
-    already_stored: input.references.length - absent.length - repaired,
+    already_stored: input.references.length - absent.length - unrecorded.length - repaired,
     repaired,
     missing: missing.sort((left, right) => left.digest.localeCompare(right.digest)),
   };
@@ -269,6 +286,30 @@ function boundedManifest(manifest: ContractManifest): unknown {
     );
   }
   return value;
+}
+
+/**
+ * Fails when the checkout being published names another repository key,
+ * bucket, or site URL than the trusted checkout: those decide where the
+ * credentials write and where the comment links, so a branch must not choose
+ * them.
+ */
+function requireTrustedTarget(trustedPath: string, repositoryKey: string, settings: HostedSettings): void {
+  const trusted = resolveCommandContext({ repository: trustedPath });
+  const trustedHosted = hostedSettings(trusted.root).hosted;
+  const differences = [
+    { label: "repository key", trusted: trusted.repositoryKey, published: repositoryKey },
+    { label: "bucket", trusted: trustedHosted.bucket, published: settings.hosted.bucket },
+    { label: "site URL", trusted: trustedHosted.site_url ?? "none", published: settings.hosted.site_url ?? "none" },
+  ]
+    .filter((target) => target.trusted !== target.published)
+    .map(
+      (target) =>
+        `${target.label} '${escapeTerminalText(target.published)}' (the trusted checkout names '${escapeTerminalText(target.trusted)}')`
+    );
+  if (differences.length > 0) {
+    throw new Error(`The checkout being published names another ${differences.join(", ")}, so nothing was published.`);
+  }
 }
 
 /** The comparison with `main`'s published state, or why there is none. */
@@ -340,6 +381,12 @@ export interface ScreensPublishOptions {
   commit?: string;
   /** Where to write a Markdown summary for a pull-request comment, once published. */
   summaryFile?: string;
+  /**
+   * A checkout Tieline trusts, such as the default branch's when publishing
+   * a pull request: the published checkout must name its repository key,
+   * bucket, and site URL, so a branch cannot redirect where it publishes.
+   */
+  trusted?: string;
   json?: boolean;
   signal?: AbortSignal;
 }
@@ -400,6 +447,7 @@ export async function runScreensPublishCommand(
   const ref = parseHostedRef({ pullRequest: options.pullRequest, branch: options.branch });
   const { root, repositoryKey, specDirectory, manifestPath } = resolveCommandContext(options);
   const settings = hostedSettings(root);
+  if (options.trusted !== undefined) requireTrustedTarget(options.trusted, repositoryKey, settings);
   const commit = fullCommit(options.commit ?? dependencies.headCommit(root));
   const current = compileContractManifestWithSources({
     repositoryRoot: root,
@@ -454,7 +502,7 @@ export async function runScreensPublishCommand(
         io.write(`${JSON.stringify({ published: false, ref: label, commit, images }, null, 2)}\n`);
       } else {
         io.write(
-          `Nothing was published for ${escapeTerminalText(label)}: ${images.missing.length} image(s) are not in the bucket and cannot be uploaded from the captures directory.\n`
+          `Nothing was published for ${escapeTerminalText(label)}: ${images.missing.length} image(s) are missing from the bucket or its records and cannot be uploaded from the captures directory.\n`
         );
         renderMissing(images.missing, io);
         io.write("Capture those screens in the pinned environment, then publish again.\n");
@@ -603,7 +651,7 @@ export async function publishMainScreens(input: {
     return {
       outcome: "failed",
       commit,
-      reason: `${images.missing.length} image(s) main shows are not in the bucket and cannot be uploaded from the captures directory`,
+      reason: `${images.missing.length} image(s) main shows are missing from the bucket or its records and cannot be uploaded from the captures directory`,
       images,
     };
   }
@@ -695,13 +743,20 @@ export async function runScreensPruneCommand(
         repositoryId,
         { graceHours: HOSTED_SCREEN_LIMITS.imageGraceHours, limit: HOSTED_SCREEN_LIMITS.pruneImages },
         async (digests) => {
+          // The screens lock is held while these run, so they stop at a time
+          // limit however slowly the bucket answers; what is left is kept and
+          // retried by the next prune.
+          const timeLimit = AbortSignal.timeout(dependencies.pruneDeleteMs ?? HOSTED_SCREEN_LIMITS.pruneDeleteSeconds * 1000);
+          const signal = options.signal ? AbortSignal.any([options.signal, timeLimit]) : timeLimit;
+          const late = "not deleted within the prune's time limit";
           const outcomes = await settleEach(digests, async (digest) => {
+            if (timeLimit.aborted) return { digest, detail: late };
             try {
-              await store.delete(hostedImageKey(repositoryKey, digest), options.signal);
+              await store.delete(hostedImageKey(repositoryKey, digest), signal);
               return { digest, detail: null };
             } catch (error) {
               if (options.signal?.aborted) throw error;
-              return { digest, detail: message(error) };
+              return { digest, detail: timeLimit.aborted ? late : message(error) };
             }
           });
           return {

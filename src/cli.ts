@@ -708,6 +708,10 @@ function buildProgram(
     .option("--branch <name>", "publish as this branch")
     .option("--commit <sha>", "the commit published (default: HEAD)")
     .option("--summary-file <path>", "once published, write a Markdown summary for a pull-request comment")
+    .option(
+      "--trusted <path>",
+      "a trusted checkout (the default branch's) whose repository key, bucket, and site URL the published checkout must name"
+    )
     .option("--repository <path>", "repository path")
     .option("--json", "emit machine-readable JSON")
     .action(async (opts) => {
@@ -720,6 +724,7 @@ function buildProgram(
             branch: opts.branch,
             commit: opts.commit,
             summaryFile: opts.summaryFile,
+            trusted: opts.trusted,
             json: Boolean(opts.json),
           },
           io

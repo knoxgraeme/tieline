@@ -540,13 +540,14 @@ async function captureScreens(input: {
         deadline,
         read,
       });
-    // The first run keeps its screenshots, within one byte bound across its batches.
+    // The first run keeps its screenshots and ARIA snapshots, each within one byte bound across its batches.
     const first: CapturedScreen[] = [];
     for (const keys of screenGrepBatches(input.keys)) {
       const imageBytesHeld = first.reduce((total, screen) => total + screen.image.length, 0);
+      const textBytesHeld = first.reduce((total, screen) => total + Buffer.byteLength(screen.text), 0);
       first.push(
         ...(await capture(keys, (run) =>
-          readCapturedScreens({ ...run, repositoryRoot: input.root, selected: keys, environment, imageBytesHeld })
+          readCapturedScreens({ ...run, repositoryRoot: input.root, selected: keys, environment, imageBytesHeld, textBytesHeld })
         ))
       );
     }
