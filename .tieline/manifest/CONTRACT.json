@@ -2880,7 +2880,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "cdba0c1a23742ce195b26cf174af89495db19d99fb4b8fc718a804dfa806c67e",
+            "contract_hash": "066eeeb7034e777ea0aedbb575d5e9cbb314749d16c68966c45430b283c8ad30",
             "criterion": "The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.",
             "links": [
               {
@@ -2897,7 +2897,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3cabbffef3bc08e367b0ac90d225d8577321a7e0129a5fbdafc8fcf4b095e85b",
+                "reviewed_content_hash": "05a66cf3382ea75a8d499fbc99b772c7dd4202b0c1c2e94680a963daca6b65d5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -2908,7 +2908,18 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "9382b209d535613d1ba76b15745abdf8c85805e07ab022f94f2344ae0c5609d8",
+                "reviewed_content_hash": "a37b30971c81be03d0a838b013da282a40f0037a51e244ab6bbf32840f979a54",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-review-page-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "07e4f820b52bbe8ade1d17b370e7630929959657a27e5fadc28d819acba8f276",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2919,7 +2930,15 @@
             ],
             "position": 4,
             "rationale": "Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.",
-            "scenarios": [],
+            "scenarios": [
+              {
+                "given": "a catalog of about a thousand screens",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC5-S1",
+                "then": "every screen must fit in the window on one board, without requesting an image until cards are large enough to see",
+                "when": "the reviewer switches the Screens view to the canvas"
+              }
+            ],
             "stable_id": "CONTRACT-005-AC5",
             "supersedes": null
           },
@@ -2954,7 +2973,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "38ced7f46dbd0dabfc037ed077255eefc413f04666a4290fedc68d98020eb567",
+                "reviewed_content_hash": "6efbe975b14dbfc87330c7a49c3850a54fb2aa66f63e153e3623151f6ba7354f",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-changes-page.ts",
@@ -2987,7 +3006,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "24c4638891582d03d579dcb3e4547664869d0ff8726d1ecedc36846cb43315fc",
+                "reviewed_content_hash": "a37b30971c81be03d0a838b013da282a40f0037a51e244ab6bbf32840f979a54",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3403,6 +3422,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "071e03a7e57da97d98689dcc3ca4a5be8febdacf9e207facc15aacdae289ad53"
+    "sha256": "1ce0dd6789e3caa588763669be459572b87ed0823e808ac50634f651b6d9c86a"
   }
 }

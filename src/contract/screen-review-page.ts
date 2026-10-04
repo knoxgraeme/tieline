@@ -72,6 +72,8 @@ export interface ScreenReviewEntry {
   before_image?: { src: string; label: string };
   /** Why the screen is deliberately not captured, or null. */
   not_captured: { reason: string; detail: string } | null;
+  /** The test that captures the screen, from its capture record, or null. */
+  capture_test: string | null;
   /** When the screen last changed, from git history. */
   last_changed?: ItemHistory & { truncated: boolean };
   shown_by: ScreenShownBy[];
@@ -260,6 +262,7 @@ export function buildScreenReviewModel(
           image: imageSource(entry.image, screens),
           ...beforeImage(entry.key, entry.image?.sha256, screens, change),
           not_captured: entry.not_captured ?? null,
+          capture_test: entry.capture?.test ?? null,
           ...(screens.history?.items.has(`screen:${entry.key}`)
             ? { last_changed: { ...screens.history.items.get(`screen:${entry.key}`)!, truncated: screens.history.truncated } }
             : {}),
@@ -419,6 +422,15 @@ export function renderScreenSidebar(model: ScreenReviewModel): string {
               <option value="linked">Shown by a Story or AC</option>
               <option value="unlinked">Not linked to any Story</option>
             </select>
+          </label>
+          <label class="filter-select">
+            <span>Screenshot</span>
+            <select id="screen-capture-filter">
+              <option value="">All screens</option>
+              <option value="captured">With a screenshot</option>
+              <option value="not-captured">Not captured, with a reason</option>
+              <option value="none">No screenshot yet</option>
+            </select>
           </label>${
             model.hasChanges
               ? `
@@ -465,7 +477,15 @@ export function renderScreensView(model: ScreenReviewModel): string {
           author them in the screen catalog, then run
           <code>tieline contract compile .</code>.</p>
         </div>`
-      : `<div class="screens-map" id="screens-map" aria-label="Screen map"></div>`;
+      : `<div class="screens-map" id="screens-map" data-layout="grid" aria-label="Screen map">
+          <div class="screens-board" id="screens-board"></div>
+          <div class="canvas-tools" id="canvas-tools" hidden>
+            <button type="button" id="canvas-zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+            <span id="canvas-scale">100%</span>
+            <button type="button" id="canvas-zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+            <button type="button" id="canvas-fit" title="Fit every screen (0)">Fit</button>
+          </div>
+        </div>`;
   return `<section class="screens-view" id="screens-view" aria-label="Screens">
           <header class="screens-header">
             <h1>Screens</h1>
@@ -482,7 +502,15 @@ export function renderScreensView(model: ScreenReviewModel): string {
               }
             </div>
             <div class="map-tools">
-              <span id="screen-visible-count" aria-live="polite"></span>
+              <span id="screen-visible-count" aria-live="polite"></span>${
+                coverage.screens > 0
+                  ? `
+              <div class="layout-switch" role="group" aria-label="Layout">
+                <button type="button" data-layout-choice="grid" aria-pressed="true">Grid</button>
+                <button type="button" data-layout-choice="canvas" aria-pressed="false">Canvas</button>
+              </div>`
+                  : ""
+              }
               <label class="zoom">
                 <span>Zoom</span>
                 <input id="screen-zoom" type="range" min="1" max="4" step="1" value="2" aria-label="Thumbnail size">
@@ -1089,8 +1117,128 @@ export const SCREEN_REVIEW_STYLES = `    .view-tabs {
     .screen-chip-text:hover { background: var(--bg-2); }
     .screen-chip-text b { overflow: hidden; color: var(--fg-1); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
     .screen-chip-text small { color: var(--fg-3); font-size: var(--text-sm); }
+    .layout-switch {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+    }
+    .layout-switch button {
+      height: 24px;
+      padding: 0 10px;
+      color: var(--fg-2);
+      background: none;
+      border: 0;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: var(--text-sm);
+    }
+    .layout-switch button:hover { color: var(--fg-1); }
+    .layout-switch button[aria-pressed="true"] {
+      color: var(--fg-1);
+      background: var(--bg);
+      box-shadow: 0 0 0 1px var(--line-strong);
+      font-weight: 500;
+    }
+    .zoom[hidden], .canvas-tools[hidden] { display: none; }
+    .screens-map[data-layout="canvas"] {
+      position: relative;
+      margin-top: 16px;
+      overflow: hidden;
+      background: var(--bg-1);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .screens-map[data-layout="canvas"].panning { cursor: grabbing; }
+    .screens-map[data-layout="canvas"] .screens-board { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+    .screens-map[data-layout="canvas"] .screen-section { position: absolute; margin: 0; }
+    /* Labels are sized against the canvas scale, so they read at every zoom. */
+    .screens-map[data-layout="canvas"] .screen-section > h2 {
+      position: absolute;
+      top: auto;
+      bottom: 100%;
+      left: 0;
+      display: block;
+      margin: 0;
+      padding: 0 0 calc(6px / var(--canvas-scale));
+      overflow: hidden;
+      background: none;
+      border: 0;
+      font-size: calc(13px / var(--canvas-scale));
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .screens-map[data-layout="canvas"] .screen-section > h2 small,
+    .screens-map[data-layout="canvas"] .screen-group > h3 small { margin-left: .4em; font-size: .85em; }
+    .screens-map[data-layout="canvas"] .screen-group { position: absolute; width: max-content; margin: 0; }
+    .screens-map[data-layout="canvas"] .screen-group > h3 {
+      position: absolute;
+      top: auto;
+      bottom: 100%;
+      left: 0;
+      max-width: 100%;
+      margin: 0;
+      padding: 0 0 6px;
+      overflow: hidden;
+      background: none;
+      font-size: min(72px, calc(11px / var(--canvas-scale)));
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .screens-map[data-layout="canvas"] .screen-grid { grid-template-columns: repeat(var(--cols, 4), 240px); gap: 24px 16px; }
+    .screens-map[data-layout="canvas"] .screen-card[aria-current="true"] { position: relative; z-index: 1; }
+    .screens-map[data-layout="canvas"] .screen-card[aria-current="true"] .shot {
+      outline-width: calc(2px / var(--canvas-scale));
+      outline-offset: calc(2px / var(--canvas-scale));
+    }
+    /* Hidden, not removed, so a card's size never depends on the zoom. */
+    .screens-map[data-band="far"] .screen-group > h3,
+    .screens-map[data-band="far"] .shot i,
+    .screens-map[data-band="far"] .card-body,
+    .screens-map[data-band="mid"] .card-body { visibility: hidden; }
+    .canvas-tools {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-md);
+      cursor: default;
+    }
+    .canvas-tools button {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      color: var(--fg-2);
+      background: none;
+      border: 0;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: var(--text-md);
+    }
+    .canvas-tools button:hover { color: var(--fg-1); background: var(--bg-2); }
+    .canvas-tools span {
+      min-width: 44px;
+      color: var(--fg-3);
+      font: var(--text-sm) var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
     @media (max-width: 760px) {
       .wiki-shell:not([data-nav-open]) .screen-panel { display: none; }
+      .layout-switch { display: none; }
       .view-tabs { flex: none; margin: 0; }
       .screens-header { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "toolbar" "tools" "stories"; }
       .screen-detail, .screen-detail:has(#screen-detail-before:not([hidden])) { width: 100vw; }
@@ -1135,8 +1283,21 @@ export const SCREEN_REVIEW_SCRIPT = `
       const zoom = document.getElementById("screen-zoom");
       const detail = document.getElementById("screen-detail");
       const tabs = [...document.querySelectorAll("[data-view-tab]")];
+      const board = document.getElementById("screens-board");
+      const captureFilter = document.getElementById("screen-capture-filter");
+      const layoutButtons = [...document.querySelectorAll("[data-layout-choice]")];
+      const zoomControl = zoom ? zoom.closest(".zoom") : null;
+      const canvasTools = document.getElementById("canvas-tools");
+      const canvasScale = document.getElementById("canvas-scale");
       const RESULT_LIMIT = 200;
       const ZOOM_WIDTHS = ["80px", "168px", "240px", "360px"];
+      const LAYOUT_KEY = "tieline:screens-layout";
+      // Below this scale a card is too small on screen to be worth its image,
+      // so a catalog zoomed out to fit requests none.
+      const IMAGE_SCALE = 0.15;
+      // Room above each row of groups for their labels, in board units.
+      const GROUP_GAP = 96;
+      const canvas = { active: false, laidOut: false, scale: 1, x: 0, y: 0, width: 0, height: 0 };
       const cards = new Map();
       const sectionElements = [];
       let visible = screens.slice();
@@ -1158,6 +1319,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         ? new IntersectionObserver((entries) => {
             for (const entry of entries) {
               if (!entry.isIntersecting) continue;
+              if (canvas.active && canvas.scale < IMAGE_SCALE) continue;
               imageObserver.unobserve(entry.target);
               loadImage(entry.target);
             }
@@ -1288,7 +1450,7 @@ export const SCREEN_REVIEW_SCRIPT = `
             sectionElement.append(groupElement);
             groups.push(groupElement);
           });
-          map.append(sectionElement);
+          board.append(sectionElement);
           sectionElements.push({ element: sectionElement, groups });
         }
         observeImages(map);
@@ -1305,6 +1467,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           dimensions,
           linked: linkedFilter ? linkedFilter.value : "",
           changed: changeFilter ? changeFilter.value : "",
+          capture: captureFilter ? captureFilter.value : "",
         };
       }
 
@@ -1313,6 +1476,9 @@ export const SCREEN_REVIEW_SCRIPT = `
         if (filters.linked === "linked" && screen.shown_by.length === 0) return false;
         if (filters.linked === "unlinked" && screen.shown_by.length > 0) return false;
         if (filters.changed === "changed" && !screen.change) return false;
+        if (filters.capture === "captured" && !screen.image) return false;
+        if (filters.capture === "not-captured" && (screen.image || !screen.not_captured)) return false;
+        if (filters.capture === "none" && (screen.image || screen.not_captured)) return false;
         for (const [dimension, value] of filters.dimensions) {
           const values = screen.applies_to && screen.applies_to[dimension];
           // A screen without this dimension applies to every value of it.
@@ -1353,7 +1519,8 @@ export const SCREEN_REVIEW_SCRIPT = `
       function applyFilters() {
         const filters = activeFilters();
         const active = Boolean(filters.query) || filters.kinds.size > 0 ||
-          filters.dimensions.length > 0 || Boolean(filters.linked) || Boolean(filters.changed);
+          filters.dimensions.length > 0 || Boolean(filters.linked) || Boolean(filters.changed) ||
+          Boolean(filters.capture);
         visible = screens.filter((screen) => matches(screen, filters));
         const shown = new Set(visible.map((screen) => screen.key));
         for (const [key, card] of cards) card.hidden = !shown.has(key);
@@ -1371,13 +1538,281 @@ export const SCREEN_REVIEW_SCRIPT = `
         if (changeToggle) changeToggle.setAttribute("aria-pressed", String(filters.changed === "changed"));
         // The query is shown in the search box, so it is not counted here.
         const chosen = filters.kinds.size + filters.dimensions.length +
-          (filters.linked ? 1 : 0) + (filters.changed ? 1 : 0);
+          (filters.linked ? 1 : 0) + (filters.changed ? 1 : 0) + (filters.capture ? 1 : 0);
         if (filterCount) filterCount.textContent = chosen > 0 ? "· " + chosen + " active" : "";
         if (clear) clear.hidden = !active;
         if (visibleCount) {
           visibleCount.textContent = active ? "Showing " + visible.length + " of " + screens.length + " screens" : "";
         }
         if (results) renderResults(filters, active);
+        refreshCanvas();
+      }
+
+      function applyZoom() {
+        map.dataset.zoom = zoom.value;
+        map.style.setProperty("--screen-card", ZOOM_WIDTHS[Number(zoom.value) - 1] || ZOOM_WIDTHS[1]);
+      }
+
+      function narrowScreen() {
+        return window.matchMedia("(max-width: 760px)").matches;
+      }
+
+      function savedLayout() {
+        if (narrowScreen()) return "grid";
+        try {
+          return window.localStorage.getItem(LAYOUT_KEY) === "canvas" ? "canvas" : "grid";
+        } catch {
+          return "grid";
+        }
+      }
+
+      // The grid scrolls with the page; the canvas lays every section out on
+      // one board that pans and zooms inside a fixed frame.
+      function setLayout(layout, remember) {
+        if (!map || !board) return;
+        const isCanvas = layout === "canvas";
+        canvas.active = isCanvas;
+        map.dataset.layout = isCanvas ? "canvas" : "grid";
+        for (const button of layoutButtons) {
+          button.setAttribute("aria-pressed", String(button.getAttribute("data-layout-choice") === map.dataset.layout));
+        }
+        if (zoomControl) zoomControl.hidden = isCanvas;
+        if (canvasTools) canvasTools.hidden = !isCanvas;
+        if (isCanvas) {
+          delete map.dataset.zoom;
+          refreshCanvas();
+        } else {
+          board.removeAttribute("style");
+          map.style.removeProperty("height");
+          map.style.removeProperty("--canvas-scale");
+          delete map.dataset.band;
+          for (const section of sectionElements) {
+            for (const property of ["left", "top", "width", "height"]) section.element.style.removeProperty(property);
+            const label = section.element.querySelector(":scope > h2");
+            if (label) label.style.removeProperty("max-width");
+            for (const group of section.groups) {
+              for (const property of ["--cols", "left", "top"]) group.style.removeProperty(property);
+            }
+          }
+          if (zoom) applyZoom();
+        }
+        if (remember) {
+          try {
+            window.localStorage.setItem(LAYOUT_KEY, map.dataset.layout);
+          } catch {
+            // Storage may be unavailable, for example for a file page in a
+            // private window; the choice then lasts until the page reloads.
+          }
+        }
+      }
+
+      function canvasVisible() {
+        return canvas.active && shell.dataset.view === "screens" && map.offsetParent !== null;
+      }
+
+      function applyTransform() {
+        board.style.transform = "translate(" + canvas.x + "px, " + canvas.y + "px) scale(" + canvas.scale + ")";
+        map.style.setProperty("--canvas-scale", String(canvas.scale));
+        map.dataset.band = canvas.scale < 0.15 ? "far" : canvas.scale < 0.5 ? "mid" : "near";
+        if (canvasScale) canvasScale.textContent = Math.round(canvas.scale * 100) + "%";
+        scheduleImageScan();
+      }
+
+      // The frame fills the window below the view's header, so the page
+      // itself does not scroll while the canvas is in use.
+      function sizeCanvas() {
+        const top = map.getBoundingClientRect().top + window.scrollY;
+        map.style.height = Math.max(360, Math.round(window.innerHeight - top - 24)) + "px";
+      }
+
+      // Where a node sits on the board, in board units.
+      function boardBox(node) {
+        let left = 0;
+        let top = 0;
+        let current = node;
+        while (current && current !== board) {
+          left += current.offsetLeft;
+          top += current.offsetTop;
+          current = current.offsetParent;
+        }
+        return { left, top, width: node.offsetWidth, height: node.offsetHeight };
+      }
+
+      // Places boxes left to right in rows no wider than the target width.
+      function packRows(boxes, target, gap) {
+        let x = 0;
+        let y = gap;
+        let row = 0;
+        let width = 0;
+        const positions = [];
+        for (const box of boxes) {
+          if (x > 0 && x + box.width > target) {
+            y += row + gap;
+            x = 0;
+            row = 0;
+          }
+          positions.push({ left: x, top: y });
+          x += box.width + gap;
+          row = Math.max(row, box.height);
+          width = Math.max(width, x - gap);
+        }
+        return { positions, width, height: y + row };
+      }
+
+      // The row width that lets boxes packed with the gap fit the frame at the
+      // largest scale, among a range from one long row to one column.
+      function packToFit(boxes, gap, frameWidth, frameHeight) {
+        const widest = Math.max(...boxes.map((box) => box.width));
+        const total = boxes.reduce((sum, box) => sum + box.width + gap, 0);
+        let pick = null;
+        for (let step = 1; step <= 24; step += 1) {
+          const packed = packRows(boxes, Math.max(widest, (total * step) / 24), gap);
+          const scale = Math.min(frameWidth / packed.width, frameHeight / packed.height);
+          if (!pick || scale > pick.scale) pick = { packed, scale };
+        }
+        return pick;
+      }
+
+      // Lays the canvas out in two levels: each section's groups in rows
+      // shaped like the frame, so zooming to a section fills it, then the
+      // sections the same way. A group is about half again as wide as it is
+      // tall, and the gap between sections leaves room for a label at the
+      // scale the whole map fits at.
+      function layoutCanvas() {
+        const frameWidth = Math.max(1, map.clientWidth);
+        const frameHeight = Math.max(1, map.clientHeight);
+        const boxes = [];
+        for (const section of sectionElements) {
+          if (section.element.hidden) continue;
+          const groups = section.groups.filter((group) => !group.hidden);
+          for (const group of groups) {
+            const count = group.querySelectorAll(".screen-card:not([hidden])").length;
+            group.style.setProperty("--cols", String(Math.max(1, Math.min(count, Math.ceil(Math.sqrt(count * 1.6))))));
+          }
+          const groupBoxes = groups.map((group) => ({ element: group, width: group.offsetWidth, height: group.offsetHeight }));
+          if (groupBoxes.length === 0) continue;
+          const inner = packToFit(groupBoxes, GROUP_GAP, frameWidth, frameHeight).packed;
+          inner.positions.forEach((position, index) => {
+            groupBoxes[index].element.style.left = position.left + "px";
+            groupBoxes[index].element.style.top = position.top + "px";
+          });
+          section.element.style.width = inner.width + "px";
+          section.element.style.height = inner.height + "px";
+          boxes.push({ element: section.element, width: inner.width, height: inner.height });
+        }
+        let best = null;
+        let gap = 160;
+        if (boxes.length > 0) {
+          for (let pass = 0; pass < 3; pass += 1) {
+            best = Object.assign(packToFit(boxes, gap, frameWidth, frameHeight), { gap });
+            gap = Math.max(GROUP_GAP, 48 / best.scale);
+          }
+          best.packed.positions.forEach((position, index) => {
+            const box = boxes[index];
+            box.element.style.left = position.left + "px";
+            box.element.style.top = position.top + "px";
+            const label = box.element.querySelector(":scope > h2");
+            if (label) label.style.maxWidth = Math.round(box.width + best.gap * 0.8) + "px";
+          });
+        }
+        canvas.width = best ? best.packed.width : 0;
+        canvas.height = best ? best.packed.height : 0;
+        board.style.width = canvas.width + "px";
+        board.style.height = canvas.height + "px";
+        canvas.laidOut = true;
+      }
+
+      function clampScale(value, max) {
+        return Math.min(max === undefined ? 2 : max, Math.max(0.02, value));
+      }
+
+      function fitBox(box, padding, maxScale) {
+        const frameWidth = map.clientWidth;
+        const frameHeight = map.clientHeight;
+        if (box.width <= 0 || box.height <= 0 || frameWidth <= 0 || frameHeight <= 0) return;
+        const scale = clampScale(Math.min(
+          (frameWidth - padding * 2) / box.width,
+          (frameHeight - padding * 2) / box.height
+        ), maxScale);
+        canvas.scale = scale;
+        canvas.x = (frameWidth - box.width * scale) / 2 - box.left * scale;
+        canvas.y = (frameHeight - box.height * scale) / 2 - box.top * scale;
+        applyTransform();
+      }
+
+      function fitAll() {
+        fitBox({ left: 0, top: 0, width: canvas.width, height: canvas.height }, 24, 1);
+      }
+
+      function zoomAt(factor, clientX, clientY) {
+        const frame = map.getBoundingClientRect();
+        const x = clientX - frame.left;
+        const y = clientY - frame.top;
+        const next = clampScale(canvas.scale * factor);
+        canvas.x = x - (x - canvas.x) * (next / canvas.scale);
+        canvas.y = y - (y - canvas.y) * (next / canvas.scale);
+        canvas.scale = next;
+        applyTransform();
+      }
+
+      function zoomCenter(factor) {
+        const frame = map.getBoundingClientRect();
+        zoomAt(factor, frame.left + frame.width / 2, frame.top + frame.height / 2);
+      }
+
+      // Lays the canvas out again and fits it when it is on screen; otherwise
+      // the next time it is.
+      function refreshCanvas() {
+        if (!canvas.active) return;
+        canvas.laidOut = false;
+        if (!canvasVisible()) return;
+        sizeCanvas();
+        layoutCanvas();
+        fitAll();
+      }
+
+      // Brings a card into view, close enough to read, beside the detail
+      // panel when it is open.
+      function revealCard(card) {
+        if (!canvasVisible() || card.hidden) return;
+        const box = boardBox(card);
+        const frame = map.getBoundingClientRect();
+        const covered = detail && !detail.hidden
+          ? Math.max(0, frame.right - detail.getBoundingClientRect().left)
+          : 0;
+        const usable = Math.max(1, frame.width - covered);
+        const left = canvas.x + box.left * canvas.scale;
+        const top = canvas.y + box.top * canvas.scale;
+        const inView = left >= 0 && top >= 0 &&
+          left + box.width * canvas.scale <= usable &&
+          top + box.height * canvas.scale <= frame.height;
+        if (inView && canvas.scale >= IMAGE_SCALE) return;
+        canvas.scale = clampScale(Math.max(canvas.scale, 0.6));
+        canvas.x = usable / 2 - (box.left + box.width / 2) * canvas.scale;
+        canvas.y = frame.height / 2 - (box.top + box.height / 2) * canvas.scale;
+        applyTransform();
+      }
+
+      // Loads the images of cards on screen once they are large enough to
+      // see; an IntersectionObserver does not report cards that stay in view
+      // while the canvas zooms.
+      let imageScan = 0;
+      function scheduleImageScan() {
+        if (imageScan) return;
+        imageScan = window.setTimeout(() => {
+          imageScan = 0;
+          if (!canvasVisible() || canvas.scale < IMAGE_SCALE) return;
+          const frame = map.getBoundingClientRect();
+          for (const image of board.querySelectorAll("img[data-src]")) {
+            const box = image.parentElement.getBoundingClientRect();
+            if (box.width === 0) continue;
+            if (box.right > frame.left - 200 && box.left < frame.right + 200 &&
+                box.bottom > frame.top - 200 && box.top < frame.bottom + 200) {
+              if (imageObserver) imageObserver.unobserve(image);
+              loadImage(image);
+            }
+          }
+        }, 120);
       }
 
       function setView(view, updateHash) {
@@ -1387,6 +1822,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           tab.setAttribute("aria-selected", String(tab.getAttribute("data-view-tab") === view));
         }
         if (view !== "screens") closeDetail(false);
+        else if (canvas.active && !canvas.laidOut) refreshCanvas();
         if (updateHash && view === "screens") history.pushState(null, "", "#view/screens");
       }
 
@@ -1530,6 +1966,7 @@ export const SCREEN_REVIEW_SCRIPT = `
         if (screen.last_changed) definition(meta, "Last changed", lastChangedNode(screen.last_changed));
         definition(meta, "Capability", screen.capability_name + " (" + screen.capability + ")");
         if (screen.image) definition(meta, "Image", screen.image.label);
+        if (screen.capture_test) definition(meta, "Captured by", element("code", "", screen.capture_test));
         definition(meta, "Key", screen.key);
         const copy = document.getElementById("screen-detail-copy");
         copy.replaceChildren();
@@ -1547,7 +1984,10 @@ export const SCREEN_REVIEW_SCRIPT = `
         detail.hidden = false;
         document.getElementById("screen-detail-close").focus({ preventScroll: true });
         const card = cards.get(key);
-        if (card && !card.hidden) card.scrollIntoView({ block: "nearest" });
+        if (card && !card.hidden) {
+          if (canvas.active) revealCard(card);
+          else card.scrollIntoView({ block: "nearest" });
+        }
         if (updateHash) history.pushState(null, "", "#screen/" + encodeURIComponent(key));
       }
 
@@ -1612,7 +2052,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           }
         });
       }
-      for (const input of [search, linkedFilter, changeFilter, ...kindFilters, ...dimensionFilters]) {
+      for (const input of [search, linkedFilter, changeFilter, captureFilter, ...kindFilters, ...dimensionFilters]) {
         if (input) input.addEventListener(input === search ? "input" : "change", applyFilters);
       }
       for (const button of coverageButtons) {
@@ -1633,6 +2073,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           for (const select of dimensionFilters) select.value = "";
           if (linkedFilter) linkedFilter.value = "";
           if (changeFilter) changeFilter.value = "";
+          if (captureFilter) captureFilter.value = "";
           if (search) search.value = "";
           applyFilters();
         });
@@ -1646,16 +2087,99 @@ export const SCREEN_REVIEW_SCRIPT = `
           const group = link.hasAttribute("data-outline-group") && section
             ? section.querySelector('[data-group="' + link.getAttribute("data-outline-group") + '"]')
             : section;
-          if (group) group.scrollIntoView({ block: "start" });
+          if (!group) return;
+          if (canvas.active) {
+            const box = boardBox(group);
+            fitBox({ left: box.left, top: box.top - 48 / canvas.scale, width: box.width, height: box.height + 48 / canvas.scale }, 32, 1);
+          } else {
+            group.scrollIntoView({ block: "start" });
+          }
         });
       }
       if (zoom && map) {
-        const applyZoom = () => {
-          map.dataset.zoom = zoom.value;
-          map.style.setProperty("--screen-card", ZOOM_WIDTHS[Number(zoom.value) - 1] || ZOOM_WIDTHS[1]);
-        };
         zoom.addEventListener("input", applyZoom);
         applyZoom();
+      }
+      for (const button of layoutButtons) {
+        button.addEventListener("click", () => setLayout(button.getAttribute("data-layout-choice"), true));
+      }
+      if (map && board && canvasTools) {
+        document.getElementById("canvas-zoom-in").addEventListener("click", () => zoomCenter(1.25));
+        document.getElementById("canvas-zoom-out").addEventListener("click", () => zoomCenter(0.8));
+        document.getElementById("canvas-fit").addEventListener("click", fitAll);
+        // A plain wheel or two-finger scroll pans; with Ctrl or Cmd, or a
+        // pinch, it zooms around the pointer.
+        map.addEventListener("wheel", (event) => {
+          if (!canvas.active) return;
+          event.preventDefault();
+          if (event.ctrlKey || event.metaKey) {
+            zoomAt(Math.exp(-event.deltaY * 0.01), event.clientX, event.clientY);
+          } else {
+            canvas.x -= event.deltaX;
+            canvas.y -= event.deltaY;
+            applyTransform();
+          }
+        }, { passive: false });
+        // Dragging pans. A press that moves less than a few pixels stays a
+        // click, so a card still opens.
+        let drag = null;
+        let suppressClick = false;
+        map.addEventListener("pointerdown", (event) => {
+          if (!canvas.active || event.button !== 0 || event.target.closest(".canvas-tools")) return;
+          drag = { id: event.pointerId, x: event.clientX, y: event.clientY, originX: canvas.x, originY: canvas.y, moved: false };
+        });
+        map.addEventListener("pointermove", (event) => {
+          if (!drag || event.pointerId !== drag.id) return;
+          const dx = event.clientX - drag.x;
+          const dy = event.clientY - drag.y;
+          if (!drag.moved) {
+            if (Math.hypot(dx, dy) < 4) return;
+            drag.moved = true;
+            map.setPointerCapture(drag.id);
+            map.classList.add("panning");
+          }
+          canvas.x = drag.originX + dx;
+          canvas.y = drag.originY + dy;
+          applyTransform();
+        });
+        const endDrag = (event) => {
+          if (!drag || event.pointerId !== drag.id) return;
+          suppressClick = drag.moved;
+          map.classList.remove("panning");
+          drag = null;
+        };
+        map.addEventListener("pointerup", endDrag);
+        map.addEventListener("pointercancel", endDrag);
+        map.addEventListener("click", (event) => {
+          if (!suppressClick) return;
+          suppressClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+        // The canvas moves by transform only; undo any scroll the browser
+        // makes to show a focused card, and show it by panning instead.
+        map.addEventListener("scroll", () => {
+          if (!canvas.active) return;
+          map.scrollTop = 0;
+          map.scrollLeft = 0;
+        });
+        map.addEventListener("focusin", (event) => {
+          const card = event.target.closest(".screen-card");
+          if (canvas.active && card) revealCard(card);
+        });
+        let resizeTimer = 0;
+        window.addEventListener("resize", () => {
+          if (!canvas.active) return;
+          window.clearTimeout(resizeTimer);
+          resizeTimer = window.setTimeout(() => {
+            if (narrowScreen()) setLayout("grid", false);
+            else refreshCanvas();
+          }, 150);
+        });
+        // Opening or closing a list above the map moves it; fit it again.
+        document.addEventListener("toggle", (event) => {
+          if (canvas.active && event.target.closest && event.target.closest(".wiki-content")) refreshCanvas();
+        }, true);
       }
       document.getElementById("screen-detail-prev").addEventListener("click", () => step(-1));
       document.getElementById("screen-detail-next").addEventListener("click", () => step(1));
@@ -1695,6 +2219,9 @@ export const SCREEN_REVIEW_SCRIPT = `
         } else if (event.key === "Escape") closeDetail(true);
         else if (event.key === "ArrowRight" || event.key === "j") step(1);
         else if (event.key === "ArrowLeft" || event.key === "k") step(-1);
+        else if ((event.key === "+" || event.key === "=") && canvas.active) zoomCenter(1.25);
+        else if (event.key === "-" && canvas.active) zoomCenter(0.8);
+        else if (event.key === "0" && canvas.active) fitAll();
         else if ((event.key === "+" || event.key === "=") && zoom) {
           zoom.value = String(Math.min(4, Number(zoom.value) + 1));
           zoom.dispatchEvent(new Event("input"));
@@ -1710,6 +2237,7 @@ export const SCREEN_REVIEW_SCRIPT = `
           .observe(storyContent, { childList: true, subtree: true });
       }
       window.addEventListener("popstate", routeFromHash);
+      setLayout(savedLayout(), false);
       applyFilters();
       routeFromHash();
     })();

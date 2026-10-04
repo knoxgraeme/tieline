@@ -247,6 +247,12 @@ export const REVIEW_CHANGE_STYLES = `    .changes {
     .criterion-removed .criterion-text { font-weight: 400; }
     .shot > .change-badge, .chip-shot > .change-badge { position: absolute; top: 6px; right: 6px; z-index: 1; }
     .screen-chip-text > .change-badge { height: 16px; }
+    .screens-map[data-layout="canvas"] .screen-card:has(.change-badge) { position: relative; z-index: 1; }
+    .screens-map[data-layout="canvas"] .screen-card:has(.change-badge) .shot {
+      outline: calc(2px / var(--canvas-scale)) solid var(--fg-1);
+      outline-offset: calc(1px / var(--canvas-scale));
+    }
+    .screens-map[data-band="far"] .shot > .change-badge { visibility: hidden; }
     @media print {
       .change-added, .criterion[data-change="added"] .criterion-number { color: #000; background: none; border: 2px solid #000; }
     }
