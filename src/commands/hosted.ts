@@ -255,7 +255,7 @@ export interface HostedDatabaseState {
   ready: boolean;
   canRead: boolean;
   canWrite: boolean;
-  /** Whether the role holds each privilege `PUBLISHER_PRIVILEGES` and `SYNC_PRIVILEGES` name, by its description. */
+  /** Whether the role holds each privilege `READER_PRIVILEGES`, `PUBLISHER_PRIVILEGES`, and `SYNC_PRIVILEGES` name, by its description. */
   privileges: Record<string, boolean>;
   /** Whether row security does not apply to the role: a superuser, BYPASSRLS, or the table's owner. */
   bypassesRowSecurity: boolean;
@@ -273,18 +273,24 @@ export interface HostedCheckDependencies {
 }
 
 /**
+ * A privilege the check asks Postgres about. `anyColumn` asks whether the role
+ * holds it on the table or on any one of its columns: a role granted UPDATE
+ * on a single column can still write, so a forbidden INSERT or UPDATE is
+ * asked that way, while a required one must cover the whole table.
+ */
+export type PrivilegeProbe =
+  | { table: string; privilege: string; column?: string; anyColumn?: boolean }
+  | { function: string; privilege: "EXECUTE" };
+
+const DIGESTS_VALID = "tieline_screen_digests_valid(text[])";
+
+/**
  * What the capture publisher's role is granted (migration 0005), and what it
  * must not hold: a capture job can add images and write pull-request and
  * branch pages, but never delete, write history, change an image's record
  * beyond when it was last referenced, or escape the row security that keeps
  * it off main's page.
  */
-export type PrivilegeProbe =
-  | { table: string; privilege: string; column?: string }
-  | { function: string; privilege: "EXECUTE" };
-
-const DIGESTS_VALID = "tieline_screen_digests_valid(text[])";
-
 export const PUBLISHER_PRIVILEGES: {
   required: readonly PrivilegeProbe[];
   forbidden: readonly PrivilegeProbe[];
@@ -309,8 +315,8 @@ export const PUBLISHER_PRIVILEGES: {
     { table: "screen_snapshots", privilege: "DELETE" },
     { table: "screen_images", privilege: "DELETE" },
     { table: "screen_images", privilege: "UPDATE", column: "byte_size" },
-    { table: "screen_history", privilege: "INSERT" },
-    { table: "screen_history", privilege: "UPDATE" },
+    { table: "screen_history", privilege: "INSERT", anyColumn: true },
+    { table: "screen_history", privilege: "UPDATE", anyColumn: true },
     { table: "screen_history", privilege: "DELETE" },
   ],
 };
@@ -332,8 +338,28 @@ export const SYNC_PRIVILEGES: { required: readonly PrivilegeProbe[] } = {
   ],
 };
 
+/**
+ * What the hosted site's reader needs, and what it must not hold: the site is
+ * reachable over the network, so its credential reads published pages and
+ * images and can change nothing.
+ */
+export const READER_PRIVILEGES: { required: readonly PrivilegeProbe[]; forbidden: readonly PrivilegeProbe[] } = {
+  required: [
+    { table: "screen_snapshots", privilege: "SELECT" },
+    { table: "screen_images", privilege: "SELECT" },
+    { table: "repositories", privilege: "SELECT", column: "id" },
+    { table: "repositories", privilege: "SELECT", column: "key" },
+  ],
+  forbidden: ["screen_snapshots", "screen_images", "screen_history"].flatMap((table) => [
+    { table, privilege: "INSERT", anyColumn: true },
+    { table, privilege: "UPDATE", anyColumn: true },
+    { table, privilege: "DELETE" },
+  ]),
+};
+
 export function privilegeName(entry: PrivilegeProbe): string {
   if ("function" in entry) return `${entry.privilege} on ${entry.function}`;
+  if (entry.anyColumn) return `${entry.privilege} on ${entry.table} or any of its columns`;
   return `${entry.privilege} on ${entry.table}${entry.column ? ` (${entry.column})` : ""}`;
 }
 
@@ -358,7 +384,13 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
       select has_table_privilege('screen_snapshots', 'SELECT') as can_read,
              has_table_privilege('screen_snapshots', 'INSERT') as can_write`;
     const probed: Record<string, boolean> = {};
-    const probes = [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden, ...SYNC_PRIVILEGES.required];
+    const probes = [
+      ...READER_PRIVILEGES.required,
+      ...READER_PRIVILEGES.forbidden,
+      ...PUBLISHER_PRIVILEGES.required,
+      ...PUBLISHER_PRIVILEGES.forbidden,
+      ...SYNC_PRIVILEGES.required,
+    ];
     for (const entry of probes) {
       const name = privilegeName(entry);
       if (name in probed) continue;
@@ -367,7 +399,9 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
           ? await sql<{ granted: boolean }[]>`select has_function_privilege(${entry.function}, ${entry.privilege}) as granted`
           : entry.column
             ? await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`
-            : await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
+            : entry.anyColumn
+              ? await sql<{ granted: boolean }[]>`select has_any_column_privilege(${entry.table}, ${entry.privilege}) as granted`
+              : await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
       probed[name] = row?.granted ?? false;
     }
     const [security] = await sql<{ bypasses: boolean; syncs: boolean }[]>`
@@ -413,6 +447,19 @@ const DATABASE_ROLES = [
   { variable: "DATABASE_URL_SCREENS_PUBLISH", needs: "publish" as const, purpose: "screens publish writes pull-request and branch pages" },
   { variable: "DATABASE_URL_SYNC", needs: "sync" as const, purpose: "contract sync publishes main" },
 ];
+
+/**
+ * Why a credential is not the read-only reader's: privileges the site needs
+ * that it lacks, and any write on published screens. Empty when it can only read.
+ */
+export function readerPrivilegeProblems(state: Pick<HostedDatabaseState, "privileges">): string[] {
+  const missing = READER_PRIVILEGES.required.map(privilegeName).filter((name) => state.privileges[name] !== true);
+  const excess = READER_PRIVILEGES.forbidden.map(privilegeName).filter((name) => state.privileges[name] === true);
+  return [
+    ...(missing.length > 0 ? [`lacks ${missing.join(", ")}, which the site needs`] : []),
+    ...(excess.length > 0 ? [`can also write published screens (${excess.join(", ")})`] : []),
+  ];
+}
 
 /**
  * Why a credential cannot do repository sync's part: privileges it lacks, or
@@ -506,9 +553,11 @@ async function checkDatabases(
           ? publisherPrivilegeProblems(state)
           : role.needs === "sync"
             ? syncPrivilegeProblems(state)
-            : [];
-      const expected = role.needs === "publish" ? "the capture publisher role" : "the repository sync role";
-      const expectedRole = role.needs === "publish" ? "tieline_capture_publisher" : "tieline_repository_sync";
+            : readerPrivilegeProblems(state);
+      const expected =
+        role.needs === "publish" ? "the capture publisher role" : role.needs === "sync" ? "the repository sync role" : "the read-only reader role";
+      const expectedRole =
+        role.needs === "publish" ? "tieline_capture_publisher" : role.needs === "sync" ? "tieline_repository_sync" : "tieline_reader";
       results.push(
         !state.ready
           ? { check, status: "fail", detail: "the hosted screens tables are missing; run `tieline migrate`" }
@@ -518,19 +567,11 @@ async function checkDatabases(
                 status: "fail",
                 detail: `${state.user} is not ${expected}: it ${problems.join("; ")}; use ${expectedRole}`,
               }
-          : role.needs === "read" && state.canWrite
-            ? {
-                check,
-                status: "fail",
-                detail: `${state.user} can also write published screens; the hosted site must use the read-only reader role`,
-              }
           : role.needs === "publish"
             ? { check, status: "pass", detail: `${state.user} can publish, and nothing more: ${role.purpose}` }
           : role.needs === "sync"
             ? { check, status: "pass", detail: `${state.user} can sync and publish main: ${role.purpose}` }
-          : state.canRead
-            ? { check, status: "pass", detail: `${state.user} can read: ${role.purpose}` }
-            : { check, status: "fail", detail: `${state.user} cannot read published screens, but ${role.purpose}` }
+            : { check, status: "pass", detail: `${state.user} can read, and nothing more: ${role.purpose}` }
       );
     } catch (error) {
       results.push({ check, status: "fail", detail: message(error) });
