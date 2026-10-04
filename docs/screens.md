@@ -12,13 +12,17 @@ exactly as it did before the feature existed, and Tieline never reads its screen
 directory.
 
 This page describes the catalog, `shows` links, `tieline check` validation, the importer, the
-review page, capturing screens with Playwright, and `tieline screens audit`. PR summaries of
-changed screens, history, and hosted review come later; see
+review page with each screen's changes and history, capturing screens with Playwright,
+`tieline screens audit`, and [hosted screens](#hosted-screens), which publish every pull
+request's screens to a private site. Syncing screens to the contract tables comes later; see
 [What comes later](#what-comes-later).
 
 ## Opt in
 
-Add a `screens` block to `.tieline/config.json`:
+The Tieline skill's onboarding asks whether to capture a web app's screens. On yes, it turns
+the feature on, backfills the catalog from the acceptance criteria, and adds the pull-request
+check; for a hosted database it also offers hosted screens. To opt in by hand instead, add a
+`screens` block to `.tieline/config.json`:
 
 ```json
 {
@@ -291,7 +295,7 @@ such as the dependency rule in a repository that does not commit its code topolo
 then verifies every screen and says why. Changes the rules cannot see, such as server code or
 data that no screen's `paths` name, are not selected: name such files in `global_paths` or a
 screen's `paths`, and run `tieline screens audit --capture` (or `capture --all --verify`) from
-time to time to find drift. See [the GitHub Actions example](examples/screens-verify.yml); it
+time to time to find drift. See [the GitHub Actions example](../skills/tieline/assets/workflows/screens-verify.yml); it
 needs no credentials.
 
 ### A pinned capture environment
@@ -768,11 +772,11 @@ Another host needs only a few lines that hand its requests to `createHostedScree
 Three workflows, with the hosted screens secrets kept in a GitHub environment named
 `hosted-screens` whose deployment branches are limited to the default branch:
 
-1. [`screens-hosted.yml`](examples/screens-hosted.yml) runs on pull requests, with no
+1. [`screens-hosted.yml`](../skills/tieline/assets/workflows/screens-hosted.yml) runs on pull requests, with no
    credentials: `capture --changed --base <base> --verify` at the pull request's head, which with
    hosted screens on also keeps the screenshots it reproduced exactly (every other screen keeps the
    image `main` published), handed on as a workflow artifact.
-2. [`screens-hosted-publish.yml`](examples/screens-hosted-publish.yml) runs after each successful
+2. [`screens-hosted-publish.yml`](../skills/tieline/assets/workflows/screens-hosted-publish.yml) runs after each successful
    capture, as the default branch has it: it finds the open pull request whose head is the captured
    commit, installs Tieline from the default branch, checks the pull request out beside it only to
    read, runs `screens publish --repository` against it (which re-hashes every screenshot against
@@ -781,7 +785,7 @@ Three workflows, with the hosted screens secrets kept in a GitHub environment na
    up to date with the changes and a link to the page. When a pull request closes, it runs
    `screens close`; runs wait their turn rather than replace each other, so a close is never
    dropped, and a publish that runs after it finds the pull request closed.
-3. [`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync` of
+3. [`screens-hosted-main.yml`](../skills/tieline/assets/workflows/screens-hosted-main.yml) runs on `main`: `contract sync` of
    `main` as it is when the run starts, which publishes `main` (so a run that waited, ran out of
    order, or replaced another pending run never syncs an older commit); when it reports a
    screenshot the bucket lacks, a capture and a second sync; then `screens prune`.
@@ -813,9 +817,8 @@ reads and MCP tools likewise give the answers they did before; only the content-
 
 ## What comes later
 
-These phases are planned and not implemented.
-[Capture and hosted review](design/screens-capture-and-hosting.md) proposes how they would work:
+This phase is planned and not implemented.
+[Capture and hosted review](design/screens-capture-and-hosting.md) proposes how it would work:
 
-1. **History.** "Last changed in #71" for Stories, ACs, and screens, derived offline from git.
-2. **Database and agents.** Sync catalogs, links, and fingerprints to the contract tables and add
-   MCP tools such as "screens for this AC".
+- **Database and agents.** Sync catalogs, links, and fingerprints to the contract tables and add
+  MCP tools such as "screens for this AC".

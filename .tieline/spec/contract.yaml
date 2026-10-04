@@ -1629,6 +1629,13 @@ capability:
         - key: CONTRACT-005-AC11
           criterion: The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, offer screen capture during onboarding of a repository with a user interface and backfill before reporting when the user accepts, and keep a screens-enabled repository's captures current before handing off a change to what users see.
           rationale: Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.
+          scenarios:
+            - given: onboarding a web app whose user accepts screen capture, with a provisioned or existing database
+              when: onboarding asks its questions
+              then: it must also offer hosted screens, and must not offer them for an offline or local database
+            - given: onboarding enabled screens
+              when: the backfill finishes
+              then: the onboarding pull request must add the screens check workflow the skill ships, or the hosted workflows in its place when hosted screens were accepted
           links:
             - relation: implements
               provenance: authored
@@ -1898,6 +1905,10 @@ capability:
         - key: CONTRACT-005-AC16
           criterion: The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.
           rationale: Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.
+          scenarios:
+            - given: onboarding provisions a hosted database
+              when: the Neon project is created
+              then: it must be created in a region with object storage, aws-us-east-2 unless the user named another, without asking the user for a region
           links:
             - relation: implements
               provenance: authored

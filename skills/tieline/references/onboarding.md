@@ -78,6 +78,20 @@ a human first sees them. Verify, do not re-ask.
    On yes, set `"screens": { "enabled": true }` in `.tieline/config.json`;
    the capture setup itself happens after the contract is authored. Skip the
    question for repositories without a user interface.
+
+   When the answer is yes and the database is hosted (the provision or
+   existing answer above), ask one more, using this phrasing verbatim:
+
+   > **Share screens on a private review site?**
+   >
+   > 1. **Yes** — every pull request's screens beside `main`'s, on a site
+   >    only your team can open; you deploy it to Netlify and add its
+   >    secrets once
+   > 2. **Not now** — screens stay in the repository; add the site any time
+
+   On yes, set `"hosted": { "enabled": true }` inside `screens`; the bucket
+   and site are set up after the backfill. Skip the question for offline and
+   local databases, which a hosted site cannot reach.
 5. Do not ask whether to install or pin the Tieline CLI in the repository.
    Setup runs through `npx` and does not modify the application's dependency
    manifest or lockfile.
@@ -169,6 +183,16 @@ size, while avoiding duplicate or speculative definitions.
     request, never the screenshots. When the app cannot run under Playwright
     here (no way to start it, or no test data), stop the backfill, keep the
     catalog you have, and list what is missing under "Needs your review".
+
+    Then add the pull-request check that keeps screens current. Without
+    hosted screens, copy `assets/workflows/screens-verify.yml` from this
+    skill's directory to `.github/workflows/screens-verify.yml`, setting its
+    Playwright image tag to the app's `@playwright/test` version. Uncomment
+    its `screens audit --strict` step only when the backfill passed it. With
+    hosted screens, follow [hosted-screens.md](hosted-screens.md) instead:
+    it creates the bucket and credentials, adds the hosted workflows, and
+    leaves the Netlify site, its environment, and the `hosted-screens`
+    GitHub environment for the user, which go under "Needs your review".
 13. Read [grading.md](grading.md) and grade the initial contract. With no manifest
    at the comparison base, every authored link enters the grading scope as
    `link_added`. You authored every one of them, so dispatch fresh subagents
