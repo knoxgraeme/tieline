@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runContractHistoryCommand } from "../../../src/commands/contract-history.js";
 import {
+  CONTRACT_HISTORY_LIMITS,
   criterionHistory,
   githubRepositoryUrl,
   itemHistories,
@@ -145,6 +146,21 @@ await test("stops at the limit without calling the oldest commit read the beginn
   assert.throws(() => readContractHistory(ws.root, MANIFEST, { limit: 0 }), /from 1 to 2000/);
   assert.throws(() => readContractHistory(ws.root, MANIFEST, { ref: "--output=x" }), /must not start with '-'/);
   assert.throws(() => readContractHistory(ws.root, MANIFEST, { until: "--output=x" }), /must not start with '-'/);
+});
+
+await test("bounds the manifest's file listings across the whole history, not per commit", () => {
+  const ws = historyWorkspace();
+  const listed = git(ws.root, "log", "--first-parent", "--format=%H", "--", MANIFEST).split("\n").filter(Boolean);
+  const total = listed.reduce((sum, sha) => sum + Buffer.byteLength(git(ws.root, "ls-tree", "-r", sha, "--", MANIFEST)), 0);
+  assert.ok(listed.length > 1 && total > 0);
+  const whole = readContractHistory(ws.root, MANIFEST);
+  assert.deepEqual(readContractHistory(ws.root, MANIFEST, { limits: { treeBytes: total } }), whole);
+  // Each commit's listing fits by itself; together they do not.
+  assert.throws(
+    () => readContractHistory(ws.root, MANIFEST, { limits: { treeBytes: total - 1 } }),
+    new RegExp(`file listings across ${listed.length} commits exceed the ${total - 1}-byte total`)
+  );
+  assert.equal(CONTRACT_HISTORY_LIMITS.treeBytes, 16 * 1024 * 1024);
 });
 
 await test("reads only the changes after a given commit, with its first parent as the base", () => {

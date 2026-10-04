@@ -107,7 +107,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "51bf6ca0acff9b0756dcc4795546a7b8800c03abc4af7edd999f88c145a5bfc0",
+                "reviewed_content_hash": "0299a3a3d6c9d328d614353932e2c5db3cdf5f67246655f877da5dc83518b871",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -129,7 +129,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a9bb22066de7595e44503cc19a0cb0fbadedd82967d9043e08956fa3ac6a5034",
+                "reviewed_content_hash": "742e7e754fe2022b264be2cfa28230c8b56e198bfe93568acb77ed292f846daf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -900,7 +900,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "5acf3a6ff2c4c0f3f2119dc064fd554635a768384f1f590c0e12b7e20cd3668e",
+            "contract_hash": "76e955e7a7ff5f55f53bbefdd0e7f0ed5efd22d1a47f9b94078afd29a2d54d53",
             "criterion": "Tieline must report, from git alone, when each Story, acceptance criterion, and screen was added, changed, or removed and in which pull request, by comparing each first-parent commit's compiled manifest with its parent's, must show each one's last change on the review page, and must say when older history was not read or a commit's manifest is not held by the clone instead of attributing changes it cannot see.",
             "links": [
               {
@@ -917,7 +917,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "51bf6ca0acff9b0756dcc4795546a7b8800c03abc4af7edd999f88c145a5bfc0",
+                "reviewed_content_hash": "0299a3a3d6c9d328d614353932e2c5db3cdf5f67246655f877da5dc83518b871",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -928,7 +928,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "51bf6ca0acff9b0756dcc4795546a7b8800c03abc4af7edd999f88c145a5bfc0",
+                "reviewed_content_hash": "0299a3a3d6c9d328d614353932e2c5db3cdf5f67246655f877da5dc83518b871",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -939,7 +939,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a9bb22066de7595e44503cc19a0cb0fbadedd82967d9043e08956fa3ac6a5034",
+                "reviewed_content_hash": "742e7e754fe2022b264be2cfa28230c8b56e198bfe93568acb77ed292f846daf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -957,6 +957,13 @@
                 "stable_id": "CONTRACT-001-AC9-S1",
                 "then": "the change must be attributed to the merge commit and its pull request",
                 "when": "the history of main is read"
+              },
+              {
+                "given": "a long history whose manifest file listings together exceed the history's bound, though each fits alone",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC9-S2",
+                "then": "Tieline must fail and name the bound rather than hold every commit's listing",
+                "when": "the history is read"
               }
             ],
             "stable_id": "CONTRACT-001-AC9",
@@ -2118,7 +2125,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
+                "reviewed_content_hash": "8e82ccd0338f356c33f50a1358ee94fe052e8c1c1bc1d06ca9b649d2964500fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2173,7 +2180,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b5e7c422520d9188ac8a9519f325b7e4f06c634a3f02ebbd1f013e5e5c930129",
+                "reviewed_content_hash": "3f233fa47ac973d69bff41dedd6b81640391c69b3ffde78cc8d8d26123225deb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2514,7 +2521,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1f6ff36e8c1d542250826dff5763b6ee7a64ed5f70cb3574d0f847d9d44e5675",
+                "reviewed_content_hash": "434077a1950a2faa55463e8d6a8e0e453617c937a341c3a236a3dbf60e13d66b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2561,13 +2568,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "feac0f8231dbc1ad29549ede1194b6f7cc57e049d13ae4bf4eeafda703cd5986",
+            "contract_hash": "850e00c040d7109e8e3ea5eea80189b1d958458b9e11951bc8ddb79ffb95a0f7",
             "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a34b19c599d8bfbe323b0337e63357ceeebec44dbe201133a0173e4aa68a84c3",
+                "reviewed_content_hash": "cd4528206c753f55f8eaf9d4b6a0056afcb80bfbfe34197fad003fa727b01dfd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2578,7 +2585,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a34b19c599d8bfbe323b0337e63357ceeebec44dbe201133a0173e4aa68a84c3",
+                "reviewed_content_hash": "cd4528206c753f55f8eaf9d4b6a0056afcb80bfbfe34197fad003fa727b01dfd",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2589,7 +2596,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1f6ff36e8c1d542250826dff5763b6ee7a64ed5f70cb3574d0f847d9d44e5675",
+                "reviewed_content_hash": "434077a1950a2faa55463e8d6a8e0e453617c937a341c3a236a3dbf60e13d66b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2609,7 +2616,7 @@
                 "when": "tieline hosted check runs against the site"
               },
               {
-                "given": "the publishing credential is the sync role, an owner, or another role that can delete, write history, or escape row security",
+                "given": "the publishing credential is the sync role, an owner, or another role that can delete, write history, rewrite a page's ref or an image's record, or escape row security",
                 "position": 1,
                 "stable_id": "CONTRACT-005-AC15-S2",
                 "then": "Tieline must fail and name what a capture job must not hold, as it must for a role that lacks what publishing needs",
@@ -2649,6 +2656,13 @@
                 "stable_id": "CONTRACT-005-AC15-S7",
                 "then": "Tieline must fail, because the site's credential must only read",
                 "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the site URL has a path, such as https://screens.example.test/screens",
+                "position": 7,
+                "stable_id": "CONTRACT-005-AC15-S8",
+                "then": "Tieline must ask for the page and an image beneath that path, not at the origin's root",
+                "when": "tieline hosted check runs against the site"
               }
             ],
             "stable_id": "CONTRACT-005-AC15",
@@ -3285,7 +3299,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
+                "reviewed_content_hash": "8e82ccd0338f356c33f50a1358ee94fe052e8c1c1bc1d06ca9b649d2964500fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3296,7 +3310,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
+                "reviewed_content_hash": "8e82ccd0338f356c33f50a1358ee94fe052e8c1c1bc1d06ca9b649d2964500fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3362,13 +3376,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "44bcb2cbf9eb92fd458121d4b7041981be01ec38cb0ef481ad46773bb4f30991",
+            "contract_hash": "dd5602698a3051f086a258a9cb4fcf6d5cf17b8911e54882da865b4dd9a80ee1",
             "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
+                "reviewed_content_hash": "8e82ccd0338f356c33f50a1358ee94fe052e8c1c1bc1d06ca9b649d2964500fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3379,7 +3393,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
+                "reviewed_content_hash": "8e82ccd0338f356c33f50a1358ee94fe052e8c1c1bc1d06ca9b649d2964500fc",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3390,7 +3404,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
+                "reviewed_content_hash": "f56e586be7170554c7296f283dd63f9b2e3cd81d047f36efb5c07f6284d3e2f5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3401,7 +3415,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
+                "reviewed_content_hash": "f56e586be7170554c7296f283dd63f9b2e3cd81d047f36efb5c07f6284d3e2f5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3412,7 +3426,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
+                "reviewed_content_hash": "f56e586be7170554c7296f283dd63f9b2e3cd81d047f36efb5c07f6284d3e2f5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3423,7 +3437,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
+                "reviewed_content_hash": "f56e586be7170554c7296f283dd63f9b2e3cd81d047f36efb5c07f6284d3e2f5",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3465,7 +3479,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b5e7c422520d9188ac8a9519f325b7e4f06c634a3f02ebbd1f013e5e5c930129",
+                "reviewed_content_hash": "3f233fa47ac973d69bff41dedd6b81640391c69b3ffde78cc8d8d26123225deb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3522,6 +3536,13 @@
                 "stable_id": "CONTRACT-005-AC9-S5",
                 "then": "it must stop without writing, the limit covering every batch and repeat together",
                 "when": "the whole capture passes screens.capture.timeout_minutes"
+              },
+              {
+                "given": "a capture that runs in several batches or is repeated",
+                "position": 5,
+                "stable_id": "CONTRACT-005-AC9-S6",
+                "then": "the screenshots it keeps must stay within one byte bound across every batch, and a repeat run must keep only the digests it is compared by",
+                "when": "its screenshots are read back"
               }
             ],
             "stable_id": "CONTRACT-005-AC9",
@@ -3550,6 +3571,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "d6554e0d3d21bad0a7fd25202f1f17d8cd442f81d16a712875c28281b6fee762"
+    "sha256": "079affebaf65cb44407d81ffae95e77ecbedb278943ac9acccab134db3173ba9"
   }
 }

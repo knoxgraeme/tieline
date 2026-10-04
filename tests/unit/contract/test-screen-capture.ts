@@ -348,11 +348,37 @@ await test("bounds each capture file and the run's screenshots in total", () => 
   const big = runDirectoryWith(record([{ keys: ["a"] }]), { a: { image: png("x".repeat(80)) } });
   assert.throws(() => readRun(big, ["a"], limits), /is larger than the 64-byte limit/);
   const total = runDirectoryWith(record([{ keys: ["a", "b"] }]), { a: { image: png("x".repeat(10)) }, b: { image: png("y".repeat(10)) } });
-  assert.throws(() => readRun(total, ["a", "b"], limits), /the run's screenshots exceed the 30-byte total; capture in smaller batches/);
+  assert.throws(() => readRun(total, ["a", "b"], limits), /the capture's screenshots exceed the 30-byte total; capture fewer screens at once/);
   const text = runDirectoryWith(record([{ keys: ["a"] }]), { a: { text: "- ".repeat(20) } });
   assert.throws(() => readRun(text, ["a"], limits), /ARIA snapshot .* is larger than the 16-byte limit/);
   assert.equal(SCREEN_CAPTURE_RUN_LIMITS.imageBytes, 25 * 1024 * 1024);
   assert.equal(SCREEN_CAPTURE_RUN_LIMITS.textBytes, 1024 * 1024);
+});
+
+await test("bounds the screenshots a capture holds across its batches, and keeps only digests when asked", () => {
+  const limits = { imageBytes: 64, totalImageBytes: 30, textBytes: 64, settingsBytes: 4_096 };
+  // Each screenshot is 18 bytes: one fits the total, two do not.
+  const directory = runDirectoryWith(record([{ keys: ["a", "b"] }]), { a: { image: png("x".repeat(10)) }, b: { image: png("y".repeat(10)) } });
+  const parsed = readCaptureRunRecord(directory);
+  assert.ok(parsed);
+  const read = { runDirectory: directory, repositoryRoot: "/repo", record: parsed, environment: ENVIRONMENT, limits };
+  assert.equal(readCapturedScreens({ ...read, selected: ["a"] }).length, 1);
+  // A later batch counts what the capture's earlier batches hold.
+  assert.throws(
+    () => readCapturedScreens({ ...read, selected: ["a"], imageBytesHeld: 18 }),
+    /the capture's screenshots exceed the 30-byte total; capture fewer screens at once/
+  );
+  // A repeat run keeps no screenshot or ARIA snapshot, only what it is compared
+  // by, so it holds one screenshot at a time and is not held to the total.
+  const digests = readCapturedScreens({ ...read, selected: ["a", "b"], imageBytesHeld: 18, retain: false });
+  assert.deepEqual(
+    digests.map((digest) => Object.keys(digest).sort()),
+    [0, 1].map(() => ["fingerprint", "image_sha256", "key", "test", "text_sha256"])
+  );
+  assert.deepEqual(
+    digests.map((digest) => digest.image_sha256),
+    [sha256(png("x".repeat(10))), sha256(png("y".repeat(10)))]
+  );
 });
 
 console.log("screens capture: writing outputs");

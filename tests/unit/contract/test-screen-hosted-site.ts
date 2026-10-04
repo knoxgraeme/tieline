@@ -510,7 +510,7 @@ await test("accepts only the publisher role for publishing: not more, not less",
   // The sync role can write too, but it can also delete and write main and its history.
   const sync = await check(READY("tieline_repository_sync", true, "sync"));
   assert.equal(sync.code, 1);
-  assert.match(sync.detail, /holds DELETE on screen_snapshots, DELETE on screen_images, UPDATE on screen_images \(byte_size\), INSERT on screen_history or any of its columns, UPDATE on screen_history or any of its columns, DELETE on screen_history, which a capture job must not/);
+  assert.match(sync.detail, /holds DELETE on screen_snapshots, UPDATE on screen_snapshots \(any column but head_commit, manifest, images, page_html, published_at, closed_at\), DELETE on screen_images, UPDATE on screen_images \(any column but last_referenced_at\), INSERT on screen_history or any of its columns, UPDATE on screen_history or any of its columns, DELETE on screen_history, which a capture job must not/);
   // A role that can only insert cannot replace a page it published before.
   const insertOnly = READY("inserter", true);
   insertOnly.privileges = { ...insertOnly.privileges, [privilegeName({ table: "screen_snapshots", privilege: "UPDATE", column: "page_html" })]: false };
@@ -523,6 +523,15 @@ await test("accepts only the publisher role for publishing: not more, not less",
     const partial = READY("partial", true);
     partial.privileges = { ...partial.privileges, [privilegeName({ table: "screen_snapshots", privilege: "UPDATE", column })]: false };
     assert.match((await check(partial)).detail, new RegExp(`lacks UPDATE on screen_snapshots \\(${column}\\)`), column);
+  }
+  // Beyond the columns its job sets, a page's ref and an image's identity and record stay as written.
+  for (const table of ["screen_snapshots", "screen_images"]) {
+    const rewriter = READY("rewriter", true);
+    const extra = PUBLISHER_PRIVILEGES.forbidden.find((entry) => "otherThan" in entry && entry.table === table)!;
+    rewriter.privileges = { ...rewriter.privileges, [privilegeName(extra)]: true };
+    const result = await check(rewriter);
+    assert.equal(result.code, 1, table);
+    assert.match(result.detail, new RegExp(`holds UPDATE on ${table} \\(any column but [a-z_, ]+\\), which a capture job must not`));
   }
   const noId = READY("no-id", true);
   noId.privileges = { ...noId.privileges, [privilegeName({ table: "repositories", privilege: "SELECT", column: "id" })]: false };
@@ -617,6 +626,36 @@ await test("follows redirects to see whether the site ends at a login or at itse
     "/images": new Response(null, { status: 401 }),
   });
   assert.match(loop.get("site /")!.detail, new RegExp(`more than ${SITE_CHECK_REDIRECTS} redirects`));
+});
+
+await test("checks access control beneath the site's own path, not the origin's root", async () => {
+  const ws = hostedWorkspace();
+  const image = `/screens/images/${"0".repeat(64)}`;
+  const run = async (site: Record<string, Response>) => {
+    const { io, output } = captureIO();
+    const dependencies = checkDependencies({ site });
+    const code = await runHostedCheckCommand({ repository: ws.root, url: "https://screens.example.test/screens", json: true }, io, dependencies);
+    const results = new Map((JSON.parse(output()) as { results: Array<{ check: string; status: string; detail: string }> }).results.map((entry) => [entry.check, entry]));
+    return { code, results, requested: dependencies.requested };
+  };
+  // The origin's root asks for a login, but the site beneath /screens does not.
+  const open = await run({
+    "/": new Response(null, { status: 401 }),
+    "/screens/": new Response("<h1>notes</h1>", { status: 200, headers: { [HOSTED_SITE_HEADER]: "1" } }),
+    [image]: new Response(null, { status: 404, headers: { [HOSTED_SITE_HEADER]: "1" } }),
+  });
+  assert.deepEqual(open.requested, ["/screens/ manual", `${image} manual`]);
+  assert.equal(open.code, 1);
+  assert.equal(open.results.get("site /")!.status, "fail");
+  assert.equal(open.results.get("site /images/<digest>")!.status, "fail");
+  // Protected beneath its path, while the origin's root is public: passes.
+  const protectedSite = await run({
+    "/": new Response("<h1>Welcome</h1>", { status: 200 }),
+    "/screens/": new Response(null, { status: 401 }),
+    [image]: new Response(null, { status: 302, headers: { location: "https://app.netlify.com/login" } }),
+  });
+  assert.equal(protectedSite.results.get("site /")!.status, "pass");
+  assert.equal(protectedSite.results.get("site /images/<digest>")!.status, "pass");
 });
 
 await test("deletes the storage probe when a check fails after writing it", async () => {
