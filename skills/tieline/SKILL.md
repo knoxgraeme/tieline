@@ -95,8 +95,12 @@ Planning-only and grading-only flows keep their earlier stopping points.
    exclusion reason. Group related changes by coherent, externally observable
    behavior rather than by file, package, or internal implementation layer.
 2. Classify every changed behavior cluster as exactly one of:
-   - `covered`: an accepted AC already expresses the behavior accurately and its
-     evidence links still identify the right implementation or tests.
+   - `covered`: an accepted AC already states the behavior's observable outcome
+     accurately and its evidence links still identify the right implementation
+     or tests. A broad AC the change merely leaves true does not cover a new
+     state: an added empty, error, permission, or configuration state, or an
+     outcome a linked test proves that the AC's text and scenarios do not state,
+     is an `update` (add a scenario) or an `add`.
    - `exclude`: the cluster is internal-only, generated, test-only, or otherwise
      does not change observable product behavior. Retain the reason in the
      closeout report; do not create an AC merely to eliminate an unmapped file.

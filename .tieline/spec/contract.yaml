@@ -141,6 +141,13 @@ capability:
         - key: CONTRACT-001-AC4
           criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.
           rationale: Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.
+          scenarios:
+            - given: a repository whose contract has no capabilities yet
+              when: the review page is rendered
+              then: the page must say there are no capabilities yet and how to begin onboarding with the installed skill
+            - given: a contract that does not validate
+              when: the review page is rendered
+              then: the page must list the validation notes and say the contract does not validate, without offering onboarding
           links:
             - relation: implements
               provenance: authored
@@ -173,6 +180,20 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-contract-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-review-changes.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC5
           criterion: Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.
@@ -1738,6 +1759,9 @@ capability:
           criterion: The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.
           rationale: The site exposes review evidence over the network behind only the host's access control, so it must never serve anything publishing did not record, nor bytes that changed after they were verified.
           scenarios:
+            - given: the site is deployed without its database or object storage settings, or with an invalid repository key
+              when: any page is requested
+              then: the site must answer as itself with an error naming what is missing or invalid, instead of failing to load
             - given: an object in the bucket was overwritten after its image was published
               when: a visitor requests that image
               then: the site must refuse it rather than serve the new bytes

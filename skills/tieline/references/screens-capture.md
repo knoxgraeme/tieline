@@ -56,13 +56,16 @@ Work one capability at a time; independent capabilities can go to parallel subag
 catalog file and scene file to that capability.
 
 1. **Start from the acceptance criteria.** For each criterion whose outcome a user can see:
-   catalog the screen (`kind`, `route`, `when`, `applies_to`, key `copy`, and `paths` naming the
-   page or route file that renders it), add the criterion's `shows` link, and write its scene as
-   the criterion's test, as above.
+   catalog each screen that shows it, since one criterion can show several (`kind`, `route`,
+   `when`, `applies_to`, key `copy`, and `paths` naming the page or route file that renders it),
+   add the criterion's `shows` links, and write each scene as the criterion's test, as above.
 2. **Then sweep for states no criterion covers.** Read the page and route files, guards, and
    components for empty, loading, error, permission-denied, dialog, drawer, toast, and redirect
-   states. Catalog each one a user can reach and write its scene. A screen with no criterion is
-   valid; most toasts and loading states never have one.
+   states. Catalog each one a user can reach and write its scene. Before treating a state as
+   uncovered, look for a criterion that already states it, starting with the criteria whose
+   `implements` links name the files in the screen's `paths`: link the screen to it, or, when
+   the criterion is broader than the state, report the state under step 3. A screen with no
+   criterion is valid; most toasts and loading states never have one.
 3. **Report hidden states.** An error or permission screen that no criterion describes is
    behavior nobody wrote down. Draft a criterion only when the code states the intent plainly;
    otherwise list the screen under "Needs your review" as a hidden state for a person to judge.
@@ -98,10 +101,11 @@ Run this whenever a change touches what users see, as part of semantic closeout.
 1. **Find what changed.** `tieline screens capture --changed --base <base-ref> --dry-run` lists the
    catalogued screens the branch may affect and why. Then read the diff for what no catalog
    entry covers yet: new pages, dialogs, toasts, errors, and changed copy.
-2. **Update the catalog and scenes.** Catalog new pages and states and write the scenes the
-   rules above call for; run `tieline screens scenes` for new pages. When a criterion's behavior
-   changes, change its scene's assertions with it. Remove the entries and scenes of screens that
-   no longer exist, and regenerate.
+2. **Update the catalog and scenes.** Catalog new pages and states, link each to the criterion
+   that states it, and write the scenes the rules above call for. A new state no criterion
+   states is an `update` or `add` in semantic closeout; run `tieline screens scenes` for new
+   pages. When a criterion's behavior changes, change its scene's assertions with it. Remove the
+   entries and scenes of screens that no longer exist, and regenerate.
 3. **Capture what changed,** in the pinned environment:
 
    ```sh

@@ -2153,6 +2153,11 @@ capability:
   assert.match(screensCaptureReference, /tieline screens scenes/);
   assert.match(screensCaptureReference, /exports `prepare\(page, screen\)`/);
   assert.match(screensCaptureReference, /Never write capture outputs by hand/);
+  // A swept state is linked to the criterion that already states it, and a
+  // broad criterion a change leaves true does not cover a new state.
+  assert.match(screensCaptureReference, /Before treating a state as\s+uncovered, look for a criterion that already states it/);
+  assert.match(screensCaptureReference, /one criterion can show several/);
+  assert.match(tielineSkill, /A broad AC the change merely leaves true does not cover a new\s+state/);
 
   // Public documentation structure is under test: keep the README concise while ensuring the
   // linked guides retain setup and assurance details.
