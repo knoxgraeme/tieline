@@ -14,7 +14,10 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium, type Browser, type Page } from "@playwright/test";
+import { writeFileSync } from "node:fs";
+import { loadAcceptedContractWithSources } from "../../src/contract/load.js";
 import { compileContractManifest } from "../../src/contract/manifest.js";
+import { renderContractReviewPage } from "../../src/contract/review-page.js";
 import { diffReviewManifests } from "../../src/contract/review-changes.js";
 import { writeWorkspaceReviewPage } from "../../src/tieline/review.js";
 import { report, test } from "../support/harness.js";
@@ -66,10 +69,13 @@ ${
 }`;
 }
 
-/** The toast is deliberately not captured. */
+/** The toast is deliberately not captured; the list records the test that captures it. */
 const NOTES_CATALOG = NOTES_CATALOG_YAML.replace(
   "    kind: toast\n",
   "    kind: toast\n    not_captured:\n      reason: flag-off\n      detail: Behind the saved-toast flag.\n"
+).replace(
+  "    image:\n      path: notes/notes-list.png\n",
+  `    image:\n      path: notes/notes-list.png\n      sha256: ${"a".repeat(64)}\n    capture:\n      fingerprint: ${"b".repeat(64)}\n      text_sha256: ${"c".repeat(64)}\n      test: e2e/notes.screens.ts\n`
 );
 const ws = createScreensWorkspace({
   screens: { enabled: true },
@@ -93,15 +99,66 @@ writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", pagePath, {
 });
 const pageUrl = pathToFileURL(pagePath).href;
 
+/** A catalog at contact-sheet scale, in 14 groups, none of whose images exist. */
+const LARGE_SCREENS = 1_100;
+const loaded = loadAcceptedContractWithSources(ws.root, ".tieline/spec");
+const notesFile = loaded.screens!.files.find((file) => file.document.capability === "NOTES")!;
+const largeCatalog = {
+  ...loaded.screens!,
+  files: [{
+    ...notesFile,
+    document: {
+      ...notesFile.document,
+      screens: Array.from({ length: LARGE_SCREENS }, (_, index) => ({
+        key: `screen-${index}`,
+        title: `Synthetic screen ${index}`,
+        group: `Group ${index % 14}`,
+        route: `/area/${index}`,
+        kind: "page" as const,
+        when: "A member reaches this synthetic state.",
+        image: { path: `area/${index}.png` },
+      })),
+    },
+  }],
+};
+const largePagePath = resolve(ws.root, ".tieline/large.html");
+writeFileSync(
+  largePagePath,
+  renderContractReviewPage({
+    repositoryKey: REPO_KEY,
+    documents: loaded.documents.map((document, index) => ({ path: loaded.sources[index]!.path, document })),
+    screens: { catalog: largeCatalog, capturesUrl: "captures/" },
+  })
+);
+const largePageUrl = pathToFileURL(largePagePath).href;
+
 const browser: Browser = await chromium.launch();
 
-async function open(hash = "", viewport = { width: 1280, height: 800 }): Promise<Page> {
+async function open(
+  hash = "",
+  viewport = { width: 1280, height: 800 },
+  options: { url?: string; layout?: "canvas" } = {}
+): Promise<Page> {
   const context = await browser.newContext({ viewport });
   // Images given by URL are refused; images by path are missing from disk.
   await context.route(/^https?:/, (route) => route.abort());
+  if (options.layout) {
+    await context.addInitScript({ content: `localStorage.setItem("tieline:screens-layout", "${options.layout}")` });
+  }
   const page = await context.newPage();
-  await page.goto(pageUrl + hash);
+  await page.goto((options.url ?? pageUrl) + hash);
   return page;
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+
+function inside(box: Box, frame: Box): boolean {
+  return box.x >= frame.x - 0.5 && box.y >= frame.y - 0.5 &&
+    box.x + box.width <= frame.x + frame.width + 0.5 && box.y + box.height <= frame.y + frame.height + 0.5;
+}
+
+function overlap(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
 async function currentStory(page: Page): Promise<string | null> {
@@ -211,6 +268,78 @@ try {
     assert.equal(await page.locator("#screen-detail").isVisible(), true);
     assert.equal(await page.textContent("#screen-detail-title"), "All notes");
     assert.equal(await page.textContent("#screen-detail-position"), "1 of 4");
+    await page.context().close();
+  });
+
+  await test("lays every screen out on a canvas that fits, zooms, pans, and is remembered", async () => {
+    const page = await open("#view/screens");
+    await page.click('[data-layout-choice="canvas"]');
+    assert.equal(await page.getAttribute("#screens-map", "data-layout"), "canvas");
+    assert.equal(await page.locator("#canvas-tools").isVisible(), true);
+    assert.equal(await page.locator("#screen-zoom").isHidden(), true);
+    // Fitted: every card is inside the frame, and no two sections overlap.
+    const frame = (await page.locator("#screens-map").boundingBox())!;
+    for (const card of await page.locator(".screen-card").all()) {
+      assert.ok(inside((await card.boundingBox())!, frame), await card.getAttribute("data-key") ?? "");
+    }
+    const sections = await Promise.all((await page.locator(".screen-section").all()).map(async (section) => (await section.boundingBox())!));
+    assert.equal(sections.length, 2);
+    assert.equal(overlap(sections[0]!, sections[1]!), false);
+    const fitted = await page.textContent("#canvas-scale");
+    await page.keyboard.press("-");
+    assert.notEqual(await page.textContent("#canvas-scale"), fitted);
+    await page.keyboard.press("0");
+    assert.equal(await page.textContent("#canvas-scale"), fitted);
+
+    // Dragging the empty canvas pans and opens nothing; a click still opens a card.
+    const before = await page.getAttribute("#screens-board", "style");
+    await page.mouse.move(frame.x + 6, frame.y + 6);
+    await page.mouse.down();
+    await page.mouse.move(frame.x + 106, frame.y + 56, { steps: 5 });
+    await page.mouse.up();
+    assert.notEqual(await page.getAttribute("#screens-board", "style"), before);
+    assert.equal(await page.locator("#screen-detail").isHidden(), true);
+    await page.keyboard.press("0");
+    await page.click('.screen-card[data-key="notes-list"]');
+    assert.equal(await page.textContent("#screen-detail-title"), "All notes");
+    assert.match((await page.textContent("#screen-detail-meta")) ?? "", /Captured bye2e\/notes\.screens\.ts/);
+    await page.keyboard.press("Escape");
+
+    // A filter lays the canvas out again around what matches.
+    await page.click(".screen-filters summary");
+    await page.selectOption("#screen-capture-filter", "not-captured");
+    const matches = page.locator(".screen-card:visible");
+    assert.equal(await matches.count(), 1);
+    assert.equal(await matches.getAttribute("data-key"), "note-saved-toast");
+    assert.ok(inside((await matches.boundingBox())!, frame));
+
+    // The choice outlasts a reload, and the grid comes back as it was.
+    await page.reload();
+    assert.equal(await page.getAttribute("#screens-map", "data-layout"), "canvas");
+    await page.click('[data-layout-choice="grid"]');
+    assert.equal(await page.getAttribute("#screens-map", "data-layout"), "grid");
+    assert.equal(await page.getAttribute("#screens-board", "style"), null);
+    assert.equal(await page.locator("#screen-zoom").isVisible(), true);
+    await page.context().close();
+
+    // A narrow screen always gets the grid.
+    const narrow = await open("#view/screens", { width: 390, height: 844 }, { layout: "canvas" });
+    assert.equal(await narrow.getAttribute("#screens-map", "data-layout"), "grid");
+    assert.equal(await narrow.locator(".layout-switch").isHidden(), true);
+    await narrow.context().close();
+  });
+
+  await test("requests no image while the canvas is zoomed out too far to see one", async () => {
+    const page = await open("#view/screens", { width: 1280, height: 800 }, { url: largePageUrl, layout: "canvas" });
+    const pending = page.locator("#screens-board img[data-src]");
+    assert.ok(Number.parseInt((await page.textContent("#canvas-scale")) ?? "", 10) < 15);
+    assert.equal(await pending.count(), LARGE_SCREENS);
+    // Zooming to one group brings its images in, and only those near it.
+    await page.click('[data-outline-section="NOTES"][data-outline-group="3"]');
+    await page.waitForFunction(
+      `document.querySelectorAll("#screens-board img[data-src]").length < ${LARGE_SCREENS}`
+    );
+    assert.ok((await pending.count()) > LARGE_SCREENS / 2, "images far from view stay deferred");
     await page.context().close();
   });
 

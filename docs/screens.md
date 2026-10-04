@@ -583,13 +583,22 @@ self-contained file. With screens enabled it gains:
 - a **Screens** view with every screen grouped by capability and then group. Section and group
   labels stay pinned while scrolling and readable at every zoom level. A zoom control (or `+` and
   `-`) switches between a dense overview with small thumbnails and larger cards.
+- a **Canvas** layout beside the grid: every screen on one board that fits the window, with
+  capabilities packed side by side and their groups shaped to the frame. Drag or scroll to pan,
+  Ctrl or Cmd with the wheel (or a pinch) to zoom, `+` and `-` to zoom, and `0` to fit
+  everything again. Labels stay readable at every zoom, changed screens are outlined, and a
+  capability or group in the sidebar zooms to it. Images load only once cards are large enough
+  to see, so a zoomed-out catalog of a thousand screens requests none. The page remembers the
+  layout you chose; narrow screens always get the grid.
 - filters, folded under **Filters** with a count of those in use, for kind, each `applies_to`
-  dimension (a screen without that dimension applies to every value), and linked or unlinked,
-  plus a search whose matches are listed in the sidebar so they are reachable at any zoom level.
+  dimension (a screen without that dimension applies to every value), linked or unlinked, and
+  whether a screen has a screenshot, is marked not captured, or has none yet, plus a search
+  whose matches are listed in the sidebar so they are reachable at any zoom level. In the
+  canvas, filtering lays the board out again around what matches.
 - a placeholder on each card without a picture that says why: **Not captured** with its reason,
   **No capture**, or **Image unavailable** when the image fails to load.
 - a detail panel with the full image or a placeholder, when the screen appears, the Stories and
-  ACs that show it, key copy, and the metadata. `←`/`→` (or `j`/`k`) step through the current
+  ACs that show it, key copy, and the metadata, including the test that captures it. `←`/`→` (or `j`/`k`) step through the current
   results, starting from the first or last when none is open; `Esc` closes it.
   `#screen/<key>` links to a screen.
 - coverage counts: screens shown by Stories, screens with no links, and Stories that show no
