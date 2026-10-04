@@ -327,7 +327,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "78ae92a5eca7820cb103f9a69387421632f64a6074dc9d2d8170c5de04c58494",
+            "contract_hash": "06c7d7f15476ab0ddb23143d897e85173568411f88f61d85a3fd560a1a098389",
             "criterion": "Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.",
             "links": [
               {
@@ -381,11 +381,48 @@
                   "path": "tests/unit/contract/test-contract-command.ts",
                   "repository": "tieline"
                 }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "a38299a672930bf9b3f2463a5f77ea00915fd071473d66142d9df91bfd33d4bb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-review-changes.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
+                  "repository": "tieline"
+                }
               }
             ],
             "position": 3,
             "rationale": "Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.",
-            "scenarios": [],
+            "scenarios": [
+              {
+                "given": "a repository whose contract has no capabilities yet",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC4-S1",
+                "then": "the page must say there are no capabilities yet and how to begin onboarding with the installed skill",
+                "when": "the review page is rendered"
+              },
+              {
+                "given": "a contract that does not validate",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC4-S2",
+                "then": "the page must list the validation notes and say the contract does not validate, without offering onboarding",
+                "when": "the review page is rendered"
+              }
+            ],
             "stable_id": "CONTRACT-001-AC4",
             "supersedes": null
           },
@@ -816,7 +853,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "52d016874a3c8f6c019c0630fab3a69443f711ab13b046f04a74d1c94944814f",
+                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2178,7 +2215,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fb4964c929167fe9a7ac7b720aa7efcb6231daebbd5acc45661a19605d3714ea",
+                "reviewed_content_hash": "2850e818c3f1dafc16e6dc0720996ce77d7fc18173a06181055d2eb0e600f30f",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/screens-capture.md",
@@ -2198,7 +2235,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "48ae5ce26523a1c9164fe62c660a329fde2b921c1cddc7c0b51882685b828de4",
+                "reviewed_content_hash": "c145a37f9c553d485e94879164ab1f888ebf6895c5bf8900f2d7d14f246ebb56",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/SKILL.md",
@@ -2208,7 +2245,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "52d016874a3c8f6c019c0630fab3a69443f711ab13b046f04a74d1c94944814f",
+                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2424,7 +2461,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8833d7d458c9e497357ff34779dea72059b9c527051c2012f32eedfaa6cf49ff",
+            "contract_hash": "060519080584a76e467a74bf6112e9f2d7110de4619653472772359ad63021d0",
             "criterion": "The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.",
             "links": [
               {
@@ -2476,9 +2513,16 @@
             "rationale": "The site exposes review evidence over the network behind only the host's access control, so it must never serve anything publishing did not record, nor bytes that changed after they were verified.",
             "scenarios": [
               {
-                "given": "an object in the bucket was overwritten after its image was published",
+                "given": "the site is deployed without its database or object storage settings, or with an invalid repository key",
                 "position": 0,
                 "stable_id": "CONTRACT-005-AC14-S1",
+                "then": "the site must answer as itself with an error naming what is missing or invalid, instead of failing to load",
+                "when": "any page is requested"
+              },
+              {
+                "given": "an object in the bucket was overwritten after its image was published",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC14-S2",
                 "then": "the site must refuse it rather than serve the new bytes",
                 "when": "a visitor requests that image"
               }
@@ -2579,7 +2623,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "52d016874a3c8f6c019c0630fab3a69443f711ab13b046f04a74d1c94944814f",
+                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2603,7 +2647,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fb4964c929167fe9a7ac7b720aa7efcb6231daebbd5acc45661a19605d3714ea",
+                "reviewed_content_hash": "2850e818c3f1dafc16e6dc0720996ce77d7fc18173a06181055d2eb0e600f30f",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/screens-capture.md",
@@ -3422,6 +3466,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "1ce0dd6789e3caa588763669be459572b87ed0823e808ac50634f651b6d9c86a"
+    "sha256": "e78641a6631c5445ef11c18887fc287581607b68128c66595756959a25be36e0"
   }
 }
