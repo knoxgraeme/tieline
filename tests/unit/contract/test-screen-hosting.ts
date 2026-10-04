@@ -1029,46 +1029,72 @@ await test("syncs main's tip in the example workflow, so a skipped or out-of-ord
   assert.ok(syncs.every((step) => !step.run!.includes("--expected-previous-commit")));
 });
 
-await test("publishes pull requests from a job that holds the credentials but never runs the pull request's code", () => {
+await test("publishes from a workflow the default branch owns, never from one a pull request can change", () => {
   type Step = { if?: string; uses?: string; with?: Record<string, unknown>; run?: string; "working-directory"?: string; env?: Record<string, string> };
-  type Job = { needs?: string; if?: string; permissions?: Record<string, string>; steps: Step[] };
-  const workflow = parseYaml(readFileSync("docs/examples/screens-hosted.yml", "utf8")) as {
-    permissions: Record<string, string>;
-    jobs: { capture: Job; publish: Job; close: Job };
-  };
-  const { capture, publish } = workflow.jobs;
-  // Only the publish job may write to the pull request.
-  assert.deepEqual(workflow.permissions, { contents: "read" });
-  assert.deepEqual(publish.permissions, { contents: "read", "pull-requests": "write" });
-  // The job that runs the pull request's code holds no secret.
-  assert.ok(!JSON.stringify(capture).includes("secrets."), "the capture job holds no credentials");
-  assert.ok(capture.steps.some((step) => step.run?.includes("screens capture --changed") && step.run.includes("--verify")));
-  const upload = capture.steps.find((step) => step.uses?.startsWith("actions/upload-artifact"))!;
+  type Job = { needs?: string; if?: string; environment?: string; permissions?: Record<string, string>; outputs?: Record<string, string>; steps: Step[] };
+  type Workflow = { name: string; on: Record<string, unknown>; permissions: Record<string, string>; jobs: Record<string, Job> };
+  const read = (file: string) => parseYaml(readFileSync(`docs/examples/${file}`, "utf8")) as Workflow;
+  const capture = read("screens-hosted.yml");
+  const publishing = read("screens-hosted-publish.yml");
+  const main = read("screens-hosted-main.yml");
+
+  // A pull_request workflow comes from the pull request's branch, which can
+  // rewrite it, so it holds no secret and no write access.
+  assert.deepEqual(Object.keys(capture.on), ["pull_request"]);
+  assert.deepEqual(capture.permissions, { contents: "read" });
+  assert.ok(!JSON.stringify(capture).includes("secrets."), "the capture workflow holds no credentials");
+  const captureSteps = capture.jobs.capture!.steps;
+  assert.equal(captureSteps[0]!.with?.ref, "${{ github.event.pull_request.head.sha }}", "captures the commit publishing reads");
+  assert.ok(captureSteps.some((step) => step.run?.includes("screens capture --changed") && step.run.includes("--verify")));
+  const upload = captureSteps.find((step) => step.uses?.startsWith("actions/upload-artifact"))!;
   // .tieline is a hidden directory, which upload-artifact skips by default.
   assert.equal(upload.with?.["include-hidden-files"], true);
   assert.equal(upload.if, "github.event.pull_request.head.repo.full_name == github.repository", "forks hand nothing on");
-  // The publish job runs after it, and only for the repository's own branches.
-  assert.equal(publish.needs, "capture");
-  assert.equal(publish.if, "github.event.pull_request.head.repo.full_name == github.repository");
-  // Tieline comes from the base branch; the pull request is checked out apart, as data.
-  const checkouts = publish.steps.filter((step) => step.uses?.startsWith("actions/checkout"));
+
+  // Publishing runs on workflow_run and pull_request_target, which GitHub
+  // reads from the default branch, after a capture by that workflow's name.
+  assert.deepEqual(publishing.on, {
+    workflow_run: { workflows: [capture.name], types: ["completed"] },
+    pull_request_target: { types: ["closed"] },
+  });
+  assert.deepEqual(publishing.permissions, { contents: "read" });
+  // Every job that holds a secret runs in the environment the default branch alone can use.
+  for (const workflow of [publishing, main]) {
+    for (const [name, job] of Object.entries(workflow.jobs)) {
+      if (JSON.stringify(job).includes("secrets.")) assert.equal(job.environment, "hosted-screens", `${workflow.name}: ${name}`);
+    }
+  }
+  const { resolve: resolveJob, publish, close } = publishing.jobs;
+  // Only a successful capture of the repository's own branch is published,
+  // for the pull request the API names, never one the artifact names.
+  assert.match(resolveJob!.if!, /workflow_run\.conclusion == 'success'/);
+  assert.match(resolveJob!.if!, /head_repository\.full_name == github\.repository/);
+  assert.match(resolveJob!.steps[0]!.run!, /gh api -X GET .*pulls/);
+  assert.match(resolveJob!.steps[0]!.run!, /select\(\.head\.sha == /);
+  assert.equal(publish!.needs, "resolve");
+  assert.deepEqual(publish!.permissions, { contents: "read", actions: "read", "pull-requests": "write" });
+  // Tieline from the default branch; the pull request checked out apart, as data.
+  const checkouts = publish!.steps.filter((step) => step.uses?.startsWith("actions/checkout"));
   assert.deepEqual(
     checkouts.map((step) => [step.with?.path, step.with?.ref]),
     [
-      ["trusted", "${{ github.event.pull_request.base.sha }}"],
-      ["pull-request", undefined],
+      ["trusted", undefined],
+      ["pull-request", "${{ github.event.workflow_run.head_sha }}"],
     ]
   );
-  // Every command runs in the base branch's checkout; none installs or runs the pull request's.
-  const commands = publish.steps.filter((step) => step.run);
-  assert.ok(commands.length >= 2);
-  assert.ok(commands.every((step) => step["working-directory"] === "trusted"), "every command runs the base branch's install");
+  const commands = publish!.steps.filter((step) => step.run);
+  assert.ok(commands.length >= 2 && commands.every((step) => step["working-directory"] === "trusted"), "every command runs the default branch's install");
   const publishStep = commands.find((step) => step.run!.includes("screens publish"))!;
   assert.match(publishStep.run!, /--repository \.\.\/pull-request /);
-  assert.ok(Object.values(publishStep.env ?? {}).some((value) => value.includes("secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH")));
-  // The screenshots land where the pull request's catalog expects them, and are re-hashed there.
-  const download = publish.steps.find((step) => step.uses?.startsWith("actions/download-artifact"))!;
+  assert.equal(publishStep.env?.PULL_REQUEST, "${{ needs.resolve.outputs.number }}");
+  const download = publish!.steps.find((step) => step.uses?.startsWith("actions/download-artifact"))!;
+  assert.equal(download.with?.["run-id"], "${{ github.event.workflow_run.id }}");
   assert.equal(download.with?.path, "pull-request/.tieline/captures");
+  // Closing checks out only the base branch.
+  assert.deepEqual(
+    close!.steps.filter((step) => step.uses?.startsWith("actions/checkout")).map((step) => step.with?.ref),
+    ["${{ github.event.pull_request.base.ref }}"]
+  );
 });
 
 for (const ws of workspaces) ws.cleanup();

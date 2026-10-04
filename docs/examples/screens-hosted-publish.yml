@@ -1,0 +1,141 @@
+name: Screens publish
+
+# GitHub runs this file as the default branch has it, never as a pull request
+# changes it, so a branch cannot change the jobs that hold the credentials.
+# Keep the secrets in a `hosted-screens` environment whose deployment
+# branches are limited to the default branch: a pull request's own workflows
+# then cannot read them either. This file must be on the default branch to run.
+on:
+  workflow_run:
+    workflows: [Screens]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+# A pull request's publishes and its close run one at a time, in order.
+concurrency:
+  group: screens-publish-${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The pull request a capture was for, read from the event and the API, never
+  # from the artifact; nothing when it is closed or its branch has moved on,
+  # since a newer capture then publishes instead.
+  resolve:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      number: ${{ steps.pull-request.outputs.number }}
+    steps:
+      - id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          number=$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open -f head="$GITHUB_REPOSITORY_OWNER:$HEAD_BRANCH" \
+            --jq "map(select(.head.sha == \"$HEAD_SHA\")) | .[0].number // empty")
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+  # Holds the publishing credentials and never runs the pull request's code:
+  # Tieline is installed from the default branch, and the pull request's files
+  # and the capture's screenshots are only read, each screenshot re-hashed
+  # against the digest its catalog commits.
+  publish:
+    needs: resolve
+    if: needs.resolve.outputs.number != ''
+    runs-on: ubuntu-latest
+    environment: hosted-screens
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: trusted
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: trusted
+      # The commit the capture verified, as data: nothing in it is installed
+      # or run.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          path: pull-request
+          fetch-depth: 0
+          persist-credentials: false
+      # Absent when the capture reproduced no screenshot; publishing then
+      # names any image the bucket lacks.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: screens-captures
+          path: pull-request/.tieline/captures
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Publish
+        working-directory: trusted
+        env:
+          DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
+          TIELINE_SCREENS_S3_ENDPOINT: ${{ secrets.TIELINE_SCREENS_S3_ENDPOINT }}
+          TIELINE_SCREENS_S3_REGION: ${{ secrets.TIELINE_SCREENS_S3_REGION }}
+          TIELINE_SCREENS_S3_ACCESS_KEY_ID: ${{ secrets.TIELINE_SCREENS_S3_ACCESS_KEY_ID }}
+          TIELINE_SCREENS_S3_SECRET_ACCESS_KEY: ${{ secrets.TIELINE_SCREENS_S3_SECRET_ACCESS_KEY }}
+          PULL_REQUEST: ${{ needs.resolve.outputs.number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: >-
+          npx tieline screens publish
+          --repository ../pull-request
+          --pull-request "$PULL_REQUEST"
+          --commit "$HEAD_SHA"
+          --summary-file ../screens-summary.md
+      # Keeps one comment per pull request up to date.
+      - name: Comment
+        uses: actions/github-script@v7
+        env:
+          PULL_REQUEST: ${{ needs.resolve.outputs.number }}
+        with:
+          script: |
+            const body = require("fs").readFileSync("screens-summary.md", "utf8");
+            const { owner, repo } = context.repo;
+            const issue_number = Number(process.env.PULL_REQUEST);
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((comment) => comment.body?.startsWith("<!-- tieline-screens -->"));
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+  # Marks the pull request closed; `screens prune` on main deletes its page
+  # a day later, after the merge has reached main. pull_request_target runs
+  # this file from the base branch, and only the base branch is checked out.
+  close:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: hosted-screens
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - env:
+          DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
+        run: npx tieline screens close --pull-request ${{ github.event.pull_request.number }}

@@ -257,8 +257,18 @@ export interface HostedDatabaseState {
   canWrite: boolean;
   /** Whether the role holds each privilege `READER_PRIVILEGES`, `PUBLISHER_PRIVILEGES`, and `SYNC_PRIVILEGES` name, by its description. */
   privileges: Record<string, boolean>;
+  /**
+   * Every write the role holds on a table in the public schema, as
+   * `<privilege> on <table>`: INSERT or UPDATE on the table or any of its
+   * columns, DELETE, and TRUNCATE.
+   */
+  writes: string[];
   /** Whether row security does not apply to the role: a superuser, BYPASSRLS, or the table's owner. */
   bypassesRowSecurity: boolean;
+  /** Whether row security lets the role read published pages: a member of a role a select policy names, or a role it does not bind. */
+  readsPublishedRows: boolean;
+  /** Whether row security lets the role write pull-request and branch pages: a member of tieline_capture_publisher or tieline_repository_sync, or a role it does not bind. */
+  writesPublishedRows: boolean;
   /** Whether row security lets the role write main's page: a member of tieline_repository_sync, or a role it does not bind. */
   writesMainRows: boolean;
   /** When `main` was last published, if the role can read it. */
@@ -273,15 +283,12 @@ export interface HostedCheckDependencies {
 }
 
 /**
- * A privilege the check asks Postgres about. `anyColumn` asks whether the role
- * holds it on the table or on any one of its columns: a role granted UPDATE
- * on a single column can still write, so a forbidden INSERT or UPDATE is
- * asked that way, while a required one must cover the whole table.
- * `otherThan` asks the same of every column but those named, so a role may
- * update the columns its job sets and no other.
+ * A privilege the check asks Postgres about. `otherThan` asks whether the
+ * role holds it on any column but those named, so a role may update the
+ * columns its job sets and no other.
  */
 export type PrivilegeProbe =
-  | { table: string; privilege: string; column?: string; anyColumn?: boolean; otherThan?: readonly string[] }
+  | { table: string; privilege: string; column?: string; otherThan?: readonly string[] }
   | { function: string; privilege: "EXECUTE" };
 
 const DIGESTS_VALID = "tieline_screen_digests_valid(text[])";
@@ -292,12 +299,13 @@ const PUBLISHED_PAGE_COLUMNS = ["head_commit", "manifest", "images", "page_html"
 /**
  * What the capture publisher's role is granted (migration 0005), and what it
  * must not hold: a capture job can add images and write pull-request and
- * branch pages, but never delete, write history, change an image's record
- * beyond when it was last referenced, or escape the row security that keeps
- * it off main's page.
+ * branch pages, but write no other table, delete nothing, change an image's
+ * record beyond when it was last referenced, or escape the row security that
+ * keeps it off main's page. `writes` are the only table writes it may hold.
  */
 export const PUBLISHER_PRIVILEGES: {
   required: readonly PrivilegeProbe[];
+  writes: readonly string[];
   forbidden: readonly PrivilegeProbe[];
 } = {
   required: [
@@ -311,16 +319,12 @@ export const PUBLISHER_PRIVILEGES: {
     { table: "repositories", privilege: "SELECT", column: "key" },
     { function: DIGESTS_VALID, privilege: "EXECUTE" },
   ],
+  writes: ["INSERT on screen_images", "INSERT on screen_snapshots", "UPDATE on screen_images", "UPDATE on screen_snapshots"],
   forbidden: [
-    { table: "screen_snapshots", privilege: "DELETE" },
     // A page's repository and ref, and an image's identity and record, are
     // never rewritten.
     { table: "screen_snapshots", privilege: "UPDATE", otherThan: PUBLISHED_PAGE_COLUMNS },
-    { table: "screen_images", privilege: "DELETE" },
     { table: "screen_images", privilege: "UPDATE", otherThan: ["last_referenced_at"] },
-    { table: "screen_history", privilege: "INSERT", anyColumn: true },
-    { table: "screen_history", privilege: "UPDATE", anyColumn: true },
-    { table: "screen_history", privilege: "DELETE" },
   ],
 };
 
@@ -342,27 +346,21 @@ export const SYNC_PRIVILEGES: { required: readonly PrivilegeProbe[] } = {
 };
 
 /**
- * What the hosted site's reader needs, and what it must not hold: the site is
- * reachable over the network, so its credential reads published pages and
- * images and can change nothing.
+ * What the hosted site's reader needs. The site is reachable over the
+ * network, so its credential reads published pages and images and may hold
+ * no table write at all.
  */
-export const READER_PRIVILEGES: { required: readonly PrivilegeProbe[]; forbidden: readonly PrivilegeProbe[] } = {
+export const READER_PRIVILEGES: { required: readonly PrivilegeProbe[] } = {
   required: [
     { table: "screen_snapshots", privilege: "SELECT" },
     { table: "screen_images", privilege: "SELECT" },
     { table: "repositories", privilege: "SELECT", column: "id" },
     { table: "repositories", privilege: "SELECT", column: "key" },
   ],
-  forbidden: ["screen_snapshots", "screen_images", "screen_history"].flatMap((table) => [
-    { table, privilege: "INSERT", anyColumn: true },
-    { table, privilege: "UPDATE", anyColumn: true },
-    { table, privilege: "DELETE" },
-  ]),
 };
 
 export function privilegeName(entry: PrivilegeProbe): string {
   if ("function" in entry) return `${entry.privilege} on ${entry.function}`;
-  if (entry.anyColumn) return `${entry.privilege} on ${entry.table} or any of its columns`;
   if (entry.otherThan) return `${entry.privilege} on ${entry.table} (any column but ${entry.otherThan.join(", ")})`;
   return `${entry.privilege} on ${entry.table}${entry.column ? ` (${entry.column})` : ""}`;
 }
@@ -374,8 +372,6 @@ async function holdsPrivilege(sql: postgres.Sql, entry: PrivilegeProbe): Promise
     rows = await sql<{ granted: boolean }[]>`select has_function_privilege(${entry.function}, ${entry.privilege}) as granted`;
   } else if (entry.column) {
     rows = await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`;
-  } else if (entry.anyColumn) {
-    rows = await sql<{ granted: boolean }[]>`select has_any_column_privilege(${entry.table}, ${entry.privilege}) as granted`;
   } else if (entry.otherThan) {
     rows = await sql<{ granted: boolean }[]>`
       select coalesce(bool_or(has_column_privilege(attribute.attrelid, attribute.attnum, ${entry.privilege})), false) as granted
@@ -401,7 +397,10 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
         canRead: false,
         canWrite: false,
         privileges: {},
+        writes: [],
         bypassesRowSecurity: false,
+        readsPublishedRows: false,
+        writesPublishedRows: false,
         writesMainRows: false,
         main: null,
       };
@@ -412,7 +411,6 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
     const probed: Record<string, boolean> = {};
     const probes = [
       ...READER_PRIVILEGES.required,
-      ...READER_PRIVILEGES.forbidden,
       ...PUBLISHER_PRIVILEGES.required,
       ...PUBLISHER_PRIVILEGES.forbidden,
       ...SYNC_PRIVILEGES.required,
@@ -422,13 +420,32 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
       if (name in probed) continue;
       probed[name] = await holdsPrivilege(sql, entry);
     }
-    const [security] = await sql<{ bypasses: boolean; syncs: boolean }[]>`
+    // The schema's tables are few, so this is bounded; the limit only guards it.
+    const writes = await sql<{ table: string; privilege: string }[]>`
+      select relation.relname as table, privilege.name as privilege
+      from pg_class relation
+      join pg_namespace namespace on namespace.oid = relation.relnamespace
+      cross join unnest(array['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) as privilege(name)
+      where namespace.nspname = 'public' and relation.relkind in ('r', 'p')
+        and case when privilege.name in ('INSERT', 'UPDATE')
+                 then has_any_column_privilege(relation.oid, privilege.name)
+                 else has_table_privilege(relation.oid, privilege.name) end
+      order by relation.relname, privilege.name
+      limit 1000`;
+    // Row security policies name these roles; a role outside them sees and
+    // writes no published row, whatever its grants.
+    const [security] = await sql<{ bypasses: boolean; reader: boolean; publisher: boolean; syncs: boolean }[]>`
       select (role.rolsuper or role.rolbypassrls
               or (pg_has_role(current_user, snapshots.relowner, 'USAGE') and not snapshots.relforcerowsecurity)) as bypasses,
-             coalesce((select pg_has_role(current_user, sync.oid, 'USAGE')
-                       from pg_roles sync where sync.rolname = 'tieline_repository_sync'), false) as syncs
+             coalesce((select pg_has_role(current_user, member.oid, 'USAGE')
+                       from pg_roles member where member.rolname = 'tieline_reader'), false) as reader,
+             coalesce((select pg_has_role(current_user, member.oid, 'USAGE')
+                       from pg_roles member where member.rolname = 'tieline_capture_publisher'), false) as publisher,
+             coalesce((select pg_has_role(current_user, member.oid, 'USAGE')
+                       from pg_roles member where member.rolname = 'tieline_repository_sync'), false) as syncs
       from pg_roles role, pg_class snapshots
       where role.rolname = current_user and snapshots.oid = 'screen_snapshots'::regclass`;
+    const bypasses = security?.bypasses ?? false;
     let main: HostedDatabaseState["main"] = null;
     if (privileges?.can_read) {
       const rows = await sql<{ head_commit: string; published_at: Date }[]>`
@@ -444,8 +461,11 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
       canRead: privileges?.can_read ?? false,
       canWrite: privileges?.can_write ?? false,
       privileges: probed,
-      bypassesRowSecurity: security?.bypasses ?? false,
-      writesMainRows: (security?.bypasses ?? false) || (security?.syncs ?? false),
+      writes: writes.map((row) => `${row.privilege} on ${row.table}`),
+      bypassesRowSecurity: bypasses,
+      readsPublishedRows: bypasses || Boolean(security?.reader || security?.publisher || security?.syncs),
+      writesPublishedRows: bypasses || Boolean(security?.publisher || security?.syncs),
+      writesMainRows: bypasses || (security?.syncs ?? false),
       main,
     };
   } finally {
@@ -468,14 +488,17 @@ const DATABASE_ROLES = [
 
 /**
  * Why a credential is not the read-only reader's: privileges the site needs
- * that it lacks, and any write on published screens. Empty when it can only read.
+ * that it lacks, row security that hides published pages from it, and any
+ * table write. Empty when it can only read.
  */
-export function readerPrivilegeProblems(state: Pick<HostedDatabaseState, "privileges">): string[] {
+export function readerPrivilegeProblems(
+  state: Pick<HostedDatabaseState, "privileges" | "writes" | "readsPublishedRows">
+): string[] {
   const missing = READER_PRIVILEGES.required.map(privilegeName).filter((name) => state.privileges[name] !== true);
-  const excess = READER_PRIVILEGES.forbidden.map(privilegeName).filter((name) => state.privileges[name] === true);
   return [
     ...(missing.length > 0 ? [`lacks ${missing.join(", ")}, which the site needs`] : []),
-    ...(excess.length > 0 ? [`can also write published screens (${excess.join(", ")})`] : []),
+    ...(state.readsPublishedRows ? [] : ["is not a member of tieline_reader, so row security hides every published page from it"]),
+    ...(state.writes.length > 0 ? [`can also write (${state.writes.join(", ")})`] : []),
   ];
 }
 
@@ -496,11 +519,17 @@ export function syncPrivilegeProblems(state: Pick<HostedDatabaseState, "privileg
  * needs that it lacks, and ones a capture job must never hold. Empty when it
  * holds exactly what the publisher role is granted.
  */
-export function publisherPrivilegeProblems(state: Pick<HostedDatabaseState, "privileges" | "bypassesRowSecurity">): string[] {
+export function publisherPrivilegeProblems(
+  state: Pick<HostedDatabaseState, "privileges" | "writes" | "bypassesRowSecurity" | "writesPublishedRows">
+): string[] {
   const missing = PUBLISHER_PRIVILEGES.required.map(privilegeName).filter((name) => state.privileges[name] !== true);
-  const excess = PUBLISHER_PRIVILEGES.forbidden.map(privilegeName).filter((name) => state.privileges[name] === true);
+  const excess = [
+    ...state.writes.filter((write) => !PUBLISHER_PRIVILEGES.writes.includes(write)),
+    ...PUBLISHER_PRIVILEGES.forbidden.map(privilegeName).filter((name) => state.privileges[name] === true),
+  ];
   return [
     ...(missing.length > 0 ? [`lacks ${missing.join(", ")}, which publishing needs`] : []),
+    ...(state.writesPublishedRows ? [] : ["is not a member of tieline_capture_publisher, so row security lets it write no page"]),
     ...(excess.length > 0 ? [`holds ${excess.join(", ")}, which a capture job must not`] : []),
     ...(state.bypassesRowSecurity ? ["is not bound by row security, so it could write main's page"] : []),
   ];

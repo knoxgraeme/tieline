@@ -68,7 +68,7 @@ tell them to revoke it once they are done.
      `TIELINE_SCREENS_S3_SECRET_ACCESS_KEY=${credential.s3_secret_access_key}`,
    ];
    fs.writeFileSync(`${dir}/hosted-screens.env`, [
-     "# GitHub Actions secrets for the hosted screens workflows (can write):",
+     "# Secrets of the hosted-screens GitHub environment (can write):",
      ...lines(read("publish")),
      "",
      "# The hosted site's environment (read-only):",
@@ -82,11 +82,14 @@ tell them to revoke it once they are done.
 
    Then tell the user:
    - the path of `$dir/hosted-screens.env`, and that it holds secrets;
-   - to add its first group as GitHub Actions secrets of the same names,
-     plus `TIELINE_DATABASE_URL_SCREENS_PUBLISH` and
-     `TIELINE_DATABASE_URL_SYNC`, copied from `DATABASE_URL_SCREENS_PUBLISH`
+   - to create a GitHub environment named `hosted-screens` whose deployment
+     branches are limited to the default branch, and add as its secrets the
+     file's first group, plus `TIELINE_DATABASE_URL_SCREENS_PUBLISH` and
+     `TIELINE_DATABASE_URL_SYNC` copied from `DATABASE_URL_SCREENS_PUBLISH`
      and `DATABASE_URL_SYNC` in this clone's private Tieline profile,
-     `~/.config/tieline/profiles/<repo_name>-<hash>.json`;
+     `~/.config/tieline/profiles/<repo_name>-<hash>.json` — environment
+     secrets, never repository secrets, which any pull request's workflow
+     can read;
    - to set its second group, plus `DATABASE_URL` from the same profile (the
      read-only reader role), in the hosted site's environment, after
      `tieline hosted init --host netlify` and creating the Netlify site;

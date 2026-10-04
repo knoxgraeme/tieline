@@ -19,6 +19,9 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # The secrets live in this environment, limited to the default branch, so
+    # no pull request's workflow can read them.
+    environment: hosted-screens
     # The same pinned image the pull-request captures use. Keep this tag equal
     # to the app's @playwright/test version.
     container: mcr.microsoft.com/playwright:v1.63.0-noble

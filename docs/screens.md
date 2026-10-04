@@ -749,10 +749,11 @@ hosted page, which allows only https images; use an https URL or a captured scre
 that are not set:
 
 - **storage:** writes, finds, and deletes a probe object in the bucket;
-- **database:** `DATABASE_URL` can read published screens and cannot write them;
-  `DATABASE_URL_SCREENS_PUBLISH` holds exactly the capture publisher's privileges, nothing it
-  lacks and nothing more (no deleting, no history, no rewriting a page's ref or an image's
-  record, row security in force, so it cannot write `main`); `DATABASE_URL_SYNC` can write them;
+- **database:** `DATABASE_URL` is a member of `tieline_reader`, so row security shows it
+  published screens, and holds no write on any table; `DATABASE_URL_SCREENS_PUBLISH` is a member
+  of `tieline_capture_publisher` and holds exactly its privileges, nothing it lacks and nothing
+  more (no write on any other table, no deleting, no rewriting a page's ref or an image's record,
+  row security in force, so it cannot write `main`); `DATABASE_URL_SYNC` can write them;
 - **site:** asks for the site's page and an image without logging in, beneath the site URL's
   path when it has one (`https://example.com/screens` is checked at `/screens/`, not at `/`),
   following at most 5 redirects, and passes only on a 401 or 403, or on a redirect to a login
@@ -764,32 +765,37 @@ Another host needs only a few lines that hand its requests to `createHostedScree
 
 ### CI
 
-[`screens-hosted.yml`](examples/screens-hosted.yml) runs on pull requests:
+Three workflows, with the hosted screens secrets kept in a GitHub environment named
+`hosted-screens` whose deployment branches are limited to the default branch:
 
-1. a capture job, with no credentials: `capture --changed --base <base> --verify`, which with
-   hosted screens on also keeps the screenshots it reproduced exactly (every other screen keeps
-   the image `main` published), handed on as a workflow artifact;
-2. a publish job, with the publisher's credentials, that never runs the pull request's code: it
-   installs Tieline from the base branch, checks the pull request out beside it only to read,
-   and runs `screens publish --repository` against it, which re-hashes every screenshot against
-   the digest its catalog commits;
-3. one pull-request comment kept up to date with the changes and a link to the page;
-4. `screens close` when the pull request closes.
+1. [`screens-hosted.yml`](examples/screens-hosted.yml) runs on pull requests, with no
+   credentials: `capture --changed --base <base> --verify` at the pull request's head, which with
+   hosted screens on also keeps the screenshots it reproduced exactly (every other screen keeps the
+   image `main` published), handed on as a workflow artifact.
+2. [`screens-hosted-publish.yml`](examples/screens-hosted-publish.yml) runs after each successful
+   capture, as the default branch has it: it finds the open pull request whose head is the captured
+   commit, installs Tieline from the default branch, checks the pull request out beside it only to
+   read, runs `screens publish --repository` against it (which re-hashes every screenshot against
+   the digest its catalog commits), and keeps one pull-request comment up to date with the changes
+   and a link to the page. When a pull request closes, it runs `screens close`.
+3. [`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync` of
+   `main` as it is when the run starts, which publishes `main` (so a run that waited, ran out of
+   order, or replaced another pending run never syncs an older commit); when it reports a
+   screenshot the bucket lacks, a capture and a second sync; then `screens prune`.
 
-Pull requests from forks get no secrets, so they are verified but not published.
-[`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync`
-of `main` as it is when the run starts, which publishes `main` (so a run that waited, ran out of
-order, or replaced another pending run never syncs an older commit); when it reports a screenshot the bucket lacks, a capture and a second
-sync; then `screens prune`.
+Pull requests from forks are verified but not published.
 
-The pull request's code — its dependencies' install scripts, its tests, its own copy of Tieline —
-runs only in the capture job, which holds no credentials; a job that ran it and then published
-would hand the credentials to whatever it left behind. Publishing uses the base branch's Tieline,
-so a branch can change what its page shows but not the code that holds the credentials. Someone
-who can push a branch can still edit the workflow it runs, which is why the publisher role can do
-so little, why the site re-checks every image's digest, and why forks are never published. A
-bucket credential can still overwrite or delete objects; the site then refuses the image rather
-than serve it, and the next publish of a page that shows it uploads it again.
+A `pull_request` workflow comes from the pull request's branch, so whoever can push a branch can
+rewrite it, and the pull request's code — its dependencies' install scripts, its tests, its own
+copy of Tieline — runs there. So no secret goes near it. GitHub runs `workflow_run`,
+`pull_request_target`, and `push` to `main` workflows as the default branch has them, and only
+jobs on the default branch can use the `hosted-screens` environment, so a branch can change what
+its page shows but not the code that holds the credentials, nor add a workflow that reads them.
+Secrets stored as plain repository secrets lose that last protection: any `pull_request` workflow
+from the repository's own branches can read them. The publisher role can still do little, and the
+site re-checks every image's digest. A bucket credential can still overwrite or delete objects;
+the site then refuses the image rather than serve it, and the next publish of a page that shows
+it uploads it again.
 
 ## Database sync
 

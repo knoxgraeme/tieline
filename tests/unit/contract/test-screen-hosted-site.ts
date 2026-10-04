@@ -23,7 +23,6 @@ import {
   SITE_CHECK_REDIRECTS,
   type HostedCheckDependencies,
   type HostedDatabaseState,
-  type PrivilegeProbe,
 } from "../../../src/commands/hosted.js";
 import { renderPublishSummary, SCREENS_COMMENT_MARKER } from "../../../src/commands/screens-hosting.js";
 import { parseRequestedRef, type HostedRef } from "../../../src/contract/hosted-ref.js";
@@ -395,25 +394,29 @@ function checkDependencies(options: {
 function privilegesOf(kind: "reader" | "publisher" | "sync"): Record<string, boolean> {
   const all = [
     ...READER_PRIVILEGES.required,
-    ...READER_PRIVILEGES.forbidden,
     ...PUBLISHER_PRIVILEGES.required,
     ...PUBLISHER_PRIVILEGES.forbidden,
     ...SYNC_PRIVILEGES.required,
   ];
   const publisher = new Set(PUBLISHER_PRIVILEGES.required.map(privilegeName));
-  // As in Postgres, a privilege on the table or on one column counts as "any column".
-  const publisherHolds = (entry: PrivilegeProbe) =>
-    "anyColumn" in entry && entry.anyColumn
-      ? PUBLISHER_PRIVILEGES.required.some(
-          (held) => "table" in held && held.table === entry.table && held.privilege === entry.privilege
-        )
-      : publisher.has(privilegeName(entry));
   return Object.fromEntries(
     all.map((entry) => [
       privilegeName(entry),
-      kind === "sync" ? true : kind === "publisher" ? publisherHolds(entry) : entry.privilege === "SELECT",
+      kind === "sync" ? true : kind === "publisher" ? publisher.has(privilegeName(entry)) : entry.privilege === "SELECT",
     ])
   );
+}
+
+/** The table writes each role holds, as the check lists them. */
+function writesOf(kind: "reader" | "publisher" | "sync"): string[] {
+  if (kind === "reader") return [];
+  if (kind === "publisher") return [...PUBLISHER_PRIVILEGES.writes];
+  return [
+    ...["screen_history", "screen_images", "screen_snapshots"].flatMap((table) =>
+      ["DELETE", "INSERT", "UPDATE"].map((privilege) => `${privilege} on ${table}`)
+    ),
+    "INSERT on contract_change_events",
+  ];
 }
 
 const READY = (user: string, canWrite: boolean, kind: "reader" | "publisher" | "sync" = canWrite ? "publisher" : "reader"): HostedDatabaseState => ({
@@ -422,7 +425,10 @@ const READY = (user: string, canWrite: boolean, kind: "reader" | "publisher" | "
   canRead: true,
   canWrite,
   privileges: privilegesOf(kind),
+  writes: writesOf(kind),
   bypassesRowSecurity: false,
+  readsPublishedRows: true,
+  writesPublishedRows: kind !== "reader",
   writesMainRows: kind === "sync",
   main: { commit: "c".repeat(40), publishedAt: new Date("2026-10-01T00:00:00Z") },
 });
@@ -487,11 +493,11 @@ await test("fails when the site serves anonymous visitors, storage refuses, or a
   assert.match(byCheck.get("storage")!.detail, /AccessDenied/);
   assert.match(
     byCheck.get("database DATABASE_URL")!.detail,
-    /tieline_capture_publisher is not the read-only reader role: it can also write published screens \(INSERT on screen_snapshots or any of its columns, [^)]*\); use tieline_reader/
+    /tieline_capture_publisher is not the read-only reader role: it can also write \(INSERT on screen_images, INSERT on screen_snapshots, [^)]*\); use tieline_reader/
   );
   assert.match(
     byCheck.get("database DATABASE_URL_SCREENS_PUBLISH")!.detail,
-    /tieline_reader is not the capture publisher role: it lacks INSERT on screen_snapshots, UPDATE on screen_snapshots \(head_commit\), UPDATE on screen_snapshots \(manifest\), [^;]*INSERT on screen_images, UPDATE on screen_images \(last_referenced_at\), EXECUTE on tieline_screen_digests_valid\(text\[\]\), which publishing needs; use tieline_capture_publisher/
+    /tieline_reader is not the capture publisher role: it lacks INSERT on screen_snapshots, UPDATE on screen_snapshots \(head_commit\), UPDATE on screen_snapshots \(manifest\), [^;]*INSERT on screen_images, UPDATE on screen_images \(last_referenced_at\), EXECUTE on tieline_screen_digests_valid\(text\[\]\), which publishing needs; is not a member of tieline_capture_publisher, so row security lets it write no page; use tieline_capture_publisher/
   );
   assert.match(byCheck.get("database DATABASE_URL_SYNC")!.detail, /password authentication failed/);
   assert.match(byCheck.get("site /")!.detail, /answered without a login \(HTTP 200\); turn on the host's access control/);
@@ -507,10 +513,21 @@ await test("accepts only the publisher role for publishing: not more, not less",
     return { code, detail: (JSON.parse(output()) as { results: Array<{ check: string; detail: string }> }).results.find((entry) => entry.check === "database DATABASE_URL_SCREENS_PUBLISH")!.detail };
   };
   assert.equal((await check(READY("tieline_capture_publisher", true))).code, 0);
-  // The sync role can write too, but it can also delete and write main and its history.
+  // The sync role can write too, but it can also delete and write main, its history, and change events.
   const sync = await check(READY("tieline_repository_sync", true, "sync"));
   assert.equal(sync.code, 1);
-  assert.match(sync.detail, /holds DELETE on screen_snapshots, UPDATE on screen_snapshots \(any column but head_commit, manifest, images, page_html, published_at, closed_at\), DELETE on screen_images, UPDATE on screen_images \(any column but last_referenced_at\), INSERT on screen_history or any of its columns, UPDATE on screen_history or any of its columns, DELETE on screen_history, which a capture job must not/);
+  assert.match(sync.detail, /holds DELETE on screen_history, INSERT on screen_history, UPDATE on screen_history, DELETE on screen_images, DELETE on screen_snapshots, INSERT on contract_change_events, UPDATE on screen_snapshots \(any column but head_commit, manifest, images, page_html, published_at, closed_at\), UPDATE on screen_images \(any column but last_referenced_at\), which a capture job must not/);
+  // Any table write beyond its own is too much: change events are append-only history.
+  for (const write of ["INSERT on contract_change_events", "UPDATE on contract_change_events", "DELETE on contract_change_events", "TRUNCATE on audit_events"]) {
+    const forger = READY("forger", true);
+    forger.writes = [...forger.writes, write];
+    const result = await check(forger);
+    assert.equal(result.code, 1, write);
+    assert.match(result.detail, new RegExp(`holds ${write}, which a capture job must not`), write);
+  }
+  // The grants alone are not enough: row security lets only its members write a page.
+  const outsider = { ...READY("copied_grants", true), writesPublishedRows: false };
+  assert.match((await check(outsider)).detail, /is not a member of tieline_capture_publisher, so row security lets it write no page/);
   // A role that can only insert cannot replace a page it published before.
   const insertOnly = READY("inserter", true);
   insertOnly.privileges = { ...insertOnly.privileges, [privilegeName({ table: "screen_snapshots", privilege: "UPDATE", column: "page_html" })]: false };
@@ -547,20 +564,18 @@ await test("accepts only a role that can read and nothing more for the hosted si
     return { code, detail: (JSON.parse(output()) as { results: Array<{ check: string; detail: string }> }).results.find((entry) => entry.check === "database DATABASE_URL")!.detail };
   };
   assert.equal((await check(READY("tieline_reader", false))).code, 0);
-  // Without INSERT on screen_snapshots, UPDATE or DELETE on any table still writes,
-  // and so does a grant on a single column.
-  for (const privilege of [
-    { table: "screen_snapshots", privilege: "UPDATE", anyColumn: true },
-    { table: "screen_snapshots", privilege: "DELETE" },
-    { table: "screen_images", privilege: "DELETE" },
-    { table: "screen_history", privilege: "INSERT", anyColumn: true },
-  ]) {
+  // Without INSERT on screen_snapshots, any table write still writes: UPDATE
+  // or DELETE on published screens, or forged change events.
+  for (const write of ["UPDATE on screen_snapshots", "DELETE on screen_images", "INSERT on screen_history", "INSERT on contract_change_events"]) {
     const writer = READY("sneaky", false);
-    writer.privileges = { ...writer.privileges, [privilegeName(privilege)]: true };
+    writer.writes = [write];
     const result = await check(writer);
-    assert.equal(result.code, 1, privilegeName(privilege));
-    assert.match(result.detail, new RegExp(`can also write published screens \\(${privilegeName(privilege).replace(/[()[\]]/g, "\\$&")}\\)`));
+    assert.equal(result.code, 1, write);
+    assert.match(result.detail, new RegExp(`can also write \\(${write}\\)`), write);
   }
+  // Grants copied without membership: row security shows it no published page.
+  const outsider = { ...READY("copied_grants", false), readsPublishedRows: false };
+  assert.match((await check(outsider)).detail, /is not a member of tieline_reader, so row security hides every published page from it/);
   // And it must read what the site serves.
   const blind = READY("blind", false);
   blind.privileges = { ...blind.privileges, [privilegeName({ table: "screen_images", privilege: "SELECT" })]: false };

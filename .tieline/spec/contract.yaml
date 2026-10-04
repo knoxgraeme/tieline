@@ -1679,7 +1679,7 @@ capability:
               then: main's image must stay stored while the pull request's page shows it
             - given: the example pull-request workflow, and a pull request whose dependencies or tests are compromised
               when: the workflow captures and publishes
-              then: the publishing credentials must be held only by a job that installs Tieline from the base branch and runs none of the pull request's code
+              then: the publishing credentials must be held only by a workflow the default branch owns, in an environment only the default branch can use, that installs Tieline from the default branch and runs none of the pull request's code
           links:
             - relation: implements
               provenance: authored
@@ -1849,12 +1849,18 @@ capability:
             - given: the sync credential is the capture publisher's, or another role row security keeps off main's page
               when: tieline hosted check runs
               then: Tieline must fail and name what sync needs that the role lacks
-            - given: the site's credential can update or delete published screens, even without inserting them or on one column only
+            - given: the site's credential can write any table, even only update or delete published screens, or write on one column only
               when: tieline hosted check runs
               then: Tieline must fail, because the site's credential must only read
             - given: the site URL has a path, such as https://screens.example.test/screens
               when: tieline hosted check runs against the site
               then: Tieline must ask for the page and an image beneath that path, not at the origin's root
+            - given: the site's or the publishing credential holds its role's grants, copied by hand, without membership in the role row security names
+              when: tieline hosted check runs
+              then: Tieline must fail, because row security would hide published pages from it or let it write none
+            - given: the publishing credential can also write contract change events, or any table beyond the pages and images it publishes
+              when: tieline hosted check runs
+              then: Tieline must fail and name each write a capture job must not hold
           links:
             - relation: implements
               provenance: authored
