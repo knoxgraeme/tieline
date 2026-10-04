@@ -12,13 +12,12 @@ the user copies them to where they are used. If the user pastes one anyway,
 tell them to revoke it once they are done.
 
 1. **Region.** Neon Object Storage exists only in `aws-us-east-2`,
-   `aws-us-east-1`, `aws-eu-central-1`, and `aws-ap-southeast-1`. When you
-   create the project in step 4 of [provisioning.md](provisioning.md), add
-   `--region-id` with one of them, asking the user which when their location
-   does not decide it. For an existing project, read `region_id` from
-   `npx -y neonctl projects get <project_id> --output json`; if it is
-   another region, stop and ask the user whether to create a separate
-   project for storage or use another S3-compatible bucket.
+   `aws-us-east-1`, `aws-eu-central-1`, and `aws-ap-southeast-1`. A project
+   [provisioning.md](provisioning.md) creates is in `aws-us-east-2` already;
+   do not ask the user for a region. For an existing project, read
+   `region_id` from `npx -y neonctl projects get <project_id> --output json`;
+   if it is another region, stop and ask the user whether to create a
+   separate project for storage or use another S3-compatible bucket.
 2. **Bucket.** Create a private bucket on the project's default branch:
 
    ```sh
@@ -105,3 +104,12 @@ tell them to revoke it once they are done.
    Every check must pass or be skipped. Once the site is deployed with its
    access control on, run `npx -y tieline hosted check --url <site URL>`;
    it fails if the site answers a visitor who has not logged in.
+7. **Workflows.** Copy `screens-hosted.yml`, `screens-hosted-publish.yml`,
+   and `screens-hosted-main.yml` from this skill's `assets/workflows/` into
+   the repository's `.github/workflows/`, setting each Playwright image tag
+   to the app's `@playwright/test` version and the artifact path to
+   `screens.captures_directory` when it is not the default. Delete
+   `.github/workflows/screens-verify.yml` if it exists: `screens-hosted.yml`
+   verifies too, and a second workflow named `Screens` would start the
+   publish workflow without screenshots to publish. Tell the user that
+   `screens-hosted-publish.yml` runs only once it is on the default branch.

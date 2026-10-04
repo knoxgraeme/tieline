@@ -403,7 +403,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
+                "reviewed_content_hash": "28d5049155dc7fd6616c6f0a1c742e07f4706f30c9bed1edbd203c1bcea09c43",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -860,7 +860,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
+                "reviewed_content_hash": "28d5049155dc7fd6616c6f0a1c742e07f4706f30c9bed1edbd203c1bcea09c43",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2213,13 +2213,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "313b1bf9cc802bbd3bce08c6b65efbd973864b51b91d64fe8a869c723395b7d3",
+            "contract_hash": "43cb38f59c6146fdec920d4d4db65604cfd045870e4a2bca4f4bf7d7f594de87",
             "criterion": "The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, offer screen capture during onboarding of a repository with a user interface and backfill before reporting when the user accepts, and keep a screens-enabled repository's captures current before handing off a change to what users see.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "92a23bf68a1710ae51ad7e5dd0941f9f423a8188b47bc01f2ec9404ba08f9525",
+                "reviewed_content_hash": "fae2a429422e33251cd04099b56d514d516fa3d87e1efacfcb8847d18e9175e0",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/onboarding.md",
@@ -2259,7 +2259,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
+                "reviewed_content_hash": "28d5049155dc7fd6616c6f0a1c742e07f4706f30c9bed1edbd203c1bcea09c43",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2270,7 +2270,22 @@
             ],
             "position": 10,
             "rationale": "Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.",
-            "scenarios": [],
+            "scenarios": [
+              {
+                "given": "onboarding a web app whose user accepts screen capture, with a provisioned or existing database",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC11-S1",
+                "then": "it must also offer hosted screens, and must not offer them for an offline or local database",
+                "when": "onboarding asks its questions"
+              },
+              {
+                "given": "onboarding enabled screens",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC11-S2",
+                "then": "the onboarding pull request must add the screens check workflow the skill ships, or the hosted workflows in its place when hosted screens were accepted",
+                "when": "the backfill finishes"
+              }
+            ],
             "stable_id": "CONTRACT-005-AC11",
             "supersedes": null
           },
@@ -2370,7 +2385,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4b8161e7beaa34b0cf0f77029052894029e3c58a3ace9bd71d90eb846630679e",
+                "reviewed_content_hash": "7d5e0eec93955d2cd7ffe6187600abf13ab42a1b8fbd7c96dc6faeb5b5ce4a3a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2484,7 +2499,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "4b8161e7beaa34b0cf0f77029052894029e3c58a3ace9bd71d90eb846630679e",
+                "reviewed_content_hash": "7d5e0eec93955d2cd7ffe6187600abf13ab42a1b8fbd7c96dc6faeb5b5ce4a3a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2727,13 +2742,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "cb21e649f9b54292d539581db81370678a6f39267a4e20d9df4f38e891963744",
+            "contract_hash": "6e7f1458d11a734b98e08b0611371d77ede3182840e71cee0a915c0c3cc8a548",
             "criterion": "The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6ac6db2de55d132954b19b029efeb22ecd47476f8f3ec923bdbdda1f97433295",
+                "reviewed_content_hash": "6a657e5687fe6c085aceb879de2ba23e2db2f8e8deb7dd177917d2156df52978",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/hosted-screens.md",
@@ -2743,7 +2758,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "73a4c023377ba448ad7181c5c210382386406aa1e25f0a34d383b01afc815238",
+                "reviewed_content_hash": "49e5dbefb83bf0e77f72c5a810b661dad6cfeacd9aec1f9a084ad6155e04fa3e",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/provisioning.md",
@@ -2763,7 +2778,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "6575826a427e4c128745b7772064099def82aec7a47fd9619b90c9098e819127",
+                "reviewed_content_hash": "28d5049155dc7fd6616c6f0a1c742e07f4706f30c9bed1edbd203c1bcea09c43",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2774,7 +2789,15 @@
             ],
             "position": 15,
             "rationale": "Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.",
-            "scenarios": [],
+            "scenarios": [
+              {
+                "given": "onboarding provisions a hosted database",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC16-S1",
+                "then": "it must be created in a region with object storage, aws-us-east-2 unless the user named another, without asking the user for a region",
+                "when": "the Neon project is created"
+              }
+            ],
             "stable_id": "CONTRACT-005-AC16",
             "supersedes": null
           },
@@ -3634,6 +3657,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "a725ed7c362c6792684bb9d70ca0373c84c5661b0f3907241e1d0d8fbde92350"
+    "sha256": "804c196e5d628d15994deddad9a1ee4dd00fcf4e0b5bea55736294471b08fd50"
   }
 }

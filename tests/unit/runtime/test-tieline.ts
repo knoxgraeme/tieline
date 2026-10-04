@@ -1877,6 +1877,26 @@ capability:
   );
   assert.match(
     onboardingReference,
+    /When the answer is yes and the database is hosted[\s\S]*\*\*Share screens on a private review site\?\*\*[\s\S]*Skip the question for offline and\s+local databases/,
+    "onboarding offers hosted screens only with screens on and a database a hosted site can reach"
+  );
+  assert.ok(
+    onboardingReference.indexOf("Share screens on a private review site") < onboardingReference.indexOf("Close the conversation with a handoff"),
+    "the hosted screens question comes before the autonomous handoff"
+  );
+  assert.match(
+    onboardingReference,
+    /copy `assets\/workflows\/screens-verify\.yml` from this\s+skill's directory to `\.github\/workflows\/screens-verify\.yml`/,
+    "an onboarding that enabled screens adds the pull-request check"
+  );
+  for (const workflow of ["screens-verify", "screens-hosted", "screens-hosted-publish", "screens-hosted-main"]) {
+    assert.ok(
+      existsSync(resolve(process.cwd(), `skills/tieline/assets/workflows/${workflow}.yml`)),
+      `the skill ships ${workflow}.yml for onboarding to copy`
+    );
+  }
+  assert.match(
+    onboardingReference,
     /Set expectations first/,
     "onboarding must open by orienting the user before asking questions"
   );
@@ -2031,6 +2051,11 @@ capability:
   assert.match(hostedScreensReference, /TIELINE_SCREENS_S3_ACCESS_KEY_ID/, "hand-off uses names Lambda hosts accept");
   assert.match(hostedScreensReference, /tieline hosted check --url/, "the site's access control must be verified");
   assert.match(
+    hostedScreensReference,
+    /`assets\/workflows\/`[\s\S]*Delete\s+`\.github\/workflows\/screens-verify\.yml`/,
+    "hosted screens adds the hosted workflows in place of the plain check"
+  );
+  assert.match(
     readFileSync(resolve(process.cwd(), "skills/tieline/references/screens.md"), "utf8"),
     /\[hosted-screens\.md\]\(hosted-screens\.md\)/
   );
@@ -2047,10 +2072,12 @@ capability:
     "picking the menu option is the consent; no double-ask"
   );
   assert.match(provisioningReference, /neonctl orgs list.*--output json/);
+  // The region no longer has to be chosen before the project exists: every
+  // provisioned project is in one with Object Storage (asserted above).
   assert.match(
     provisioningReference,
-    /hosted screens, also follow \[hosted-screens\.md\]\(hosted-screens\.md\)[\s\S]*before\s+creating the project/,
-    "provisioning must route hosted screens to its reference before the project is created"
+    /hosted screens, also follow \[hosted-screens\.md\]\(hosted-screens\.md\)\s+once the project exists/,
+    "provisioning must route hosted screens to its reference"
   );
   assert.match(
     provisioningReference,
@@ -2072,6 +2099,12 @@ capability:
     /neonctl projects create.*--org-id/s,
     "Neon project creation must pass the resolved organization explicitly"
   );
+  assert.match(
+    provisioningReference,
+    /neonctl projects create[^\n]*--region-id aws-us-east-2/,
+    "a provisioned project defaults to a region with Object Storage, so hosted screens can use it"
+  );
+  assert.match(provisioningReference, /Do not ask the user for a region/);
   assert.match(
     provisioningReference,
     /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tieline@latest init[^\n]*--skip-skill-install[^\n]*--database existing[^\n]*--provision-roles/,

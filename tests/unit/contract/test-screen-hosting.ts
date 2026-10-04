@@ -1097,7 +1097,7 @@ await test("leaves an http image out of a hosted page, whose policy allows only 
 });
 
 await test("syncs main's tip in the example workflow, so a skipped or out-of-order run cannot wedge it", () => {
-  const workflow = parseYaml(readFileSync("docs/examples/screens-hosted-main.yml", "utf8")) as {
+  const workflow = parseYaml(readFileSync("skills/tieline/assets/workflows/screens-hosted-main.yml", "utf8")) as {
     concurrency: { group: string; "cancel-in-progress": boolean };
     jobs: { sync: { steps: Array<{ uses?: string; with?: Record<string, unknown>; run?: string }> } };
   };
@@ -1124,7 +1124,7 @@ await test("publishes from a workflow the default branch owns, never from one a 
     concurrency?: Record<string, unknown>;
     jobs: Record<string, Job>;
   };
-  const read = (file: string) => parseYaml(readFileSync(`docs/examples/${file}`, "utf8")) as Workflow;
+  const read = (file: string) => parseYaml(readFileSync(`skills/tieline/assets/workflows/${file}`, "utf8")) as Workflow;
   const capture = read("screens-hosted.yml");
   const publishing = read("screens-hosted-publish.yml");
   const main = read("screens-hosted-main.yml");

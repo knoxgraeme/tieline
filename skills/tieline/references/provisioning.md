@@ -31,11 +31,14 @@ Tieline's private profile outside the checkout.
    change the user's global Neon context. If no organization is available,
    report that result and continue in offline mode; never create an
    organization without explicit consent.
-4. Create the project in the resolved organization and capture the connection
-   URI:
+4. Create the project in the resolved organization, in `aws-us-east-2`, and
+   capture the connection URI. Do not ask the user for a region; use another
+   only when they named one. `aws-us-east-2` is one of the regions with Neon
+   Object Storage, so hosted screens can use this project later without a
+   second one:
 
    ```sh
-   npx -y neonctl projects create --name tieline-<repo_name> --org-id <org_id> --output json
+   npx -y neonctl projects create --name tieline-<repo_name> --org-id <org_id> --region-id aws-us-east-2 --output json
    ```
 
    Read `connection_uris[0].connection_uri` from the output. Treat it as a
@@ -62,6 +65,5 @@ Tieline's private profile outside the checkout.
    `DATABASE_URL` and `DATABASE_URL_WRITE` in their environment. A solo
    user needs none of this — the profile on this machine already holds
    everything.
-8. For hosted screens, also follow [hosted-screens.md](hosted-screens.md):
-   it needs the project in a region with Object Storage, so read it before
-   creating the project in step 4.
+8. For hosted screens, also follow [hosted-screens.md](hosted-screens.md)
+   once the project exists.
