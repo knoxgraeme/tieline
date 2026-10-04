@@ -955,13 +955,22 @@ await test("leaves an http image out of a hosted page, whose policy allows only 
   });
 });
 
-await test("queues every main sync in the example workflow, so no push is skipped", () => {
+await test("syncs main's tip in the example workflow, so a skipped or out-of-order run cannot wedge it", () => {
   const workflow = parseYaml(readFileSync("docs/examples/screens-hosted-main.yml", "utf8")) as {
-    concurrency: { group: string; "cancel-in-progress": boolean; queue?: string };
+    concurrency: { group: string; "cancel-in-progress": boolean };
+    jobs: { sync: { steps: Array<{ uses?: string; with?: Record<string, unknown>; run?: string }> } };
   };
-  // GitHub keeps one pending run per group by default and cancels the others;
-  // a skipped push would leave the next sync's expected previous commit unsynced.
-  assert.deepEqual(workflow.concurrency, { group: "screens-main", "cancel-in-progress": false, queue: "max" });
+  // One sync at a time, never cancelled half-way.
+  assert.deepEqual(workflow.concurrency, { group: "screens-main", "cancel-in-progress": false });
+  const steps = workflow.jobs.sync.steps;
+  // Each run checks out main as it is when it starts, not the push that
+  // queued it: GitHub may skip pending runs or run them out of order.
+  assert.deepEqual(steps.find((step) => step.uses?.startsWith("actions/checkout"))?.with, { ref: "main", "fetch-depth": 0 });
+  // An exact previous-commit guard would fail every run after a skipped or
+  // reordered one, so the example does not pass one.
+  const syncs = steps.filter((step) => step.run?.includes("contract sync"));
+  assert.equal(syncs.length, 2);
+  assert.ok(syncs.every((step) => !step.run!.includes("--expected-previous-commit")));
 });
 
 for (const ws of workspaces) ws.cleanup();

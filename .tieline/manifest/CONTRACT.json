@@ -2363,7 +2363,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ec4c9ba9f359b594be13b6ba971d1eeb2131fc92cc762e39ed68d81d0b66323a",
+                "reviewed_content_hash": "46566f0d1c469ff8b8fb52ca6fea379cc374e9c57a5704ab9477cd6734a8e60e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2449,7 +2449,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "ec4c9ba9f359b594be13b6ba971d1eeb2131fc92cc762e39ed68d81d0b66323a",
+                "reviewed_content_hash": "46566f0d1c469ff8b8fb52ca6fea379cc374e9c57a5704ab9477cd6734a8e60e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2514,7 +2514,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "fc27d573fee80f4b9f50910e23f7f4d3514fa3109450604a0063db7b428465e8",
+                "reviewed_content_hash": "1f6ff36e8c1d542250826dff5763b6ee7a64ed5f70cb3574d0f847d9d44e5675",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2561,13 +2561,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "adb5acbffb72f6a91716e94c83e3035243b72cc1110326fb0c52fc7cd9c92b6a",
+            "contract_hash": "feac0f8231dbc1ad29549ede1194b6f7cc57e049d13ae4bf4eeafda703cd5986",
             "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "642b67b850b3e69fd2fea9fc84ce0123a051c88b1cec572a11d8b658ae8734f6",
+                "reviewed_content_hash": "a34b19c599d8bfbe323b0337e63357ceeebec44dbe201133a0173e4aa68a84c3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2578,7 +2578,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "642b67b850b3e69fd2fea9fc84ce0123a051c88b1cec572a11d8b658ae8734f6",
+                "reviewed_content_hash": "a34b19c599d8bfbe323b0337e63357ceeebec44dbe201133a0173e4aa68a84c3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2589,7 +2589,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "fc27d573fee80f4b9f50910e23f7f4d3514fa3109450604a0063db7b428465e8",
+                "reviewed_content_hash": "1f6ff36e8c1d542250826dff5763b6ee7a64ed5f70cb3574d0f847d9d44e5675",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2641,6 +2641,13 @@
                 "position": 5,
                 "stable_id": "CONTRACT-005-AC15-S6",
                 "then": "Tieline must fail and name what sync needs that the role lacks",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the site's credential can update or delete published screens, even without inserting them or on one column only",
+                "position": 6,
+                "stable_id": "CONTRACT-005-AC15-S7",
+                "then": "Tieline must fail, because the site's credential must only read",
                 "when": "tieline hosted check runs"
               }
             ],
@@ -3543,6 +3550,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "e2be72ebeebc355dcf819c97301456c036c8d0f1c719477df71a5b3e89e19a30"
+    "sha256": "d6554e0d3d21bad0a7fd25202f1f17d8cd442f81d16a712875c28281b6fee762"
   }
 }

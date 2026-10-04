@@ -1834,6 +1834,9 @@ capability:
             - given: the sync credential is the capture publisher's, or another role row security keeps off main's page
               when: tieline hosted check runs
               then: Tieline must fail and name what sync needs that the role lacks
+            - given: the site's credential can update or delete published screens, even without inserting them or on one column only
+              when: tieline hosted check runs
+              then: Tieline must fail, because the site's credential must only read
           links:
             - relation: implements
               provenance: authored

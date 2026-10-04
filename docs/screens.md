@@ -767,8 +767,9 @@ Another host needs only a few lines that hand its requests to `createHostedScree
 4. `screens close` when the pull request closes.
 
 Pull requests from forks get no secrets, so they are verified but not published.
-[`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync`,
-which publishes `main`; when it reports a screenshot the bucket lacks, a capture and a second
+[`screens-hosted-main.yml`](examples/screens-hosted-main.yml) runs on `main`: `contract sync`
+of `main` as it is when the run starts, which publishes `main` (so a run that waited, ran out of
+order, or replaced another pending run never syncs an older commit); when it reports a screenshot the bucket lacks, a capture and a second
 sync; then `screens prune`.
 
 The publishing job runs the pull request's code with the publisher's database credentials and
