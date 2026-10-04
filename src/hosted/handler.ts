@@ -115,14 +115,6 @@ export function createHostedScreensHandler(options: HostedSiteOptions): (request
     const record = await stores.images.image(repositoryKey, digest);
     if (!record) return text(404, "No published image has that digest.");
     const key = `${repositoryKey}/sha256/${digest}`;
-    if (record.byteSize > responseBytes) {
-      // Too large to send through the host: hand the visitor, who already
-      // passed the host's access check, a link that works for a minute.
-      return new Response(null, {
-        status: 302,
-        headers: headers({ location: stores.objects.presignGet(key, HOSTED_SITE_LIMITS.presignedSeconds) }),
-      });
-    }
     const bytes = await stores.objects.get(
       key,
       Math.min(record.byteSize, HOSTED_SITE_LIMITS.imageBytes),
@@ -134,6 +126,16 @@ export function createHostedScreensHandler(options: HostedSiteOptions): (request
     if (createHash("sha256").update(bytes).digest("hex") !== digest) {
       log(`tieline hosted: the stored image ${digest} does not match its digest; it was not served.`);
       return text(502, "The stored image does not match its digest.");
+    }
+    if (bytes.byteLength > responseBytes) {
+      // Too large to send through the host. The bytes were just checked
+      // against the digest, so hand the visitor, who already passed the
+      // host's access check, a link to them that works for a minute. Only a
+      // replacement within that minute could still get through.
+      return new Response(null, {
+        status: 302,
+        headers: headers({ location: stores.objects.presignGet(key, HOSTED_SITE_LIMITS.presignedSeconds) }),
+      });
     }
     return new Response(bytes, {
       status: 200,

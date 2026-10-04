@@ -69,7 +69,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "38957643a06f4918467f31f00e145cb0cb384ce90586a0e3fa6491e5c70b7980",
+            "contract_hash": "4c49abee42e2dede2883f3f8d6e96c36b1f443a12c702e71bceacc76972eef0b",
             "criterion": "Repository sync must record each Story, acceptance criterion, and screen a synced commit's history added, changed, or removed, with its commit and pull request, backfilling from git history on its first record and recording only what changed after the last recorded commit afterwards, must record nothing twice, must leave sync unchanged when the synced commit is not a git commit, and exact acceptance criterion context must include the criterion's changes.",
             "links": [
               {
@@ -96,7 +96,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -107,7 +107,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d2894aea2cb340c151762621edbaddcc9320b60fccbfc250714d158bbbaf95a0",
+                "reviewed_content_hash": "6b670aa4270c8ac082fa097bae41bef4db66c9d76047928588c5cdbee4a2bb9c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -129,7 +129,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "95f3f6c4416a6a34c0606281b9a4614752cd60594533c51210e49502113d7c48",
+                "reviewed_content_hash": "12801f8d9812f1df4c26a23a2576a0592bb25230bd00e7b2ade3f0ef995445a1",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -147,6 +147,13 @@
                 "stable_id": "CONTRACT-001-AC10-S1",
                 "then": "each change must be recorded with the pull request that made it",
                 "when": "the second sync runs"
+              },
+              {
+                "given": "a clone that cannot read some commits in the synced history, such as a partial clone",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC10-S2",
+                "then": "it must not record changes newer than those commits, so a later sync that can read them records the gap and what followed it",
+                "when": "sync records change events"
               }
             ],
             "stable_id": "CONTRACT-001-AC10",
@@ -161,7 +168,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -333,7 +340,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -435,7 +442,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -739,7 +746,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -910,7 +917,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d2894aea2cb340c151762621edbaddcc9320b60fccbfc250714d158bbbaf95a0",
+                "reviewed_content_hash": "6b670aa4270c8ac082fa097bae41bef4db66c9d76047928588c5cdbee4a2bb9c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -921,7 +928,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d2894aea2cb340c151762621edbaddcc9320b60fccbfc250714d158bbbaf95a0",
+                "reviewed_content_hash": "6b670aa4270c8ac082fa097bae41bef4db66c9d76047928588c5cdbee4a2bb9c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -932,7 +939,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "95f3f6c4416a6a34c0606281b9a4614752cd60594533c51210e49502113d7c48",
+                "reviewed_content_hash": "12801f8d9812f1df4c26a23a2576a0592bb25230bd00e7b2ade3f0ef995445a1",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -993,7 +1000,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1359,7 +1366,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -2111,7 +2118,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4b927384a3e9cd2709b02074c02c123b6d82a7e5c2d373af4172520563c45ca9",
+                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -2166,7 +2173,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2202fa5a86f4b40601f01c641c0a4e36c1a19c838d2816fa8a0f84d47aa19339",
+                "reviewed_content_hash": "2cb8b4bf30b00d5a3a50051aaf94e00b13d375a09f40d0b850a03f791df8010c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2356,7 +2363,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8df413e1c7bb18c9ffb0f6949f6274bf3fc4270df1cab310d279f6af2520cc53",
+                "reviewed_content_hash": "c9f2239c8f9e44eacba73be81f75c2ac69332363dfc2cc422511d72143472c48",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2435,7 +2442,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8df413e1c7bb18c9ffb0f6949f6274bf3fc4270df1cab310d279f6af2520cc53",
+                "reviewed_content_hash": "c9f2239c8f9e44eacba73be81f75c2ac69332363dfc2cc422511d72143472c48",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2461,7 +2468,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "060519080584a76e467a74bf6112e9f2d7110de4619653472772359ad63021d0",
+            "contract_hash": "444608a027d064da095bdac02a89ac8d015a84a5fc7215741936db6e50b9caa6",
             "criterion": "The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.",
             "links": [
               {
@@ -2478,7 +2485,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "eb1ae346951673009d44508e0dcb8c9cd1e01d1ab653d968fa827a432d825574",
+                "reviewed_content_hash": "e9655c55c72130838d6a77c2ee1cd567d9b0f461f4f8ce7bb3c2b32ec1935049",
                 "target": {
                   "kind": "code",
                   "path": "src/hosted/handler.ts",
@@ -2500,7 +2507,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5fd15d8576150b518bd455f83e141fb2bf7b67fc19d20e7a0db8695a848712d2",
+                "reviewed_content_hash": "e8848e3504b99d493f647b26badb49ca5884cbab18af87e103d3304258476077",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2525,6 +2532,20 @@
                 "stable_id": "CONTRACT-005-AC14-S2",
                 "then": "the site must refuse it rather than serve the new bytes",
                 "when": "a visitor requests that image"
+              },
+              {
+                "given": "a published image too large for the host to return whose bytes in the bucket were replaced",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC14-S3",
+                "then": "the site must refuse it instead of redirecting to the bucket",
+                "when": "a visitor requests it"
+              },
+              {
+                "given": "a catalog image given by an http URL",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC14-S4",
+                "then": "the page must show the screen without a picture rather than a broken image",
+                "when": "its screen is shown on a hosted page, which allows only https images"
               }
             ],
             "stable_id": "CONTRACT-005-AC14",
@@ -2533,13 +2554,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "e52b9ed28869a8371e97d1e4fcbd20b223c85c831b96972f864bd424fe46745a",
+            "contract_hash": "8d7bb3bd228dac681c587e2ef8a38e7fa93e5d41a77eff6367ad7adfdc71dd44",
             "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fae8fe5cfc6b8201c7a32e119a80223bcd93a29dbf45ff6e3013fa48c1c5f703",
+                "reviewed_content_hash": "a15ec01cfa01a5722e345c41166174a02c0c444ed61c16880d11c7a3a0166da8",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2550,7 +2571,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fae8fe5cfc6b8201c7a32e119a80223bcd93a29dbf45ff6e3013fa48c1c5f703",
+                "reviewed_content_hash": "a15ec01cfa01a5722e345c41166174a02c0c444ed61c16880d11c7a3a0166da8",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2561,7 +2582,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "5fd15d8576150b518bd455f83e141fb2bf7b67fc19d20e7a0db8695a848712d2",
+                "reviewed_content_hash": "e8848e3504b99d493f647b26badb49ca5884cbab18af87e103d3304258476077",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2579,6 +2600,34 @@
                 "stable_id": "CONTRACT-005-AC15-S1",
                 "then": "Tieline must fail because the site answered a visitor who had not logged in",
                 "when": "tieline hosted check runs against the site"
+              },
+              {
+                "given": "the publishing credential is the sync role, an owner, or another role that can delete, write history, or escape row security",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC15-S2",
+                "then": "Tieline must fail and name what a capture job must not hold, as it must for a role that lacks what publishing needs",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the site redirects an anonymous visitor to another host or page that serves the site",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC15-S3",
+                "then": "Tieline must follow at most a bounded number of redirects and fail, passing only on a 401 or 403 or a redirect to a login",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "a check fails after the storage probe was written",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC15-S4",
+                "then": "the probe object must still be deleted",
+                "when": "tieline hosted check finishes"
+              },
+              {
+                "given": "a symbolic link inside the site directory where a site file or directory goes",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC15-S5",
+                "then": "Tieline must refuse without writing through the link",
+                "when": "tieline hosted init runs, even with --force"
               }
             ],
             "stable_id": "CONTRACT-005-AC15",
@@ -2941,7 +2990,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05a66cf3382ea75a8d499fbc99b772c7dd4202b0c1c2e94680a963daca6b65d5",
+                "reviewed_content_hash": "a21f2a529e0bcdbf1f45b76caa1da1d8655c6c2ce6751acbd1049664bfaa2550",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -2995,7 +3044,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "05435cdb99d6798ada6a0fccd9a9d6f5a03e3199c8ba346b18d0b6b670ed041b",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -3215,7 +3264,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4b927384a3e9cd2709b02074c02c123b6d82a7e5c2d373af4172520563c45ca9",
+                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3226,7 +3275,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4b927384a3e9cd2709b02074c02c123b6d82a7e5c2d373af4172520563c45ca9",
+                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3298,7 +3347,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4b927384a3e9cd2709b02074c02c123b6d82a7e5c2d373af4172520563c45ca9",
+                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3309,7 +3358,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4b927384a3e9cd2709b02074c02c123b6d82a7e5c2d373af4172520563c45ca9",
+                "reviewed_content_hash": "380a76669be8227245964c75871ed0027f664f1d7e9c15755ed83c61162acf2e",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-capture.ts",
@@ -3395,7 +3444,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2202fa5a86f4b40601f01c641c0a4e36c1a19c838d2816fa8a0f84d47aa19339",
+                "reviewed_content_hash": "2cb8b4bf30b00d5a3a50051aaf94e00b13d375a09f40d0b850a03f791df8010c",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3466,6 +3515,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "e78641a6631c5445ef11c18887fc287581607b68128c66595756959a25be36e0"
+    "sha256": "fc8ac3e70c7b4e59a1e586ec63d4d17f4b2fcf37fd80d7c2eab20684f6ab4892"
   }
 }

@@ -138,6 +138,8 @@ export function captureDependencies(
     playwright: () => ({ cli: "/fake/node_modules/@playwright/test/cli.js", version: "1.63.0" }),
     environment: () => ENVIRONMENT,
     run: (input) => run.run(input),
+    // A fixed clock, so a capture's time limits are exact.
+    now: () => 0,
     ...overrides,
   };
 }

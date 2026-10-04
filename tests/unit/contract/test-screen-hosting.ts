@@ -46,7 +46,8 @@ import {
   sniffImageType,
 } from "../../../src/contract/screen-hosting.js";
 import type { HostedRef } from "../../../src/contract/screen-hosting.js";
-import { writeWorkspaceReviewPage } from "../../../src/tieline/review.js";
+import { renderHostedReviewPage, writeWorkspaceReviewPage } from "../../../src/tieline/review.js";
+import { parse as parseYaml } from "yaml";
 import { report, test } from "../../support/harness.js";
 import {
   captureIO,
@@ -897,6 +898,35 @@ await test("keeps the local review page pointing at the captures directory, with
   const list = embeddedScreens(page).find((screen) => screen.key === "notes-list")!;
   assert.deepEqual(list.image, { src: "captures/notes-list.png", label: "notes-list.png" });
   assert.equal(list.before_image, undefined);
+});
+
+await test("leaves an http image out of a hosted page, whose policy allows only https images", () => {
+  const ws = hostedWorkspace();
+  ws.write(".tieline/screens/SHARING.yaml", SHARING_CATALOG_YAML.replace("https://images.example.test/share-denied.png", "http://images.example.test/share-denied.png"));
+  const hostedPage = renderHostedReviewPage({
+    root: ws.root,
+    repositoryKey: REPO_KEY,
+    specDirectory: ".tieline/spec",
+    hosted: { served: new Set(), base: new Map(), baseLabel: "main" },
+  });
+  // Shown as a screen without a picture, not as a broken image.
+  assert.equal(embeddedScreens(hostedPage).find((screen) => screen.key === "notes-share-denied")!.image, null);
+  // The local page, with no such policy, still shows it.
+  writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec");
+  const local = readFileSync(`${ws.root}/.tieline/review.html`, "utf8");
+  assert.deepEqual(embeddedScreens(local).find((screen) => screen.key === "notes-share-denied")!.image, {
+    src: "http://images.example.test/share-denied.png",
+    label: "http://images.example.test/share-denied.png",
+  });
+});
+
+await test("queues every main sync in the example workflow, so no push is skipped", () => {
+  const workflow = parseYaml(readFileSync("docs/examples/screens-hosted-main.yml", "utf8")) as {
+    concurrency: { group: string; "cancel-in-progress": boolean; queue?: string };
+  };
+  // GitHub keeps one pending run per group by default and cancels the others;
+  // a skipped push would leave the next sync's expected previous commit unsynced.
+  assert.deepEqual(workflow.concurrency, { group: "screens-main", "cancel-in-progress": false, queue: "max" });
 });
 
 for (const ws of workspaces) ws.cleanup();

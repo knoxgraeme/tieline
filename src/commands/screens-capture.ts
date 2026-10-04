@@ -110,6 +110,8 @@ export interface ScreensCaptureDependencies {
   environment(): CaptureEnvironment;
   /** Runs Playwright to completion, a timeout, or cancellation. */
   run(input: PlaywrightRunInput): Promise<PlaywrightRunOutcome>;
+  /** The current time in milliseconds; the whole capture's deadline is read against it. */
+  now?(): number;
 }
 
 /** The oldest Playwright with test tags, `page.clock`, and `ariaSnapshot()`. */
@@ -425,13 +427,23 @@ async function captureBatch(input: {
   environment: CaptureEnvironment;
   dependencies: ScreensCaptureDependencies;
   signal: AbortSignal;
+  /** When the whole capture must have finished, in `now()` milliseconds. */
+  deadline: number;
 }): Promise<CapturedScreen[]> {
   const { root, settings, keys } = input;
+  const minutes = settings.capture.timeoutMinutes;
+  const timedOut = () =>
+    new ScreenCaptureError(
+      `The capture run took longer than ${minutes} minute(s) (screens.capture.timeout_minutes) and was stopped; nothing was written.`
+    );
+  // One deadline covers every batch and repeat, so this batch gets only the
+  // time the earlier ones left.
+  const remaining = input.deadline - (input.dependencies.now ?? Date.now)();
+  if (remaining <= 0) throw timedOut();
   const runDirectory = mkdtempSync(join(tmpdir(), "tieline-screens-"));
   try {
     const selectionFile: CaptureSelectionFile = { version: RUN_PROTOCOL_VERSION, keys: [...keys] };
     writeFileSync(join(runDirectory, SELECTION_FILE), `${JSON.stringify(selectionFile)}\n`);
-    const minutes = settings.capture.timeoutMinutes;
     const outcome = await input.dependencies.run({
       cli: input.installation.cli,
       args: [
@@ -448,14 +460,10 @@ async function captureBatch(input: {
       ],
       cwd: root,
       env: { ...process.env, [RUN_DIRECTORY_ENV]: runDirectory },
-      timeoutMs: minutes * 60_000,
+      timeoutMs: remaining,
       signal: input.signal,
     });
-    if (outcome.kind === "timed_out") {
-      throw new ScreenCaptureError(
-        `The capture run took longer than ${minutes} minute(s) (screens.capture.timeout_minutes) and was stopped; nothing was written.`
-      );
-    }
+    if (outcome.kind === "timed_out") throw timedOut();
     if (outcome.kind === "cancelled") {
       throw new ScreenCaptureError("The capture run was cancelled; nothing was written.");
     }
@@ -521,6 +529,7 @@ async function captureScreens(input: {
   if (input.signal?.aborted) abort();
   else input.signal?.addEventListener("abort", abort, { once: true });
   try {
+    const deadline = (input.dependencies.now ?? Date.now)() + input.settings.capture.timeoutMinutes * 60_000;
     const runs: CapturedScreen[][] = [];
     for (let run = 0; run < input.repeat; run += 1) {
       const captured: CapturedScreen[] = [];
@@ -534,6 +543,7 @@ async function captureScreens(input: {
             environment,
             dependencies: input.dependencies,
             signal: controller.signal,
+            deadline,
           }))
         );
       }

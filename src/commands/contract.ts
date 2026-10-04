@@ -532,6 +532,11 @@ type ChangeEventsResult =
       since: string | null;
       truncated: boolean;
       unreadable_commits: number;
+      /**
+       * Changes newer than a commit that could not be read, left for a later
+       * sync: recording them would move the resume point past the gap.
+       */
+      held_back: number;
     }
   | { status: "unavailable"; detail: string }
   | { status: "failed"; detail: string };
@@ -590,13 +595,18 @@ async function recordSyncedChangeEvents(
     };
   }
   try {
+    // Recording resumes after the newest recorded change, so nothing newer
+    // than an unreadable commit is recorded yet: once git can read that
+    // commit (say, after the missing objects are fetched), a later sync
+    // records the gap and what followed it.
     return {
       status: "recorded",
-      recorded: await events.record(repositoryKey, history.changes),
+      recorded: await events.record(repositoryKey, history.beforeUnreadable),
       commits_read: history.commits.length,
       since,
       truncated: history.truncated,
       unreadable_commits: history.unreadable.length,
+      held_back: history.changes.length - history.beforeUnreadable.length,
     };
   } catch (error) {
     return { status: "failed", detail: error instanceof Error ? error.message : String(error) };
@@ -610,6 +620,10 @@ function renderChangeEvents(result: ChangeEventsResult): string {
         result.since ? ` since ${result.since.slice(0, 12)}` : ""
       }${result.truncated ? "; older history was not read" : ""}${
         result.unreadable_commits > 0 ? `; ${result.unreadable_commits} commit(s) could not be read` : ""
+      }${
+        result.held_back > 0
+          ? `; ${result.held_back} newer change(s) wait until git can read them, so a later sync records the gap first`
+          : ""
       }.\n`;
     case "unavailable":
       return `Change events were not recorded: ${result.detail}.\n`;

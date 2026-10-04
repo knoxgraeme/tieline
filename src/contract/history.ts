@@ -56,6 +56,13 @@ export interface ContractHistory {
   truncated: boolean;
   /** Commits whose manifest could not be read, so their changes are unknown. */
   unreadable: Array<{ commit: string; detail: string }>;
+  /**
+   * The changes older than every unreadable commit, newest first: what a
+   * recorder that resumes after its newest recorded change can store without
+   * passing commits whose changes are unknown. All of `changes` when nothing
+   * was unreadable.
+   */
+  beforeUnreadable: ContractHistoryChange[];
 }
 
 /**
@@ -185,10 +192,13 @@ export function readContractHistory(
   );
   const blobs = readBlobs(root, [...new Set(trees.flat().map((entry) => entry.blob))]);
   const unreadable: ContractHistory["unreadable"] = [];
+  // The newest unreadable commit's place in `listed`, which runs newest first.
+  let newestUnreadable = Number.POSITIVE_INFINITY;
   const manifests: Array<ContractManifest | null> = trees.map((files, index) => {
     if (files.length === 0) return null;
     if (files.some((file) => !blobs.has(file.blob))) {
       unreadable.push({ commit: listed[index]!.commit, detail: MISSING_OBJECTS });
+      newestUnreadable = Math.min(newestUnreadable, index);
       return null;
     }
     try {
@@ -198,12 +208,14 @@ export function readContractHistory(
       );
     } catch (error) {
       unreadable.push({ commit: listed[index]!.commit, detail: error instanceof Error ? error.message : String(error) });
+      newestUnreadable = Math.min(newestUnreadable, index);
       return null;
     }
   });
 
   const commits: ContractHistory["commits"] = [];
   const changes: ContractHistoryChange[] = [];
+  const beforeUnreadable: ContractHistoryChange[] = [];
   // Past the limit, in a shallow clone, or before `until`, the oldest commit
   // listed is only a base: what it changed is not read.
   const read = baseOnly ? listed.length - 1 : listed.length;
@@ -237,8 +249,9 @@ export function readContractHistory(
     if (found.length === 0) continue;
     commits.push({ ...commit, changes: found.length });
     changes.push(...found);
+    if (index > newestUnreadable || newestUnreadable === Number.POSITIVE_INFINITY) beforeUnreadable.push(...found);
   }
-  return { ref, commits, changes, truncated, unreadable };
+  return { ref, commits, changes, truncated, unreadable, beforeUnreadable };
 }
 
 /** Each item's most recent change and how many changes the history holds. */

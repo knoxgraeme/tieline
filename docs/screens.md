@@ -736,17 +736,22 @@ function that imports `tieline/hosted`, its `netlify.toml`, and a README with th
 
 The site serves only what publishing stored. Pages are sent with a content security policy that
 allows only their own inline script and style, and are never cached by a shared cache. An image
-is served only while its bytes still match its digest, and one larger than the host can return
-(about 4 MB on Netlify) is redirected to a link to the bucket that expires within a minute.
+is served only while its bytes still match its digest: one larger than the host can return
+(about 4 MB on Netlify) is checked the same way, then redirected to a link to the bucket that
+expires within a minute. A screen whose catalog image is an `http://` URL shows no picture on a
+hosted page, which allows only https images; use an https URL or a captured screenshot.
 
 `tieline hosted check` proves the setup with the credentials in its environment, skipping any
 that are not set:
 
 - **storage:** writes, finds, and deletes a probe object in the bucket;
 - **database:** `DATABASE_URL` can read published screens and cannot write them;
-  `DATABASE_URL_SCREENS_PUBLISH` and `DATABASE_URL_SYNC` can write them;
-- **site:** asks for `/` and an image without logging in, and fails if the site answered instead
-  of a login.
+  `DATABASE_URL_SCREENS_PUBLISH` holds exactly the capture publisher's privileges, nothing it
+  lacks and nothing more (no deleting, no history, row security in force, so it cannot write
+  `main`); `DATABASE_URL_SYNC` can write them;
+- **site:** asks for `/` and an image without logging in, following at most 5 redirects, and
+  passes only on a 401 or 403, or on a redirect to a login (a login path, or an address that
+  returns to the site). It fails if the site itself answered, after any redirects.
 
 Another host needs only a few lines that hand its requests to `createHostedScreensSite` from
 `tieline/hosted`, which takes a standard `Request` and returns a `Response`.

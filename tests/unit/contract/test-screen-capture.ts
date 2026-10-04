@@ -166,6 +166,25 @@ function sha256(content: string | Buffer): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+await test("gives the whole capture one deadline, across repeats and batches", async () => {
+  const ws = notesWorkspace({ enabled: true, capture: { timeout_minutes: 7 } });
+  // Read once for the deadline, then once before each run.
+  const times = [0, 1, 5, 8].map((minutes) => minutes * 60_000);
+  const run = fakePlaywrightRun();
+  const before = tielineFiles(ws);
+  await assert.rejects(
+    runScreensCaptureCommand(
+      { all: true, repeat: 3, repository: ws.root },
+      captureIO().io,
+      captureDependencies(run, { now: () => times.shift() ?? Number.MAX_SAFE_INTEGER })
+    ),
+    /took longer than 7 minute\(s\) \(screens\.capture\.timeout_minutes\) and was stopped; nothing was written/
+  );
+  // Each run gets only what the earlier ones left; the third starts too late to run at all.
+  assert.deepEqual(run.calls.map((call) => call.timeoutMs), [6 * 60_000, 2 * 60_000]);
+  assert.deepEqual(tielineFiles(ws), before, "nothing was written");
+});
+
 console.log("screens capture: fingerprints");
 
 await test("fingerprints the environment and capture method, not the screen, its scene options, or its settle attempts", () => {

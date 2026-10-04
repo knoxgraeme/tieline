@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import postgres from "postgres";
 import {
   hasObjectStoreCredentials,
@@ -107,6 +107,88 @@ export interface HostedInitOptions {
   json?: boolean;
 }
 
+/** Fails unless `path` is absent or a directory that is not a symbolic link. */
+function assertPlainDirectory(root: string, path: string, allowMissing: boolean): boolean {
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT" && allowMissing) return false;
+    throw error;
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) {
+    throw new Error(
+      `'${relative(root, path)}' is a symbolic link or not a directory; hosted init writes only into plain directories inside the repository.`
+    );
+  }
+  return true;
+}
+
+/**
+ * What a site file holds now, or null when it does not exist, read without
+ * following a symbolic link below the site directory: a link there could
+ * point outside the repository.
+ */
+function plainFileContent(root: string, directory: string, name: string): string | null {
+  const parts = name.split("/");
+  let current = directory;
+  for (const part of parts.slice(0, -1)) {
+    current = join(current, part);
+    if (!assertPlainDirectory(root, current, true)) return null;
+  }
+  const path = join(current, parts.at(-1)!);
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+  if (!stat.isFile()) {
+    throw new Error(`'${relative(root, path)}' is a symbolic link or not a regular file; hosted init will not write through it.`);
+  }
+  return readFileSync(path, "utf8");
+}
+
+/**
+ * Writes one site file without following a symbolic link: each directory on
+ * the way is made, or checked, as a plain directory, and the file is created
+ * exclusively, or replaced by renaming a file created exclusively beside it,
+ * so neither lands wherever a link planted since the plan leads.
+ */
+function writeSiteFile(root: string, directory: string, name: string, content: string, replace: boolean): void {
+  const parts = name.split("/");
+  // The site directory itself was checked to resolve inside the repository;
+  // check it again once it exists, then make each directory below it plainly.
+  mkdirSync(directory, { recursive: true });
+  if (!withinRepository(realpathSync(root), realpathSync(directory))) {
+    throw new Error(`'${relative(root, directory)}' no longer resolves inside the repository; nothing more was written.`);
+  }
+  let current = directory;
+  for (const part of parts.slice(0, -1)) {
+    current = join(current, part);
+    try {
+      mkdirSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    assertPlainDirectory(root, current, false);
+  }
+  const path = join(current, parts.at(-1)!);
+  if (!replace) {
+    writeFileSync(path, content, { flag: "wx" });
+    return;
+  }
+  const temporary = `${path}.${process.pid}.tmp`;
+  writeFileSync(temporary, content, { flag: "wx" });
+  try {
+    renameSync(temporary, path);
+  } catch (error) {
+    rmSync(temporary, { force: true });
+    throw error;
+  }
+}
+
 /**
  * `tieline hosted init --host netlify`: writes a small, self-contained
  * Netlify site into a directory of the repository. Files that already exist
@@ -129,10 +211,10 @@ export function runHostedInitCommand(options: HostedInitOptions, io: CommandIO):
   const files = netlifySiteFiles({ repositoryKey, bucket: hosted.bucket, version: TIELINE_VERSION });
   const plan = [...files].map(([name, content]) => {
     const path = resolve(directory, name);
-    const existing = existsSync(path) ? readFileSync(path, "utf8") : null;
+    const existing = plainFileContent(root, directory, name);
     return {
+      name,
       path: relative(root, path).split("\\").join("/"),
-      absolutePath: path,
       content,
       status: existing === null ? ("created" as const) : existing === content ? ("unchanged" as const) : ("replaced" as const),
     };
@@ -145,8 +227,7 @@ export function runHostedInitCommand(options: HostedInitOptions, io: CommandIO):
   }
   for (const file of plan) {
     if (file.status === "unchanged") continue;
-    mkdirSync(dirname(file.absolutePath), { recursive: true });
-    writeFileSync(file.absolutePath, file.content);
+    writeSiteFile(root, directory, file.name, file.content, file.status === "replaced");
   }
   if (options.json) {
     io.write(`${JSON.stringify({ host: "netlify", files: plan.map(({ path, status }) => ({ path, status })) }, null, 2)}\n`);
@@ -174,6 +255,10 @@ export interface HostedDatabaseState {
   ready: boolean;
   canRead: boolean;
   canWrite: boolean;
+  /** Whether the role holds each privilege in `PUBLISHER_PRIVILEGES`, by its description. */
+  privileges: Record<string, boolean>;
+  /** Whether row security does not apply to the role: a superuser, BYPASSRLS, or the table's owner. */
+  bypassesRowSecurity: boolean;
   /** When `main` was last published, if the role can read it. */
   main: { commit: string; publishedAt: Date } | null;
 }
@@ -185,15 +270,63 @@ export interface HostedCheckDependencies {
   fetch: typeof fetch;
 }
 
+/**
+ * What the capture publisher's role is granted (migration 0005), and what it
+ * must not hold: a capture job can add images and write pull-request and
+ * branch pages, but never delete, write history, change an image's record
+ * beyond when it was last referenced, or escape the row security that keeps
+ * it off main's page.
+ */
+export const PUBLISHER_PRIVILEGES: {
+  required: ReadonlyArray<{ table: string; privilege: string; column?: string }>;
+  forbidden: ReadonlyArray<{ table: string; privilege: string; column?: string }>;
+} = {
+  required: [
+    { table: "screen_snapshots", privilege: "SELECT" },
+    { table: "screen_snapshots", privilege: "INSERT" },
+    { table: "screen_snapshots", privilege: "UPDATE", column: "page_html" },
+    { table: "screen_images", privilege: "SELECT" },
+    { table: "screen_images", privilege: "INSERT" },
+    { table: "screen_images", privilege: "UPDATE", column: "last_referenced_at" },
+    { table: "repositories", privilege: "SELECT", column: "key" },
+  ],
+  forbidden: [
+    { table: "screen_snapshots", privilege: "DELETE" },
+    { table: "screen_images", privilege: "DELETE" },
+    { table: "screen_images", privilege: "UPDATE", column: "byte_size" },
+    { table: "screen_history", privilege: "INSERT" },
+    { table: "screen_history", privilege: "UPDATE" },
+    { table: "screen_history", privilege: "DELETE" },
+  ],
+};
+
+export function privilegeName(entry: { table: string; privilege: string; column?: string }): string {
+  return `${entry.privilege} on ${entry.table}${entry.column ? ` (${entry.column})` : ""}`;
+}
+
 async function queryDatabase(url: string, repositoryKey: string): Promise<HostedDatabaseState> {
   const sql = postgres(url, { max: 1, connect_timeout: 10, idle_timeout: 5, prepare: false, onnotice: () => undefined });
   try {
     const [state] = await sql<{ user: string; ready: boolean }[]>`
       select current_user as user, to_regclass('public.screen_snapshots') is not null as ready`;
-    if (!state?.ready) return { user: state?.user ?? "unknown", ready: false, canRead: false, canWrite: false, main: null };
+    if (!state?.ready) {
+      return { user: state?.user ?? "unknown", ready: false, canRead: false, canWrite: false, privileges: {}, bypassesRowSecurity: false, main: null };
+    }
     const [privileges] = await sql<{ can_read: boolean; can_write: boolean }[]>`
       select has_table_privilege('screen_snapshots', 'SELECT') as can_read,
              has_table_privilege('screen_snapshots', 'INSERT') as can_write`;
+    const probed: Record<string, boolean> = {};
+    for (const entry of [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden]) {
+      const [row] = entry.column
+        ? await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`
+        : await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
+      probed[privilegeName(entry)] = row?.granted ?? false;
+    }
+    const [security] = await sql<{ bypasses: boolean }[]>`
+      select (role.rolsuper or role.rolbypassrls
+              or (pg_has_role(current_user, snapshots.relowner, 'USAGE') and not snapshots.relforcerowsecurity)) as bypasses
+      from pg_roles role, pg_class snapshots
+      where role.rolname = current_user and snapshots.oid = 'screen_snapshots'::regclass`;
     let main: HostedDatabaseState["main"] = null;
     if (privileges?.can_read) {
       const rows = await sql<{ head_commit: string; published_at: Date }[]>`
@@ -208,6 +341,8 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
       ready: true,
       canRead: privileges?.can_read ?? false,
       canWrite: privileges?.can_write ?? false,
+      privileges: probed,
+      bypassesRowSecurity: security?.bypasses ?? false,
       main,
     };
   } finally {
@@ -224,9 +359,24 @@ export const DEFAULT_HOSTED_CHECK_DEPENDENCIES: HostedCheckDependencies = {
 
 const DATABASE_ROLES = [
   { variable: "DATABASE_URL", needs: "read" as const, purpose: "the hosted site reads published pages" },
-  { variable: "DATABASE_URL_SCREENS_PUBLISH", needs: "write" as const, purpose: "screens publish writes pull-request and branch pages" },
+  { variable: "DATABASE_URL_SCREENS_PUBLISH", needs: "publish" as const, purpose: "screens publish writes pull-request and branch pages" },
   { variable: "DATABASE_URL_SYNC", needs: "write" as const, purpose: "contract sync publishes main" },
 ];
+
+/**
+ * Why a credential is not the capture publisher's: privileges publishing
+ * needs that it lacks, and ones a capture job must never hold. Empty when it
+ * holds exactly what the publisher role is granted.
+ */
+export function publisherPrivilegeProblems(state: Pick<HostedDatabaseState, "privileges" | "bypassesRowSecurity">): string[] {
+  const missing = PUBLISHER_PRIVILEGES.required.map(privilegeName).filter((name) => state.privileges[name] !== true);
+  const excess = PUBLISHER_PRIVILEGES.forbidden.map(privilegeName).filter((name) => state.privileges[name] === true);
+  return [
+    ...(missing.length > 0 ? [`lacks ${missing.join(", ")}, which publishing needs`] : []),
+    ...(excess.length > 0 ? [`holds ${excess.join(", ")}, which a capture job must not`] : []),
+    ...(state.bypassesRowSecurity ? ["is not bound by row security, so it could write main's page"] : []),
+  ];
+}
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -240,12 +390,18 @@ async function checkStorage(
   if (!hasObjectStoreCredentials(dependencies.env)) {
     return { check: "storage", status: "skip", detail: "no object storage credentials are set (TIELINE_SCREENS_S3_* or AWS_*)" };
   }
+  const key = `${repositoryKey}/tieline-check/${randomUUID()}`;
+  let store: ObjectStore | null = null;
+  // Set once the probe is written and cleared once it is deleted, so a check
+  // that fails in between still removes it.
+  let written = false;
   try {
-    const store = dependencies.store(hosted, dependencies.env);
-    const key = `${repositoryKey}/tieline-check/${randomUUID()}`;
+    store = dependencies.store(hosted, dependencies.env);
     await store.put(key, Buffer.from("tieline hosted check\n"), "text/plain");
+    written = true;
     if (!(await store.head(key))) throw new Error("a probe object just written could not be found");
     await store.delete(key);
+    written = false;
     if (await store.head(key)) throw new Error("a probe object just deleted is still there");
     return {
       check: "storage",
@@ -253,7 +409,15 @@ async function checkStorage(
       detail: `wrote, found, and deleted a probe object in bucket ${hosted.bucket}`,
     };
   } catch (error) {
-    return { check: "storage", status: "fail", detail: message(error) };
+    let cleanup = "";
+    if (written && store) {
+      try {
+        await store.delete(key);
+      } catch (deleteError) {
+        cleanup = `; the probe object ${key} could not be deleted either (${message(deleteError)})`;
+      }
+    }
+    return { check: "storage", status: "fail", detail: `${message(error)}${cleanup}` };
   }
 }
 
@@ -274,15 +438,24 @@ async function checkDatabases(
       const state = await dependencies.database(url, repositoryKey);
       const allowed = role.needs === "read" ? state.canRead : state.canWrite;
       if (state.canRead && main === undefined) main = state.main;
+      const problems = role.needs === "publish" && state.ready ? publisherPrivilegeProblems(state) : [];
       results.push(
         !state.ready
           ? { check, status: "fail", detail: "the hosted screens tables are missing; run `tieline migrate`" }
+          : problems.length > 0
+            ? {
+                check,
+                status: "fail",
+                detail: `${state.user} is not the capture publisher role: it ${problems.join("; ")}; use tieline_capture_publisher`,
+              }
           : role.needs === "read" && state.canWrite
             ? {
                 check,
                 status: "fail",
                 detail: `${state.user} can also write published screens; the hosted site must use the read-only reader role`,
               }
+          : role.needs === "publish"
+            ? { check, status: "pass", detail: `${state.user} can publish, and nothing more: ${role.purpose}` }
           : allowed
             ? { check, status: "pass", detail: `${state.user} can ${role.needs}: ${role.purpose}` }
             : { check, status: "fail", detail: `${state.user} cannot ${role.needs} published screens, but ${role.purpose}` }
@@ -294,11 +467,75 @@ async function checkDatabases(
   return { results, main };
 }
 
+/** Most redirects the site check follows. */
+export const SITE_CHECK_REDIRECTS = 5;
+/** A path a host's or identity provider's login page uses. */
+const LOGIN_PATH = /\/(?:log-?in|sign-?in|sso|sso-api|auth|oauth2?|authorize|cdn-cgi\/access)(?:[/?#.]|$)/i;
+
 /**
- * Asks the site for a page and an image without logging in. A response the
- * hosted site answered itself means the host let an anonymous visitor
- * through; a login prompt or redirect means its access control is on.
+ * Whether a redirect leads to a login: a login page's path, or an address
+ * that carries the site's own address to return to once logged in. Any other
+ * redirect, such as an alias to the canonical host or `/` to another page, is
+ * followed and judged by where it ends.
  */
+function looksLikeLogin(target: URL, site: URL): boolean {
+  if (LOGIN_PATH.test(target.pathname)) return true;
+  if (target.origin === site.origin) return false;
+  return [...target.searchParams.values()].some((value) => {
+    try {
+      return new URL(value).origin === site.origin;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Asks the site for one path without logging in, following at most
+ * `SITE_CHECK_REDIRECTS` redirects. The hosted site answering at any step
+ * means the host let an anonymous visitor through; a 401 or 403, or a
+ * redirect to a login, means its access control is on.
+ */
+async function checkSitePath(url: URL, path: string, dependencies: HostedCheckDependencies): Promise<{ status: HostedCheckStatus; detail: string }> {
+  let target = new URL(path, url);
+  for (let hop = 0; ; hop += 1) {
+    const response = await dependencies.fetch(target, { redirect: "manual", signal: AbortSignal.timeout(15_000) });
+    await response.body?.cancel().catch(() => undefined);
+    const after = hop > 0 ? ` after ${hop} redirect(s), at ${target.host}${target.pathname}` : "";
+    if (response.headers.has(HOSTED_SITE_HEADER)) {
+      return { status: "fail", detail: `the site answered without a login (HTTP ${response.status})${after}; turn on the host's access control` };
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { status: "pass", detail: `asks for a login (HTTP ${response.status})${after}` };
+    }
+    if (response.status < 300 || response.status >= 400) {
+      return {
+        status: "fail",
+        detail: `HTTP ${response.status}${after} came from something other than the hosted site or a login; check the URL and the deployment`,
+      };
+    }
+    const location = response.headers.get("location");
+    let next: URL;
+    try {
+      if (!location) throw new Error("no location");
+      next = new URL(location, target);
+    } catch {
+      return { status: "fail", detail: `HTTP ${response.status}${after} redirects without a usable location` };
+    }
+    if (next.protocol !== "https:" && next.protocol !== "http:") {
+      return { status: "fail", detail: `HTTP ${response.status}${after} redirects to a ${next.protocol} address` };
+    }
+    if (looksLikeLogin(next, url)) {
+      return { status: "pass", detail: `redirects to a login at ${next.host}${next.pathname} (HTTP ${response.status})` };
+    }
+    if (hop + 1 > SITE_CHECK_REDIRECTS) {
+      return { status: "fail", detail: `more than ${SITE_CHECK_REDIRECTS} redirects without reaching a login or the hosted site` };
+    }
+    target = next;
+  }
+}
+
+/** Asks the site for a page and an image without logging in. */
 async function checkSite(url: URL, dependencies: HostedCheckDependencies): Promise<HostedCheckResult[]> {
   const results: HostedCheckResult[] = [];
   for (const { path, label } of [
@@ -307,26 +544,7 @@ async function checkSite(url: URL, dependencies: HostedCheckDependencies): Promi
   ]) {
     const check = `site ${label}`;
     try {
-      const response = await dependencies.fetch(new URL(path, url), {
-        redirect: "manual",
-        signal: AbortSignal.timeout(15_000),
-      });
-      await response.body?.cancel().catch(() => undefined);
-      if (response.headers.has(HOSTED_SITE_HEADER)) {
-        results.push({
-          check,
-          status: "fail",
-          detail: `the site answered without a login (HTTP ${response.status}); turn on the host's access control`,
-        });
-      } else if (response.status === 401 || response.status === 403 || (response.status >= 300 && response.status < 400)) {
-        results.push({ check, status: "pass", detail: `asks for a login (HTTP ${response.status})` });
-      } else {
-        results.push({
-          check,
-          status: "fail",
-          detail: `HTTP ${response.status} came from something other than the hosted site or a login; check the URL and the deployment`,
-        });
-      }
+      results.push({ check, ...(await checkSitePath(url, path, dependencies)) });
     } catch (error) {
       results.push({ check, status: "fail", detail: message(error) });
     }
