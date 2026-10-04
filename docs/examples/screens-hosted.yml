@@ -1,23 +1,23 @@
 name: Screens
 
+# Runs the pull request's code (its dependencies, tests, and Tieline), so it
+# holds no credentials. screens-hosted-publish.yml, which the default branch
+# owns, publishes what it captured.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
-# One run per pull request at a time, so an older push never publishes over a
-# newer one, and closing a pull request stops a run still publishing it.
+# One run per pull request at a time; a newer push cancels an older run, which
+# then publishes nothing.
 concurrency:
   group: screens-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  # Runs the pull request's code (its dependencies, tests, and Tieline), so it
-  # holds no credentials.
   capture:
-    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     # Captures that count are made in the pinned Playwright image, so exact
     # digests compare like for like. Keep this tag equal to the app's
@@ -26,8 +26,10 @@ jobs:
     env:
       TIELINE_CAPTURE_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble
     steps:
+      # The pull request's head, the commit the publish workflow reads.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -41,8 +43,9 @@ jobs:
       # Turn on once the catalog is backfilled: fails while any screen, page,
       # or UI acceptance criterion is unaccounted for.
       # - run: npx tieline screens audit --strict
-      # Hands the reproduced screenshots to the publish job. Keep the path
-      # equal to screens.captures_directory.
+      # Hands the reproduced screenshots to the publish workflow. Keep the path
+      # equal to screens.captures_directory. Pull requests from forks are
+      # verified, not published.
       - if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/upload-artifact@v4
         with:
@@ -51,85 +54,3 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
-
-  # Holds the publishing credentials and never runs the pull request's code:
-  # Tieline is installed from the base branch, and the pull request's files
-  # and screenshots are only read, each screenshot re-hashed against the
-  # digest its catalog commits. Pull requests from forks get no secrets: they
-  # are verified, not published.
-  publish:
-    needs: capture
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: trusted
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci
-        working-directory: trusted
-      # The commit the capture job verified, as data: nothing in it is
-      # installed or run.
-      - uses: actions/checkout@v4
-        with:
-          path: pull-request
-          fetch-depth: 0
-          persist-credentials: false
-      # Absent when the capture job reproduced no screenshot; publishing then
-      # names any image the bucket lacks.
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: screens-captures
-          path: pull-request/.tieline/captures
-      - name: Publish
-        working-directory: trusted
-        env:
-          DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
-          TIELINE_SCREENS_S3_ENDPOINT: ${{ secrets.TIELINE_SCREENS_S3_ENDPOINT }}
-          TIELINE_SCREENS_S3_REGION: ${{ secrets.TIELINE_SCREENS_S3_REGION }}
-          TIELINE_SCREENS_S3_ACCESS_KEY_ID: ${{ secrets.TIELINE_SCREENS_S3_ACCESS_KEY_ID }}
-          TIELINE_SCREENS_S3_SECRET_ACCESS_KEY: ${{ secrets.TIELINE_SCREENS_S3_SECRET_ACCESS_KEY }}
-        run: >-
-          npx tieline screens publish
-          --repository ../pull-request
-          --pull-request ${{ github.event.pull_request.number }}
-          --commit ${{ github.event.pull_request.head.sha }}
-          --summary-file ../screens-summary.md
-      # Keeps one comment per pull request up to date.
-      - name: Comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = require("fs").readFileSync("screens-summary.md", "utf8");
-            const { owner, repo } = context.repo;
-            const issue_number = context.payload.pull_request.number;
-            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
-            const existing = comments.find((comment) => comment.body?.startsWith("<!-- tieline-screens -->"));
-            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-            else await github.rest.issues.createComment({ owner, repo, issue_number, body });
-
-  # Marks the pull request closed; `screens prune` on main deletes its page
-  # a day later, after the merge has reached main.
-  close:
-    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    steps:
-      # The base branch, not the closed pull request, which may be gone.
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci
-      - env:
-          DATABASE_URL_SCREENS_PUBLISH: ${{ secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH }}
-        run: npx tieline screens close --pull-request ${{ github.event.pull_request.number }}

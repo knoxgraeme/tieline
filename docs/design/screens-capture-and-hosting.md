@@ -436,16 +436,18 @@ Step 4 follows section 5, simplified for the least moving parts:
   before its images can go.
 - **Publishing works from a developer's machine as well as CI,** with the publisher credentials;
   it never needs a deploy.
-- **The CI template splits an untrusted capture job from a trusted publish job.** The capture
-  job runs the pull request's code and holds no credentials; it hands the screenshots it
-  reproduced to the publish job as an artifact. The publish job installs Tieline from the base
-  branch, checks the pull request out only to read it, and publishes with
-  `screens publish --repository`, re-hashing every screenshot. A first version published from
-  the capture job, reasoning that someone who can push a branch can already edit its workflow;
-  but a pull request's dependencies and tests run there too, and a compromised dependency needs
-  no push access to leave something behind for a later step. Pull requests from forks are
-  verified, not published, since GitHub gives them no secrets; a `workflow_run` publish job for
-  them can be added later without changing `publish`.
+- **The CI template captures in a `pull_request` workflow and publishes from one the default
+  branch owns.** The capture workflow runs the pull request's code with no credentials and hands
+  the screenshots it reproduced on as an artifact. A `workflow_run` workflow, which GitHub reads
+  from the default branch, finds the open pull request whose head is the captured commit through
+  the API, installs Tieline from the default branch, reads the pull request's checkout as data, and
+  publishes with `screens publish --repository`, re-hashing every screenshot; closing runs from
+  `pull_request_target` on the base branch. The secrets live in an environment limited to the
+  default branch. A first version published from the capture job, reasoning that whoever can push
+  a branch can already edit its workflow; a second split the jobs inside the `pull_request`
+  workflow, which stops a compromised dependency but not a branch that rewrites the workflow or
+  adds one. Only workflows the default branch owns, with environment-scoped secrets, stop both.
+  Pull requests from forks are verified, not published.
 - **The site re-checks every image's digest before serving it,** because a bucket credential
   could overwrite an object, and hands an image larger than the host can return to a presigned
   link that expires within a minute.

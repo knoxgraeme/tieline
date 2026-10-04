@@ -5,11 +5,12 @@
  * reaches the network.
  */
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import postgres from "postgres";
 import type { ObjectStore } from "../../src/adapters/object-store/s3.js";
 import { PostgresHostedScreensRepository } from "../../src/adapters/postgres/hosted-screens-repository.js";
+import { DEFAULT_HOSTED_CHECK_DEPENDENCIES } from "../../src/commands/hosted.js";
 import { migrateDatabase } from "../../src/commands/migrate.js";
 import { publishMainScreens, runScreensPublishCommand } from "../../src/commands/screens-hosting.js";
 import { compileContractManifest } from "../../src/contract/manifest.js";
@@ -27,6 +28,8 @@ const repositoryKey = `hosted-screens-${Date.now()}`;
 const digest = (character: string): string => character.repeat(64);
 const commit = (character: string): string => character.repeat(40);
 const repository = new PostgresHostedScreensRepository(() => sql);
+// Login roles a test creates, dropped however it ends.
+const createdRoles: string[] = [];
 const as = <T>(role: TielineRole, operation: () => Promise<T>): Promise<T> => withRole(sql, role, operation);
 const PUBLISHER = "tieline_capture_publisher";
 const SYNC = "tieline_repository_sync";
@@ -383,8 +386,52 @@ screens:
   assert.deepEqual(pullRequest!.images, [after.digest, before.digest].sort());
   assert.ok(pullRequest!.page_html.includes(`"before_image":{"src":"images/${before.digest}","label":"main"}`));
 
+  // hosted check reads row-security membership and every table write from
+  // the database itself, as login roles an operator might create.
+  const suffix = Date.now().toString(36);
+  const password = randomUUID();
+  const checkRoles = { copied: `tieline_check_copied_${suffix}`, reader: `tieline_check_reader_${suffix}`, forger: `tieline_check_forger_${suffix}` };
+  createdRoles.push(...Object.values(checkRoles));
+  for (const role of Object.values(checkRoles)) await sql.unsafe(`create role ${role} login password '${password}'`);
+  // The reader's grants copied by hand, without membership in tieline_reader.
+  await sql.unsafe(`grant usage on schema public to ${checkRoles.copied}`);
+  await sql.unsafe(`grant select on screen_snapshots, screen_images to ${checkRoles.copied}`);
+  await sql.unsafe(`grant select (id, key) on repositories to ${checkRoles.copied}`);
+  await sql.unsafe(`grant tieline_reader to ${checkRoles.reader}`);
+  // The publisher, plus a write on append-only change history.
+  await sql.unsafe(`grant tieline_capture_publisher to ${checkRoles.forger}`);
+  await sql.unsafe(`grant insert on contract_change_events to ${checkRoles.forger}`);
+  const stateOf = (role: string) => {
+    const url = new URL(adminUrl);
+    url.username = role;
+    url.password = password;
+    return DEFAULT_HOSTED_CHECK_DEPENDENCIES.database(url.toString(), repositoryKey);
+  };
+  const copied = await stateOf(checkRoles.copied);
+  assert.equal(copied.privileges["SELECT on screen_snapshots"], true, "the copied grants are there");
+  assert.equal(copied.readsPublishedRows, false, "but row security shows a non-member nothing");
+  assert.deepEqual(copied.writes, []);
+  const reader = await stateOf(checkRoles.reader);
+  assert.equal(reader.readsPublishedRows, true);
+  assert.equal(reader.writesPublishedRows, false);
+  assert.deepEqual(reader.writes, []);
+  const forger = await stateOf(checkRoles.forger);
+  assert.equal(forger.writesPublishedRows, true);
+  assert.equal(forger.writesMainRows, false);
+  assert.deepEqual(forger.writes, [
+    "INSERT on contract_change_events",
+    "INSERT on screen_images",
+    "UPDATE on screen_images",
+    "INSERT on screen_snapshots",
+    "UPDATE on screen_snapshots",
+  ]);
+
   console.log("hosted screens integration passed");
 } finally {
+  for (const role of createdRoles) {
+    await sql.unsafe(`drop owned by ${role}`);
+    await sql.unsafe(`drop role ${role}`);
+  }
   if (repositoryId) {
     await sql`delete from screen_snapshots where repository_id = ${repositoryId}`;
     await sql`delete from screen_history where repository_id = ${repositoryId}`;

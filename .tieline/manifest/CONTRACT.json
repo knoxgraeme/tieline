@@ -2277,7 +2277,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "06e1322e9063ba64e41c09d60ce2896f5bbad8b545ea98976b2d211e8a9cc7b4",
+            "contract_hash": "c3f06ce8515e3a843eadb790b3922e4ae3a79765dcdcf5e4ba2785140f388e28",
             "criterion": "With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.",
             "links": [
               {
@@ -2359,7 +2359,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a7621fdb98703d5b2ea53c416cf110b51310f21cdffbfdaad76ebfa404eaee7d",
+                "reviewed_content_hash": "1ca7cc9012de87f4c939f36644ca05eb55872729ac71d171807cdbc506b58b4e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2370,7 +2370,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "56c2352cd5b11aa4c22d7ac8342526ce7ca3ffaf15bb6704d3940dbef5db8899",
+                "reviewed_content_hash": "6389e324619bf00516f7680ed28632cc0a1f3b421004fe4e372d06a0c6ad6a54",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2421,7 +2421,7 @@
                 "given": "the example pull-request workflow, and a pull request whose dependencies or tests are compromised",
                 "position": 5,
                 "stable_id": "CONTRACT-005-AC12-S6",
-                "then": "the publishing credentials must be held only by a job that installs Tieline from the base branch and runs none of the pull request's code",
+                "then": "the publishing credentials must be held only by a workflow the default branch owns, in an environment only the default branch can use, that installs Tieline from the default branch and runs none of the pull request's code",
                 "when": "the workflow captures and publishes"
               }
             ],
@@ -2459,7 +2459,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a7621fdb98703d5b2ea53c416cf110b51310f21cdffbfdaad76ebfa404eaee7d",
+                "reviewed_content_hash": "1ca7cc9012de87f4c939f36644ca05eb55872729ac71d171807cdbc506b58b4e",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2470,7 +2470,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "56c2352cd5b11aa4c22d7ac8342526ce7ca3ffaf15bb6704d3940dbef5db8899",
+                "reviewed_content_hash": "6389e324619bf00516f7680ed28632cc0a1f3b421004fe4e372d06a0c6ad6a54",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2542,7 +2542,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "434077a1950a2faa55463e8d6a8e0e453617c937a341c3a236a3dbf60e13d66b",
+                "reviewed_content_hash": "fa49f7f7d16d1b40ee8a850809c11e7aab474bf7ec43ee03623418b0f2fe25c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2589,13 +2589,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "850e00c040d7109e8e3ea5eea80189b1d958458b9e11951bc8ddb79ffb95a0f7",
+            "contract_hash": "5f4e076916f15f227d549c05fe8736337967951c1757d85c443d95835b03ccd4",
             "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cd4528206c753f55f8eaf9d4b6a0056afcb80bfbfe34197fad003fa727b01dfd",
+                "reviewed_content_hash": "c693b521315f040a50ee47390f218b5b1ac2843d59beb46cf61ad27a0f444a78",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2606,7 +2606,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cd4528206c753f55f8eaf9d4b6a0056afcb80bfbfe34197fad003fa727b01dfd",
+                "reviewed_content_hash": "c693b521315f040a50ee47390f218b5b1ac2843d59beb46cf61ad27a0f444a78",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2617,7 +2617,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "434077a1950a2faa55463e8d6a8e0e453617c937a341c3a236a3dbf60e13d66b",
+                "reviewed_content_hash": "fa49f7f7d16d1b40ee8a850809c11e7aab474bf7ec43ee03623418b0f2fe25c5",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2672,7 +2672,7 @@
                 "when": "tieline hosted check runs"
               },
               {
-                "given": "the site's credential can update or delete published screens, even without inserting them or on one column only",
+                "given": "the site's credential can write any table, even only update or delete published screens, or write on one column only",
                 "position": 6,
                 "stable_id": "CONTRACT-005-AC15-S7",
                 "then": "Tieline must fail, because the site's credential must only read",
@@ -2684,6 +2684,20 @@
                 "stable_id": "CONTRACT-005-AC15-S8",
                 "then": "Tieline must ask for the page and an image beneath that path, not at the origin's root",
                 "when": "tieline hosted check runs against the site"
+              },
+              {
+                "given": "the site's or the publishing credential holds its role's grants, copied by hand, without membership in the role row security names",
+                "position": 8,
+                "stable_id": "CONTRACT-005-AC15-S9",
+                "then": "Tieline must fail, because row security would hide published pages from it or let it write none",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the publishing credential can also write contract change events, or any table beyond the pages and images it publishes",
+                "position": 9,
+                "stable_id": "CONTRACT-005-AC15-S10",
+                "then": "Tieline must fail and name each write a capture job must not hold",
+                "when": "tieline hosted check runs"
               }
             ],
             "stable_id": "CONTRACT-005-AC15",
@@ -2698,7 +2712,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b69ad3afb2181cfe66a0db4cee0c24b495a848d3927e2da27314186f1847f19b",
+                "reviewed_content_hash": "6ac6db2de55d132954b19b029efeb22ecd47476f8f3ec923bdbdda1f97433295",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/hosted-screens.md",
@@ -3592,6 +3606,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "4671eaa27e6a0b61780bd0d179d61b2c7cd7f36e08dff5d094befa6f2ccdd3ac"
+    "sha256": "ff93d4fc671f0f43c8da34a80f87eba15c147f07bbdd4975246e43fd9e6a18b9"
   }
 }
