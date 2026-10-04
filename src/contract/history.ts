@@ -19,8 +19,10 @@ export const CONTRACT_HISTORY_LIMITS = {
   commits: 200,
   /** Most commits a caller may ask for. */
   maxCommits: 2_000,
-  /** Largest `git log` or `git ls-tree` output read. */
+  /** Largest `git log` output read. */
   listingBytes: 16 * 1024 * 1024,
+  /** Most `git ls-tree` output read across one history, every commit's listing together. */
+  treeBytes: 16 * 1024 * 1024,
   /** Most manifest bytes read from git in one history. */
   blobBytes: 256 * 1024 * 1024,
 } as const;
@@ -74,12 +76,49 @@ export function pullRequestNumber(subject: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-function git(root: string, args: readonly string[]): string {
+function git(root: string, args: readonly string[], maxBuffer: number = CONTRACT_HISTORY_LIMITS.listingBytes): string {
   return execFileSync("git", args, {
     cwd: root,
     encoding: "utf8",
-    maxBuffer: CONTRACT_HISTORY_LIMITS.listingBytes,
+    maxBuffer,
     stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+/**
+ * Lists the manifest's files at each commit, every listing counted against
+ * one bound, so a long history of a large manifest directory cannot hold more
+ * than `maxBytes` of listings at once.
+ */
+function listManifestTrees(
+  root: string,
+  manifestDirectory: string,
+  commits: readonly string[],
+  maxBytes: number
+): Array<Array<{ blob: string; name: string }>> {
+  const tooLarge = () =>
+    new Error(
+      `The manifest's file listings across ${commits.length} commits exceed the ${maxBytes}-byte total; read fewer commits, or keep only the compiled manifest in ${manifestDirectory}.`
+    );
+  let remaining = maxBytes;
+  return commits.map((commit) => {
+    let listing: string;
+    try {
+      // A maxBuffer of 0 would not bound the output at all.
+      listing = git(root, ["ls-tree", "-r", commit, "--", manifestDirectory], Math.max(remaining, 1));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | null)?.code === "ENOBUFS") throw tooLarge();
+      throw error;
+    }
+    remaining -= Buffer.byteLength(listing);
+    if (remaining < 0) throw tooLarge();
+    return listing
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [meta, path] = line.split("\t");
+        return { blob: meta!.split(" ")[2]!, name: path!.slice(manifestDirectory.length + 1) };
+      });
   });
 }
 
@@ -134,7 +173,12 @@ export function readContractHistory(
    * serves as the base of the oldest; for recording what changed since the
    * last recorded commit.
    */
-  options: { ref?: string; limit?: number; until?: string } = {}
+  options: {
+    ref?: string;
+    limit?: number;
+    until?: string;
+    limits?: Pick<typeof CONTRACT_HISTORY_LIMITS, "treeBytes">;
+  } = {}
 ): ContractHistory {
   const ref = options.ref ?? "HEAD";
   const limit = options.limit ?? CONTRACT_HISTORY_LIMITS.commits;
@@ -181,54 +225,52 @@ export function readContractHistory(
       baseOnly = true;
     }
   }
-  const trees = listed.map(({ commit }) =>
-    git(root, ["ls-tree", "-r", commit, "--", manifestDirectory])
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        const [meta, path] = line.split("\t");
-        return { blob: meta!.split(" ")[2]!, name: path!.slice(manifestDirectory.length + 1) };
-      })
+  const trees = listManifestTrees(
+    root,
+    manifestDirectory,
+    listed.map(({ commit }) => commit),
+    options.limits?.treeBytes ?? CONTRACT_HISTORY_LIMITS.treeBytes
   );
   const blobs = readBlobs(root, [...new Set(trees.flat().map((entry) => entry.blob))]);
-  const unreadable: ContractHistory["unreadable"] = [];
-  // The oldest unreadable commit's place in `listed`, which runs newest first:
-  // only changes older than it can be stored without passing a gap.
-  let oldestUnreadable = -1;
-  const manifests: Array<ContractManifest | null> = trees.map((files, index) => {
-    if (files.length === 0) return null;
-    if (files.some((file) => !blobs.has(file.blob))) {
-      unreadable.push({ commit: listed[index]!.commit, detail: MISSING_OBJECTS });
-      oldestUnreadable = Math.max(oldestUnreadable, index);
-      return null;
-    }
+  type ManifestRead = { manifest: ContractManifest | null; unreadable: { commit: string; detail: string } | null };
+  const readManifest = (index: number): ManifestRead => {
+    const files = trees[index]!;
+    const commit = listed[index]!.commit;
+    if (files.length === 0) return { manifest: null, unreadable: null };
+    if (files.some((file) => !blobs.has(file.blob))) return { manifest: null, unreadable: { commit, detail: MISSING_OBJECTS } };
     try {
-      return parseContractManifestSnapshot(
+      const manifest = parseContractManifestSnapshot(
         files.map((file) => ({ name: file.name, content: blobs.get(file.blob) ?? "" })),
-        `commit ${listed[index]!.commit.slice(0, 12)}`
+        `commit ${commit.slice(0, 12)}`
       );
+      return { manifest, unreadable: null };
     } catch (error) {
-      unreadable.push({ commit: listed[index]!.commit, detail: error instanceof Error ? error.message : String(error) });
-      oldestUnreadable = Math.max(oldestUnreadable, index);
-      return null;
+      return { manifest: null, unreadable: { commit, detail: error instanceof Error ? error.message : String(error) } };
     }
-  });
+  };
 
+  // Read oldest first, so only a commit's manifest and its base's are held
+  // at once, and the oldest unreadable commit is met before any change
+  // newer than it; each result is gathered oldest first and reversed.
+  const unreadable: ContractHistory["unreadable"] = [];
   const commits: ContractHistory["commits"] = [];
-  const changes: ContractHistoryChange[] = [];
-  const beforeUnreadable: ContractHistoryChange[] = [];
+  const changes: ContractHistoryChange[][] = [];
+  const beforeUnreadable: ContractHistoryChange[][] = [];
   // Past the limit, in a shallow clone, or before `until`, the oldest commit
   // listed is only a base: what it changed is not read.
   const read = baseOnly ? listed.length - 1 : listed.length;
-  for (let index = 0; index < read; index += 1) {
-    const after = manifests[index];
+  let base: ManifestRead | null = null;
+  for (let index = listed.length - 1; index >= 0; index -= 1) {
+    const current = readManifest(index);
+    if (current.unreadable) unreadable.push(current.unreadable);
+    const previous = base;
+    base = current;
+    const after = current.manifest;
     const commit = listed[index]!;
     // A manifest that could not be read says nothing, nor does a base that
     // could not; the very first manifest has no base, so all of it is added.
-    if (!after || (index + 1 < listed.length && manifests[index + 1] === null && trees[index + 1]!.length > 0)) {
-      continue;
-    }
-    const diff = diffReviewManifests(index + 1 < listed.length ? manifests[index + 1]! : null, after, commit.commit);
+    if (index >= read || !after || previous?.unreadable) continue;
+    const diff = diffReviewManifests(previous?.manifest ?? null, after, commit.commit);
     const found: ContractHistoryChange[] = [
       ...diff.records.map((record) => ({
         kind: record.kind,
@@ -249,10 +291,18 @@ export function readContractHistory(
     ];
     if (found.length === 0) continue;
     commits.push({ ...commit, changes: found.length });
-    changes.push(...found);
-    if (index > oldestUnreadable) beforeUnreadable.push(...found);
+    changes.push(found);
+    // Only changes older than every unreadable commit can be stored without passing a gap.
+    if (unreadable.length === 0) beforeUnreadable.push(found);
   }
-  return { ref, commits, changes, truncated, unreadable, beforeUnreadable };
+  return {
+    ref,
+    commits: commits.reverse(),
+    changes: changes.reverse().flat(),
+    truncated,
+    unreadable: unreadable.reverse(),
+    beforeUnreadable: beforeUnreadable.reverse().flat(),
+  };
 }
 
 /** Each item's most recent change and how many changes the history holds. */

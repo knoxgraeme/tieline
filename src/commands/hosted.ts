@@ -277,12 +277,17 @@ export interface HostedCheckDependencies {
  * holds it on the table or on any one of its columns: a role granted UPDATE
  * on a single column can still write, so a forbidden INSERT or UPDATE is
  * asked that way, while a required one must cover the whole table.
+ * `otherThan` asks the same of every column but those named, so a role may
+ * update the columns its job sets and no other.
  */
 export type PrivilegeProbe =
-  | { table: string; privilege: string; column?: string; anyColumn?: boolean }
+  | { table: string; privilege: string; column?: string; anyColumn?: boolean; otherThan?: readonly string[] }
   | { function: string; privilege: "EXECUTE" };
 
 const DIGESTS_VALID = "tieline_screen_digests_valid(text[])";
+
+// Replacing a published page sets every one of these.
+const PUBLISHED_PAGE_COLUMNS = ["head_commit", "manifest", "images", "page_html", "published_at", "closed_at"];
 
 /**
  * What the capture publisher's role is granted (migration 0005), and what it
@@ -298,12 +303,7 @@ export const PUBLISHER_PRIVILEGES: {
   required: [
     { table: "screen_snapshots", privilege: "SELECT" },
     { table: "screen_snapshots", privilege: "INSERT" },
-    // Replacing a published page sets every one of these.
-    ...["head_commit", "manifest", "images", "page_html", "published_at", "closed_at"].map((column) => ({
-      table: "screen_snapshots",
-      privilege: "UPDATE",
-      column,
-    })),
+    ...PUBLISHED_PAGE_COLUMNS.map((column) => ({ table: "screen_snapshots", privilege: "UPDATE", column })),
     { table: "screen_images", privilege: "SELECT" },
     { table: "screen_images", privilege: "INSERT" },
     { table: "screen_images", privilege: "UPDATE", column: "last_referenced_at" },
@@ -313,8 +313,11 @@ export const PUBLISHER_PRIVILEGES: {
   ],
   forbidden: [
     { table: "screen_snapshots", privilege: "DELETE" },
+    // A page's repository and ref, and an image's identity and record, are
+    // never rewritten.
+    { table: "screen_snapshots", privilege: "UPDATE", otherThan: PUBLISHED_PAGE_COLUMNS },
     { table: "screen_images", privilege: "DELETE" },
-    { table: "screen_images", privilege: "UPDATE", column: "byte_size" },
+    { table: "screen_images", privilege: "UPDATE", otherThan: ["last_referenced_at"] },
     { table: "screen_history", privilege: "INSERT", anyColumn: true },
     { table: "screen_history", privilege: "UPDATE", anyColumn: true },
     { table: "screen_history", privilege: "DELETE" },
@@ -360,7 +363,30 @@ export const READER_PRIVILEGES: { required: readonly PrivilegeProbe[]; forbidden
 export function privilegeName(entry: PrivilegeProbe): string {
   if ("function" in entry) return `${entry.privilege} on ${entry.function}`;
   if (entry.anyColumn) return `${entry.privilege} on ${entry.table} or any of its columns`;
+  if (entry.otherThan) return `${entry.privilege} on ${entry.table} (any column but ${entry.otherThan.join(", ")})`;
   return `${entry.privilege} on ${entry.table}${entry.column ? ` (${entry.column})` : ""}`;
+}
+
+/** Whether the connected role holds one privilege, as Postgres reports it. */
+async function holdsPrivilege(sql: postgres.Sql, entry: PrivilegeProbe): Promise<boolean> {
+  let rows: { granted: boolean }[];
+  if ("function" in entry) {
+    rows = await sql<{ granted: boolean }[]>`select has_function_privilege(${entry.function}, ${entry.privilege}) as granted`;
+  } else if (entry.column) {
+    rows = await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`;
+  } else if (entry.anyColumn) {
+    rows = await sql<{ granted: boolean }[]>`select has_any_column_privilege(${entry.table}, ${entry.privilege}) as granted`;
+  } else if (entry.otherThan) {
+    rows = await sql<{ granted: boolean }[]>`
+      select coalesce(bool_or(has_column_privilege(attribute.attrelid, attribute.attnum, ${entry.privilege})), false) as granted
+      from pg_attribute attribute
+      where attribute.attrelid = ${entry.table}::regclass
+        and attribute.attnum > 0 and not attribute.attisdropped
+        and attribute.attname::text <> all(${[...entry.otherThan]}::text[])`;
+  } else {
+    rows = await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
+  }
+  return rows[0]?.granted ?? false;
 }
 
 async function queryDatabase(url: string, repositoryKey: string): Promise<HostedDatabaseState> {
@@ -394,15 +420,7 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
     for (const entry of probes) {
       const name = privilegeName(entry);
       if (name in probed) continue;
-      const [row] =
-        "function" in entry
-          ? await sql<{ granted: boolean }[]>`select has_function_privilege(${entry.function}, ${entry.privilege}) as granted`
-          : entry.column
-            ? await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`
-            : entry.anyColumn
-              ? await sql<{ granted: boolean }[]>`select has_any_column_privilege(${entry.table}, ${entry.privilege}) as granted`
-              : await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
-      probed[name] = row?.granted ?? false;
+      probed[name] = await holdsPrivilege(sql, entry);
     }
     const [security] = await sql<{ bypasses: boolean; syncs: boolean }[]>`
       select (role.rolsuper or role.rolbypassrls
@@ -648,16 +666,24 @@ async function checkSitePath(url: URL, path: string, dependencies: HostedCheckDe
   }
 }
 
-/** Asks the site for a page and an image without logging in. */
+/**
+ * Asks the site for a page and an image without logging in, beneath the
+ * site's own path: a site served at `/screens` behind a host that strips the
+ * prefix is checked there, not at the origin's root.
+ */
 async function checkSite(url: URL, dependencies: HostedCheckDependencies): Promise<HostedCheckResult[]> {
+  const base = new URL(url);
+  base.search = "";
+  base.hash = "";
+  if (!base.pathname.endsWith("/")) base.pathname = `${base.pathname}/`;
   const results: HostedCheckResult[] = [];
   for (const { path, label } of [
-    { path: "/", label: "/" },
-    { path: `/images/${"0".repeat(64)}`, label: "/images/<digest>" },
+    { path: "./", label: "/" },
+    { path: `images/${"0".repeat(64)}`, label: "/images/<digest>" },
   ]) {
     const check = `site ${label}`;
     try {
-      results.push({ check, ...(await checkSitePath(url, path, dependencies)) });
+      results.push({ check, ...(await checkSitePath(base, path, dependencies)) });
     } catch (error) {
       results.push({ check, status: "fail", detail: message(error) });
     }

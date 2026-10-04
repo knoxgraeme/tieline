@@ -458,6 +458,9 @@ capability:
             - given: a pull request merged with a merge commit changed an acceptance criterion on its branch
               when: the history of main is read
               then: the change must be attributed to the merge commit and its pull request
+            - given: a long history whose manifest file listings together exceed the history's bound, though each fits alone
+              when: the history is read
+              then: Tieline must fail and name the bound rather than hold every commit's listing
           links:
             - relation: implements
               provenance: authored
@@ -1488,6 +1491,9 @@ capability:
             - given: a capture that runs in several batches or is repeated
               when: the whole capture passes screens.capture.timeout_minutes
               then: it must stop without writing, the limit covering every batch and repeat together
+            - given: a capture that runs in several batches or is repeated
+              when: its screenshots are read back
+              then: the screenshots it keeps must stay within one byte bound across every batch, and a repeat run must keep only the digests it is compared by
           links:
             - relation: implements
               provenance: authored
@@ -1819,7 +1825,7 @@ capability:
             - given: the host's access control protects static files but not the site's functions
               when: tieline hosted check runs against the site
               then: Tieline must fail because the site answered a visitor who had not logged in
-            - given: the publishing credential is the sync role, an owner, or another role that can delete, write history, or escape row security
+            - given: the publishing credential is the sync role, an owner, or another role that can delete, write history, rewrite a page's ref or an image's record, or escape row security
               when: tieline hosted check runs
               then: Tieline must fail and name what a capture job must not hold, as it must for a role that lacks what publishing needs
             - given: the site redirects an anonymous visitor to another host or page that serves the site
@@ -1837,6 +1843,9 @@ capability:
             - given: the site's credential can update or delete published screens, even without inserting them or on one column only
               when: tieline hosted check runs
               then: Tieline must fail, because the site's credential must only read
+            - given: the site URL has a path, such as https://screens.example.test/screens
+              when: tieline hosted check runs against the site
+              then: Tieline must ask for the page and an image beneath that path, not at the origin's root
           links:
             - relation: implements
               provenance: authored

@@ -226,7 +226,9 @@ only if no catalog file changed while Playwright ran.
 `--repeat <n>` (up to 5) captures every screen n times and keeps only the screens every run
 captured identically. A screen that differs is **unstable**: it is not written, the command exits
 1, and the screen is listed so it can be fixed or marked `not_captured` with reason `unstable`.
-Use it when backfilling a whole catalog.
+Use it when backfilling a whole catalog. A capture holds at most 4 GiB of screenshots however many
+batches it runs in; with `--repeat`, only the first run's are kept, and later runs keep digests to
+compare.
 
 ### Generated page scenes
 
@@ -747,11 +749,13 @@ that are not set:
 - **storage:** writes, finds, and deletes a probe object in the bucket;
 - **database:** `DATABASE_URL` can read published screens and cannot write them;
   `DATABASE_URL_SCREENS_PUBLISH` holds exactly the capture publisher's privileges, nothing it
-  lacks and nothing more (no deleting, no history, row security in force, so it cannot write
-  `main`); `DATABASE_URL_SYNC` can write them;
-- **site:** asks for `/` and an image without logging in, following at most 5 redirects, and
-  passes only on a 401 or 403, or on a redirect to a login (a login path, or an address that
-  returns to the site). It fails if the site itself answered, after any redirects.
+  lacks and nothing more (no deleting, no history, no rewriting a page's ref or an image's
+  record, row security in force, so it cannot write `main`); `DATABASE_URL_SYNC` can write them;
+- **site:** asks for the site's page and an image without logging in, beneath the site URL's
+  path when it has one (`https://example.com/screens` is checked at `/screens/`, not at `/`),
+  following at most 5 redirects, and passes only on a 401 or 403, or on a redirect to a login
+  (a login path, or an address that returns to the site). It fails if the site itself answered,
+  after any redirects.
 
 Another host needs only a few lines that hand its requests to `createHostedScreensSite` from
 `tieline/hosted`, which takes a standard `Request` and returns a `Response`.

@@ -220,6 +220,30 @@ export interface CapturedScreen {
   test: string;
 }
 
+/**
+ * What a capture is compared by, without its screenshot and ARIA snapshot:
+ * all a later `--repeat` run keeps.
+ */
+export type CaptureDigest = Omit<CapturedScreen, "image" | "text">;
+
+interface ReadCapturedScreensInput {
+  runDirectory: string;
+  repositoryRoot: string;
+  record: RunRecord;
+  selected: readonly string[];
+  environment: CaptureEnvironment;
+  limits?: Pick<
+    typeof SCREEN_CAPTURE_RUN_LIMITS,
+    "imageBytes" | "totalImageBytes" | "textBytes" | "settingsBytes"
+  >;
+  /**
+   * Screenshot bytes the capture already holds from earlier batches. They
+   * count toward `totalImageBytes`, so one bound covers a capture however it
+   * is batched.
+   */
+  imageBytesHeld?: number;
+}
+
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function readRunFile(path: string, maxBytes: number, label: string): Buffer {
@@ -284,19 +308,13 @@ function repositoryTestPath(repositoryRoot: string, file: string): string | null
 /**
  * Checks that every selected screen was captured exactly once by a passing
  * test, then reads and re-hashes each capture. Every problem is collected and
- * reported together; a run with any problem yields nothing.
+ * reported together; a run with any problem yields nothing. With `retain`
+ * false, each screenshot is dropped once hashed and only digests are kept, so
+ * the run holds one screenshot at a time.
  */
-export function readCapturedScreens(input: {
-  runDirectory: string;
-  repositoryRoot: string;
-  record: RunRecord;
-  selected: readonly string[];
-  environment: CaptureEnvironment;
-  limits?: Pick<
-    typeof SCREEN_CAPTURE_RUN_LIMITS,
-    "imageBytes" | "totalImageBytes" | "textBytes" | "settingsBytes"
-  >;
-}): CapturedScreen[] {
+export function readCapturedScreens(input: ReadCapturedScreensInput & { retain?: true }): CapturedScreen[];
+export function readCapturedScreens(input: ReadCapturedScreensInput & { retain: false }): CaptureDigest[];
+export function readCapturedScreens(input: ReadCapturedScreensInput & { retain?: boolean }): CaptureDigest[] {
   const { record } = input;
   const limits = input.limits ?? SCREEN_CAPTURE_RUN_LIMITS;
   const failures = captureRunFailures(record);
@@ -343,8 +361,8 @@ export function readCapturedScreens(input: {
     );
   }
 
-  const captured: CapturedScreen[] = [];
-  let imageBytes = 0;
+  const captured: CaptureDigest[] = [];
+  let imageBytes = input.imageBytesHeld ?? 0;
   const directory = resolve(input.runDirectory, SCREENS_DIRECTORY);
   for (const key of [...input.selected].sort((left, right) => left.localeCompare(right))) {
     const test = capturedBy.get(key)![0]!;
@@ -353,10 +371,11 @@ export function readCapturedScreens(input: {
       if (!image.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
         throw new ScreenCaptureError(`the screenshot of '${key}' is not a PNG file`);
       }
-      imageBytes += image.length;
+      // Only screenshots kept count: one dropped once hashed is not held.
+      if (input.retain !== false) imageBytes += image.length;
       if (imageBytes > limits.totalImageBytes) {
         throw new ScreenCaptureError(
-          `the run's screenshots exceed the ${limits.totalImageBytes}-byte total; capture in smaller batches`
+          `the capture's screenshots exceed the ${limits.totalImageBytes}-byte total; capture fewer screens at once`
         );
       }
       let text: string;
@@ -399,15 +418,15 @@ export function readCapturedScreens(input: {
       // Committed snapshots use LF line endings and end with a newline.
       const lines = text.replace(/\r\n/g, "\n");
       const committedText = lines.endsWith("\n") ? lines : `${lines}\n`;
-      captured.push({
+      const digest: CaptureDigest = {
         key,
-        image,
         image_sha256: createHash("sha256").update(image).digest("hex"),
-        text: committedText,
         text_sha256: screenTextDigest(committedText),
         fingerprint: captureFingerprint(settings.data, record.playwright, input.environment),
         test: testPath,
-      });
+      };
+      const screen: CaptureDigest | CapturedScreen = input.retain === false ? digest : { ...digest, image, text: committedText };
+      captured.push(screen);
     } catch (error) {
       if (!(error instanceof ScreenCaptureError)) throw error;
       issues.push(error.message);

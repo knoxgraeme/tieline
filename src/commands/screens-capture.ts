@@ -19,6 +19,7 @@ import {
   verifyCapturedScreens,
   type CaptureEnvironment,
   type CaptureOutputResult,
+  type CaptureDigest,
   type CapturedScreen,
   type ScreenVerifyMismatch,
 } from "../contract/screen-capture-run.js";
@@ -37,6 +38,7 @@ import {
   RUN_PROTOCOL_VERSION,
   SELECTION_FILE,
   type CaptureSelectionFile,
+  type RunRecord,
 } from "../playwright/protocol.cjs";
 import {
   excludeNotCaptured,
@@ -409,17 +411,15 @@ function describeOutcome(outcome: Extract<PlaywrightRunOutcome, { kind: "exited"
   return outcome.signal ? `signal ${outcome.signal}` : `exit code ${outcome.code}`;
 }
 
+/** A Playwright run that finished: its directory and run record. */
+type FinishedRun = { runDirectory: string; record: RunRecord };
+
 /**
- * Runs Playwright for the selected screens and reads back a complete run.
- * The run directory is temporary and removed on every exit path; a timeout,
- * cancellation, failed test, or missing screen writes nothing.
+ * Runs Playwright once for a batch of screens and reads back a complete run
+ * with `read`. The run directory is temporary and removed on every exit path;
+ * a timeout, cancellation, failed test, or missing screen captures nothing.
  */
-/**
- * Runs Playwright once for a batch of screens and reads back a complete run.
- * The run directory is temporary and removed on every exit path; a timeout,
- * cancellation, failed test, or missing screen captures nothing.
- */
-async function captureBatch(input: {
+async function captureBatch<T>(input: {
   root: string;
   settings: ScreenSettings;
   keys: readonly string[];
@@ -429,7 +429,9 @@ async function captureBatch(input: {
   signal: AbortSignal;
   /** When the whole capture must have finished, in `now()` milliseconds. */
   deadline: number;
-}): Promise<CapturedScreen[]> {
+  /** Reads the finished run's screens, as `readCapturedScreens` does. */
+  read(run: FinishedRun): T[];
+}): Promise<T[]> {
   const { root, settings, keys } = input;
   const minutes = settings.capture.timeoutMinutes;
   const timedOut = () =>
@@ -476,13 +478,7 @@ async function captureBatch(input: {
         `Playwright stopped (${describeOutcome(outcome)}) before the run finished, so nothing was written. Check its output above for a configuration or startup error.`
       );
     }
-    const captured = readCapturedScreens({
-      runDirectory,
-      repositoryRoot: root,
-      record,
-      selected: keys,
-      environment: input.environment,
-    });
+    const captured = input.read({ runDirectory, record });
     if (outcome.code !== 0) {
       throw new ScreenCaptureError(
         `Playwright reported a failed run (${describeOutcome(outcome)}, status ${record.status}) although every selected screen was captured, so nothing was written.`
@@ -497,7 +493,7 @@ async function captureBatch(input: {
 /** Most times `--repeat` captures every screen to find unstable ones. */
 export const MAX_CAPTURE_REPEATS = 5;
 
-function sameCapture(left: CapturedScreen, right: CapturedScreen): boolean {
+function sameCapture(left: CaptureDigest, right: CaptureDigest): boolean {
   return (
     left.image_sha256 === right.image_sha256 &&
     left.text_sha256 === right.text_sha256 &&
@@ -509,7 +505,9 @@ function sameCapture(left: CapturedScreen, right: CapturedScreen): boolean {
 /**
  * Captures the given screens `repeat` times, in batches, and keeps only the
  * screens every run captured identically; the rest are unstable. Ctrl-C, or
- * the caller's signal, stops the run in progress.
+ * the caller's signal, stops the run in progress. Only the first run's
+ * screenshots are kept, within one byte bound across its batches; later runs
+ * keep digests to compare, holding one screenshot at a time.
  */
 async function captureScreens(input: {
   root: string;
@@ -530,26 +528,41 @@ async function captureScreens(input: {
   else input.signal?.addEventListener("abort", abort, { once: true });
   try {
     const deadline = (input.dependencies.now ?? Date.now)() + input.settings.capture.timeoutMinutes * 60_000;
-    const runs: CapturedScreen[][] = [];
-    for (let run = 0; run < input.repeat; run += 1) {
-      const captured: CapturedScreen[] = [];
+    const capture = <T>(keys: readonly string[], read: (run: FinishedRun) => T[]) =>
+      captureBatch({
+        root: input.root,
+        settings: input.settings,
+        keys,
+        installation,
+        environment,
+        dependencies: input.dependencies,
+        signal: controller.signal,
+        deadline,
+        read,
+      });
+    // The first run keeps its screenshots, within one byte bound across its batches.
+    const first: CapturedScreen[] = [];
+    for (const keys of screenGrepBatches(input.keys)) {
+      const imageBytesHeld = first.reduce((total, screen) => total + screen.image.length, 0);
+      first.push(
+        ...(await capture(keys, (run) =>
+          readCapturedScreens({ ...run, repositoryRoot: input.root, selected: keys, environment, imageBytesHeld })
+        ))
+      );
+    }
+    // Later runs keep only digests to compare, so each holds one screenshot at a time.
+    const later: CaptureDigest[][] = [];
+    for (let attempt = 1; attempt < input.repeat; attempt += 1) {
+      const digests: CaptureDigest[] = [];
       for (const keys of screenGrepBatches(input.keys)) {
-        captured.push(
-          ...(await captureBatch({
-            root: input.root,
-            settings: input.settings,
-            keys,
-            installation,
-            environment,
-            dependencies: input.dependencies,
-            signal: controller.signal,
-            deadline,
-          }))
+        digests.push(
+          ...(await capture(keys, (run) =>
+            readCapturedScreens({ ...run, repositoryRoot: input.root, selected: keys, environment, retain: false })
+          ))
         );
       }
-      runs.push(captured);
+      later.push(digests);
     }
-    const [first = [], ...later] = runs;
     const unstable = first
       .filter((screen) =>
         later.some((run) => {
