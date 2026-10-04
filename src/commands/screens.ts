@@ -293,6 +293,15 @@ export async function runScreensAuditCommand(
         .join(", ")}: no acceptance criterion has this key\n`
     );
   }
+  for (const screen of audit.unlinked_screens) {
+    io.write(
+      `  no links  ${escapeTerminalText(screen.key)} (${escapeTerminalText(screen.capability)}): ${
+        screen.candidates.length > 0
+          ? `${screen.candidates.map(escapeTerminalText).join(", ")} implement${screen.candidates.length === 1 ? "s" : ""} its files; link it if one of them states it`
+          : "no acceptance criterion implements its files"
+      }\n`
+    );
+  }
   for (const entry of audit.intercepting) {
     io.write(
       `  review    ${escapeTerminalText(entry.file)} intercepts the page's requests: block third-party requests only, and mark states that would need a faked response not captured\n`

@@ -368,6 +368,10 @@ It also checks coverage beyond the catalog:
 - acceptance criteria that show screens but that no test tags `@ac:<key>` (**untested**), that
   are tagged in a test file their `tests` links do not name (**unlinked**), and `@ac:` tags that
   name no criterion. These are checked against the working-tree contract;
+- screens no Story or acceptance criterion shows (**no links**), each with the criteria whose
+  `implements` links name a file in the screen's `paths`: where a link most likely belongs. This
+  is a hint, never a failure, even with `--strict`. Link the screen when one of those criteria
+  states it; leave it unlinked when none does, as for a search with no matches;
 - scene test files that intercept the page's requests (`page.route`, `routeFromHAR`,
   `routeWebSocket`), for review. Blocking third-party requests is fine; answering the app's own
   requests with made-up responses captures a state the real app never produced.

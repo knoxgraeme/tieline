@@ -63,9 +63,10 @@ catalog file and scene file to that capability.
    components for empty, loading, error, permission-denied, dialog, drawer, toast, and redirect
    states. Catalog each one a user can reach and write its scene. Before treating a state as
    uncovered, look for a criterion that already states it, starting with the criteria whose
-   `implements` links name the files in the screen's `paths`: link the screen to it, or, when
-   the criterion is broader than the state, report the state under step 3. A screen with no
-   criterion is valid; most toasts and loading states never have one.
+   `implements` links name the files in the screen's `paths` (`tieline screens audit` lists them
+   beside each screen with no links): link the screen to it, or, when the criterion is broader
+   than the state, report the state under step 3. A screen with no criterion is valid; most
+   toasts and loading states never have one.
 3. **Report hidden states.** An error or permission screen that no criterion describes is
    behavior nobody wrote down. Draft a criterion only when the code states the intent plainly;
    otherwise list the screen under "Needs your review" as a hidden state for a person to judge.
