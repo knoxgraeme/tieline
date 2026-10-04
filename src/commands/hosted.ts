@@ -255,10 +255,12 @@ export interface HostedDatabaseState {
   ready: boolean;
   canRead: boolean;
   canWrite: boolean;
-  /** Whether the role holds each privilege in `PUBLISHER_PRIVILEGES`, by its description. */
+  /** Whether the role holds each privilege `PUBLISHER_PRIVILEGES` and `SYNC_PRIVILEGES` name, by its description. */
   privileges: Record<string, boolean>;
   /** Whether row security does not apply to the role: a superuser, BYPASSRLS, or the table's owner. */
   bypassesRowSecurity: boolean;
+  /** Whether row security lets the role write main's page: a member of tieline_repository_sync, or a role it does not bind. */
+  writesMainRows: boolean;
   /** When `main` was last published, if the role can read it. */
   main: { commit: string; publishedAt: Date } | null;
 }
@@ -277,18 +279,31 @@ export interface HostedCheckDependencies {
  * beyond when it was last referenced, or escape the row security that keeps
  * it off main's page.
  */
+export type PrivilegeProbe =
+  | { table: string; privilege: string; column?: string }
+  | { function: string; privilege: "EXECUTE" };
+
+const DIGESTS_VALID = "tieline_screen_digests_valid(text[])";
+
 export const PUBLISHER_PRIVILEGES: {
-  required: ReadonlyArray<{ table: string; privilege: string; column?: string }>;
-  forbidden: ReadonlyArray<{ table: string; privilege: string; column?: string }>;
+  required: readonly PrivilegeProbe[];
+  forbidden: readonly PrivilegeProbe[];
 } = {
   required: [
     { table: "screen_snapshots", privilege: "SELECT" },
     { table: "screen_snapshots", privilege: "INSERT" },
-    { table: "screen_snapshots", privilege: "UPDATE", column: "page_html" },
+    // Replacing a published page sets every one of these.
+    ...["head_commit", "manifest", "images", "page_html", "published_at", "closed_at"].map((column) => ({
+      table: "screen_snapshots",
+      privilege: "UPDATE",
+      column,
+    })),
     { table: "screen_images", privilege: "SELECT" },
     { table: "screen_images", privilege: "INSERT" },
     { table: "screen_images", privilege: "UPDATE", column: "last_referenced_at" },
+    { table: "repositories", privilege: "SELECT", column: "id" },
     { table: "repositories", privilege: "SELECT", column: "key" },
+    { function: DIGESTS_VALID, privilege: "EXECUTE" },
   ],
   forbidden: [
     { table: "screen_snapshots", privilege: "DELETE" },
@@ -300,7 +315,25 @@ export const PUBLISHER_PRIVILEGES: {
   ],
 };
 
-export function privilegeName(entry: { table: string; privilege: string; column?: string }): string {
+/**
+ * What repository sync needs to publish main's page, keep its history, apply
+ * retention, and record change events (migrations 0005 and 0006). Row security
+ * must also let it write main's row, which only tieline_repository_sync's
+ * policy does.
+ */
+export const SYNC_PRIVILEGES: { required: readonly PrivilegeProbe[] } = {
+  required: [
+    ...["screen_snapshots", "screen_images", "screen_history"].flatMap((table) =>
+      ["SELECT", "INSERT", "UPDATE", "DELETE"].map((privilege) => ({ table, privilege }))
+    ),
+    { table: "contract_change_events", privilege: "SELECT" },
+    { table: "contract_change_events", privilege: "INSERT" },
+    { function: DIGESTS_VALID, privilege: "EXECUTE" },
+  ],
+};
+
+export function privilegeName(entry: PrivilegeProbe): string {
+  if ("function" in entry) return `${entry.privilege} on ${entry.function}`;
   return `${entry.privilege} on ${entry.table}${entry.column ? ` (${entry.column})` : ""}`;
 }
 
@@ -310,21 +343,38 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
     const [state] = await sql<{ user: string; ready: boolean }[]>`
       select current_user as user, to_regclass('public.screen_snapshots') is not null as ready`;
     if (!state?.ready) {
-      return { user: state?.user ?? "unknown", ready: false, canRead: false, canWrite: false, privileges: {}, bypassesRowSecurity: false, main: null };
+      return {
+        user: state?.user ?? "unknown",
+        ready: false,
+        canRead: false,
+        canWrite: false,
+        privileges: {},
+        bypassesRowSecurity: false,
+        writesMainRows: false,
+        main: null,
+      };
     }
     const [privileges] = await sql<{ can_read: boolean; can_write: boolean }[]>`
       select has_table_privilege('screen_snapshots', 'SELECT') as can_read,
              has_table_privilege('screen_snapshots', 'INSERT') as can_write`;
     const probed: Record<string, boolean> = {};
-    for (const entry of [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden]) {
-      const [row] = entry.column
-        ? await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`
-        : await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
-      probed[privilegeName(entry)] = row?.granted ?? false;
+    const probes = [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden, ...SYNC_PRIVILEGES.required];
+    for (const entry of probes) {
+      const name = privilegeName(entry);
+      if (name in probed) continue;
+      const [row] =
+        "function" in entry
+          ? await sql<{ granted: boolean }[]>`select has_function_privilege(${entry.function}, ${entry.privilege}) as granted`
+          : entry.column
+            ? await sql<{ granted: boolean }[]>`select has_column_privilege(${entry.table}, ${entry.column}, ${entry.privilege}) as granted`
+            : await sql<{ granted: boolean }[]>`select has_table_privilege(${entry.table}, ${entry.privilege}) as granted`;
+      probed[name] = row?.granted ?? false;
     }
-    const [security] = await sql<{ bypasses: boolean }[]>`
+    const [security] = await sql<{ bypasses: boolean; syncs: boolean }[]>`
       select (role.rolsuper or role.rolbypassrls
-              or (pg_has_role(current_user, snapshots.relowner, 'USAGE') and not snapshots.relforcerowsecurity)) as bypasses
+              or (pg_has_role(current_user, snapshots.relowner, 'USAGE') and not snapshots.relforcerowsecurity)) as bypasses,
+             coalesce((select pg_has_role(current_user, sync.oid, 'USAGE')
+                       from pg_roles sync where sync.rolname = 'tieline_repository_sync'), false) as syncs
       from pg_roles role, pg_class snapshots
       where role.rolname = current_user and snapshots.oid = 'screen_snapshots'::regclass`;
     let main: HostedDatabaseState["main"] = null;
@@ -343,6 +393,7 @@ async function queryDatabase(url: string, repositoryKey: string): Promise<Hosted
       canWrite: privileges?.can_write ?? false,
       privileges: probed,
       bypassesRowSecurity: security?.bypasses ?? false,
+      writesMainRows: (security?.bypasses ?? false) || (security?.syncs ?? false),
       main,
     };
   } finally {
@@ -360,8 +411,20 @@ export const DEFAULT_HOSTED_CHECK_DEPENDENCIES: HostedCheckDependencies = {
 const DATABASE_ROLES = [
   { variable: "DATABASE_URL", needs: "read" as const, purpose: "the hosted site reads published pages" },
   { variable: "DATABASE_URL_SCREENS_PUBLISH", needs: "publish" as const, purpose: "screens publish writes pull-request and branch pages" },
-  { variable: "DATABASE_URL_SYNC", needs: "write" as const, purpose: "contract sync publishes main" },
+  { variable: "DATABASE_URL_SYNC", needs: "sync" as const, purpose: "contract sync publishes main" },
 ];
+
+/**
+ * Why a credential cannot do repository sync's part: privileges it lacks, or
+ * row security that keeps it off main's page. Empty when it can.
+ */
+export function syncPrivilegeProblems(state: Pick<HostedDatabaseState, "privileges" | "writesMainRows">): string[] {
+  const missing = SYNC_PRIVILEGES.required.map(privilegeName).filter((name) => state.privileges[name] !== true);
+  return [
+    ...(missing.length > 0 ? [`lacks ${missing.join(", ")}, which sync needs`] : []),
+    ...(state.writesMainRows ? [] : ["is kept off main's page by row security"]),
+  ];
+}
 
 /**
  * Why a credential is not the capture publisher's: privileges publishing
@@ -436,9 +499,16 @@ async function checkDatabases(
     }
     try {
       const state = await dependencies.database(url, repositoryKey);
-      const allowed = role.needs === "read" ? state.canRead : state.canWrite;
       if (state.canRead && main === undefined) main = state.main;
-      const problems = role.needs === "publish" && state.ready ? publisherPrivilegeProblems(state) : [];
+      const problems = !state.ready
+        ? []
+        : role.needs === "publish"
+          ? publisherPrivilegeProblems(state)
+          : role.needs === "sync"
+            ? syncPrivilegeProblems(state)
+            : [];
+      const expected = role.needs === "publish" ? "the capture publisher role" : "the repository sync role";
+      const expectedRole = role.needs === "publish" ? "tieline_capture_publisher" : "tieline_repository_sync";
       results.push(
         !state.ready
           ? { check, status: "fail", detail: "the hosted screens tables are missing; run `tieline migrate`" }
@@ -446,7 +516,7 @@ async function checkDatabases(
             ? {
                 check,
                 status: "fail",
-                detail: `${state.user} is not the capture publisher role: it ${problems.join("; ")}; use tieline_capture_publisher`,
+                detail: `${state.user} is not ${expected}: it ${problems.join("; ")}; use ${expectedRole}`,
               }
           : role.needs === "read" && state.canWrite
             ? {
@@ -456,9 +526,11 @@ async function checkDatabases(
               }
           : role.needs === "publish"
             ? { check, status: "pass", detail: `${state.user} can publish, and nothing more: ${role.purpose}` }
-          : allowed
-            ? { check, status: "pass", detail: `${state.user} can ${role.needs}: ${role.purpose}` }
-            : { check, status: "fail", detail: `${state.user} cannot ${role.needs} published screens, but ${role.purpose}` }
+          : role.needs === "sync"
+            ? { check, status: "pass", detail: `${state.user} can sync and publish main: ${role.purpose}` }
+          : state.canRead
+            ? { check, status: "pass", detail: `${state.user} can read: ${role.purpose}` }
+            : { check, status: "fail", detail: `${state.user} cannot read published screens, but ${role.purpose}` }
       );
     } catch (error) {
       results.push({ check, status: "fail", detail: message(error) });

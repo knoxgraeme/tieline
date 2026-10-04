@@ -1,8 +1,10 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import {
   readObjectStoreSettings,
   S3ObjectStore,
+  type ObjectReader,
   type ObjectStore,
 } from "../adapters/object-store/s3.js";
 import { closeConnections, getScreensPublishSql, getSyncSql } from "../adapters/postgres/connections.js";
@@ -64,7 +66,7 @@ export type HostedScreensRepository = Pick<
 export interface HostedScreensDependencies {
   /** The database as the capture publisher or as repository sync. */
   repository(role: "publisher" | "sync"): HostedScreensRepository;
-  store(hosted: ScreensHostedConfig): ObjectStore;
+  store(hosted: ScreensHostedConfig): HostedImageStore;
   /** Releases every connection `repository` opened. */
   close(): Promise<void>;
   headCommit(root: string): string;
@@ -128,10 +130,15 @@ export interface MissingHostedImage {
   detail: string;
 }
 
+/** The bucket as publishing uses it: checking, reading back, and storing images. */
+export type HostedImageStore = ObjectStore & Pick<ObjectReader, "get">;
+
 export interface StoredHostedImages {
   referenced: number;
   uploaded: number;
   already_stored: number;
+  /** Images the bucket held with other bytes, stored again from the captures directory. */
+  repaired: number;
   missing: MissingHostedImage[];
 }
 
@@ -153,7 +160,7 @@ export async function storeHostedImages(input: {
   repositoryId: string;
   references: readonly HostedImageReference[];
   repository: HostedScreensRepository;
-  store: ObjectStore;
+  store: HostedImageStore;
   signal?: AbortSignal;
 }): Promise<StoredHostedImages> {
   const local = new Map<string, LocalImageState>();
@@ -183,6 +190,34 @@ export async function storeHostedImages(input: {
   const absent = input.references.filter((_, index) => !present[index]);
   const missing: MissingHostedImage[] = [];
   let uploaded = 0;
+  // A stored image the captures directory can supply is read back and
+  // compared, and stored again when its bytes are not the ones its digest
+  // names, so a publish never reports an image as stored that the site would
+  // refuse. One the captures directory cannot supply is only checked to exist:
+  // reading back every image on every publish would cost more than it guards,
+  // and the site refuses mismatched bytes anyway.
+  let repaired = 0;
+  const verifiable = input.references.filter(
+    (reference, index) => present[index] && local.get(reference.digest)?.status === "ok"
+  );
+  await settleEach(verifiable, async (reference) => {
+    const key = hostedImageKey(input.repositoryKey, reference.digest);
+    let stored: Uint8Array | null;
+    try {
+      stored = await input.store.get(key, HOSTED_SCREEN_LIMITS.imageBytes, input.signal);
+    } catch (error) {
+      if (!(error instanceof Error && /larger than/.test(error.message))) throw error;
+      stored = null;
+    }
+    if (stored && createHash("sha256").update(stored).digest("hex") === reference.digest) return;
+    const read = readLocalHostedImage(input.settings, reference);
+    if (read.status !== "ok") {
+      missing.push({ digest: reference.digest, screens: reference.screens, detail: `stored with other bytes, and ${read.detail}` });
+      return;
+    }
+    await input.store.put(key, read.image.bytes, read.image.contentType, input.signal);
+    repaired += 1;
+  });
   await settleEach(absent, async (reference) => {
     // Read again rather than keep every image in memory, and prove again that
     // the bytes are the ones the catalog names.
@@ -202,7 +237,8 @@ export async function storeHostedImages(input: {
   return {
     referenced: input.references.length,
     uploaded,
-    already_stored: input.references.length - absent.length,
+    already_stored: input.references.length - absent.length - repaired,
+    repaired,
     missing: missing.sort((left, right) => left.digest.localeCompare(right.digest)),
   };
 }
@@ -420,7 +456,9 @@ export async function runScreensPublishCommand(
       return 0;
     }
     io.write(
-      `Published ${escapeTerminalText(label)} at ${commit.slice(0, 12)}: ${images.referenced} image(s), ${images.uploaded} uploaded and ${images.already_stored} already stored.\n${
+      `Published ${escapeTerminalText(label)} at ${commit.slice(0, 12)}: ${images.referenced} image(s), ${images.uploaded} uploaded and ${images.already_stored} already stored${
+        images.repaired > 0 ? `; ${images.repaired} stored with other bytes were stored again` : ""
+      }.\n${
         comparison.changes
           ? `Changes against main: ${comparison.changes.records.filter((record) => record.kind === "story").length} Stories, ${comparison.changes.records.filter((record) => record.kind === "acceptance_criterion").length} acceptance criteria, ${comparison.changes.screens.length} screens.\n`
           : `Changes against main are not shown: ${comparison.unavailable}\n`
@@ -497,7 +535,7 @@ export async function publishMainScreens(input: {
   commit: string;
   settings: HostedSettings;
   repository: HostedScreensRepository;
-  store: ObjectStore;
+  store: HostedImageStore;
   signal?: AbortSignal;
 }): Promise<MainScreensResult> {
   const commit = input.commit;

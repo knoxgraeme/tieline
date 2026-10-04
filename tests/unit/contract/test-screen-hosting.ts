@@ -158,6 +158,15 @@ class FakeStore implements ObjectStore {
     return this.objects.has(key);
   }
 
+  async get(key: string, maxBytes: number): Promise<Uint8Array | null> {
+    this.calls.push(`get ${key}`);
+    const object = this.objects.get(key);
+    if (object && object.bytes.byteLength > maxBytes) {
+      throw new ObjectStoreError(`Object storage GET '${key}' is larger than ${maxBytes} bytes.`, 200, key);
+    }
+    return object?.bytes ?? null;
+  }
+
   async put(key: string, body: Uint8Array, contentType: string): Promise<void> {
     this.calls.push(`put ${key}`);
     if (this.failPut === key) throw new ObjectStoreError(`Object storage PUT '${key}' failed: HTTP 403 (AccessDenied).`, 403, key);
@@ -676,7 +685,7 @@ await test("publishes a pull request: records images, uploads what the bucket la
   const result = JSON.parse(output()) as Record<string, unknown>;
   assert.equal(result.published, true);
   assert.equal(result.ref, "pr-42");
-  assert.deepEqual(result.images, { referenced: 2, uploaded: 1, already_stored: 1, missing: [] });
+  assert.deepEqual(result.images, { referenced: 2, uploaded: 1, already_stored: 1, repaired: 0, missing: [] });
   assert.deepEqual((result.changes as { screens: unknown }).screens, { added: 0, changed: 1, removed: 0 });
 
   // Images are recorded as referenced before the bucket is checked, and the
@@ -708,6 +717,32 @@ await test("publishes a pull request: records images, uploads what the bucket la
     "an image given by URL is shown as given"
   );
   assert.ok(!snapshot.pageHtml.includes(".tieline/captures"), "a hosted page never points at the captures directory");
+});
+
+await test("stores again an image the bucket holds with other bytes, when the captures directory has it", async () => {
+  const ws = hostedWorkspace();
+  const repository = new FakeRepository();
+  const store = new FakeStore();
+  // The list's key holds other bytes; the empty state's holds its own.
+  store.objects.set(imageKey(LIST_IMAGE), { bytes: Buffer.from("overwritten"), contentType: "image/png" });
+  store.objects.set(imageKey(EMPTY_IMAGE), { bytes: EMPTY_IMAGE, contentType: "image/png" });
+  const { io, output } = captureIO();
+  assert.equal(await runScreensPublishCommand({ repository: ws.root, pullRequest: "7", json: true }, io, dependencies(repository, store)), 0);
+  const result = JSON.parse(output()) as { images: Record<string, unknown> };
+  assert.deepEqual(result.images, { referenced: 2, uploaded: 0, already_stored: 1, repaired: 1, missing: [] });
+  assert.deepEqual(Buffer.from(store.objects.get(imageKey(LIST_IMAGE))!.bytes), LIST_IMAGE);
+  // Both were read back, and only the wrong one was stored again.
+  assert.deepEqual(store.calls.filter((call) => call.startsWith("get")).sort(), [`get ${imageKey(EMPTY_IMAGE)}`, `get ${imageKey(LIST_IMAGE)}`].sort());
+  assert.deepEqual(store.calls.filter((call) => call.startsWith("put")), [`put ${imageKey(LIST_IMAGE)}`]);
+
+  // Without a local copy there is nothing to repair from, so a stored image
+  // is only checked to exist; the site refuses bytes that do not match.
+  const bare = hostedWorkspace({ images: false });
+  const bareStore = new FakeStore();
+  bareStore.objects.set(imageKey(LIST_IMAGE), { bytes: Buffer.from("overwritten"), contentType: "image/png" });
+  bareStore.objects.set(imageKey(EMPTY_IMAGE), { bytes: EMPTY_IMAGE, contentType: "image/png" });
+  assert.equal(await runScreensPublishCommand({ repository: bare.root, pullRequest: "8", json: true }, captureIO().io, dependencies(new FakeRepository(), bareStore)), 0);
+  assert.deepEqual(bareStore.calls.filter((call) => call.startsWith("get") || call.startsWith("put")), []);
 });
 
 await test("publishes when a screenshot is not on disk but the bucket already holds it", async () => {
@@ -821,7 +856,7 @@ await test("publishes main without a comparison and passes each screen's image f
     store,
   });
   assert.equal(result.outcome, "published");
-  assert.deepEqual(result.outcome === "published" && result.images, { referenced: 2, uploaded: 2, already_stored: 0, missing: [] });
+  assert.deepEqual(result.outcome === "published" && result.images, { referenced: 2, uploaded: 2, already_stored: 0, repaired: 0, missing: [] });
   assert.deepEqual(
     [...repository.lastScreenImages!].sort(),
     [

@@ -42,6 +42,9 @@ class MemoryStore implements ObjectStore {
   async head(key: string): Promise<boolean> {
     return this.objects.has(key);
   }
+  async get(key: string): Promise<Uint8Array | null> {
+    return this.objects.get(key) ?? null;
+  }
   async put(key: string, body: Uint8Array): Promise<void> {
     this.objects.set(key, body);
   }

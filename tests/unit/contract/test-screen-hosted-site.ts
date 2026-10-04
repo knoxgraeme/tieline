@@ -16,6 +16,7 @@ import {
   DEFAULT_HOSTED_DIRECTORY,
   PUBLISHER_PRIVILEGES,
   privilegeName,
+  SYNC_PRIVILEGES,
   runHostedCheckCommand,
   runHostedInitCommand,
   SITE_CHECK_REDIRECTS,
@@ -388,13 +389,18 @@ function checkDependencies(options: {
   };
 }
 
-/** What each role holds, from the publisher's point of view: granted, refused, or everything. */
+/** What each role holds of the privileges the check probes: as migrations 0005 and 0006 grant them. */
 function privilegesOf(kind: "reader" | "publisher" | "sync"): Record<string, boolean> {
-  const all = [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden];
+  const all = [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden, ...SYNC_PRIVILEGES.required];
+  const publisher = new Set(PUBLISHER_PRIVILEGES.required.map(privilegeName));
   return Object.fromEntries(
     all.map((entry) => [
       privilegeName(entry),
-      kind === "sync" ? true : kind === "publisher" ? PUBLISHER_PRIVILEGES.required.includes(entry) : entry.privilege === "SELECT",
+      kind === "sync"
+        ? true
+        : kind === "publisher"
+          ? publisher.has(privilegeName(entry))
+          : entry.privilege === "SELECT",
     ])
   );
 }
@@ -406,6 +412,7 @@ const READY = (user: string, canWrite: boolean, kind: "reader" | "publisher" | "
   canWrite,
   privileges: privilegesOf(kind),
   bypassesRowSecurity: false,
+  writesMainRows: kind === "sync",
   main: { commit: "c".repeat(40), publishedAt: new Date("2026-10-01T00:00:00Z") },
 });
 
@@ -470,7 +477,7 @@ await test("fails when the site serves anonymous visitors, storage refuses, or a
   assert.match(byCheck.get("database DATABASE_URL")!.detail, /tieline_capture_publisher can also write published screens; the hosted site must use the read-only reader role/);
   assert.match(
     byCheck.get("database DATABASE_URL_SCREENS_PUBLISH")!.detail,
-    /tieline_reader is not the capture publisher role: it lacks INSERT on screen_snapshots, UPDATE on screen_snapshots \(page_html\), INSERT on screen_images, UPDATE on screen_images \(last_referenced_at\), which publishing needs/
+    /tieline_reader is not the capture publisher role: it lacks INSERT on screen_snapshots, UPDATE on screen_snapshots \(head_commit\), UPDATE on screen_snapshots \(manifest\), [^;]*INSERT on screen_images, UPDATE on screen_images \(last_referenced_at\), EXECUTE on tieline_screen_digests_valid\(text\[\]\), which publishing needs; use tieline_capture_publisher/
   );
   assert.match(byCheck.get("database DATABASE_URL_SYNC")!.detail, /password authentication failed/);
   assert.match(byCheck.get("site /")!.detail, /answered without a login \(HTTP 200\); turn on the host's access control/);
@@ -497,6 +504,33 @@ await test("accepts only the publisher role for publishing: not more, not less",
   // Exactly the grants, but row security does not bind it: it could write main.
   const owner = { ...READY("table_owner", true), bypassesRowSecurity: true };
   assert.match((await check(owner)).detail, /is not bound by row security, so it could write main's page/);
+  // Replacing a page sets every snapshot column, and the lookup reads the repository's id.
+  for (const column of ["head_commit", "manifest", "images", "published_at", "closed_at"]) {
+    const partial = READY("partial", true);
+    partial.privileges = { ...partial.privileges, [privilegeName({ table: "screen_snapshots", privilege: "UPDATE", column })]: false };
+    assert.match((await check(partial)).detail, new RegExp(`lacks UPDATE on screen_snapshots \\(${column}\\)`), column);
+  }
+  const noId = READY("no-id", true);
+  noId.privileges = { ...noId.privileges, [privilegeName({ table: "repositories", privilege: "SELECT", column: "id" })]: false };
+  assert.match((await check(noId)).detail, /lacks SELECT on repositories \(id\)/);
+});
+
+await test("accepts only a role that can do repository sync's part for syncing", async () => {
+  const ws = hostedWorkspace();
+  const check = async (state: HostedDatabaseState) => {
+    const { io, output } = captureIO();
+    const dependencies = checkDependencies({ env: { DATABASE_URL_SYNC: "postgres://s" }, databases: { "postgres://s": state } });
+    const code = await runHostedCheckCommand({ repository: ws.root, json: true }, io, dependencies);
+    return { code, detail: (JSON.parse(output()) as { results: Array<{ check: string; detail: string }> }).results.find((entry) => entry.check === "database DATABASE_URL_SYNC")!.detail };
+  };
+  const sync = await check(READY("tieline_repository_sync", true, "sync"));
+  assert.equal(sync.code, 0);
+  assert.match(sync.detail, /tieline_repository_sync can sync and publish main/);
+  // The publisher can insert snapshots too, but row security keeps it off
+  // main's page and it lacks the deletes and history sync needs.
+  const publisher = await check(READY("tieline_capture_publisher", true));
+  assert.equal(publisher.code, 1);
+  assert.match(publisher.detail, /tieline_capture_publisher is not the repository sync role: it lacks UPDATE on screen_snapshots, DELETE on screen_snapshots, [^;]*which sync needs; is kept off main's page by row security; use tieline_repository_sync/);
 });
 
 await test("follows redirects to see whether the site ends at a login or at itself", async () => {
