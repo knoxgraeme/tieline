@@ -494,6 +494,9 @@ capability:
             - given: two pull requests merged between two syncs
               when: the second sync runs
               then: each change must be recorded with the pull request that made it
+            - given: a clone that cannot read some commits in the synced history, such as a partial clone
+              when: sync records change events
+              then: it must not record changes newer than those commits, so a later sync that can read them records the gap and what followed it
           links:
             - relation: implements
               provenance: authored
@@ -1765,6 +1768,12 @@ capability:
             - given: an object in the bucket was overwritten after its image was published
               when: a visitor requests that image
               then: the site must refuse it rather than serve the new bytes
+            - given: a published image too large for the host to return whose bytes in the bucket were replaced
+              when: a visitor requests it
+              then: the site must refuse it instead of redirecting to the bucket
+            - given: a catalog image given by an http URL
+              when: its screen is shown on a hosted page, which allows only https images
+              then: the page must show the screen without a picture rather than a broken image
           links:
             - relation: implements
               provenance: authored
@@ -1801,6 +1810,18 @@ capability:
             - given: the host's access control protects static files but not the site's functions
               when: tieline hosted check runs against the site
               then: Tieline must fail because the site answered a visitor who had not logged in
+            - given: the publishing credential is the sync role, an owner, or another role that can delete, write history, or escape row security
+              when: tieline hosted check runs
+              then: Tieline must fail and name what a capture job must not hold, as it must for a role that lacks what publishing needs
+            - given: the site redirects an anonymous visitor to another host or page that serves the site
+              when: tieline hosted check runs
+              then: Tieline must follow at most a bounded number of redirects and fail, passing only on a 401 or 403 or a redirect to a login
+            - given: a check fails after the storage probe was written
+              when: tieline hosted check finishes
+              then: the probe object must still be deleted
+            - given: a symbolic link inside the site directory where a site file or directory goes
+              when: tieline hosted init runs, even with --force
+              then: Tieline must refuse without writing through the link
           links:
             - relation: implements
               provenance: authored

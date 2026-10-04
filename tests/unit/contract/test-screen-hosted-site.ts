@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import {
   ObjectStoreError,
@@ -13,8 +14,11 @@ import {
 import type { HostedImage, HostedPage } from "../../../src/adapters/postgres/hosted-screens-repository.js";
 import {
   DEFAULT_HOSTED_DIRECTORY,
+  PUBLISHER_PRIVILEGES,
+  privilegeName,
   runHostedCheckCommand,
   runHostedInitCommand,
+  SITE_CHECK_REDIRECTS,
   type HostedCheckDependencies,
   type HostedDatabaseState,
 } from "../../../src/commands/hosted.js";
@@ -170,14 +174,27 @@ await test("serves an image only while its bytes still match its digest", async 
   assert.equal((await createHostedScreensHandler({ repositoryKey: REPO_KEY, stores: gone.stores })(request(`/images/${DIGEST}`))).status, 404);
 });
 
-await test("redirects an image too large to send to a link that lasts a minute", async () => {
-  const { stores, calls } = siteStores({ images: { [DIGEST]: { contentType: "image/png", byteSize: HOSTED_SITE_LIMITS.responseBytes + 1 } } });
-  const response = await createHostedScreensHandler({ repositoryKey: REPO_KEY, stores })(request(`/images/${DIGEST}`));
+await test("redirects an image too large to send to a link that lasts a minute, once its bytes are checked", async () => {
+  const key = `${REPO_KEY}/sha256/${DIGEST}`;
+  const image = { contentType: "image/png", byteSize: PNG.byteLength };
+  // A response limit smaller than the image stands in for a 4 MB one.
+  const { stores, calls } = siteStores({ images: { [DIGEST]: image }, objects: { [key]: PNG } });
+  const response = await createHostedScreensHandler({ repositoryKey: REPO_KEY, stores, responseBytes: 8 })(request(`/images/${DIGEST}`));
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("location"), `https://storage.example.test/${REPO_KEY}/sha256/${DIGEST}?signed`);
+  assert.equal(response.headers.get("location"), `https://storage.example.test/${key}?signed`);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
-  assert.ok(calls.includes(`presign ${REPO_KEY}/sha256/${DIGEST} 60`));
-  assert.ok(!calls.some((call) => call.startsWith("get")));
+  assert.deepEqual(calls.filter((call) => !call.startsWith("image")), [`get ${key} ${PNG.byteLength}`, `presign ${key} 60`]);
+
+  // Bytes replaced in the bucket are refused, large or not: no link is handed out.
+  const lines: string[] = [];
+  const tampered = siteStores({ images: { [DIGEST]: image }, objects: { [key]: Buffer.from("replaced bytes, same length") } });
+  const refused = await createHostedScreensHandler({ repositoryKey: REPO_KEY, stores: tampered.stores, responseBytes: 8, log: (line) => lines.push(line) })(
+    request(`/images/${DIGEST}`)
+  );
+  assert.equal(refused.status, 502);
+  assert.equal(refused.headers.get("location"), null);
+  assert.ok(!tampered.calls.some((call) => call.startsWith("presign")));
+  assert.match(lines.join("\n"), /does not match its digest/);
 });
 
 await test("reports a store failure as unavailable, logging the cause but not sending it", async () => {
@@ -294,14 +311,44 @@ await test("leaves edited files alone unless forced, and stays inside the reposi
   assert.ok(!existsSync(`${off.root}/${DEFAULT_HOSTED_DIRECTORY}`));
 });
 
+await test("never writes the site through a symbolic link inside its directory", () => {
+  const ws = hostedWorkspace();
+  const { io } = captureIO();
+  const outside = mkdtempSync(resolve(tmpdir(), "tieline-hosted-outside-"));
+  try {
+    // A link where a site subdirectory goes: refused before anything is written.
+    mkdirSync(`${ws.root}/site`, { recursive: true });
+    symlinkSync(outside, `${ws.root}/site/functions`);
+    assert.throws(() => runHostedInitCommand({ repository: ws.root, host: "netlify", directory: "site" }, io), /site\/functions' is a symbolic link or not a directory/);
+    assert.deepEqual(readdirSync(outside), [], "nothing was written outside the repository");
+    assert.equal(existsSync(`${ws.root}/site/netlify.toml`), false, "and nothing inside either");
+
+    // A link where a site file goes: refused even with --force.
+    rmSync(`${ws.root}/site/functions`);
+    writeFileSync(`${outside}/victim.txt`, "keep me\n");
+    symlinkSync(`${outside}/victim.txt`, `${ws.root}/site/netlify.toml`);
+    assert.throws(
+      () => runHostedInitCommand({ repository: ws.root, host: "netlify", directory: "site", force: true }, io),
+      /site\/netlify\.toml' is a symbolic link or not a regular file/
+    );
+    assert.equal(readFileSync(`${outside}/victim.txt`, "utf8"), "keep me\n");
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 console.log("hosted site: check");
 
 class ProbeStore implements ObjectStore {
   readonly objects = new Map<string, Uint8Array>();
   readonly calls: string[] = [];
-  constructor(private readonly failure: string | null = null) {}
+  constructor(
+    private readonly failure: string | null = null,
+    private readonly headFailure: string | null = null
+  ) {}
   async head(key: string): Promise<boolean> {
     this.calls.push("head");
+    if (this.headFailure) throw new ObjectStoreError(this.headFailure, 403, key);
     return this.objects.has(key);
   }
   async put(key: string, body: Uint8Array): Promise<void> {
@@ -335,16 +382,30 @@ function checkDependencies(options: {
     fetch: (async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(String(input));
       requested.push(`${url.pathname} ${init?.redirect}`);
-      return options.site?.[url.pathname.startsWith("/images/") ? "/images" : url.pathname] ?? new Response(null, { status: 404 });
+      const path = url.pathname.startsWith("/images/") ? "/images" : url.pathname;
+      return options.site?.[`${url.host}${path}`] ?? options.site?.[path] ?? new Response(null, { status: 404 });
     }) as typeof fetch,
   };
 }
 
-const READY = (user: string, canWrite: boolean): HostedDatabaseState => ({
+/** What each role holds, from the publisher's point of view: granted, refused, or everything. */
+function privilegesOf(kind: "reader" | "publisher" | "sync"): Record<string, boolean> {
+  const all = [...PUBLISHER_PRIVILEGES.required, ...PUBLISHER_PRIVILEGES.forbidden];
+  return Object.fromEntries(
+    all.map((entry) => [
+      privilegeName(entry),
+      kind === "sync" ? true : kind === "publisher" ? PUBLISHER_PRIVILEGES.required.includes(entry) : entry.privilege === "SELECT",
+    ])
+  );
+}
+
+const READY = (user: string, canWrite: boolean, kind: "reader" | "publisher" | "sync" = canWrite ? "publisher" : "reader"): HostedDatabaseState => ({
   user,
   ready: true,
   canRead: true,
   canWrite,
+  privileges: privilegesOf(kind),
+  bypassesRowSecurity: false,
   main: { commit: "c".repeat(40), publishedAt: new Date("2026-10-01T00:00:00Z") },
 });
 
@@ -372,10 +433,10 @@ await test("passes when the bucket round-trips, each credential can do its job, 
   assert.deepEqual(dependencies.requested, ["/ manual", `/images/${"0".repeat(64)} manual`]);
   assert.match(output(), /pass  storage: wrote, found, and deleted a probe object in bucket acme-screens/);
   assert.match(output(), /pass  database DATABASE_URL: tieline_reader can read: the hosted site reads published pages/);
-  assert.match(output(), /pass  database DATABASE_URL_SCREENS_PUBLISH: tieline_capture_publisher can write/);
+  assert.match(output(), /pass  database DATABASE_URL_SCREENS_PUBLISH: tieline_capture_publisher can publish, and nothing more/);
   assert.match(output(), /skip  database DATABASE_URL_SYNC: not set/);
   assert.match(output(), /pass  site \/: asks for a login \(HTTP 401\)/);
-  assert.match(output(), /pass  site \/images\/<digest>: asks for a login \(HTTP 302\)/);
+  assert.match(output(), /pass  site \/images\/<digest>: redirects to a login at app\.netlify\.com\/login \(HTTP 302\)/);
   assert.match(output(), /note  main was last published at 2026-10-01T00:00:00\.000Z \(commit cccccccccccc\)/);
 });
 
@@ -407,10 +468,89 @@ await test("fails when the site serves anonymous visitors, storage refuses, or a
   const byCheck = new Map(result.results.map((entry) => [entry.check, entry]));
   assert.match(byCheck.get("storage")!.detail, /AccessDenied/);
   assert.match(byCheck.get("database DATABASE_URL")!.detail, /tieline_capture_publisher can also write published screens; the hosted site must use the read-only reader role/);
-  assert.match(byCheck.get("database DATABASE_URL_SCREENS_PUBLISH")!.detail, /tieline_reader cannot write published screens/);
+  assert.match(
+    byCheck.get("database DATABASE_URL_SCREENS_PUBLISH")!.detail,
+    /tieline_reader is not the capture publisher role: it lacks INSERT on screen_snapshots, UPDATE on screen_snapshots \(page_html\), INSERT on screen_images, UPDATE on screen_images \(last_referenced_at\), which publishing needs/
+  );
   assert.match(byCheck.get("database DATABASE_URL_SYNC")!.detail, /password authentication failed/);
   assert.match(byCheck.get("site /")!.detail, /answered without a login \(HTTP 200\); turn on the host's access control/);
   assert.equal(byCheck.get("site /images/<digest>")!.status, "fail", "even a 404 from the site means it let an anonymous visitor in");
+});
+
+await test("accepts only the publisher role for publishing: not more, not less", async () => {
+  const ws = hostedWorkspace();
+  const check = async (state: HostedDatabaseState) => {
+    const { io, output } = captureIO();
+    const dependencies = checkDependencies({ env: { DATABASE_URL_SCREENS_PUBLISH: "postgres://p" }, databases: { "postgres://p": state } });
+    const code = await runHostedCheckCommand({ repository: ws.root, json: true }, io, dependencies);
+    return { code, detail: (JSON.parse(output()) as { results: Array<{ check: string; detail: string }> }).results.find((entry) => entry.check === "database DATABASE_URL_SCREENS_PUBLISH")!.detail };
+  };
+  assert.equal((await check(READY("tieline_capture_publisher", true))).code, 0);
+  // The sync role can write too, but it can also delete and write main and its history.
+  const sync = await check(READY("tieline_repository_sync", true, "sync"));
+  assert.equal(sync.code, 1);
+  assert.match(sync.detail, /holds DELETE on screen_snapshots, DELETE on screen_images, UPDATE on screen_images \(byte_size\), INSERT on screen_history, UPDATE on screen_history, DELETE on screen_history, which a capture job must not/);
+  // A role that can only insert cannot replace a page it published before.
+  const insertOnly = READY("inserter", true);
+  insertOnly.privileges = { ...insertOnly.privileges, [privilegeName({ table: "screen_snapshots", privilege: "UPDATE", column: "page_html" })]: false };
+  assert.match((await check(insertOnly)).detail, /lacks UPDATE on screen_snapshots \(page_html\), which publishing needs/);
+  // Exactly the grants, but row security does not bind it: it could write main.
+  const owner = { ...READY("table_owner", true), bypassesRowSecurity: true };
+  assert.match((await check(owner)).detail, /is not bound by row security, so it could write main's page/);
+});
+
+await test("follows redirects to see whether the site ends at a login or at itself", async () => {
+  const ws = hostedWorkspace();
+  const run = async (site: Record<string, Response>) => {
+    const { io, output } = captureIO();
+    await runHostedCheckCommand({ repository: ws.root, url: "https://screens.example.test", json: true }, io, checkDependencies({ site }));
+    return new Map((JSON.parse(output()) as { results: Array<{ check: string; status: string; detail: string }> }).results.map((entry) => [entry.check, entry]));
+  };
+  const answered = new Response("<h1>notes</h1>", { status: 200, headers: { [HOSTED_SITE_HEADER]: "1" } });
+  // An alias redirected to the canonical host, which serves the page: not protected.
+  const alias = await run({
+    "screens.example.test/": new Response(null, { status: 301, headers: { location: "https://canonical.example.test/" } }),
+    "canonical.example.test/": answered,
+    "/images": new Response(null, { status: 401 }),
+  });
+  assert.equal(alias.get("site /")!.status, "fail");
+  assert.match(alias.get("site /")!.detail, /answered without a login \(HTTP 200\) after 1 redirect\(s\), at canonical\.example\.test\//);
+  // A redirect to a login that returns here, as identity providers do: protected.
+  const login = await run({
+    "/": new Response(null, {
+      status: 302,
+      headers: { location: `https://id.example.test/start?return_to=${encodeURIComponent("https://screens.example.test/")}` },
+    }),
+    "/images": new Response(null, { status: 302, headers: { location: "https://id.example.test/cdn-cgi/access/login/screens" } }),
+  });
+  assert.equal(login.get("site /")!.status, "pass");
+  assert.match(login.get("site /")!.detail, /redirects to a login at id\.example\.test\/start \(HTTP 302\)/);
+  assert.equal(login.get("site /images/<digest>")!.status, "pass");
+  // A redirect to some other public page is not a login.
+  const elsewhere = await run({
+    "/": new Response(null, { status: 302, headers: { location: "https://www.example.test/" } }),
+    "www.example.test/": new Response("<h1>Welcome</h1>", { status: 200 }),
+    "/images": new Response(null, { status: 403 }),
+  });
+  assert.equal(elsewhere.get("site /")!.status, "fail");
+  assert.match(elsewhere.get("site /")!.detail, /HTTP 200 after 1 redirect\(s\), at www\.example\.test\/ came from something other than the hosted site or a login/);
+  // Redirects are bounded.
+  const loop = await run({
+    "/": new Response(null, { status: 302, headers: { location: "/" } }),
+    "/images": new Response(null, { status: 401 }),
+  });
+  assert.match(loop.get("site /")!.detail, new RegExp(`more than ${SITE_CHECK_REDIRECTS} redirects`));
+});
+
+await test("deletes the storage probe when a check fails after writing it", async () => {
+  const ws = hostedWorkspace();
+  const store = new ProbeStore(null, "Object storage HEAD failed: HTTP 403 (AccessDenied).");
+  const { io, output } = captureIO();
+  const dependencies = checkDependencies({ env: { AWS_ACCESS_KEY_ID: "AKIDEXAMPLE", AWS_SECRET_ACCESS_KEY: "secret" }, store });
+  assert.equal(await runHostedCheckCommand({ repository: ws.root }, io, dependencies), 1);
+  assert.deepEqual(store.calls, ["put", "head", "delete"]);
+  assert.equal(store.objects.size, 0, "the probe was removed even though the check failed");
+  assert.match(output(), /fail  storage: Object storage HEAD failed: HTTP 403 \(AccessDenied\)\./);
 });
 
 await test("skips what this environment cannot check and refuses an http site URL", async () => {

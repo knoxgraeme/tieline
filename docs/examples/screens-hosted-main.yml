@@ -7,10 +7,14 @@ on:
 permissions:
   contents: read
 
-# Syncs run one at a time, in order; a sync is never cancelled half-way.
+# Syncs run one at a time, in order; a sync is never cancelled half-way, and
+# no push waits in vain: by default GitHub keeps one pending run and cancels
+# the rest, which would leave the next sync's --expected-previous-commit
+# naming a commit that was never synced, and every later sync failing.
 concurrency:
   group: screens-main
   cancel-in-progress: false
+  queue: max
 
 jobs:
   sync:

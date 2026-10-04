@@ -190,6 +190,29 @@ await test("reports commits a partial clone does not hold, without fetching them
   assert.deepEqual(history.changes.filter((change) => change.commit.pull_request === 4), []);
 });
 
+await test("keeps what a recorder stores behind commits it cannot read", () => {
+  const ws = historyWorkspace();
+  git(ws.root, "config", "uploadpack.allowFilter", "true");
+  const clone = mkdtempSync(join(tmpdir(), "tieline-history-gap-"));
+  directories.push(clone);
+  execFileSync("git", ["clone", "-q", "--filter=blob:none", `file://${ws.root}`, clone], { stdio: "ignore" });
+  // Fetch the manifest before HEAD too, so HEAD's change is readable while
+  // older commits are not; then make the source unreachable.
+  git(clone, "checkout", "-q", "HEAD~1");
+  git(clone, "checkout", "-q", "-");
+  git(clone, "remote", "set-url", "origin", "file:///nonexistent/tieline-history");
+  const history = readContractHistory(clone, MANIFEST);
+  assert.ok(history.unreadable.length > 0);
+  assert.ok(history.changes.some((change) => change.commit.pull_request === 4), "the newest commit's change is known");
+  // But it is newer than a commit whose changes are unknown, so a recorder
+  // resuming after its newest change must not store it yet.
+  assert.deepEqual(history.beforeUnreadable.filter((change) => change.commit.pull_request === 4), []);
+  assert.ok(history.beforeUnreadable.every((change) => history.changes.includes(change)));
+  // With every commit readable, nothing is held back.
+  const full = readContractHistory(ws.root, MANIFEST);
+  assert.deepEqual(full.beforeUnreadable, full.changes);
+});
+
 await test("links pull requests and commits for GitHub remotes only", () => {
   const ws = historyWorkspace();
   assert.equal(githubRepositoryUrl(ws.root), null);

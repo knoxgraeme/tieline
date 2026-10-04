@@ -301,7 +301,10 @@ history as [`contract history`](#history) reads it. The first sync records the h
 (at most 2000 commits that changed the contract); each later one records what changed after the
 last recorded commit, so several pull requests merged between syncs are each recorded. Recording
 the same commit again changes nothing. When the synced commit is not a git commit (an explicit
-`--commit` label) or git history cannot be read, sync says so and is otherwise unchanged; when the
+`--commit` label) or git history cannot be read, sync says so and is otherwise unchanged. When
+some commits cannot be read, such as those a partial clone does not hold, changes newer than
+them wait: recording them would move the resume point past the gap, so a later sync, once git
+can read those commits, records the gap and what followed it; when the
 database refuses the events, the contract stays synced, sync exits 1, and running it again
 records what was missed. Run `tieline migrate` after upgrading so the table exists.
 

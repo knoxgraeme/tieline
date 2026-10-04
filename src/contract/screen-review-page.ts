@@ -138,7 +138,12 @@ function imageSource(
   screens: ContractReviewScreens
 ): ScreenReviewEntry["image"] {
   if (!locator) return null;
-  if ("url" in locator) return { src: locator.url, label: locator.url };
+  if ("url" in locator) {
+    // A hosted page allows only https images, so an http one is left out
+    // there rather than shown broken.
+    if (screens.hosted && !locator.url.startsWith("https:")) return null;
+    return { src: locator.url, label: locator.url };
+  }
   if (screens.hosted) {
     return locator.sha256 !== undefined && screens.hosted.served.has(locator.sha256)
       ? { src: hostedImageSource(locator.sha256), label: locator.path }
