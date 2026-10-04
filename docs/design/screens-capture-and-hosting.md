@@ -378,7 +378,7 @@ Step 2 follows sections 1 to 4, with these refinements found while building it:
   the app's Playwright configuration or running repository code; the capture run itself is the
   authority on which test captured which screen. A tag must be written literally to be found.
 - **`--verify` writes nothing**, not even git-ignored screenshots, unless hosted screens are
-  enabled; then it keeps the screenshots it reproduced exactly, so the same job can publish them.
+  enabled; then it keeps the screenshots it reproduced exactly, for the publish job.
 - **The fixture and reporter are CommonJS** (`tieline/playwright`), so they load in test projects
   Playwright compiles to CommonJS on every Node version Tieline supports, as well as in ESM
   projects. Tieline's package gained an `exports` map for that subpath; every existing file path
@@ -436,15 +436,16 @@ Step 4 follows section 5, simplified for the least moving parts:
   before its images can go.
 - **Publishing works from a developer's machine as well as CI,** with the publisher credentials;
   it never needs a deploy.
-- **The CI template publishes from the capture job, not a separate trusted job.** The data-flow
-  table above splits an untrusted capture job from a trusted publish job. The template instead
-  publishes in the capture job for pull requests from the repository itself and only verifies
-  pull requests from forks, which GitHub gives no secrets. Someone who can push a branch can
-  already change the workflows it runs, so the split protects only fork pull requests, which are
-  not published. What a misused credential can do stays small: the publisher role cannot touch
-  `main` or delete, and the site refuses an image whose bytes no longer match its digest. A
-  `workflow_run` publish job for fork pull requests can be added later without changing
-  `publish`.
+- **The CI template splits an untrusted capture job from a trusted publish job.** The capture
+  job runs the pull request's code and holds no credentials; it hands the screenshots it
+  reproduced to the publish job as an artifact. The publish job installs Tieline from the base
+  branch, checks the pull request out only to read it, and publishes with
+  `screens publish --repository`, re-hashing every screenshot. A first version published from
+  the capture job, reasoning that someone who can push a branch can already edit its workflow;
+  but a pull request's dependencies and tests run there too, and a compromised dependency needs
+  no push access to leave something behind for a later step. Pull requests from forks are
+  verified, not published, since GitHub gives them no secrets; a `workflow_run` publish job for
+  them can be added later without changing `publish`.
 - **The site re-checks every image's digest before serving it,** because a bucket credential
   could overwrite an object, and hands an image larger than the host can return to a presigned
   link that expires within a minute.

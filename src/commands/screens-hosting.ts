@@ -41,6 +41,7 @@ import {
   type HostedImageType,
 } from "../contract/screen-hosting.js";
 import { commitPullRequest, readReviewHistory } from "../contract/history.js";
+import { beforeImageDigest } from "../contract/screen-review-page.js";
 import type { ReviewHistory } from "../contract/review-page.js";
 import { renderHostedReviewPage } from "../tieline/review.js";
 import { escapeTerminalText, resolveCommandContext, type CommandIO } from "./shared.js";
@@ -298,6 +299,31 @@ function comparisonWithMain(
   }
 }
 
+/**
+ * Every image a pull request's page shows: its own, and `main`'s beside each
+ * screen whose image changed. Its snapshot keeps them all, so retention
+ * cannot delete one of `main`'s while the page still shows it.
+ */
+export function shownImages(
+  own: readonly string[],
+  comparison: ReviewComparison,
+  baseImages: ReadonlyMap<string, string>,
+  /** Each screen's image digest on the page, by key. */
+  currentImages: ReadonlyMap<string, string | undefined>
+): string[] {
+  const before = (comparison.changes?.screens ?? []).flatMap((change) => {
+    const digest = beforeImageDigest(baseImages.get(change.stable_id), currentImages.get(change.stable_id), change.aspects);
+    return digest ? [digest] : [];
+  });
+  const shown = [...new Set([...own, ...before])].sort();
+  if (shown.length > HOSTED_SCREEN_LIMITS.images) {
+    throw new Error(
+      `The page shows ${shown.length} distinct images, counting main's beside changed screens; hosted screens publish at most ${HOSTED_SCREEN_LIMITS.images}.`
+    );
+  }
+  return shown;
+}
+
 function renderMissing(missing: readonly MissingHostedImage[], io: CommandIO): void {
   for (const image of missing) {
     io.write(
@@ -397,6 +423,12 @@ export async function runScreensPublishCommand(
       current
     );
     const digests = references.map((reference) => reference.digest);
+    const shown = shownImages(
+      digests,
+      comparison,
+      baseImages,
+      new Map((current.screen_catalogs ?? []).flatMap((catalog) => catalog.screens.map((screen) => [screen.stable_id, screen.image?.sha256] as const)))
+    );
     const page = boundedPage(
       renderHostedReviewPage({
         root,
@@ -429,7 +461,7 @@ export async function runScreensPublishCommand(
       }
       return 1;
     }
-    await repository.publishRef(repositoryId, ref, { headCommit: commit, manifest, images: digests, pageHtml: page });
+    await repository.publishRef(repositoryId, ref, { headCommit: commit, manifest, images: shown, pageHtml: page });
     if (options.summaryFile) {
       writeFileSync(
         options.summaryFile,
@@ -636,12 +668,28 @@ export async function runScreensPruneCommand(
     const repositoryId = await repository.repositoryId(repositoryKey);
     let refs: HostedRefPruneResult = { closed_pull_requests: 0, branches: 0, history: 0 };
     let images: HostedImagePruneResult = { deleted: [], failed: [] };
+    // Why main's page could not be read, if it could not: the history of
+    // screens it may no longer show is then kept.
+    let mainUnreadable: string | null = null;
     if (repositoryId) {
-      refs = await repository.pruneRefs(repositoryKey, repositoryId, {
-        branchDays: settings.hosted.retention.branch_days,
-        mainHistory: settings.hosted.retention.main_history,
-        closedGraceHours: HOSTED_SCREEN_LIMITS.closedGraceHours,
-      });
+      refs = await repository.pruneRefs(
+        repositoryKey,
+        repositoryId,
+        {
+          branchDays: settings.hosted.retention.branch_days,
+          mainHistory: settings.hosted.retention.main_history,
+          closedGraceHours: HOSTED_SCREEN_LIMITS.closedGraceHours,
+        },
+        (manifest) => {
+          try {
+            const main = parseStoredContractManifest(manifest, "main's hosted snapshot");
+            return (main.screen_catalogs ?? []).flatMap((catalog) => catalog.screens.map((screen) => screen.stable_id));
+          } catch (error) {
+            mainUnreadable = message(error);
+            return null;
+          }
+        }
+      );
       images = await repository.pruneImages(
         repositoryKey,
         repositoryId,
@@ -669,7 +717,12 @@ export async function runScreensPruneCommand(
     if (options.json) {
       io.write(
         `${JSON.stringify(
-          { complete, refs, images: { deleted: images.deleted.length, failed: images.failed } },
+          {
+            complete,
+            refs,
+            images: { deleted: images.deleted.length, failed: images.failed },
+            ...(mainUnreadable ? { main_unreadable: mainUnreadable } : {}),
+          },
           null,
           2
         )}\n`
@@ -679,6 +732,11 @@ export async function runScreensPruneCommand(
     io.write(
       `Pruned hosted screens: ${refs.closed_pull_requests} closed pull request(s), ${refs.branches} expired branch(es), ${refs.history} history row(s), and ${images.deleted.length} unreferenced image(s).\n`
     );
+    if (mainUnreadable) {
+      io.write(
+        `Kept the history of screens main may no longer show, because main's page could not be read: ${escapeTerminalText(mainUnreadable)}\n`
+      );
+    }
     for (const failure of images.failed) {
       io.write(`  kept  ${failure.digest.slice(0, 12)}: ${escapeTerminalText(failure.detail)}\n`);
     }

@@ -641,7 +641,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "4d482d4633d283420002d2b5e8856ce1799b4022bd8f3bd8bd74df8e78ab8cd8",
+                "reviewed_content_hash": "5bf944e612506bbf7d23367c1e63a9d4132a3f5dbd27b680c9d71213c9b34f9a",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",

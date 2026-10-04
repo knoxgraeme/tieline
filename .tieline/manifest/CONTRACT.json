@@ -2053,7 +2053,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4d482d4633d283420002d2b5e8856ce1799b4022bd8f3bd8bd74df8e78ab8cd8",
+                "reviewed_content_hash": "5bf944e612506bbf7d23367c1e63a9d4132a3f5dbd27b680c9d71213c9b34f9a",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -2277,7 +2277,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b11ad9daf3a2386889dd67078ea3d1e0302d73fbab92d8b0523bca306141f6ee",
+            "contract_hash": "06e1322e9063ba64e41c09d60ce2896f5bbad8b545ea98976b2d211e8a9cc7b4",
             "criterion": "With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.",
             "links": [
               {
@@ -2304,7 +2304,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "45f44af69e74872e315877f530f1b691ca43ef165de0a36dbec32daabf67a514",
+                "reviewed_content_hash": "6ed1a0767652f41022cb58526c66acc1311dfe383dec5ecf661e12112e5eb9ba",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/hosted-screens-repository.ts",
@@ -2315,7 +2315,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
+                "reviewed_content_hash": "7ea0bd5765262d0d2346c1d9e0e0f87d1ed06bd4509090d3e6be8e0f95def69d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2326,7 +2326,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
+                "reviewed_content_hash": "7ea0bd5765262d0d2346c1d9e0e0f87d1ed06bd4509090d3e6be8e0f95def69d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2337,7 +2337,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
+                "reviewed_content_hash": "7ea0bd5765262d0d2346c1d9e0e0f87d1ed06bd4509090d3e6be8e0f95def69d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2359,7 +2359,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3af35ee50dc0eb59ef1f1f9265b28e9a1b1dab453f7f4fb339705fe7f0f87c42",
+                "reviewed_content_hash": "a7621fdb98703d5b2ea53c416cf110b51310f21cdffbfdaad76ebfa404eaee7d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2370,7 +2370,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "46566f0d1c469ff8b8fb52ca6fea379cc374e9c57a5704ab9477cd6734a8e60e",
+                "reviewed_content_hash": "56c2352cd5b11aa4c22d7ac8342526ce7ca3ffaf15bb6704d3940dbef5db8899",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2409,6 +2409,20 @@
                 "stable_id": "CONTRACT-005-AC12-S4",
                 "then": "Tieline must store the image again before publishing the page, rather than count it as already stored",
                 "when": "the page is published"
+              },
+              {
+                "given": "a pull request's page shows main's image beside a screen whose image it changed",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC12-S5",
+                "then": "main's image must stay stored while the pull request's page shows it",
+                "when": "main later replaces that screen's image more times than retention keeps"
+              },
+              {
+                "given": "the example pull-request workflow, and a pull request whose dependencies or tests are compromised",
+                "position": 5,
+                "stable_id": "CONTRACT-005-AC12-S6",
+                "then": "the publishing credentials must be held only by a job that installs Tieline from the base branch and runs none of the pull request's code",
+                "when": "the workflow captures and publishes"
               }
             ],
             "stable_id": "CONTRACT-005-AC12",
@@ -2417,13 +2431,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "be262bce4fe677c7a8b9f25326703983b6272c5b53b9301d33f7b44f50e360f2",
+            "contract_hash": "b3120dced181494896c0a2300ea63ff22957aca8c876719bfcfe750e4eb8cfa0",
             "criterion": "Tieline must delete a closed pull request's hosted page only after a grace period, a branch's page after the configured days without a publish, and main's image history beyond the configured number of replaced images per screen, and must delete an image only when no page or retained history references it and nothing referenced it within a grace period, removing it from the object store before its record and keeping the record of any image it could not remove.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "45f44af69e74872e315877f530f1b691ca43ef165de0a36dbec32daabf67a514",
+                "reviewed_content_hash": "6ed1a0767652f41022cb58526c66acc1311dfe383dec5ecf661e12112e5eb9ba",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/hosted-screens-repository.ts",
@@ -2434,7 +2448,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
+                "reviewed_content_hash": "7ea0bd5765262d0d2346c1d9e0e0f87d1ed06bd4509090d3e6be8e0f95def69d",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2445,7 +2459,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "3af35ee50dc0eb59ef1f1f9265b28e9a1b1dab453f7f4fb339705fe7f0f87c42",
+                "reviewed_content_hash": "a7621fdb98703d5b2ea53c416cf110b51310f21cdffbfdaad76ebfa404eaee7d",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2456,7 +2470,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "46566f0d1c469ff8b8fb52ca6fea379cc374e9c57a5704ab9477cd6734a8e60e",
+                "reviewed_content_hash": "56c2352cd5b11aa4c22d7ac8342526ce7ca3ffaf15bb6704d3940dbef5db8899",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2474,6 +2488,13 @@
                 "stable_id": "CONTRACT-005-AC13-S1",
                 "then": "Tieline must delete the other image and its record, and keep the refused image's record so the next run retries it",
                 "when": "retention runs"
+              },
+              {
+                "given": "a screen main's page no longer shows",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC13-S2",
+                "then": "its history must be deleted, so its images can go once nothing else references them; when main's page cannot be read, history is kept and the prune says why",
+                "when": "screens prune runs"
               }
             ],
             "stable_id": "CONTRACT-005-AC13",
@@ -3025,7 +3046,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a21f2a529e0bcdbf1f45b76caa1da1d8655c6c2ce6751acbd1049664bfaa2550",
+                "reviewed_content_hash": "7936cf46d7c9c04c454c612010bad175b7883062a088ac627a902e827a7fefdc",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -3571,6 +3592,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "079affebaf65cb44407d81ffae95e77ecbedb278943ac9acccab134db3173ba9"
+    "sha256": "4671eaa27e6a0b61780bd0d179d61b2c7cd7f36e08dff5d094befa6f2ccdd3ac"
   }
 }

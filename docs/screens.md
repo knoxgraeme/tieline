@@ -267,7 +267,7 @@ catalog, and `check` warns.
 `--verify` captures into a temporary directory, compares each selected screen with what the
 branch commits, writes nothing, and exits 1 on any difference, naming each screen and the
 command that fixes it. With [hosted screens](#hosted-screens) enabled, it keeps the screenshots
-it reproduced exactly in the git-ignored captures directory, so the same job can publish them;
+it reproduced exactly in the git-ignored captures directory, so they can be published;
 it still changes nothing committed.
 
 | Cause | Meaning |
@@ -710,9 +710,11 @@ role, deletes.
 **Retention.** Each ref keeps only its latest page. A closed pull request's page is deleted by
 the first `prune` at least 24 hours after it closed, which leaves time for the merge to reach
 `main`; a branch's page after `branch_days` without a publish; `main` keeps each screen's current
-image and its last `main_history` replaced ones. An image is deleted only when no page or
-retained history references it and nothing has referenced it for 24 hours, from the bucket
-first; one the bucket refuses to delete is kept and retried by the next `prune`.
+image and its last `main_history` replaced ones, and none for a screen its page no longer shows.
+A pull request's page also keeps `main`'s image beside each screen whose image it changed. An
+image is deleted only when no page or retained history references it and nothing has referenced
+it for 24 hours, from the bucket first; one the bucket refuses to delete is kept and retried by
+the next `prune`.
 
 ### The site
 
@@ -764,9 +766,13 @@ Another host needs only a few lines that hand its requests to `createHostedScree
 
 [`screens-hosted.yml`](examples/screens-hosted.yml) runs on pull requests:
 
-1. `capture --changed --base <base> --verify`, which with hosted screens on also keeps the
-   screenshots it reproduced exactly; every other screen keeps the image `main` published;
-2. `screens publish`;
+1. a capture job, with no credentials: `capture --changed --base <base> --verify`, which with
+   hosted screens on also keeps the screenshots it reproduced exactly (every other screen keeps
+   the image `main` published), handed on as a workflow artifact;
+2. a publish job, with the publisher's credentials, that never runs the pull request's code: it
+   installs Tieline from the base branch, checks the pull request out beside it only to read,
+   and runs `screens publish --repository` against it, which re-hashes every screenshot against
+   the digest its catalog commits;
 3. one pull-request comment kept up to date with the changes and a link to the page;
 4. `screens close` when the pull request closes.
 
@@ -776,11 +782,14 @@ of `main` as it is when the run starts, which publishes `main` (so a run that wa
 order, or replaced another pending run never syncs an older commit); when it reports a screenshot the bucket lacks, a capture and a second
 sync; then `screens prune`.
 
-The publishing job runs the pull request's code with the publisher's database credentials and
-bucket write access, as any job that captures and publishes in one step does. That is why the
-publisher role can do so little, why the site re-checks every image's digest, and why forks are
-never published. A bucket credential can still overwrite or delete objects; the site then refuses
-the image rather than serve it, and the next publish of a page that shows it uploads it again.
+The pull request's code — its dependencies' install scripts, its tests, its own copy of Tieline —
+runs only in the capture job, which holds no credentials; a job that ran it and then published
+would hand the credentials to whatever it left behind. Publishing uses the base branch's Tieline,
+so a branch can change what its page shows but not the code that holds the credentials. Someone
+who can push a branch can still edit the workflow it runs, which is why the publisher role can do
+so little, why the site re-checks every image's digest, and why forks are never published. A
+bucket credential can still overwrite or delete objects; the site then refuses the image rather
+than serve it, and the next publish of a page that shows it uploads it again.
 
 ## Database sync
 

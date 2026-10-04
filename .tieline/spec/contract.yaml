@@ -1674,6 +1674,12 @@ capability:
             - given: the bucket holds an image's key with other bytes, and the captures directory holds the bytes the catalog names
               when: the page is published
               then: Tieline must store the image again before publishing the page, rather than count it as already stored
+            - given: a pull request's page shows main's image beside a screen whose image it changed
+              when: main later replaces that screen's image more times than retention keeps
+              then: main's image must stay stored while the pull request's page shows it
+            - given: the example pull-request workflow, and a pull request whose dependencies or tests are compromised
+              when: the workflow captures and publishes
+              then: the publishing credentials must be held only by a job that installs Tieline from the base branch and runs none of the pull request's code
           links:
             - relation: implements
               provenance: authored
@@ -1744,6 +1750,9 @@ capability:
             - given: the object store refuses to delete one of two unreferenced images
               when: retention runs
               then: Tieline must delete the other image and its record, and keep the refused image's record so the next run retries it
+            - given: a screen main's page no longer shows
+              when: screens prune runs
+              then: its history must be deleted, so its images can go once nothing else references them; when main's page cannot be read, history is kept and the prune says why
           links:
             - relation: implements
               provenance: authored

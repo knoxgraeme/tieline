@@ -188,7 +188,7 @@ const screensCaptureConfigSchema = z
  * file. `site_url` is the deployed site, used to link to a published page.
  * `retention` bounds what is kept: branches not published for `branch_days`
  * are deleted, and `main` keeps the last `main_history` images each screen
- * replaced.
+ * replaced, and none for a screen its page no longer shows.
  */
 const screensHostedConfigSchema = z
   .object({
