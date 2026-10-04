@@ -47,6 +47,7 @@ import { NODE_FILE_SYSTEM } from "../../../src/contract/screen-import.js";
 import { readScreenTextDirectory, screenTextDigest } from "../../../src/contract/screen-text.js";
 import {
   RUN_DIRECTORY_ENV,
+  RUN_PROTOCOL_VERSION,
   RUN_RECORD_FILE,
   SCREENS_DIRECTORY,
   type RunRecord,
@@ -167,11 +168,18 @@ function sha256(content: string | Buffer): string {
 
 console.log("screens capture: fingerprints");
 
-await test("fingerprints every pixel-affecting setting, not the screen or its settle attempts", () => {
+await test("fingerprints the environment and capture method, not the screen, its scene options, or its settle attempts", () => {
   const base = captureFingerprint(captureSettings("a"), "1.63.0", ENVIRONMENT);
   assert.match(base, /^[a-f0-9]{64}$/);
   assert.equal(captureFingerprint(captureSettings("b", { settle_attempts: 4 }), "1.63.0", ENVIRONMENT), base);
   const settings = captureSettings("a");
+  // A scene's masks and full-page setting change its image, not where it was
+  // captured: a masked screen captured beside the others shares their
+  // fingerprint, so it is never reported as captured somewhere else.
+  assert.equal(
+    captureFingerprint({ ...settings, snapshot: { ...settings.snapshot, masks: ["locator('.avatar')"], full_page: true } }, "1.63.0", ENVIRONMENT),
+    base
+  );
   const variants = [
     captureFingerprint(settings, "1.63.1", ENVIRONMENT),
     captureFingerprint({ ...settings, browser: { name: "chromium", version: "141.0.0.0" } }, "1.63.0", ENVIRONMENT),
@@ -179,7 +187,6 @@ await test("fingerprints every pixel-affecting setting, not the screen or its se
     captureFingerprint({ ...settings, page: { ...settings.page, color_scheme: "dark" } }, "1.63.0", ENVIRONMENT),
     captureFingerprint({ ...settings, page: { ...settings.page, timezone: "Europe/Paris" } }, "1.63.0", ENVIRONMENT),
     captureFingerprint({ ...settings, page: { ...settings.page, viewport: { width: 390, height: 844 } } }, "1.63.0", ENVIRONMENT),
-    captureFingerprint({ ...settings, snapshot: { ...settings.snapshot, masks: ["locator('.avatar')"] } }, "1.63.0", ENVIRONMENT),
     captureFingerprint(settings, "1.63.0", { ...ENVIRONMENT, fonts: null }),
     captureFingerprint(settings, "1.63.0", { ...ENVIRONMENT, platform: "darwin" }),
     captureFingerprint(settings, "1.63.0", { ...ENVIRONMENT, image: null }),
@@ -203,7 +210,7 @@ function runDirectoryWith(record: unknown, screens: Record<string, { image?: Buf
 
 function record(tests: Array<Partial<RunRecord["tests"][number]> & { keys: string[] }>, overrides: Partial<RunRecord> = {}): RunRecord {
   return {
-    version: 1,
+    version: RUN_PROTOCOL_VERSION,
     playwright: "1.63.0",
     status: "passed",
     tests: tests.map((entry, index) => ({
@@ -231,7 +238,7 @@ await test("refuses a run record that is missing, malformed, oversized, or not o
   assert.equal(readCaptureRunRecord(temporaryDirectory()), null);
   assert.throws(() => readCaptureRunRecord(runDirectoryWith("{not json")), /The capture run record is not valid JSON/);
   assert.throws(
-    () => readCaptureRunRecord(runDirectoryWith({ ...record([]), version: 2 })),
+    () => readCaptureRunRecord(runDirectoryWith({ ...record([]), version: RUN_PROTOCOL_VERSION + 1 })),
     (error: unknown) => error instanceof ScreenCaptureError && /not one this version of Tieline wrote\.\n- version: Invalid literal value/.test(error.message)
   );
   assert.throws(
@@ -356,7 +363,7 @@ await test("captures every screen into the catalog, ARIA snapshots, and captures
     "--reporter",
     fileURLToPath(new URL("../../../src/playwright/reporter.cjs", import.meta.url)),
   ]);
-  assert.deepEqual(run.selections, [{ version: 1, keys: ["notes-list", "notes-list-empty", "notes-share-denied"] }]);
+  assert.deepEqual(run.selections, [{ version: RUN_PROTOCOL_VERSION, keys: ["notes-list", "notes-list-empty", "notes-share-denied"] }]);
   // The temporary run directory is gone.
   assert.equal(existsSync(call.env[RUN_DIRECTORY_ENV]!), false);
 
@@ -759,7 +766,7 @@ await test("captures the screens that have a test and reports the rest as not co
   ws.write("e2e/notes.screens.ts", 'test("list", { tag: "@screen:notes-list" }, async () => {});\n');
   const { exit, output, run } = await capture(ws, { all: true });
   assert.equal(exit, 0);
-  assert.deepEqual(run.selections, [{ version: 1, keys: ["notes-list"] }]);
+  assert.deepEqual(run.selections, [{ version: RUN_PROTOCOL_VERSION, keys: ["notes-list"] }]);
   assert.equal(run.calls[0]!.args[run.calls[0]!.args.indexOf("--grep") + 1], "@screen:(?:notes-list)(?![A-Za-z0-9._-])");
   assert.ok(run.calls[0]!.args.includes("--pass-with-no-tests"));
   assert.match(output, /^Captured 1 screen\(s\) with Playwright 1\.63\.0: 1 new, 0 updated, 0 unchanged\.\n/);
@@ -771,7 +778,7 @@ await test("captures the screens that have a test and reports the rest as not co
   assert.deepEqual((JSON.parse(verified.output) as { not_covered: string[] }).not_covered, ["notes-list-empty", "notes-share-denied"]);
   // A screen named explicitly is run even without a literal tag, for tests that build tags.
   const named = await capture(ws, { screens: ["notes-list-empty"] }, { screens: () => ({ "notes-list-empty": {} }) });
-  assert.deepEqual(named.run.selections, [{ version: 1, keys: ["notes-list-empty"] }]);
+  assert.deepEqual(named.run.selections, [{ version: RUN_PROTOCOL_VERSION, keys: ["notes-list-empty"] }]);
   // With no covered screen selected, Playwright does not start.
   ws.remove("e2e/notes.screens.ts");
   const refuse = (): never => {
@@ -792,7 +799,7 @@ await test("never captures a screen marked not captured, and says why", async ()
     })
   );
   const { output, run } = await capture(ws, { all: true });
-  assert.deepEqual(run.selections, [{ version: 1, keys: ["notes-list", "notes-list-empty"] }]);
+  assert.deepEqual(run.selections, [{ version: RUN_PROTOCOL_VERSION, keys: ["notes-list", "notes-list-empty"] }]);
   assert.match(output, /  skipped   notes-share-denied: not captured \(needs-real-trigger\): The share API cannot be made to fail without faking a response\.\n/);
   const dry = await capture(ws, { all: true, dryRun: true, json: true });
   assert.deepEqual((JSON.parse(dry.output) as { selection: { excluded: unknown } }).selection.excluded, [

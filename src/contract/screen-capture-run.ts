@@ -5,6 +5,7 @@ import { isMap, isSeq, parseDocument } from "yaml";
 import { z } from "zod";
 import {
   CAPTURE_LIMITS,
+  MASK_COLOR,
   RUN_PROTOCOL_VERSION,
   RUN_RECORD_FILE,
   SCREEN_KEY_MAX_CHARS,
@@ -137,6 +138,7 @@ const captureSettingsSchema = z
         animations: z.literal("disabled"),
         caret: z.literal("hide"),
         scale: z.literal("css"),
+        mask_color: z.literal(MASK_COLOR),
         masks: z.array(boundedString(1_000)).max(100),
       })
       .strict(),
@@ -173,9 +175,14 @@ function canonicalJson(value: unknown): string {
 }
 
 /**
- * The SHA-256 of every setting that affects pixels, in canonical form. Two
- * digests are comparable only when their fingerprints are equal. Which screen
- * it is, and how many attempts it took to settle, are not settings.
+ * The SHA-256, in canonical form, of where and how screens are rendered: the
+ * Playwright and browser versions, the page settings, the machine, and the
+ * screenshot method. Two digests are comparable only when their fingerprints
+ * are equal, and screens with equal fingerprints were captured in the same
+ * environment. A screen's own scene options (its masks and whether it is a
+ * full page) are left out: they belong to the scene, and changing them changes
+ * the screen's image, which verification reports as such. Nor are which screen
+ * it is, or how many attempts it took to settle.
  */
 export function captureFingerprint(
   settings: CaptureSettings,
@@ -185,11 +192,16 @@ export function captureFingerprint(
   return createHash("sha256")
     .update(
       canonicalJson({
-        version: 1,
+        version: 2,
         playwright,
         browser: settings.browser,
         page: settings.page,
-        snapshot: settings.snapshot,
+        snapshot: {
+          animations: settings.snapshot.animations,
+          caret: settings.snapshot.caret,
+          scale: settings.snapshot.scale,
+          mask_color: settings.snapshot.mask_color,
+        },
         environment,
       })
     )

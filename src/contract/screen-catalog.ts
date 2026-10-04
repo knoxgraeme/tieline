@@ -181,8 +181,9 @@ export const screenCaptureSchema = z
 
 /**
  * A repository-relative path pattern naming files that render a screen: `*`
- * matches within one path segment and `**` across segments, and a pattern also
- * covers everything beneath the path it matches.
+ * matches within one path segment and `**` across any number of segments, none
+ * included, and a pattern also covers everything beneath the path it matches
+ * (see `screenPathPattern`).
  */
 export const screenPathPatternSchema = boundedText(SCREEN_LIMITS.pathPatternChars).superRefine(
   (value, ctx) => {

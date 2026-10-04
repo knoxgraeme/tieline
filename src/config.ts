@@ -111,8 +111,9 @@ const screensDirectorySchema = z
 
 /**
  * A repository-relative path pattern: `*` matches within one path segment and
- * `**` across segments. Patterns are read from reviewed configuration but still
- * bounded, and may not climb out of the repository.
+ * `**` across any number of segments, none included (see `screenPathPattern`).
+ * Patterns are read from reviewed configuration but still bounded, and may not
+ * climb out of the repository.
  */
 const screensPathPatternSchema = z
   .string()

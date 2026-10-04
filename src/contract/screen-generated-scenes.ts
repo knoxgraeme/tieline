@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname, posix, relative, resolve } from "node:path";
-import { wildcardPattern } from "./paths.js";
+import { screenPathPattern } from "./paths.js";
 import type { ScreenSettings, ValidatedScreenCatalog } from "./screen-catalog.js";
 import { readBoundedFile } from "./screen-import.js";
 import { isSceneTestCandidate, type ScreenSceneScan } from "./screen-scenes.js";
@@ -47,7 +47,7 @@ function setupImport(file: string, setup: string): string {
 export function generatedScenesFileProblem(settings: ScreenSettings): string | null {
   const generated = settings.capture.generatedScenes;
   if (!generated) return "screens.capture.generated_scenes is not configured";
-  const patterns = settings.sceneTests ? settings.sceneTests.map(wildcardPattern) : null;
+  const patterns = settings.sceneTests ? settings.sceneTests.map(screenPathPattern) : null;
   if (!isSceneTestCandidate(generated.file, patterns)) {
     return `'${generated.file}' is not a file the test scan reads (${
       settings.sceneTests ? "screens.capture.tests" : "*.spec, *.test, or *.screens scripts"
