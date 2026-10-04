@@ -495,10 +495,13 @@ await test("restores every committed output when writing the catalog fails part-
     () => applyCaptureOutputs(ws.root, settings, plan, failing),
     /Writing '\.tieline\/screens\/SHARING\.yaml' failed \(disk full\); the 1 file\(s\) already written were restored/
   );
-  // Screenshots are git-ignored and may be left behind; every committed output is as it was.
+  // Every output is as it was, the screenshots in the captures directory
+  // included, so the catalog's digests and those files still agree.
   const committed = (files: Record<string, string>) =>
     Object.fromEntries(Object.entries(files).filter(([path]) => !path.startsWith(".tieline/captures/")));
-  assert.deepEqual(committed(tielineFiles(ws)), committed(before));
+  const unchanged = (files: Record<string, string>) =>
+    Object.fromEntries(Object.entries(files).filter(([path]) => path !== ".tieline/captures/.gitignore"));
+  assert.deepEqual(unchanged(tielineFiles(ws)), unchanged(before));
 
   // A catalog edited after the capture read it is never overwritten, and the
   // snapshots written before the catalog are restored with it.

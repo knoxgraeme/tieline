@@ -192,13 +192,14 @@ export function readContractHistory(
   );
   const blobs = readBlobs(root, [...new Set(trees.flat().map((entry) => entry.blob))]);
   const unreadable: ContractHistory["unreadable"] = [];
-  // The newest unreadable commit's place in `listed`, which runs newest first.
-  let newestUnreadable = Number.POSITIVE_INFINITY;
+  // The oldest unreadable commit's place in `listed`, which runs newest first:
+  // only changes older than it can be stored without passing a gap.
+  let oldestUnreadable = -1;
   const manifests: Array<ContractManifest | null> = trees.map((files, index) => {
     if (files.length === 0) return null;
     if (files.some((file) => !blobs.has(file.blob))) {
       unreadable.push({ commit: listed[index]!.commit, detail: MISSING_OBJECTS });
-      newestUnreadable = Math.min(newestUnreadable, index);
+      oldestUnreadable = Math.max(oldestUnreadable, index);
       return null;
     }
     try {
@@ -208,7 +209,7 @@ export function readContractHistory(
       );
     } catch (error) {
       unreadable.push({ commit: listed[index]!.commit, detail: error instanceof Error ? error.message : String(error) });
-      newestUnreadable = Math.min(newestUnreadable, index);
+      oldestUnreadable = Math.max(oldestUnreadable, index);
       return null;
     }
   });
@@ -249,7 +250,7 @@ export function readContractHistory(
     if (found.length === 0) continue;
     commits.push({ ...commit, changes: found.length });
     changes.push(...found);
-    if (index > newestUnreadable || newestUnreadable === Number.POSITIVE_INFINITY) beforeUnreadable.push(...found);
+    if (index > oldestUnreadable) beforeUnreadable.push(...found);
   }
   return { ref, commits, changes, truncated, unreadable, beforeUnreadable };
 }

@@ -700,9 +700,18 @@ export function applyCaptureOutputs(
   fileSystem?: ScreenImportFileSystem
 ): CapturesIgnoreStatus {
   const ignore = ensureCapturesIgnored(repositoryRoot, settings);
-  for (const screenshot of plan.screenshots) writeAtomically(screenshot.absolutePath, screenshot.content);
+  // Each screenshot replaced is kept beside it until the catalog is written,
+  // so a failure puts every one back: the catalog's digests and the files in
+  // the captures directory never disagree.
+  const screenshots: Array<{ path: string; previous: string | null }> = [];
   const written: PlannedScreenCatalogFile[] = [];
   try {
+    for (const screenshot of plan.screenshots) {
+      const previous = existsSync(screenshot.absolutePath) ? `${screenshot.absolutePath}.${process.pid}.previous` : null;
+      if (previous) renameSync(screenshot.absolutePath, previous);
+      screenshots.push({ path: screenshot.absolutePath, previous });
+      writeAtomically(screenshot.absolutePath, screenshot.content);
+    }
     for (const text of plan.texts) {
       writeAtomically(text.absolutePath, text.content);
       written.push(text);
@@ -740,11 +749,22 @@ export function applyCaptureOutputs(
         unrestored.push(`${text.path} (${errorMessage(restoreError)})`);
       }
     }
+    for (const screenshot of screenshots.reverse()) {
+      try {
+        if (screenshot.previous) renameSync(screenshot.previous, screenshot.path);
+        else rmSync(screenshot.path, { force: true });
+      } catch (restoreError) {
+        unrestored.push(`${relative(repositoryRoot, screenshot.path).split(sep).join("/")} (${errorMessage(restoreError)})`);
+      }
+    }
     if (unrestored.length === 0) throw error;
     throw new ScreenCaptureError(
-      `${errorMessage(error)}\nThe ARIA snapshots written before it could not all be restored; restore them from git.`,
+      `${errorMessage(error)}\nThe files written before it could not all be restored: restore ARIA snapshots from git, and capture again for screenshots.`,
       unrestored
     );
+  }
+  for (const screenshot of screenshots) {
+    if (screenshot.previous) rmSync(screenshot.previous, { force: true });
   }
   for (const orphan of plan.orphanedText) rmSync(orphan.absolutePath, { force: true });
   return ignore;

@@ -213,6 +213,35 @@ await test("keeps what a recorder stores behind commits it cannot read", () => {
   assert.deepEqual(full.beforeUnreadable, full.changes);
 });
 
+await test("keeps what a recorder stores behind the oldest of several unreadable commits", () => {
+  const ws = createScreensWorkspace({ git: true });
+  workspaces.push(ws);
+  git(ws.root, "checkout", "-q", "-b", "main");
+  const spec = notesSpecYaml();
+  const corrupt = (subject: string) => {
+    ws.write(`${MANIFEST}/index.json`, "{ not json");
+    commit(ws, subject);
+  };
+  compile(ws);
+  commit(ws, "feat: notes (#1)");
+  corrupt("chore: a broken manifest (#2)");
+  compile(ws);
+  commit(ws, "fix: the manifest again (#3)");
+  ws.write(".tieline/spec/notes.yaml", spec.replace("newest first", "most recent first"));
+  compile(ws);
+  commit(ws, "docs: reword (#4)");
+  corrupt("chore: another broken manifest (#5)");
+  ws.write(".tieline/spec/notes.yaml", spec.replace("newest first", "latest first"));
+  compile(ws);
+  commit(ws, "docs: reword again (#6)");
+  const history = readContractHistory(ws.root, MANIFEST);
+  assert.equal(history.unreadable.length, 2);
+  // #4 is known, but it lies between the two gaps: storing it would move a
+  // recorder's resume point past #2, whose changes are unknown.
+  assert.ok(history.changes.some((change) => change.commit.pull_request === 4));
+  assert.deepEqual([...new Set(history.beforeUnreadable.map((change) => change.commit.pull_request))], [1]);
+});
+
 await test("links pull requests and commits for GitHub remotes only", () => {
   const ws = historyWorkspace();
   assert.equal(githubRepositoryUrl(ws.root), null);

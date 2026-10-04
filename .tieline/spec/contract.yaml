@@ -1482,6 +1482,12 @@ capability:
             - given: a test calls tielineSnapshot for a key it is not tagged with
               when: the test runs, inside or outside a capture run
               then: the test must fail and say which tag to add
+            - given: the catalog cannot be written after the capture replaced screenshots and ARIA snapshots
+              when: the capture fails
+              then: every screenshot and ARIA snapshot it replaced must be restored, so the catalog's digests and the captures directory still agree
+            - given: a capture that runs in several batches or is repeated
+              when: the whole capture passes screens.capture.timeout_minutes
+              then: it must stop without writing, the limit covering every batch and repeat together
           links:
             - relation: implements
               provenance: authored
@@ -1659,6 +1665,9 @@ capability:
             - given: a sync of an older commit finishes after a sync of a newer one
               when: main's hosted page is published
               then: Tieline must keep the newer page
+            - given: the bucket holds an image's key with other bytes, and the captures directory holds the bytes the catalog names
+              when: the page is published
+              then: Tieline must store the image again before publishing the page, rather than count it as already stored
           links:
             - relation: implements
               provenance: authored
@@ -1822,6 +1831,9 @@ capability:
             - given: a symbolic link inside the site directory where a site file or directory goes
               when: tieline hosted init runs, even with --force
               then: Tieline must refuse without writing through the link
+            - given: the sync credential is the capture publisher's, or another role row security keeps off main's page
+              when: tieline hosted check runs
+              then: Tieline must fail and name what sync needs that the role lacks
           links:
             - relation: implements
               provenance: authored

@@ -107,7 +107,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6b670aa4270c8ac082fa097bae41bef4db66c9d76047928588c5cdbee4a2bb9c",
+                "reviewed_content_hash": "51bf6ca0acff9b0756dcc4795546a7b8800c03abc4af7edd999f88c145a5bfc0",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -129,7 +129,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "12801f8d9812f1df4c26a23a2576a0592bb25230bd00e7b2ade3f0ef995445a1",
+                "reviewed_content_hash": "a9bb22066de7595e44503cc19a0cb0fbadedd82967d9043e08956fa3ac6a5034",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -917,7 +917,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6b670aa4270c8ac082fa097bae41bef4db66c9d76047928588c5cdbee4a2bb9c",
+                "reviewed_content_hash": "51bf6ca0acff9b0756dcc4795546a7b8800c03abc4af7edd999f88c145a5bfc0",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -928,7 +928,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6b670aa4270c8ac082fa097bae41bef4db66c9d76047928588c5cdbee4a2bb9c",
+                "reviewed_content_hash": "51bf6ca0acff9b0756dcc4795546a7b8800c03abc4af7edd999f88c145a5bfc0",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/history.ts",
@@ -939,7 +939,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "12801f8d9812f1df4c26a23a2576a0592bb25230bd00e7b2ade3f0ef995445a1",
+                "reviewed_content_hash": "a9bb22066de7595e44503cc19a0cb0fbadedd82967d9043e08956fa3ac6a5034",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2173,7 +2173,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2cb8b4bf30b00d5a3a50051aaf94e00b13d375a09f40d0b850a03f791df8010c",
+                "reviewed_content_hash": "b5e7c422520d9188ac8a9519f325b7e4f06c634a3f02ebbd1f013e5e5c930129",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2270,7 +2270,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "e624ba08ef1228cb9a63dd80ca8e6f5484eb13ce6a40d584a939cd2ecf1d7ef7",
+            "contract_hash": "b11ad9daf3a2386889dd67078ea3d1e0302d73fbab92d8b0523bca306141f6ee",
             "criterion": "With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.",
             "links": [
               {
@@ -2308,7 +2308,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
+                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2319,7 +2319,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
+                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2330,7 +2330,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
+                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2352,7 +2352,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7279966cca94f68c2360fa101e7df65bf539365d097e9c560a4c68dab80d8700",
+                "reviewed_content_hash": "3af35ee50dc0eb59ef1f1f9265b28e9a1b1dab453f7f4fb339705fe7f0f87c42",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2363,7 +2363,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c9f2239c8f9e44eacba73be81f75c2ac69332363dfc2cc422511d72143472c48",
+                "reviewed_content_hash": "ec4c9ba9f359b594be13b6ba971d1eeb2131fc92cc762e39ed68d81d0b66323a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2395,6 +2395,13 @@
                 "stable_id": "CONTRACT-005-AC12-S3",
                 "then": "Tieline must keep the newer page",
                 "when": "main's hosted page is published"
+              },
+              {
+                "given": "the bucket holds an image's key with other bytes, and the captures directory holds the bytes the catalog names",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC12-S4",
+                "then": "Tieline must store the image again before publishing the page, rather than count it as already stored",
+                "when": "the page is published"
               }
             ],
             "stable_id": "CONTRACT-005-AC12",
@@ -2420,7 +2427,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6da41640c38befb020b54581b30610fa53693a48228c225f2be2f1d5dbd02ee5",
+                "reviewed_content_hash": "fb59c4a97097a84113235982905cb2836a54bd0fff1bee8e626bdf618c61a559",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens-hosting.ts",
@@ -2431,7 +2438,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7279966cca94f68c2360fa101e7df65bf539365d097e9c560a4c68dab80d8700",
+                "reviewed_content_hash": "3af35ee50dc0eb59ef1f1f9265b28e9a1b1dab453f7f4fb339705fe7f0f87c42",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2442,7 +2449,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "c9f2239c8f9e44eacba73be81f75c2ac69332363dfc2cc422511d72143472c48",
+                "reviewed_content_hash": "ec4c9ba9f359b594be13b6ba971d1eeb2131fc92cc762e39ed68d81d0b66323a",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2507,7 +2514,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e8848e3504b99d493f647b26badb49ca5884cbab18af87e103d3304258476077",
+                "reviewed_content_hash": "fc27d573fee80f4b9f50910e23f7f4d3514fa3109450604a0063db7b428465e8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2554,13 +2561,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8d7bb3bd228dac681c587e2ef8a38e7fa93e5d41a77eff6367ad7adfdc71dd44",
+            "contract_hash": "adb5acbffb72f6a91716e94c83e3035243b72cc1110326fb0c52fc7cd9c92b6a",
             "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a15ec01cfa01a5722e345c41166174a02c0c444ed61c16880d11c7a3a0166da8",
+                "reviewed_content_hash": "642b67b850b3e69fd2fea9fc84ce0123a051c88b1cec572a11d8b658ae8734f6",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2571,7 +2578,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a15ec01cfa01a5722e345c41166174a02c0c444ed61c16880d11c7a3a0166da8",
+                "reviewed_content_hash": "642b67b850b3e69fd2fea9fc84ce0123a051c88b1cec572a11d8b658ae8734f6",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/hosted.ts",
@@ -2582,7 +2589,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "e8848e3504b99d493f647b26badb49ca5884cbab18af87e103d3304258476077",
+                "reviewed_content_hash": "fc27d573fee80f4b9f50910e23f7f4d3514fa3109450604a0063db7b428465e8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2628,6 +2635,13 @@
                 "stable_id": "CONTRACT-005-AC15-S5",
                 "then": "Tieline must refuse without writing through the link",
                 "when": "tieline hosted init runs, even with --force"
+              },
+              {
+                "given": "the sync credential is the capture publisher's, or another role row security keeps off main's page",
+                "position": 5,
+                "stable_id": "CONTRACT-005-AC15-S6",
+                "then": "Tieline must fail and name what sync needs that the role lacks",
+                "when": "tieline hosted check runs"
               }
             ],
             "stable_id": "CONTRACT-005-AC15",
@@ -3341,7 +3355,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "4a3e90eddbfc6eaa43b306a9ce68857c8c40b576dc03421526814f77aa59bc17",
+            "contract_hash": "44bcb2cbf9eb92fd458121d4b7041981be01ec38cb0ef481ad46773bb4f30991",
             "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.",
             "links": [
               {
@@ -3369,7 +3383,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "677f3664f5ff1a09ebc242d87f5f2f2c5736201c4530c4aa662baa41cc99a379",
+                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3380,7 +3394,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "677f3664f5ff1a09ebc242d87f5f2f2c5736201c4530c4aa662baa41cc99a379",
+                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3391,7 +3405,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "677f3664f5ff1a09ebc242d87f5f2f2c5736201c4530c4aa662baa41cc99a379",
+                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3402,7 +3416,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "677f3664f5ff1a09ebc242d87f5f2f2c5736201c4530c4aa662baa41cc99a379",
+                "reviewed_content_hash": "48ce8bd8a3150b03daeae9d69f2ac443461302254dabe27708b9cd9d9e69fb7d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-capture-run.ts",
@@ -3444,7 +3458,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2cb8b4bf30b00d5a3a50051aaf94e00b13d375a09f40d0b850a03f791df8010c",
+                "reviewed_content_hash": "b5e7c422520d9188ac8a9519f325b7e4f06c634a3f02ebbd1f013e5e5c930129",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -3487,6 +3501,20 @@
                 "stable_id": "CONTRACT-005-AC9-S3",
                 "then": "the test must fail and say which tag to add",
                 "when": "the test runs, inside or outside a capture run"
+              },
+              {
+                "given": "the catalog cannot be written after the capture replaced screenshots and ARIA snapshots",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC9-S4",
+                "then": "every screenshot and ARIA snapshot it replaced must be restored, so the catalog's digests and the captures directory still agree",
+                "when": "the capture fails"
+              },
+              {
+                "given": "a capture that runs in several batches or is repeated",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC9-S5",
+                "then": "it must stop without writing, the limit covering every batch and repeat together",
+                "when": "the whole capture passes screens.capture.timeout_minutes"
               }
             ],
             "stable_id": "CONTRACT-005-AC9",
@@ -3515,6 +3543,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "fc8ac3e70c7b4e59a1e586ec63d4d17f4b2fcf37fd80d7c2eab20684f6ab4892"
+    "sha256": "e2be72ebeebc355dcf819c97301456c036c8d0f1c719477df71a5b3e89e19a30"
   }
 }
