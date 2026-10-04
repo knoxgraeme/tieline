@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   RUN_DIRECTORY_ENV,
+  MASK_COLOR,
   RUN_PROTOCOL_VERSION,
   RUN_RECORD_FILE,
   SCREENS_DIRECTORY,
@@ -44,7 +45,7 @@ export function captureSettings(key: string, overrides: Partial<CaptureSettings>
       timezone: "UTC",
       touch: false,
     },
-    snapshot: { full_page: false, animations: "disabled", caret: "hide", scale: "css", masks: [] },
+    snapshot: { full_page: false, animations: "disabled", caret: "hide", scale: "css", mask_color: MASK_COLOR, masks: [] },
     settle_attempts: 2,
     ...overrides,
   };

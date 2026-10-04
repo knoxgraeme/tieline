@@ -1,5 +1,5 @@
 import type { ContractManifest } from "./manifest.js";
-import { wildcardPattern } from "./paths.js";
+import { screenPathPattern } from "./paths.js";
 import {
   loadScreenCatalog,
   type ScreenNotCapturedReason,
@@ -247,7 +247,7 @@ export function auditScreenCaptures(input: {
     }
   }
   const claims = [...catalog.screens.values()].flatMap(({ entry }) =>
-    (entry.paths ?? []).map(wildcardPattern)
+    (entry.paths ?? []).map(screenPathPattern)
   );
   return {
     catalog_path: settings.catalogPath,

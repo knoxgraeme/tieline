@@ -32,7 +32,7 @@ Add a `screens` block to `.tieline/config.json`:
 | `catalog_directory` | `"screens"` | Reviewed catalog YAML, relative to `.tieline/`. Must stay inside `.tieline/`, outside the captures directory (which is git-ignored), and neither inside nor around `files.spec_directory`, since every YAML file in either directory is read as that directory's kind of document. |
 | `captures_directory` | `"captures"` | Screenshot files, relative to `.tieline/`. May be anywhere inside the repository that does not hold anything Tieline commits — the catalog, the spec directory, the manifest, or the code topology (`.tieline/topology`) — since it is git-ignored, and not inside the spec directory, whose every YAML file is read as a contract document. |
 | `text_directory` | `"screen-text"` | Committed ARIA snapshots, relative to `.tieline/`. Must stay inside `.tieline/`, judged by where symbolic links really lead, apart from the catalog and the spec directory and outside the git-ignored captures directory. |
-| `capture.tests` | Playwright naming | Path patterns (`*` within a segment, `**` across) for the test files whose `@screen:<key>` tags link screens to the tests that capture them. When omitted, files named `*.spec.*`, `*.test.*`, or `*.screens.*` with a JavaScript or TypeScript extension are read. |
+| `capture.tests` | Playwright naming | Path patterns (`*` within a segment, `**` across any number of directories, none included) for the test files whose `@screen:<key>` tags link screens to the tests that capture them. When omitted, files named `*.spec.*`, `*.test.*`, or `*.screens.*` with a JavaScript or TypeScript extension are read. |
 | `capture.global_paths` | none | Path patterns for files whose change may affect every screen (themes, layouts, global styles, translations). A branch that changes one selects every screen for capture. |
 | `capture.playwright_config` | Playwright's default | The repository-relative Playwright configuration file capture runs. |
 | `capture.project` | every project | The one Playwright project that captures. Name it when the configuration has several, since each screen is captured at exactly one viewport. |
@@ -304,9 +304,11 @@ docker run --rm -v "$PWD":/work -w /work \
   sh -c 'npm ci && npx tieline screens capture --changed --base origin/main'
 ```
 
-The fingerprint covers the Playwright and browser versions, the page settings above, masks, the
+The fingerprint covers the Playwright and browser versions, the page settings above, the
 platform, the installed fonts (when `fc-list` can list them), and `TIELINE_CAPTURE_IMAGE` when
-set. Tieline cannot see whether a test froze the page's clock, so a scene that shows the time
+set. It describes the environment only: a scene's own masks and full-page setting change its
+screenshot, which verification reports as a changed image, not as another environment. A masked
+region is painted a neutral grey. Tieline cannot see whether a test froze the page's clock, so a scene that shows the time
 must freeze it with `page.clock.setFixedTime(…)`; otherwise verification reports its screenshot
 as changed. `capture` notes when it wrote captures from a different environment than the rest
 of the catalog.

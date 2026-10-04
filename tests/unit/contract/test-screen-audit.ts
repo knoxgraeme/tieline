@@ -27,7 +27,7 @@ import {
   screenTextFile,
   SCREEN_TEXT_LIMITS,
 } from "../../../src/contract/screen-text.js";
-import { wildcardPattern } from "../../../src/contract/paths.js";
+import { screenPathPattern, wildcardPattern } from "../../../src/contract/paths.js";
 import { report, test } from "../../support/harness.js";
 import {
   captureIO,
@@ -145,11 +145,35 @@ await test("reads Playwright-named test files by default and configured patterns
   for (const path of ["src/notes.ts", "e2e/helpers.ts", "docs/notes.spec.md", "e2e/notes.spec.ts.snap"]) {
     assert.equal(isSceneTestCandidate(path, null), false, path);
   }
-  const configured = ["e2e/**", "ui/*.ts"].map(wildcardPattern);
+  const configured = ["e2e/**", "ui/*.ts", "specs/**/*.screens.ts"].map(screenPathPattern);
   assert.equal(isSceneTestCandidate("e2e/flows/login.ts", configured), true);
+  assert.equal(isSceneTestCandidate("specs/top.screens.ts", configured), true, "a ** directory may be none");
   assert.equal(isSceneTestCandidate("ui/notes.ts", configured), true);
   assert.equal(isSceneTestCandidate("e2e/fixtures/data.json", configured), false);
   assert.equal(isSceneTestCandidate("tests/notes.spec.ts", configured), false);
+});
+
+await test("reads a ** directory in a screens pattern as none or more, as globs do", () => {
+  const pages = screenPathPattern("app/**/page.tsx");
+  for (const path of ["app/page.tsx", "app/notes/page.tsx", "app/a/b/page.tsx"]) assert.equal(pages.test(path), true, path);
+  for (const path of ["apps/page.tsx", "app/page.tsx.bak", "app/notes/page.ts"]) assert.equal(pages.test(path), false, path);
+  assert.equal(screenPathPattern("**/notes.screens.ts").test("notes.screens.ts"), true);
+  assert.equal(screenPathPattern("a/**/b/**/c.ts").test("a/b/c.ts"), true);
+  // The older pattern settings are unchanged.
+  assert.equal(wildcardPattern("app/**/page.tsx").test("app/page.tsx"), false);
+
+  // A scene and a page at the top of their folders are both found.
+  const ws = workspace({ git: true, screens: ENABLED });
+  ws.write("e2e/top.screens.ts", 'test("a", { tag: "@screen:notes-list" }, () => {});\n');
+  ws.write("e2e/flows/nested.screens.ts", 'test("b", { tag: "@screen:notes-list-empty" }, () => {});\n');
+  ws.write("app/page.tsx", "export default function Home() { return null; }\n");
+  ws.write("app/notes/page.tsx", "export default function Notes() { return null; }\n");
+  const scan = scanScreenScenes(ws.root, ["e2e/**/*.screens.ts"]);
+  assert.deepEqual(Object.fromEntries([...scan.tags].map(([key, files]) => [key, [...files]])), {
+    "notes-list": ["e2e/top.screens.ts"],
+    "notes-list-empty": ["e2e/flows/nested.screens.ts"],
+  });
+  assert.deepEqual(scanPageFiles(ws.root, ["app/**/page.tsx"]).files, ["app/notes/page.tsx", "app/page.tsx"]);
 });
 
 await test("scans tracked and untracked test files, never ignored or linked ones", () => {

@@ -28,7 +28,8 @@ errors, empty and permission states.
   catalog entry with its own scene.
 - **Make it repeatable.** Use role and text locators (`getByRole`, `getByText`), never generated
   class names. Freeze the clock with `page.clock.setFixedTime` when the screen shows a time or
-  date. Use fixed seed IDs and timestamps. Mask what cannot be fixed with the `mask` option.
+  date. Use fixed seed IDs and timestamps. Mask what cannot be fixed with the `mask` option;
+  a masked region is captured as plain grey.
 - **Never write capture outputs by hand.** `image.sha256`, the `capture` record, and the
   `.tieline/screen-text/` files are written by `tieline screens capture` only.
 - **Use synthetic data only.** Never capture against production or shared staging data.

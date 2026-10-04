@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { lstatSync } from "node:fs";
 import { resolve } from "node:path";
-import { wildcardPattern } from "./paths.js";
+import { screenPathPattern } from "./paths.js";
 import { readBoundedFile } from "./screen-import.js";
 
 /**
@@ -134,7 +134,7 @@ export function scanScreenScenes(
       intercepting,
     };
   }
-  const compiled = patterns ? patterns.map(wildcardPattern) : null;
+  const compiled = patterns ? patterns.map(screenPathPattern) : null;
   const candidates = listed.filter((path) => isSceneTestCandidate(path, compiled));
   const skipped: string[] = [];
   let files = 0;
@@ -236,10 +236,10 @@ export function scanPageFiles(
       files: [],
     };
   }
-  const include = patterns.filter((pattern) => !pattern.startsWith("!")).map(wildcardPattern);
+  const include = patterns.filter((pattern) => !pattern.startsWith("!")).map(screenPathPattern);
   const exclude = patterns
     .filter((pattern) => pattern.startsWith("!"))
-    .map((pattern) => wildcardPattern(pattern.slice(1)));
+    .map((pattern) => screenPathPattern(pattern.slice(1)));
   const files = listed.filter(
     (path) => include.some((pattern) => pattern.test(path)) && !exclude.some((pattern) => pattern.test(path))
   );

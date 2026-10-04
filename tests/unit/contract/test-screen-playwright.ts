@@ -14,6 +14,8 @@ import {
   RUN_RECORD_FILE,
   SCREEN_ATTACHMENT,
   SCREENS_DIRECTORY,
+  MASK_COLOR,
+  RUN_PROTOCOL_VERSION,
   SELECTION_FILE,
   screenKeyProblem,
 } from "../../../src/playwright/protocol.cjs";
@@ -25,7 +27,7 @@ const directories: string[] = [];
 function runDirectory(keys: unknown = ["notes-list"]): string {
   const directory = mkdtempSync(join(tmpdir(), "tieline-fixture-test-"));
   directories.push(directory);
-  writeFileSync(join(directory, SELECTION_FILE), JSON.stringify({ version: 1, keys }));
+  writeFileSync(join(directory, SELECTION_FILE), JSON.stringify({ version: RUN_PROTOCOL_VERSION, keys }));
   return directory;
 }
 
@@ -131,14 +133,16 @@ await test("waits for the page to settle, then writes the screenshot, ARIA snaps
   const page = fakePage([png("moving"), png("settled"), png("settled")], { aria: '- heading "Your notes" [level=1]\n- list' });
   const info = testInfo(["@screen:notes-list"]);
   await captureScreen(page, "notes-list", info, { mask: ["locator('.avatar')"], fullPage: true }, { [RUN_DIRECTORY_ENV]: directory });
-  const screenshot = `screenshot:${JSON.stringify({ animations: "disabled", caret: "hide", scale: "css", fullPage: true, mask: ["locator('.avatar')"] })}`;
+  // Masks paint a neutral grey, never Playwright's default magenta.
+  const screenshot = `screenshot:${JSON.stringify({ animations: "disabled", caret: "hide", scale: "css", fullPage: true, maskColor: MASK_COLOR, mask: ["locator('.avatar')"] })}`;
   assert.deepEqual(page.calls, ["load:load", "fonts", screenshot, "wait:100", screenshot, "wait:250", screenshot, "aria:body", "settings"]);
   const screens = join(directory, SCREENS_DIRECTORY);
   assert.deepEqual(readdirSync(screens).sort(), ["notes-list.json", "notes-list.png", "notes-list.yml"]);
   assert.deepEqual(readFileSync(join(screens, "notes-list.png")), png("settled"));
   assert.equal(readFileSync(join(screens, "notes-list.yml"), "utf8"), '- heading "Your notes" [level=1]\n- list\n');
+  assert.equal(MASK_COLOR, "#d4d4d8");
   assert.deepEqual(JSON.parse(readFileSync(join(screens, "notes-list.json"), "utf8")), {
-    version: 1,
+    version: RUN_PROTOCOL_VERSION,
     key: "notes-list",
     browser: { name: "chromium", version: "140.0.7339.16" },
     page: {
@@ -152,7 +156,7 @@ await test("waits for the page to settle, then writes the screenshot, ARIA snaps
       timezone: "UTC",
       touch: false,
     },
-    snapshot: { full_page: true, animations: "disabled", caret: "hide", scale: "css", masks: ["locator('.avatar')"] },
+    snapshot: { full_page: true, animations: "disabled", caret: "hide", scale: "css", mask_color: MASK_COLOR, masks: ["locator('.avatar')"] },
     settle_attempts: 3,
   });
   assert.deepEqual(info.attachments, [{ name: SCREEN_ATTACHMENT, body: "notes-list" }]);
@@ -178,12 +182,12 @@ await test("fails a capture whose page never settles or whose output is too larg
 
 await test("refuses a selection file that is not one Tieline wrote", async () => {
   const info = testInfo(["@screen:notes-list"]);
-  for (const selection of [{ version: 2, keys: [] }, { version: 1, keys: [1] }, { version: 1 }]) {
+  for (const selection of [{ version: RUN_PROTOCOL_VERSION + 1, keys: [] }, { version: RUN_PROTOCOL_VERSION, keys: [1] }, { version: RUN_PROTOCOL_VERSION }]) {
     const directory = runDirectory();
     writeFileSync(join(directory, SELECTION_FILE), JSON.stringify(selection));
     await assert.rejects(
       () => captureScreen(fakePage([png("a")]), "notes-list", info, {}, { [RUN_DIRECTORY_ENV]: directory }),
-      /is not a version 1 selection/
+      new RegExp(`is not a version ${RUN_PROTOCOL_VERSION} selection`)
     );
   }
 });
@@ -207,7 +211,7 @@ await test("records each test's last attempt and writes the run record atomicall
   for (let index = 0; index < CAPTURE_LIMITS.errors + 5; index += 1) recorder.error(`error ${index}`);
   recorder.end("failed");
   const written = JSON.parse(readFileSync(join(directory, RUN_RECORD_FILE), "utf8"));
-  assert.equal(written.version, 1);
+  assert.equal(written.version, RUN_PROTOCOL_VERSION);
   assert.equal(written.playwright, "1.63.0");
   assert.equal(written.status, "failed");
   assert.deepEqual(written.tests[0], { ...attempt, status: "passed", keys: ["notes-list"], error: null });

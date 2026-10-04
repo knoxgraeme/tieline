@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
   CAPTURE_LIMITS,
   RUN_DIRECTORY_ENV,
+  MASK_COLOR,
   RUN_PROTOCOL_VERSION,
   SCREEN_ATTACHMENT,
   SCREEN_TAG_PREFIX,
@@ -27,6 +28,7 @@ export interface SnapshotPage<Mask> {
     caret: "hide";
     scale: "css";
     fullPage: boolean;
+    maskColor: string;
     mask?: Mask[];
   }): Promise<Buffer>;
   locator(selector: string): { ariaSnapshot(): Promise<string> };
@@ -171,6 +173,7 @@ export async function captureScreen<Mask>(
     caret: "hide" as const,
     scale: "css" as const,
     fullPage: options.fullPage === true,
+    maskColor: MASK_COLOR,
     ...(masks.length > 0 ? { mask: masks } : {}),
   };
   const { image, attempts } = await settledScreenshot(page, key, snapshot);
@@ -197,6 +200,7 @@ export async function captureScreen<Mask>(
       animations: snapshot.animations,
       caret: snapshot.caret,
       scale: snapshot.scale,
+      mask_color: MASK_COLOR,
       masks: masks.map((mask) => String(mask)),
     },
     settle_attempts: attempts,

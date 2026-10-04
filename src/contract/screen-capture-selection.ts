@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { parse } from "yaml";
 import { changesSince, type RepositoryPathChange } from "./impact.js";
 import type { ContractManifest } from "./manifest.js";
-import { wildcardPattern } from "./paths.js";
+import { screenPathPattern } from "./paths.js";
 import {
   SCREEN_LIMITS,
   validateScreenCatalogDocuments,
@@ -274,7 +274,7 @@ export function selectChangedScreens(input: ChangedScreenInputs): {
   }
 
   // Scene tests that changed.
-  const sceneFiles = settings.sceneTests ? settings.sceneTests.map(wildcardPattern) : null;
+  const sceneFiles = settings.sceneTests ? settings.sceneTests.map(screenPathPattern) : null;
   const unreadableScenes: string[] = [];
   for (const change of changes) {
     if (!isSceneTestCandidate(change.path, sceneFiles)) continue;
@@ -296,7 +296,7 @@ export function selectChangedScreens(input: ChangedScreenInputs): {
 
   // Files owned by screens directly (paths) or through their Stories and ACs.
   const patterns = [...current.screens].flatMap(([key, { entry }]) =>
-    (entry.paths ?? []).map((pattern) => ({ key, pattern, regex: wildcardPattern(pattern) }))
+    (entry.paths ?? []).map((pattern) => ({ key, pattern, regex: screenPathPattern(pattern) }))
   );
   const ownersByPath = new Map<string, Array<{ key: string; owner: string }>>();
   for (const [key, links] of input.owners ?? []) {
@@ -343,7 +343,7 @@ export function selectChangedScreens(input: ChangedScreenInputs): {
   }
 
   // A global path selects everything; the first matching change is the reason.
-  const globals = input.globalPaths.map((pattern) => ({ pattern, regex: wildcardPattern(pattern) }));
+  const globals = input.globalPaths.map((pattern) => ({ pattern, regex: screenPathPattern(pattern) }));
   const global = changes
     .flatMap(touchedPaths)
     .flatMap((path) => globals.filter(({ regex }) => regex.test(path)).map(({ pattern }) => ({ pattern, path })))[0];

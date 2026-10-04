@@ -15,6 +15,24 @@ export function wildcardPattern(pattern: string): RegExp {
   return new RegExp(`^${escaped}(?:/.*)?$`);
 }
 
+// A screens path pattern as a regular expression: `*` within one segment and
+// `**` across segments, where `**/` also matches no directory at all, as in
+// other glob syntaxes, so `app/**/page.tsx` covers `app/page.tsx` too. Like
+// `wildcardPattern`, a pattern also covers everything beneath the path it
+// matches. (Line comments: the patterns above would end a block comment.) The
+// older pattern settings keep `wildcardPattern`, whose `**/` needs at least
+// one directory, so their behavior does not change.
+export function screenPathPattern(pattern: string): RegExp {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*\//g, "\u0001")
+    .replace(/\*\*/g, "\0")
+    .replace(/\*/g, "[^/]*")
+    .replace(/\u0001/g, "(?:.*/)?")
+    .replace(/\0/g, ".*");
+  return new RegExp(`^${escaped}(?:/.*)?$`);
+}
+
 /** Whether `target` resolves to `root` itself or somewhere inside it. */
 export function withinRepository(root: string, target: string): boolean {
   const path = relative(root, target);

@@ -26,7 +26,13 @@ export const SCREEN_ATTACHMENT = "tieline-screen";
 /** The tag that links a test to a screen it captures. */
 export const SCREEN_TAG_PREFIX = "@screen:";
 
-export const RUN_PROTOCOL_VERSION = 1;
+export const RUN_PROTOCOL_VERSION = 2;
+
+/**
+ * What a mask paints over: a neutral grey, so a masked region reads as left
+ * out on purpose rather than Playwright's default magenta.
+ */
+export const MASK_COLOR = "#d4d4d8";
 
 /** Matches the catalog's stable key schema. */
 export const SCREEN_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -76,6 +82,7 @@ export interface CaptureSettingsFile {
     animations: "disabled";
     caret: "hide";
     scale: "css";
+    mask_color: typeof MASK_COLOR;
     masks: string[];
   };
   settle_attempts: number;
