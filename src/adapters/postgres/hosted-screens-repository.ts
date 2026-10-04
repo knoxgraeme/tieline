@@ -88,13 +88,18 @@ export class PostgresHostedScreensRepository {
    * retention, which waits a grace period after the last reference, cannot
    * delete one between that check and the page that shows it.
    */
+  /**
+   * Records the images a page is about to show as referenced, inserting the
+   * metadata of those the captures directory supplies, and returns which of
+   * `referenced` have a metadata row: the site serves no image without one.
+   */
   async touchImages(
     repositoryKey: string,
     repositoryId: string,
     local: readonly HostedImageRow[],
     referenced: readonly string[]
-  ): Promise<void> {
-    await this.sqlProvider().begin(async (tx) => {
+  ): Promise<string[]> {
+    return this.sqlProvider().begin(async (tx) => {
       await lockScreens(tx, repositoryKey);
       if (local.length > 0) {
         await tx`
@@ -108,12 +113,13 @@ export class PostgresHostedScreensRepository {
           on conflict (repository_id, digest) do update
             set last_referenced_at = now()`;
       }
-      if (referenced.length > 0) {
-        await tx`
-          update screen_images
-          set last_referenced_at = now()
-          where repository_id = ${repositoryId} and digest = any(${[...referenced]}::text[])`;
-      }
+      if (referenced.length === 0) return [];
+      const recorded = await tx<{ digest: string }[]>`
+        update screen_images
+        set last_referenced_at = now()
+        where repository_id = ${repositoryId} and digest = any(${[...referenced]}::text[])
+        returning digest`;
+      return recorded.map((row) => row.digest);
     });
   }
 

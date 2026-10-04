@@ -34,6 +34,12 @@ export const HOSTED_SCREEN_LIMITS = {
   closedGraceHours: 24,
   /** Most images one prune deletes; the next prune continues. */
   pruneImages: 1_000,
+  /**
+   * Longest one prune spends deleting from the bucket, which it does while
+   * holding the screens lock; what it has not deleted by then is kept for the
+   * next prune.
+   */
+  pruneDeleteSeconds: 120,
 } as const;
 
 export type HostedImageType = "image/png" | "image/jpeg" | "image/webp" | "image/gif" | "image/avif";

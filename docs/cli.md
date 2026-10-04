@@ -218,14 +218,16 @@ on any of them, as a coverage gate. `--capture` re-captures every screen and rep
 See [Audit](screens.md#audit) and [Coverage](screens.md#coverage).
 
 ```bash
-tieline screens publish (--pull-request <number> | --branch <name>) [--commit <sha>] [--summary-file <path>] [--json]
+tieline screens publish (--pull-request <number> | --branch <name>) [--commit <sha>] [--summary-file <path>] [--trusted <path>] [--json]
 tieline screens close --pull-request <number> [--json]
 tieline screens prune [--json]
 ```
 
 With [hosted screens](screens.md#hosted-screens) enabled, `publish` stores a pull request's or
 branch's review page, compared with `main`, and uploads the screenshots the bucket lacks; it
-publishes nothing unless every screenshot the page shows is stored. `close` marks a pull request
+publishes nothing unless every screenshot the page shows is stored. `--trusted <path>` names a
+checkout Tieline trusts, such as the default branch's: the published checkout must name its
+repository key, bucket, and site URL, or nothing is published. `close` marks a pull request
 closed, and `prune`, run after sync on `main`, deletes what retention no longer keeps. `main` is
 published by `tieline contract sync`, never by `publish`. `--summary-file` writes the Markdown
 CI posts as the pull request's screens comment.

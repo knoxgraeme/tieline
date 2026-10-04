@@ -155,6 +155,8 @@ class FakeStore implements ObjectStore {
   readonly calls: string[] = [];
   failPut: string | null = null;
   failDelete = new Set<string>();
+  /** Deletes of these keys never answer, until their signal aborts. */
+  hangDelete = new Set<string>();
 
   async head(key: string): Promise<boolean> {
     this.calls.push(`head ${key}`);
@@ -176,9 +178,22 @@ class FakeStore implements ObjectStore {
     this.objects.set(key, { bytes: body, contentType });
   }
 
-  async delete(key: string): Promise<void> {
+  async delete(key: string, signal?: AbortSignal): Promise<void> {
     this.calls.push(`delete ${key}`);
     if (this.failDelete.has(key)) throw new ObjectStoreError(`Object storage DELETE '${key}' failed: HTTP 500.`, 500, key);
+    if (this.hangDelete.has(key)) {
+      // Like a request in flight, it keeps the process alive until aborted.
+      const inFlight = setInterval(() => undefined, 1_000);
+      try {
+        await new Promise<never>((_, reject) => {
+          if (!signal) return;
+          if (signal.aborted) reject(signal.reason);
+          else signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+        });
+      } finally {
+        clearInterval(inFlight);
+      }
+    }
     this.objects.delete(key);
   }
 }
@@ -212,9 +227,10 @@ class FakeRepository implements HostedScreensRepository {
     _repositoryId: string,
     local: readonly HostedImageRow[],
     referenced: readonly string[]
-  ): Promise<void> {
+  ): Promise<string[]> {
     this.calls.push(`touch ${local.length} local of ${referenced.length}`);
     for (const row of local) this.images.set(row.digest, row);
+    return referenced.filter((digest) => this.images.has(digest));
   }
 
   async publishRef(_repositoryId: string, ref: HostedRef, snapshot: HostedSnapshotInput): Promise<void> {
@@ -263,6 +279,13 @@ class FakeRepository implements HostedScreensRepository {
     this.calls.push(`pruneImages grace=${options.graceHours} limit=${options.limit}`);
     return remove(this.pruneCandidates);
   }
+}
+
+/** A repository whose database already records these images, as one that stored them before. */
+function recorded(...images: Buffer[]): FakeRepository {
+  const repository = new FakeRepository();
+  for (const image of images) repository.images.set(sha256(image), { digest: sha256(image), contentType: "image/png", byteSize: image.length });
+  return repository;
 }
 
 function dependencies(repository: FakeRepository, store: FakeStore): HostedScreensDependencies & { closed: () => number } {
@@ -754,7 +777,7 @@ await test("stores again an image the bucket holds with other bytes, when the ca
   const bareStore = new FakeStore();
   bareStore.objects.set(imageKey(LIST_IMAGE), { bytes: Buffer.from("overwritten"), contentType: "image/png" });
   bareStore.objects.set(imageKey(EMPTY_IMAGE), { bytes: EMPTY_IMAGE, contentType: "image/png" });
-  assert.equal(await runScreensPublishCommand({ repository: bare.root, pullRequest: "8", json: true }, captureIO().io, dependencies(new FakeRepository(), bareStore)), 0);
+  assert.equal(await runScreensPublishCommand({ repository: bare.root, pullRequest: "8", json: true }, captureIO().io, dependencies(recorded(LIST_IMAGE, EMPTY_IMAGE), bareStore)), 0);
   assert.deepEqual(bareStore.calls.filter((call) => call.startsWith("get") || call.startsWith("put")), []);
 });
 
@@ -762,7 +785,7 @@ await test("publishes when a screenshot is not on disk but the bucket already ho
   const ws = hostedWorkspace();
   ws.remove(".tieline/captures/notes-list.png");
   writeFileSync(`${ws.root}/.tieline/captures/notes-list-empty.png`, png("a stale capture"));
-  const repository = new FakeRepository();
+  const repository = recorded(LIST_IMAGE, EMPTY_IMAGE);
   const store = new FakeStore();
   store.objects.set(imageKey(LIST_IMAGE), { bytes: LIST_IMAGE, contentType: "image/png" });
   store.objects.set(imageKey(EMPTY_IMAGE), { bytes: EMPTY_IMAGE, contentType: "image/png" });
@@ -774,6 +797,53 @@ await test("publishes when a screenshot is not on disk but the bucket already ho
   assert.ok(repository.snapshots.has("branch/feature/empty-state"));
 });
 
+await test("publishes only to the repository, bucket, and site the trusted checkout names", async () => {
+  const trusted = hostedWorkspace();
+  const retarget = (edit: (config: { product: { repo_name: string }; screens: { hosted: Record<string, unknown> } }) => void) => {
+    const ws = hostedWorkspace();
+    const config = JSON.parse(readFileSync(`${ws.root}/.tieline/config.json`, "utf8")) as Parameters<typeof edit>[0];
+    edit(config);
+    writeFileSync(`${ws.root}/.tieline/config.json`, JSON.stringify(config, null, 2));
+    return ws;
+  };
+  const publish = async (ws: ScreensWorkspace) => {
+    const repository = new FakeRepository();
+    const store = new FakeStore();
+    const run = runScreensPublishCommand({ repository: ws.root, pullRequest: "5", trusted: trusted.root, json: true }, captureIO().io, dependencies(repository, store));
+    return { run, repository, store };
+  };
+  // The same targets: published.
+  const same = await publish(hostedWorkspace());
+  assert.equal(await same.run, 0);
+  assert.ok(same.repository.snapshots.has("pr/5"));
+  // A branch that names another repository, bucket, or site publishes nothing, and touches nothing.
+  for (const [ws, expected] of [
+    [retarget((config) => (config.product.repo_name = "someone-else")), /names another repository key 'someone-else' \(the trusted checkout names 'acme-notes'\)/],
+    [retarget((config) => (config.screens.hosted.bucket = "attacker-bucket")), /bucket 'attacker-bucket' \(the trusted checkout names '[a-z0-9.-]+'\)/],
+    [retarget((config) => (config.screens.hosted.site_url = "https://phish.example.test")), /site URL 'https:\/\/phish\.example\.test' \(the trusted checkout names 'none'\)/],
+  ] as const) {
+    const attempt = await publish(ws);
+    await assert.rejects(attempt.run, expected);
+    assert.deepEqual(attempt.repository.calls, [], "nothing was looked up or written");
+    assert.deepEqual(attempt.store.calls, []);
+  }
+});
+
+await test("publishes nothing when the bucket holds an image the database does not record and the disk cannot supply", async () => {
+  // A database restored apart from its bucket: the site would find no record
+  // and answer 404, so the image counts as missing.
+  const ws = hostedWorkspace({ images: false });
+  const repository = recorded(EMPTY_IMAGE);
+  const store = new FakeStore();
+  store.objects.set(imageKey(LIST_IMAGE), { bytes: LIST_IMAGE, contentType: "image/png" });
+  store.objects.set(imageKey(EMPTY_IMAGE), { bytes: EMPTY_IMAGE, contentType: "image/png" });
+  const { io, output } = captureIO();
+  assert.equal(await runScreensPublishCommand({ repository: ws.root, pullRequest: "9" }, io, dependencies(repository, store)), 1);
+  assert.match(output(), /Nothing was published for pr-9: 1 image\(s\) are missing from the bucket or its records/);
+  assert.match(output(), /missing  [a-f0-9]{12} \(notes-list\): in the bucket, but the database has no record of it, and \.tieline\/captures\/notes-list\.png does not exist/);
+  assert.ok(!repository.calls.some((call) => call.startsWith("publish")), "no page is published");
+});
+
 await test("publishes nothing when an image is neither in the bucket nor usable on disk", async () => {
   const ws = hostedWorkspace();
   ws.remove(".tieline/captures/notes-list.png");
@@ -782,7 +852,7 @@ await test("publishes nothing when an image is neither in the bucket nor usable 
   const store = new FakeStore();
   const { io, output } = captureIO();
   assert.equal(await runScreensPublishCommand({ repository: ws.root, pullRequest: "7" }, io, dependencies(repository, store)), 1);
-  assert.match(output(), /Nothing was published for pr-7: 2 image\(s\) are not in the bucket/);
+  assert.match(output(), /Nothing was published for pr-7: 2 image\(s\) are missing from the bucket or its records/);
   assert.match(output(), /missing  [a-f0-9]{12} \(notes-list\): not in the bucket, and \.tieline\/captures\/notes-list\.png does not exist/);
   assert.match(output(), /\(notes-list-empty\): not in the bucket, and .*not the image the catalog records/);
   assert.ok(!repository.calls.some((call) => call.startsWith("publish")), "no page is published");
@@ -895,7 +965,7 @@ await test("does not publish main when an image is missing, the commit is not a 
   const missing = new FakeRepository();
   const failed = await publishMainScreens({ ...input, repository: missing });
   assert.equal(failed.outcome, "failed");
-  assert.match(failed.outcome === "failed" ? failed.reason : "", /2 image\(s\) main shows are not in the bucket/);
+  assert.match(failed.outcome === "failed" ? failed.reason : "", /2 image\(s\) main shows are missing from the bucket or its records/);
   assert.ok(!missing.calls.includes("publishMain"));
 
   const short = await publishMainScreens({ ...input, commit: "HEAD", repository: new FakeRepository() });
@@ -904,7 +974,7 @@ await test("does not publish main when an image is missing, the commit is not a 
   const store = new FakeStore();
   store.objects.set(imageKey(LIST_IMAGE), { bytes: LIST_IMAGE, contentType: "image/png" });
   store.objects.set(imageKey(EMPTY_IMAGE), { bytes: EMPTY_IMAGE, contentType: "image/png" });
-  const moved = new FakeRepository();
+  const moved = recorded(LIST_IMAGE, EMPTY_IMAGE);
   moved.mainResult = { outcome: "superseded", synced_commit: "c".repeat(40) };
   assert.deepEqual(await publishMainScreens({ ...input, store, repository: moved }), {
     outcome: "superseded",
@@ -935,6 +1005,21 @@ await test("prunes with the configured retention and keeps images it could not d
     refs: { closed_pull_requests: 1, branches: 2, history: 3 },
     images: { deleted: 1, failed: [] },
   });
+});
+
+await test("stops deleting from a stalled bucket at the prune's time limit, so the screens lock is not held for long", async () => {
+  const ws = hostedWorkspace();
+  const repository = new FakeRepository();
+  const store = new FakeStore();
+  repository.pruneCandidates = ["d".repeat(64), "e".repeat(64)];
+  store.hangDelete.add(hostedImageKey(REPO_KEY, "e".repeat(64)));
+  const { io, output } = captureIO();
+  const deps = { ...dependencies(repository, store), pruneDeleteMs: 20 };
+  assert.equal(await runScreensPruneCommand({ repository: ws.root }, io, deps), 1);
+  assert.match(output(), /and 1 unreferenced image\(s\)/);
+  assert.match(output(), /kept  eeeeeeeeeeee: not deleted within the prune's time limit/);
+  assert.match(output(), /retried by the next prune/);
+  assert.equal(HOSTED_SCREEN_LIMITS.pruneDeleteSeconds, 120);
 });
 
 await test("tells retention which screens main's page shows, and keeps all history when it cannot read the page", async () => {
@@ -1032,7 +1117,13 @@ await test("syncs main's tip in the example workflow, so a skipped or out-of-ord
 await test("publishes from a workflow the default branch owns, never from one a pull request can change", () => {
   type Step = { if?: string; uses?: string; with?: Record<string, unknown>; run?: string; "working-directory"?: string; env?: Record<string, string> };
   type Job = { needs?: string; if?: string; environment?: string; permissions?: Record<string, string>; outputs?: Record<string, string>; steps: Step[] };
-  type Workflow = { name: string; on: Record<string, unknown>; permissions: Record<string, string>; jobs: Record<string, Job> };
+  type Workflow = {
+    name: string;
+    on: Record<string, unknown>;
+    permissions: Record<string, string>;
+    concurrency?: Record<string, unknown>;
+    jobs: Record<string, Job>;
+  };
   const read = (file: string) => parseYaml(readFileSync(`docs/examples/${file}`, "utf8")) as Workflow;
   const capture = read("screens-hosted.yml");
   const publishing = read("screens-hosted-publish.yml");
@@ -1058,6 +1149,9 @@ await test("publishes from a workflow the default branch owns, never from one a 
     pull_request_target: { types: ["closed"] },
   });
   assert.deepEqual(publishing.permissions, { contents: "read" });
+  // No run is replaced while pending, so a close is never dropped behind a publish.
+  assert.equal(publishing.concurrency?.["cancel-in-progress"], false);
+  assert.equal(publishing.concurrency?.queue, "max");
   // Every job that holds a secret runs in the environment the default branch alone can use.
   for (const workflow of [publishing, main]) {
     for (const [name, job] of Object.entries(workflow.jobs)) {
@@ -1086,6 +1180,8 @@ await test("publishes from a workflow the default branch owns, never from one a 
   assert.ok(commands.length >= 2 && commands.every((step) => step["working-directory"] === "trusted"), "every command runs the default branch's install");
   const publishStep = commands.find((step) => step.run!.includes("screens publish"))!;
   assert.match(publishStep.run!, /--repository \.\.\/pull-request /);
+  // The default branch's checkout, not the pull request's, decides where it publishes.
+  assert.match(publishStep.run!, /--trusted \. /);
   assert.equal(publishStep.env?.PULL_REQUEST, "${{ needs.resolve.outputs.number }}");
   const download = publish!.steps.find((step) => step.uses?.startsWith("actions/download-artifact"))!;
   assert.equal(download.with?.["run-id"], "${{ github.event.workflow_run.id }}");

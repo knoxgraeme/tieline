@@ -15,10 +15,14 @@ on:
 permissions:
   contents: read
 
-# A pull request's publishes and its close run one at a time, in order.
+# A pull request's publishes and its close run one at a time, and every one
+# waits its turn: by default a newly queued run replaces a pending one, which
+# could drop a close. Whichever order they run in, closing wins: a publish
+# that runs after it finds the pull request closed and publishes nothing.
 concurrency:
   group: screens-publish-${{ github.event.workflow_run.head_branch || github.event.pull_request.head.ref }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   # The pull request a capture was for, read from the event and the API, never
@@ -50,7 +54,9 @@ jobs:
   # Holds the publishing credentials and never runs the pull request's code:
   # Tieline is installed from the default branch, and the pull request's files
   # and the capture's screenshots are only read, each screenshot re-hashed
-  # against the digest its catalog commits.
+  # against the digest its catalog commits. --trusted makes the pull request
+  # name the default branch's repository key, bucket, and site URL, so it
+  # cannot choose where the credentials write.
   publish:
     needs: resolve
     if: needs.resolve.outputs.number != ''
@@ -100,6 +106,7 @@ jobs:
         run: >-
           npx tieline screens publish
           --repository ../pull-request
+          --trusted .
           --pull-request "$PULL_REQUEST"
           --commit "$HEAD_SHA"
           --summary-file ../screens-summary.md

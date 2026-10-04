@@ -71,9 +71,13 @@ try {
     returning id`;
   repositoryId = created!.id;
 
-  // The publisher records images and replaces a pull request's page.
-  await as(PUBLISHER, () =>
-    repository.touchImages(repositoryKey, repositoryId, [{ digest: digest("a"), contentType: "image/png", byteSize: 10 }], [digest("a")])
+  // The publisher records images and replaces a pull request's page; an image
+  // with no metadata row is reported as unrecorded, whatever the bucket holds.
+  assert.deepEqual(
+    await as(PUBLISHER, () =>
+      repository.touchImages(repositoryKey, repositoryId, [{ digest: digest("a"), contentType: "image/png", byteSize: 10 }], [digest("a"), digest("9")])
+    ),
+    [digest("a")]
   );
   await as(PUBLISHER, () => repository.publishRef(repositoryId, { kind: "pr", name: "12" }, snapshot([digest("a")], "<p>first</p>")));
   await as(PUBLISHER, () => repository.publishRef(repositoryId, { kind: "pr", name: "12" }, snapshot([digest("a")], "<p>second</p>", commit("2"))));

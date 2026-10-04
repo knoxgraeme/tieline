@@ -344,7 +344,7 @@ await test("refuses capture files that are not what the fixture writes", () => {
 });
 
 await test("bounds each capture file and the run's screenshots in total", () => {
-  const limits = { imageBytes: 64, totalImageBytes: 30, textBytes: 16, settingsBytes: 4_096 };
+  const limits = { imageBytes: 64, totalImageBytes: 30, textBytes: 16, totalTextBytes: 1_024, settingsBytes: 4_096 };
   const big = runDirectoryWith(record([{ keys: ["a"] }]), { a: { image: png("x".repeat(80)) } });
   assert.throws(() => readRun(big, ["a"], limits), /is larger than the 64-byte limit/);
   const total = runDirectoryWith(record([{ keys: ["a", "b"] }]), { a: { image: png("x".repeat(10)) }, b: { image: png("y".repeat(10)) } });
@@ -353,10 +353,11 @@ await test("bounds each capture file and the run's screenshots in total", () => 
   assert.throws(() => readRun(text, ["a"], limits), /ARIA snapshot .* is larger than the 16-byte limit/);
   assert.equal(SCREEN_CAPTURE_RUN_LIMITS.imageBytes, 25 * 1024 * 1024);
   assert.equal(SCREEN_CAPTURE_RUN_LIMITS.textBytes, 1024 * 1024);
+  assert.equal(SCREEN_CAPTURE_RUN_LIMITS.totalTextBytes, 256 * 1024 * 1024);
 });
 
-await test("bounds the screenshots a capture holds across its batches, and keeps only digests when asked", () => {
-  const limits = { imageBytes: 64, totalImageBytes: 30, textBytes: 64, settingsBytes: 4_096 };
+await test("bounds the screenshots and ARIA snapshots a capture holds across its batches, and keeps only digests when asked", () => {
+  const limits = { imageBytes: 64, totalImageBytes: 30, textBytes: 64, totalTextBytes: 1_024, settingsBytes: 4_096 };
   // Each screenshot is 18 bytes: one fits the total, two do not.
   const directory = runDirectoryWith(record([{ keys: ["a", "b"] }]), { a: { image: png("x".repeat(10)) }, b: { image: png("y".repeat(10)) } });
   const parsed = readCaptureRunRecord(directory);
@@ -367,6 +368,14 @@ await test("bounds the screenshots a capture holds across its batches, and keeps
   assert.throws(
     () => readCapturedScreens({ ...read, selected: ["a"], imageBytesHeld: 18 }),
     /the capture's screenshots exceed the 30-byte total; capture fewer screens at once/
+  );
+  // ARIA snapshots are held to their own total the same way.
+  const text = readFileSync(join(directory, SCREENS_DIRECTORY, "a.yml")).length;
+  const textLimits = { ...limits, totalTextBytes: text + 5 };
+  assert.equal(readCapturedScreens({ ...read, limits: textLimits, selected: ["a"], textBytesHeld: 5 }).length, 1);
+  assert.throws(
+    () => readCapturedScreens({ ...read, limits: textLimits, selected: ["a"], textBytesHeld: 6 }),
+    new RegExp(`the capture's ARIA snapshots exceed the ${text + 5}-byte total; capture fewer screens at once`)
   );
   // A repeat run keeps no screenshot or ARIA snapshot, only what it is compared
   // by, so it holds one screenshot at a time and is not held to the total.
