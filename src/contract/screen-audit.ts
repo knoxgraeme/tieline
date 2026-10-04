@@ -103,6 +103,14 @@ export interface ScreenAudit {
     unclaimed: string[];
   };
   acceptance_criteria: ScreenAcceptanceAlignment;
+  /**
+   * Screens no Story or acceptance criterion shows, each with the criteria
+   * whose `implements` links name a file in the screen's `paths`: where a link
+   * most likely belongs. A hint for review, never a failure: a screen no
+   * criterion states, such as a search with no matches, stays unlinked. Empty
+   * when the contract does not compile.
+   */
+  unlinked_screens: Array<{ key: string; capability: string; candidates: string[] }>;
   /** Scene test files that intercept the page's requests, for review. */
   intercepting: Array<{ file: string; keys: string[] }>;
   /** Whether the generated page scenes match the catalog. */
@@ -129,6 +137,8 @@ export interface ScreenAuditSummary {
   untested_acceptance_criteria: number | null;
   unlinked_acceptance_criteria: number | null;
   unknown_acceptance_criterion_tags: number | null;
+  /** Null when the contract does not compile, so which screens are shown is unknown. */
+  unlinked_screens: number | null;
   intercepting_scene_files: number;
 }
 
@@ -192,6 +202,45 @@ function acceptanceAlignment(
         .map(([key, files]) => ({ key, files: [...files] }))
     ),
   };
+}
+
+/** Most criteria suggested for one unlinked screen. */
+export const UNLINKED_SCREEN_CANDIDATES = 5;
+
+function unlinkedScreens(
+  contract: ScreenAuditContract,
+  catalog: ValidatedScreenCatalog
+): ScreenAudit["unlinked_screens"] {
+  if (!contract.manifest) return [];
+  const shown = new Set<string>();
+  const implementers: Array<{ key: string; path: string }> = [];
+  for (const capability of contract.manifest.capabilities) {
+    for (const story of capability.stories) {
+      for (const link of story.shows ?? []) shown.add(link.target.key);
+      for (const criterion of story.acceptance_criteria) {
+        for (const link of criterion.shows ?? []) shown.add(link.target.key);
+        for (const link of criterion.links) {
+          if (link.relation === "implements" && "path" in link.target) {
+            implementers.push({ key: criterion.stable_id, path: link.target.path });
+          }
+        }
+      }
+    }
+  }
+  return [...catalog.screens]
+    .filter(([key]) => !shown.has(key))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, { capability, entry }]) => {
+      const patterns = (entry.paths ?? []).map(screenPathPattern);
+      const candidates = [
+        ...new Set(
+          implementers
+            .filter((link) => patterns.some((pattern) => pattern.test(link.path)))
+            .map((link) => link.key)
+        ),
+      ].sort((left, right) => left.localeCompare(right));
+      return { key, capability, candidates: candidates.slice(0, UNLINKED_SCREEN_CANDIDATES) };
+    });
 }
 
 /**
@@ -276,6 +325,7 @@ export function auditScreenCaptures(input: {
       unclaimed: input.pages.files.filter((file) => !claims.some((claim) => claim.test(file))),
     },
     acceptance_criteria: acceptanceAlignment(input.contract, scenes),
+    unlinked_screens: unlinkedScreens(input.contract, catalog),
     intercepting: scenes.intercepting.map(({ file, keys: tagged }) => ({ file, keys: [...tagged] })),
     generated_scenes: input.generatedScenes ?? { status: "not_configured", file: null, detail: null },
   };
@@ -303,6 +353,7 @@ export function summarizeScreenAudit(audit: ScreenAudit): ScreenAuditSummary {
     untested_acceptance_criteria: alignment.status === "evaluated" ? alignment.untested.length : null,
     unlinked_acceptance_criteria: aligned ? alignment.unlinked.length : null,
     unknown_acceptance_criterion_tags: aligned ? alignment.unknown_tags.length : null,
+    unlinked_screens: aligned ? audit.unlinked_screens.length : null,
     intercepting_scene_files: audit.intercepting.length,
   };
 }

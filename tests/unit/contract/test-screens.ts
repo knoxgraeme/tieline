@@ -1179,6 +1179,7 @@ await test("fails check on committed shows links whose screen left the catalog",
       // NOTES-001-AC1 shows a screen, but no test is tagged @ac:NOTES-001-AC1.
       untested_acceptance_criteria: 1,
       unlinked_acceptance_criteria: 0,
+      unlinked_screens: 2,
       unknown_acceptance_criterion_tags: 0,
       intercepting_scene_files: 0,
     },

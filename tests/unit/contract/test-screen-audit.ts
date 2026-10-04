@@ -32,6 +32,7 @@ import { report, test } from "../../support/harness.js";
 import {
   captureIO,
   createScreensWorkspace,
+  notesSpecYaml,
   REPO_KEY,
   type ScreensWorkspace,
 } from "../../support/screen-fixtures.js";
@@ -295,6 +296,7 @@ await test("names each screen's missing outputs, mismatched and orphaned snapsho
     unclaimed_pages: null,
     untested_acceptance_criteria: 0,
     unlinked_acceptance_criteria: 0,
+    unlinked_screens: 3,
     unknown_acceptance_criterion_tags: 0,
     intercepting_scene_files: 0,
   });
@@ -471,6 +473,76 @@ await test("flags scene tests that intercept requests, for review", () => {
   ws.write("e2e/blocked.spec.ts", 'test("x", { tag: "@screen:notes-list" }, async ({ page }) => { await page.route("**/analytics/**", (r) => r.abort()); });\n');
   ws.write("e2e/unrelated.spec.ts", 'test("y", async ({ page }) => { await page.route("**", (r) => r.continue()); });\n');
   assert.deepEqual(auditOf(ws).intercepting, [{ file: "e2e/blocked.spec.ts", keys: ["notes-list"] }]);
+});
+
+await test("names each unlinked screen with the criteria that implement its files, as a hint only", async () => {
+  const screen = (key: string, paths?: string[]) => ({
+    key,
+    title: key,
+    route: `/${key}`,
+    kind: "state",
+    when: "A member gets here.",
+    ...(paths ? { paths } : {}),
+  });
+  const ws = workspace({
+    git: true,
+    screens: ENABLED,
+    catalog: {
+      ".tieline/screens/NOTES.yaml": stringify({
+        version: 1,
+        capability: "NOTES",
+        screens: [
+          screen("notes-list", ["app/notes/**"]),
+          screen("notes-empty", ["app/notes/**"]),
+          screen("search-empty", ["app/search/**"]),
+          screen("about"),
+        ],
+      }),
+    },
+  });
+  // AC1 shows the list; AC2 implements the notes page but shows nothing.
+  ws.write(
+    ".tieline/spec/notes.yaml",
+    notesSpecYaml({ criterionShows: ["notes-list"] }).replace(
+      "          criterion: The notes list must invite a member without notes to write one.\n",
+      [
+        "          criterion: The notes list must invite a member without notes to write one.",
+        "          links:",
+        "            - relation: implements",
+        "              provenance: authored",
+        `              target: { kind: code, repository: ${REPO_KEY}, path: app/notes/page.tsx }`,
+        "",
+      ].join("\n")
+    )
+  );
+  ws.write("app/notes/page.tsx", "export default function Notes() { return null; }\n");
+  const audit = auditOf(ws);
+  assert.deepEqual(audit.unlinked_screens, [
+    { key: "about", capability: "NOTES", candidates: [] },
+    { key: "notes-empty", capability: "NOTES", candidates: ["NOTES-001-AC2"] },
+    { key: "search-empty", capability: "NOTES", candidates: [] },
+  ]);
+  assert.equal(summarizeScreenAudit(audit).unlinked_screens, 3);
+  // A hint only: an unlinked screen never fails a strict audit.
+  assert.equal(screenAuditStrictFailures(audit).some((failure) => /unlinked screen|no links|not shown/.test(failure)), false);
+  const capture = captureIO();
+  assert.equal(await runCli(["screens", "audit", "--repository", ws.root], capture.io, {}), 0);
+  assert.match(capture.output(), /  no links  notes-empty \(NOTES\): NOTES-001-AC2 implements its files; link it if one of them states it\n/);
+  assert.match(capture.output(), /  no links  search-empty \(NOTES\): no acceptance criterion implements its files\n/);
+  assert.doesNotMatch(capture.output(), /no links  notes-list /, "a shown screen is not listed");
+
+  // Without a compiling contract, which screens are shown is unknown.
+  const settings = screenSettingsForRepository(ws.root)!;
+  const unknown = auditScreenCaptures({
+    settings,
+    catalog: loadScreenCatalog(ws.root, settings).catalog,
+    text: readScreenTextDirectory(settings),
+    scenes: scanScreenScenes(ws.root, settings.sceneTests),
+    pages: scanPageFiles(ws.root, settings.capture.pages),
+    contract: { manifest: null, detail: "the working-tree contract does not compile" },
+  });
+  assert.deepEqual(unknown.unlinked_screens, []);
+  assert.equal(summarizeScreenAudit(unknown).unlinked_screens, null);
 });
 
 await test("fails a strict audit until every screen, page, and UI criterion is accounted for", async () => {
