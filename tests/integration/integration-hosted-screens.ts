@@ -215,14 +215,26 @@ try {
       insert into screen_history (repository_id, screen_key, digest, commit_sha)
       values (${repositoryId}, 'notes-list', ${digest(character)}, ${commit("5")})`;
   }
+  const retention = { branchDays: 7, mainHistory: 2, closedGraceHours: 24 };
+  const read: unknown[] = [];
+  // main's page cannot be read: every screen's history is kept as if still shown.
   assert.deepEqual(
-    await as(SYNC, () => repository.pruneRefs(repositoryKey, repositoryId, { branchDays: 7, mainHistory: 2, closedGraceHours: 24 })),
+    await as(SYNC, () =>
+      repository.pruneRefs(repositoryKey, repositoryId, retention, (manifest) => {
+        read.push(manifest);
+        return null;
+      })
+    ),
     { closed_pull_requests: 1, branches: 1, history: 3 }
   );
-  const kept = await sql<{ screen_key: string; digest: string }[]>`
-    select screen_key, digest from screen_history where repository_id = ${repositoryId} order by screen_key, id`;
+  assert.deepEqual(read, [{ schema_version: 3 }], "retention reads main's stored manifest");
+  const history = async () =>
+    (
+      await sql<{ screen_key: string; digest: string }[]>`
+        select screen_key, digest from screen_history where repository_id = ${repositoryId} order by screen_key, id`
+    ).map((row) => [row.screen_key, row.digest]);
   assert.deepEqual(
-    kept.map((row) => [row.screen_key, row.digest]),
+    await history(),
     [
       ["notes-list", digest("2")],
       ["notes-list", digest("3")],
@@ -230,6 +242,20 @@ try {
       ["notes-list-empty", digest("b")],
     ],
     "each screen keeps its current image and the last two it replaced"
+  );
+  // main's page no longer shows notes-list-empty: its history goes, notes-list's stays.
+  assert.deepEqual(
+    await as(SYNC, () => repository.pruneRefs(repositoryKey, repositoryId, retention, () => ["notes-list"])),
+    { closed_pull_requests: 0, branches: 0, history: 1 }
+  );
+  assert.deepEqual(
+    await history(),
+    [
+      ["notes-list", digest("2")],
+      ["notes-list", digest("3")],
+      ["notes-list", digest("4")],
+    ],
+    "a screen main no longer shows keeps no history"
   );
 
   // Images: unreferenced and quiet past the grace period are deleted;
@@ -353,7 +379,8 @@ screens:
     select head_commit, images, page_html from screen_snapshots
     where repository_id = ${repositoryId} and ref_kind = 'pr' and ref_name = '31'`;
   assert.equal(pullRequest!.head_commit, commit("7"));
-  assert.deepEqual(pullRequest!.images, [after.digest]);
+  // The page shows main's image beside the branch's, so its snapshot keeps both from retention.
+  assert.deepEqual(pullRequest!.images, [after.digest, before.digest].sort());
   assert.ok(pullRequest!.page_html.includes(`"before_image":{"src":"images/${before.digest}","label":"main"}`));
 
   console.log("hosted screens integration passed");

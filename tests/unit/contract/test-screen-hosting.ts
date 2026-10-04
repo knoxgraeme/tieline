@@ -24,6 +24,7 @@ import {
   runScreensCloseCommand,
   runScreensPruneCommand,
   runScreensPublishCommand,
+  shownImages,
   type HostedScreensDependencies,
   type HostedScreensRepository,
   type HostedSettings,
@@ -35,9 +36,11 @@ import {
   storedContractManifest,
   type ContractManifest,
 } from "../../../src/contract/manifest.js";
+import type { ReviewComparison, ScreenChangeAspect } from "../../../src/contract/review-changes.js";
 import { screenSettingsForRepository, type ScreenSettings } from "../../../src/contract/screen-catalog.js";
 import {
   changedScreenImages,
+  HOSTED_SCREEN_LIMITS,
   hostedImageKey,
   hostedImageReferences,
   parseHostedRef,
@@ -190,6 +193,8 @@ class FakeRepository implements HostedScreensRepository {
   mainResult: MainPublishResult = { outcome: "published", history_added: 1 };
   pruneCandidates: string[] = [];
   lastRetention: HostedRetention | null = null;
+  /** What the prune's reading of main's page returned, as the database would call it. */
+  lastMainScreenKeys: readonly string[] | null | undefined = undefined;
   lastScreenImages: ReadonlyMap<string, string> | null = null;
 
   async repositoryId(key: string): Promise<string | null> {
@@ -237,9 +242,15 @@ class FakeRepository implements HostedScreensRepository {
     return this.mainResult;
   }
 
-  async pruneRefs(_repositoryKey: string, _repositoryId: string, retention: HostedRetention): Promise<HostedRefPruneResult> {
+  async pruneRefs(
+    _repositoryKey: string,
+    _repositoryId: string,
+    retention: HostedRetention,
+    mainScreenKeys: (manifest: unknown) => readonly string[] | null
+  ): Promise<HostedRefPruneResult> {
     this.calls.push("pruneRefs");
     this.lastRetention = retention;
+    this.lastMainScreenKeys = this.main ? mainScreenKeys(this.main.manifest) : null;
     return { closed_pull_requests: 1, branches: 2, history: 3 };
   }
 
@@ -702,7 +713,9 @@ await test("publishes a pull request: records images, uploads what the bucket la
 
   const snapshot = repository.snapshots.get("pr/42")!;
   assert.equal(snapshot.headCommit, COMMIT);
-  assert.deepEqual(snapshot.images, [sha256(LIST_IMAGE), sha256(EMPTY_IMAGE)].sort());
+  // The page shows main's older notes list beside the new one, so the
+  // snapshot keeps it from retention too, though this publish stores only its own.
+  assert.deepEqual(snapshot.images, [sha256(LIST_IMAGE), sha256(EMPTY_IMAGE), sha256(OLD_LIST_IMAGE)].sort());
   const screens = embeddedScreens(snapshot.pageHtml);
   const list = screens.find((screen) => screen.key === "notes-list")!;
   assert.deepEqual(list.image, { src: `images/${sha256(LIST_IMAGE)}`, label: "notes-list.png" });
@@ -924,7 +937,50 @@ await test("prunes with the configured retention and keeps images it could not d
   });
 });
 
+await test("tells retention which screens main's page shows, and keeps all history when it cannot read the page", async () => {
+  const ws = hostedWorkspace();
+  const repository = new FakeRepository();
+  const store = new FakeStore();
+  repository.main = { headCommit: "b".repeat(40), manifest: storedContractManifest(manifestOf(ws)), publishedAt: new Date() };
+  assert.equal(await runScreensPruneCommand({ repository: ws.root }, captureIO().io, dependencies(repository, store)), 0);
+  // Every screen main shows counts, with a hosted image or not.
+  assert.deepEqual(
+    [...(repository.lastMainScreenKeys ?? [])].sort(),
+    ["note-saved-toast", "notes-list", "notes-list-empty", "notes-share-denied"]
+  );
+  // An unreadable page says nothing about which screens are gone.
+  repository.main = { headCommit: "b".repeat(40), manifest: { schema_version: "nonsense" }, publishedAt: new Date() };
+  const unreadable = captureIO();
+  assert.equal(await runScreensPruneCommand({ repository: ws.root }, unreadable.io, dependencies(repository, store)), 0);
+  assert.equal(repository.lastMainScreenKeys, null);
+  assert.match(unreadable.output(), /Kept the history of screens main may no longer show, because main's page could not be read: /);
+  const json = captureIO();
+  assert.equal(await runScreensPruneCommand({ repository: ws.root, json: true }, json.io, dependencies(repository, store)), 0);
+  assert.match((JSON.parse(json.output()) as { main_unreadable: string }).main_unreadable, /main's hosted snapshot/);
+});
+
 console.log("hosted screens: the local page is unchanged");
+
+await test("counts main's images beside changed screens toward the page's image limit", () => {
+  const changed = (aspects: ScreenChangeAspect[]): ReviewComparison => ({
+    changes: {
+      base: "main",
+      base_has_manifest: true,
+      records: [],
+      screens: [{ stable_id: "a", capability: "NOTES", title: "A", status: "changed", aspects }],
+    },
+  });
+  const own = Array.from({ length: HOSTED_SCREEN_LIMITS.images }, (_, index) => index.toString(16).padStart(64, "0"));
+  const base = new Map([["a", "f".repeat(64)]]);
+  const current = new Map([["a", own[0]]]);
+  // Only an image change shows main's image beside it.
+  assert.equal(shownImages(own, changed(["text"]), base, current).length, HOSTED_SCREEN_LIMITS.images);
+  assert.equal(shownImages(own.slice(1), changed(["image"]), base, current).at(-1), "f".repeat(64));
+  assert.throws(
+    () => shownImages(own, changed(["image"]), base, current),
+    new RegExp(`shows ${HOSTED_SCREEN_LIMITS.images + 1} distinct images, counting main's beside changed screens; hosted screens publish at most ${HOSTED_SCREEN_LIMITS.images}`)
+  );
+});
 
 await test("keeps the local review page pointing at the captures directory, with no before image", () => {
   const ws = hostedWorkspace();
@@ -971,6 +1027,48 @@ await test("syncs main's tip in the example workflow, so a skipped or out-of-ord
   const syncs = steps.filter((step) => step.run?.includes("contract sync"));
   assert.equal(syncs.length, 2);
   assert.ok(syncs.every((step) => !step.run!.includes("--expected-previous-commit")));
+});
+
+await test("publishes pull requests from a job that holds the credentials but never runs the pull request's code", () => {
+  type Step = { if?: string; uses?: string; with?: Record<string, unknown>; run?: string; "working-directory"?: string; env?: Record<string, string> };
+  type Job = { needs?: string; if?: string; permissions?: Record<string, string>; steps: Step[] };
+  const workflow = parseYaml(readFileSync("docs/examples/screens-hosted.yml", "utf8")) as {
+    permissions: Record<string, string>;
+    jobs: { capture: Job; publish: Job; close: Job };
+  };
+  const { capture, publish } = workflow.jobs;
+  // Only the publish job may write to the pull request.
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  assert.deepEqual(publish.permissions, { contents: "read", "pull-requests": "write" });
+  // The job that runs the pull request's code holds no secret.
+  assert.ok(!JSON.stringify(capture).includes("secrets."), "the capture job holds no credentials");
+  assert.ok(capture.steps.some((step) => step.run?.includes("screens capture --changed") && step.run.includes("--verify")));
+  const upload = capture.steps.find((step) => step.uses?.startsWith("actions/upload-artifact"))!;
+  // .tieline is a hidden directory, which upload-artifact skips by default.
+  assert.equal(upload.with?.["include-hidden-files"], true);
+  assert.equal(upload.if, "github.event.pull_request.head.repo.full_name == github.repository", "forks hand nothing on");
+  // The publish job runs after it, and only for the repository's own branches.
+  assert.equal(publish.needs, "capture");
+  assert.equal(publish.if, "github.event.pull_request.head.repo.full_name == github.repository");
+  // Tieline comes from the base branch; the pull request is checked out apart, as data.
+  const checkouts = publish.steps.filter((step) => step.uses?.startsWith("actions/checkout"));
+  assert.deepEqual(
+    checkouts.map((step) => [step.with?.path, step.with?.ref]),
+    [
+      ["trusted", "${{ github.event.pull_request.base.sha }}"],
+      ["pull-request", undefined],
+    ]
+  );
+  // Every command runs in the base branch's checkout; none installs or runs the pull request's.
+  const commands = publish.steps.filter((step) => step.run);
+  assert.ok(commands.length >= 2);
+  assert.ok(commands.every((step) => step["working-directory"] === "trusted"), "every command runs the base branch's install");
+  const publishStep = commands.find((step) => step.run!.includes("screens publish"))!;
+  assert.match(publishStep.run!, /--repository \.\.\/pull-request /);
+  assert.ok(Object.values(publishStep.env ?? {}).some((value) => value.includes("secrets.TIELINE_DATABASE_URL_SCREENS_PUBLISH")));
+  // The screenshots land where the pull request's catalog expects them, and are re-hashed there.
+  const download = publish.steps.find((step) => step.uses?.startsWith("actions/download-artifact"))!;
+  assert.equal(download.with?.path, "pull-request/.tieline/captures");
 });
 
 for (const ws of workspaces) ws.cleanup();

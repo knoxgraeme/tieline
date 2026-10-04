@@ -214,11 +214,24 @@ export class PostgresHostedScreensRepository {
    * Deletes the pages retention no longer keeps — closed pull requests after
    * the grace period, and branches not published for `branchDays` — and trims
    * each screen's `main` history to its current image plus `mainHistory`
-   * replaced ones.
+   * replaced ones. A screen `main`'s page no longer shows keeps no history, so
+   * removed screens do not hold images forever; `mainScreenKeys` reads which
+   * screens it shows from its stored manifest, and null (unreadable) keeps
+   * every screen's history as if it were still shown.
    */
-  async pruneRefs(repositoryKey: string, repositoryId: string, retention: HostedRetention): Promise<HostedRefPruneResult> {
+  async pruneRefs(
+    repositoryKey: string,
+    repositoryId: string,
+    retention: HostedRetention,
+    mainScreenKeys: (manifest: unknown) => readonly string[] | null
+  ): Promise<HostedRefPruneResult> {
     return this.sqlProvider().begin(async (tx) => {
       await lockScreens(tx, repositoryKey);
+      // Read under the lock, so a sync cannot publish screens this prune does not know of.
+      const [main] = await tx<{ manifest: unknown }[]>`
+        select manifest from screen_snapshots
+        where repository_id = ${repositoryId} and ref_kind = 'main' and ref_name = 'main'`;
+      const shown = main ? mainScreenKeys(main.manifest) : null;
       const closed = await tx`
         delete from screen_snapshots
         where repository_id = ${repositoryId}
@@ -234,11 +247,15 @@ export class PostgresHostedScreensRepository {
       const history = await tx`
         delete from screen_history history
         using (
-          select id, row_number() over (partition by screen_key order by id desc) as position
+          select id, screen_key, row_number() over (partition by screen_key order by id desc) as position
           from screen_history
           where repository_id = ${repositoryId}
         ) ranked
-        where history.id = ranked.id and ranked.position > ${retention.mainHistory + 1}
+        where history.id = ranked.id
+          and (
+            ranked.position > ${retention.mainHistory + 1}
+            or (${shown !== null}::boolean and ranked.screen_key <> all(${[...(shown ?? [])]}::text[]))
+          )
         returning history.id`;
       const result = { closed_pull_requests: closed.length, branches: branches.length, history: history.length };
       if (result.closed_pull_requests + result.branches + result.history > 0) {

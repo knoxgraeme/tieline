@@ -161,6 +161,18 @@ export function hostedImageSource(digest: string): string {
 }
 
 /**
+ * The base's image a hosted page shows beside a changed screen: the base's
+ * digest, when the base had a different image and the change includes it.
+ */
+export function beforeImageDigest(
+  base: string | undefined,
+  current: string | undefined,
+  aspects: readonly string[] | undefined
+): string | null {
+  return base && base !== current && aspects?.includes("image") ? base : null;
+}
+
+/**
  * The image a changed screen replaced, on a hosted page whose base had a
  * different image for it.
  */
@@ -170,11 +182,9 @@ function beforeImage(
   screens: ContractReviewScreens,
   change: Pick<ScreenReviewEntry, "change">
 ): Pick<ScreenReviewEntry, "before_image"> {
-  const before = screens.hosted?.base.get(key);
-  if (!screens.hosted || !before || before === current || !change.change?.aspects.includes("image")) {
-    return {};
-  }
-  return { before_image: { src: hostedImageSource(before), label: screens.hosted.baseLabel } };
+  if (!screens.hosted) return {};
+  const before = beforeImageDigest(screens.hosted.base.get(key), current, change.change?.aspects);
+  return before ? { before_image: { src: hostedImageSource(before), label: screens.hosted.baseLabel } } : {};
 }
 
 export function buildScreenReviewModel(
