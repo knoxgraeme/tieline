@@ -35,7 +35,7 @@
     "dev": "tsx watch src/index.ts",
     "migrate": "node dist/cli.js migrate",
     "import:help": "node dist/cli.js import-help",
-    "test": "npm run test:source-scope && npm run test:contract && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke && npm run test:evidence && npm run test:contract-read && npm run test:baseline && npm run test:topology && npm run test:generated-artifacts && npm run test:integration-entrypoint",
+    "test": "npm run test:source-scope && npm run test:contract && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke && npm run test:evidence && npm run test:contract-read && npm run test:baseline && npm run test:topology && npm run test:generated-artifacts && npm run test:integration-entrypoint && npm run test:grading-evaluation",
     "test:ranking": "tsx tests/unit/retrieval/test-ranking.ts",
     "test:retrieval": "tsx tests/evaluations/evaluate-retrieval.ts",
     "test:embeddings": "tsx tests/unit/retrieval/test-embeddings.ts",
@@ -95,7 +95,9 @@
     "check:fast": "npm run typecheck && npm run build && npm test && npm run test:guardrails",
     "check": "npm run check:fast && npm run test:tieline && npm pack --dry-run --ignore-scripts",
     "test:criterion-grade": "tsx tests/unit/contract/test-criterion-grade.ts",
-    "test:manifest-maintenance": "tsx tests/unit/contract/test-manifest-maintenance.ts"
+    "test:manifest-maintenance": "tsx tests/unit/contract/test-manifest-maintenance.ts",
+    "test:grading-evaluation": "tsx tests/evaluations/test-grading-evaluation.ts",
+    "eval:grading": "tsx tests/evaluations/evaluate-grading.ts"
   },
   "engines": {
     "node": ">=20.12"
