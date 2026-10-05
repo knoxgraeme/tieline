@@ -212,7 +212,7 @@ capability:
                 path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC6
-          criterion: Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
+          criterion: In committed manifest mode, Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
           rationale: A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.
           scenarios:
             - given: a specification file changed without the manifest being recompiled
@@ -316,7 +316,7 @@ capability:
                 path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC8
-          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.
+          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and keep Git commit provenance separate from manifest content while supplying it explicitly for database synchronization.
           rationale: A revision in the tracked repository-level index made every branch conflict in one shared generated file and became stale as soon as that generated file was committed. Content identity belongs to the reviewed manifest, while Git revision belongs to the runtime projection checkpoint and audit boundary.
           scenarios:
             - given: accepted specifications and linked artifacts whose content is unchanged across two Git revisions
@@ -389,12 +389,6 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tieline/status.ts
-            - relation: enforces
-              provenance: authored
-              target:
-                kind: code
-                repository: tieline
-                path: .gitattributes
             - relation: tests
               provenance: authored
               target:
@@ -429,6 +423,26 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/integration/integration-contract-sync.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC9
+          criterion: Compiled evidence fingerprints must identify file contents at compilation without implying semantic review, and readers must accept legacy fingerprints without losing their baseline.
+          scenarios:
+            - given: a version 2 manifest containing reviewed_content_hash
+              when: the manifest is read by a current client
+              then: the same baseline is available as compiled_content_hash and conflicting aliases are rejected
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest.ts
                 framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
@@ -1005,6 +1019,96 @@ capability:
                 path: tests/unit/topology/test-code-topology-command.ts
                 framework_hint: custom-script
     - key: CONTRACT-005
+      title: Maintain generated manifests after integration
+      actor: repository maintainer
+      goal: automate fingerprint publication while reviewing behavior before merge
+      benefit: feature branches avoid unrelated generated churn without concealing contract problems
+      lifecycle: production
+      acceptance_criteria:
+        - key: CONTRACT-005-AC1
+          criterion: In explicitly configured post_merge mode, check and grading must compile current authored definitions before review, check must still reject missing or broken evidence, grading must compare base authored YAML even when generated publication is pending, and publication freshness must remain explicit.
+          scenarios:
+            - given: the integration baseline has authored rules but no published manifest
+              when: an unchanged claim is graded in claims mode
+              then: it must not be treated as a newly added claim
+            - given: a current authored link targets a missing file or invalid selector
+              when: the PR is checked in post_merge mode
+              then: the check must fail before publication
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:runCheckCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest-locators.ts
+                selector: function:inspectManifestLocators
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/authored-snapshot.ts
+                selector: function:readAuthoredContractAtBase
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest-maintenance.ts
+        - key: CONTRACT-005-AC2
+          criterion: Explicit manifest publication must compile and validate an opted-in integration branch in a disposable worktree, commit only standard manifest output, preserve local work, avoid force pushes, retry at most three times after concurrent remote changes, and expose terminal failure without publishing an obsolete snapshot.
+          scenarios:
+            - given: another merge advances the remote during publication
+              when: the normal push is rejected
+              then: the publisher must compile the new tip before retrying
+            - given: the manifest already matches the fetched source
+              when: publication runs again
+              then: no additional commit must be created
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/refresh-manifest.ts
+                selector: function:runManifestRefresh
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest-maintenance.ts
+        - key: CONTRACT-005-AC3
+          criterion: The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining committed topology comparison.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: scripts/generated-artifact-gate.ts
+                selector: function:runGeneratedArtifactGate
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-generated-artifacts.ts
+    - key: CONTRACT-006
       title: Review the screens that show accepted behavior
       actor: maintainer
       goal: catalog an application's user-visible screens beside the Stories and Acceptance Criteria they show
@@ -1014,7 +1118,7 @@ capability:
         - screen catalog
         - shows links
       acceptance_criteria:
-        - key: CONTRACT-005-AC1
+        - key: CONTRACT-006-AC1
           criterion: Tieline must leave compile, check, review, sync, and exact context reads unchanged and must never read a screen catalog unless the repository enables screens in its configuration.
           rationale: Screens are optional; a repository that does not opt in must not pay for or be broken by the feature.
           scenarios:
@@ -1053,7 +1157,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC2
+        - key: CONTRACT-006-AC2
           criterion: Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.
           rationale: The catalog is the reference a shows link resolves against, so an invalid entry or an unresolvable key would make screen review untrustworthy.
           links:
@@ -1085,9 +1189,13 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC3
+        - key: CONTRACT-006-AC3
           criterion: Tieline must compile the screen catalog and shows links into the manifest deterministically without changing any contract hash, must fail check on an invalid catalog or a committed shows link to a removed screen, and must remove screens before database sync.
           rationale: The manifest is the reviewed read model, so screens must appear in it reproducibly, while the database and evidence consumers keep seeing exactly the contract they saw before screens existed.
+          scenarios:
+            - given: a repository in post_merge manifest mode whose base commit has shows links
+              when: a branch is graded against that base
+              then: the base must be compiled with its own screen catalog, so its links name known screens
           links:
             - relation: implements
               provenance: authored
@@ -1117,7 +1225,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC4
+        - key: CONTRACT-006-AC4
           criterion: The screen importer must bound and validate untrusted JSON before writing, must update catalog entries by key so a repeated import changes nothing, must delete entries only when pruning is requested, and must refuse or explicitly skip entries for undeclared capabilities.
           rationale: Most catalog entries arrive from external capture tools, so the importer is a trust boundary and must be safe to run repeatedly.
           scenarios:
@@ -1153,7 +1261,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-import.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC5
+        - key: CONTRACT-006-AC5
           criterion: The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.
           rationale: Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.
           links:
@@ -1178,7 +1286,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-review.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC6
+        - key: CONTRACT-006-AC6
           criterion: The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.
           rationale: Reviewers of a pull request need to see which behavior and which screens moved without a database, a hosted service, or committed screenshots.
           scenarios:

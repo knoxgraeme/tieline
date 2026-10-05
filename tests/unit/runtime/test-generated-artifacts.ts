@@ -151,6 +151,32 @@ capability:
     });
   });
 
+  await test("post-merge mode validates generated content while deferring only manifest publication", async () => {
+    const configPath = resolve(fixture, ".tieline/config.json");
+    const originalConfig = readFileSync(configPath, "utf8");
+    const shardPath = resolve(fixture, ".tieline/manifest/DERIVATION.json");
+    const originalShard = readFileSync(shardPath, "utf8");
+    try {
+      writeFileSync(configPath, originalConfig.replace('"version": 1,', '"version": 1, "manifest_mode": "post_merge",'));
+      writeFileSync(shardPath, "stale generated output");
+      const result = await runGeneratedArtifactGate(fixture);
+      assert.equal(result.status, "current");
+      if (result.status !== "current") throw new Error("expected validated generated content");
+      assert.equal(result.manifest_publication, "deferred");
+      assert.deepEqual(result.artifacts, ["topology"]);
+      writeFileSync(sourcePath, `${source}// uncompiled source change\n`);
+      assert.equal((await runGeneratedArtifactGate(fixture)).status, "generated_artifact_mismatch", "topology comparison remains enforced");
+      writeFileSync(sourcePath, source);
+      writeFileSync(specPath, spec.replace("src/value.ts", "src/missing.ts"));
+      await assert.rejects(runGeneratedArtifactGate(fixture), /does not exist|compilation did not complete/);
+    } finally {
+      writeFileSync(configPath, originalConfig);
+      writeFileSync(shardPath, originalShard);
+      writeFileSync(sourcePath, source);
+      writeFileSync(specPath, spec);
+    }
+  });
+
   await test("source, resolver, and spec drift name the affected artifact", async () => {
     writeFileSync(sourcePath, `${source}// source drift\n`);
     let result = await runGeneratedArtifactGate(fixture);

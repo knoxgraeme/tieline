@@ -74,6 +74,7 @@ export const tielineConfigSchema = z
     // Optional for the same reason. The Screens feature reads this block
     // through readScreensConfig; absent or disabled means no behavior change.
     screens: screensConfigSchema.optional(),
+    manifest_mode: z.enum(["committed", "post_merge"]).optional(),
     created_at: z.string().min(1),
     updated_at: z.string().min(1),
   })

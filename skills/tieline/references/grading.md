@@ -3,6 +3,11 @@
 Tieline supplies a complete diff-scoped work list and a closed set of legal
 citations. Supply the semantic judgment the deterministic tooling cannot make.
 
+Routine implementation closeout uses [criterion-grading.md](criterion-grading.md)
+so one judgment can consider the whole AC. Use the link workflow below for an
+explicit link-level review or compatibility with existing callers. Both modes
+use the finding-resolution loop at the end of this reference during implementation.
+
 ## Emit the work list
 
 Use the caller's base ref when supplied. Otherwise, determine the comparison
@@ -184,6 +189,36 @@ A fabricated or absent citation is downgraded to `unsupported`. Duplicate or
 out-of-scope IDs are rejected as malformed instead of being silently resolved.
 
 Remove the temporary verdict file after reporting. Do not persist grades, call
-a model or database from Tieline, or edit contract YAML from this skill. A
+a model or database from Tieline, or let the independent grader edit contract
+YAML. In a grading-only request, report and stop. During implementation, return
+the findings to the implementing agent for the resolution loop below. A
 supported citation may be proposed as a link `selector`, but only a normal
 contract change and pull-request review may accept it.
+
+
+## Resolve findings during implementation
+
+The implementing agent must investigate every negative finding and verifier
+failure before handoff. Keep one disposition per finding in the PR report:
+
+- **Fixed:** correct a confirmed implementation defect with regression evidence,
+  or correct an inaccurate rule or locator when supported by intended behavior.
+  Identify the change and its validation.
+- **Rejected with evidence:** explain why the finding is incorrect or reflects
+  the grader's evidence limits. Cite the inspected implementation or tests;
+  a bare assertion that the grader is wrong is insufficient.
+- **Unresolved:** identify the missing evidence or product decision, its impact,
+  and who must decide. Do not describe the work as fully resolved.
+
+Do not weaken an intended requirement to fit a buggy implementation, invent a
+selector to pass verification, or treat unavailable parser evidence as a proven
+product defect. Fix missing verdicts and fabricated citations through an honest
+resubmission, not by hiding entries.
+
+After corrections, run relevant checks, regenerate the grading scope, and have
+fresh graders reassess affected claims. Use at most two correction/regrade rounds
+per closeout; after that retain explicit unresolved findings for review. This
+bound does not authorize leaving a confirmed, in-scope defect unaddressed: finish
+necessary implementation work, then report any remaining grading uncertainty.
+Preserve the original finding and final disposition; report final grades against
+the final source snapshot. A fingerprint refresh never resolves a finding.

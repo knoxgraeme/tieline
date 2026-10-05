@@ -15,9 +15,8 @@ import {
  *
  * - `asserted` — a link names the path. A human said so; nothing was measured.
  *   This is the floor and the only tier reachable without hash comparison.
- * - `hash_current` — the content a reviewer accepted is still the content on
- *   disk. It says the file has not drifted since review, not that the review
- *   was right.
+ * - `hash_current` — the content recorded at compilation is still on disk.
+ *   It says nothing about whether semantic review happened or was correct.
  */
 export type MappingConfidenceTier = "asserted" | "hash_current";
 
@@ -67,10 +66,10 @@ export interface RepositoryMappingCoverageOptions {
    */
   hashes?: ArtifactHashResolver | null;
   /**
-   * Manifest supplying the `reviewed_content_hash` values compared for the
+   * Manifest supplying the `compiled_content_hash` values compared for the
    * `hash_current` tier. Defaults to the manifest being measured.
    *
-   * Pass the manifest a reviewer accepted when the measured manifest was
+   * Pass the published compilation baseline when the measured manifest was
    * compiled from the working tree: a freshly compiled manifest records the
    * content it just measured, so comparing it against itself always matches and
    * says nothing about drift.
@@ -97,12 +96,12 @@ export function isEligibleSourcePath(
 }
 
 /**
- * Every repository path a contract link names, mapped to the reviewed content
+ * Every repository path a contract link names, mapped to the compiled content
  * hashes recorded for it across those links.
  *
  * Story-level and criterion-level links are treated alike: a link names a path
  * whatever its scope, so both make the path mapped and both can carry a
- * reviewed hash that lifts it to `hash_current`.
+ * compiled hash that lifts it to `hash_current`.
  */
 function mappedPaths(manifest: ContractManifest): Map<string, Set<string>> {
   const paths = new Map<string, Set<string>>();
@@ -125,7 +124,7 @@ function mappedPaths(manifest: ContractManifest): Map<string, Set<string>> {
         ) {
           continue;
         }
-        record(link.target.path, link.reviewed_content_hash);
+        record(link.target.path, link.compiled_content_hash);
       }
     }
   }

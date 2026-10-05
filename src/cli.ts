@@ -180,6 +180,8 @@ export function workspaceStartForCommand(
           "output",
           "spec",
           "base",
+          "head",
+          "verify",
           "expected-previous-commit",
         ]),
         1
@@ -414,6 +416,8 @@ function buildProgram(
         "emitScope"
       )
     )
+    .addOption(new Option("--unit <unit>", "grade individual links or complete criteria").choices(["link", "criterion"]).default("link"))
+    .addOption(new Option("--scope <scope>", "criterion scope: changed claims or all impacted claims").choices(["claims", "impacted"]).default("impacted"))
     .option("--strict", "exit non-zero when unsupported verdicts remain")
     .option("--repo <key>", "stable repository key")
     .option("--json", "emit machine-readable JSON")
@@ -425,6 +429,8 @@ function buildProgram(
           {
             repository,
             base: opts.base,
+            unit: opts.unit,
+            scope: opts.scope,
             emitScope: Boolean(opts.emitScope),
             verify: opts.verify,
             strict: Boolean(opts.strict),
@@ -434,6 +440,28 @@ function buildProgram(
           io
         )
       );
+    });
+  contract.command("closeout")
+    .description("Emit commit-bound affected rules or verify disposition completeness (JSON)")
+    .argument("[repository]", "Git repository path")
+    .requiredOption("--base <ref>", "PR target revision; comparison uses its merge base with head")
+    .option("--head <ref>", "reviewed revision", "HEAD")
+    .addOption(new Option("--emit-scope", "emit affected rules from immutable commits").conflicts("verify"))
+    .addOption(new Option("--verify <report.json>", "verify an external closeout report").conflicts("emitScope"))
+    .option("--json", "emit JSON (the default)")
+    .action(async (repository: string | undefined, opts) => {
+      const { runCloseout } = await import("./commands/closeout.js");
+      setExit(runCloseout({ repository, base: opts.base, head: opts.head, emitScope: opts.emitScope, verify: opts.verify }, io));
+    });
+  contract.command("refresh-manifest")
+    .description("Publish a post-merge manifest refresh to an integration branch")
+    .argument("[repository]", "repository path")
+    .requiredOption("--branch <branch>", "integration branch to fetch and update")
+    .option("--remote <remote>", "configured Git remote", "origin")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (repository: string | undefined, opts) => {
+      const { runManifestRefresh } = await import("./commands/refresh-manifest.js");
+      setExit(await runManifestRefresh({ repository, branch: opts.branch, remote: opts.remote, json: Boolean(opts.json) }, io));
     });
   contractAction("sync", "Sync the reviewed manifest to the database")
     .option("--commit <sha>", "repository commit recorded by this sync")
@@ -777,12 +805,16 @@ export async function runCli(
     program.outputHelp();
     return 0;
   }
-  loadWorkspaceProfileForCommand(
-    command,
-    workspaceStartForCommand(command, args, env),
-    env
-  );
-  await reloadRuntimeConfig(env);
+  // Closeout reads immutable Git objects; a dirty workspace profile must not
+  // replace or prevent inspection of the committed configuration.
+  if (!(command === "contract" && args[0] === "closeout")) {
+    loadWorkspaceProfileForCommand(
+      command,
+      workspaceStartForCommand(command, args, env),
+      env
+    );
+    await reloadRuntimeConfig(env);
+  }
   try {
     await program.parseAsync(argv, { from: "user" });
     return exitCode;
