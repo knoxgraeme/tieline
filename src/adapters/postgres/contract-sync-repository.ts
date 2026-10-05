@@ -973,7 +973,7 @@ export class PostgresContractSyncRepository
       );
       await tx`
         update capabilities
-        set active = false, updated_at = now()
+        set active = false, repository_commit = ${commit}, updated_at = now()
         where repository_id = ${repositoryId}
           and active
           and stable_id <> all(${capabilityStableIds})`;

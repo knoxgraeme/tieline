@@ -87,7 +87,7 @@
             "criterion": "Tieline must preserve matching planning Story and Acceptance Criterion identities when a repository contract is synchronized.",
             "links": [
               {
-                "compiled_content_hash": "1f1e80403c9684555d3e6ea2c6340e87d112844f1a86ff622013269573fd6196",
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -117,7 +117,7 @@
                 }
               },
               {
-                "compiled_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -234,7 +234,7 @@
             "criterion": "Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.",
             "links": [
               {
-                "compiled_content_hash": "1f1e80403c9684555d3e6ea2c6340e87d112844f1a86ff622013269573fd6196",
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -244,7 +244,7 @@
                 }
               },
               {
-                "compiled_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {

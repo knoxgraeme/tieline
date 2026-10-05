@@ -436,7 +436,7 @@
                 }
               },
               {
-                "compiled_content_hash": "1f1e80403c9684555d3e6ea2c6340e87d112844f1a86ff622013269573fd6196",
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -466,7 +466,7 @@
                 }
               },
               {
-                "compiled_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -530,19 +530,9 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "c10a5d15e28c59d4155194197062a3dcea4b244ec6ac251b38374c3653e8fce8",
-            "criterion": "Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.",
+            "contract_hash": "8dfd8e192b54c43f3a60f8de1aa3e9512bd97e7440171bf44ca59baa9c056496",
+            "criterion": "Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and keep Git commit provenance separate from manifest content while supplying it explicitly for database synchronization.",
             "links": [
-              {
-                "compiled_content_hash": "1a1dbe176bc233b499d35a57db7513f2941c99ab9759f177830c9149be99005b",
-                "provenance": "authored",
-                "relation": "enforces",
-                "target": {
-                  "kind": "code",
-                  "path": ".gitattributes",
-                  "repository": "tieline"
-                }
-              },
               {
                 "compiled_content_hash": "bf11c83ee8d133f8d735f14203b1c4e271a2e83e14523b9a8ac817171285f645",
                 "provenance": "authored",
@@ -554,7 +544,7 @@
                 }
               },
               {
-                "compiled_content_hash": "1f1e80403c9684555d3e6ea2c6340e87d112844f1a86ff622013269573fd6196",
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -644,7 +634,7 @@
                 }
               },
               {
-                "compiled_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2029,6 +2019,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "b7d7d4b7f57756dc2699cc22300e0fc054d0457c28c5bb8a2940ca3c2a16c0b7"
+    "sha256": "5fd0ecf01cdb50b2a88fa4a6038a489a03afd0a478d3fd63c6e48debb989f98b"
   }
 }
