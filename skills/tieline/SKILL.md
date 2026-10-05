@@ -99,11 +99,16 @@ Planning-only and grading-only flows keep their earlier stopping points.
      closeout report; do not create an AC merely to eliminate an unmapped file.
    - `update`: an accepted Story, AC, scenario, rationale, or evidence link must
      change to remain truthful.
-   - `add`: distinct observable behavior is not represented by an accepted AC.
+   - `add`: a durable user promise or material business, permission, disclosure,
+     or accessibility rule is not represented by an accepted AC. Incidental
+     layout and copy polish may be `exclude` with a reason even when visible.
+     Ask whether changing it would violate a meaningful user expectation;
+     never create an AC merely because pixels or wording changed.
    - `unresolved`: a material ambiguity prevents an accurate decision. Surface
      the exact ambiguity instead of silently choosing another disposition.
 3. For every `update` or `add`, edit the repository YAML and compile its manifest
-   directly. Do not post a comment or request separate approval first. The
+   directly. Do not post a comment or request separate approval first. Use
+   temporary output in post-merge mode. The
    pull-request diff is the review surface and merge is approval.
 4. Complete the validation, coverage, reconciliation, check, and grading steps
    below. Report the disposition of each cluster, including exclusions and any
@@ -117,6 +122,9 @@ Planning-only and grading-only flows keep their earlier stopping points.
    commit-only. A commit-only request always overrides the open-pull-request
    exception: stop after the local follow-up commit and do not push. This
    authority covers only the in-scope contract and generated artifacts.
+   After the final authorized commit, follow [closeout.md](references/closeout.md)
+   to verify and attach a commit-bound disposition report. Keep that report
+   outside the reviewed commit; compilation fingerprints are not review records.
 6. If the implementation diff changes after closeout, run closeout again against
    the new final diff before handoff or publication.
 
@@ -248,7 +256,8 @@ merge-only publisher must own that boundary when hosted publication is enabled.
 6. Preserve Backlog Item and Observation IDs only as `motivated_by` pointers;
    never copy their payloads into YAML.
 7. Write strict YAML under `.tieline/spec/`.
-8. Run:
+8. Read [manifest-maintenance.md](references/manifest-maintenance.md) when
+   `manifest_mode` is `post_merge`. In the default committed mode, run:
 
    ```sh
    tieline contract validate .
@@ -258,13 +267,20 @@ merge-only publisher must own that boundary when hosted publication is enabled.
    tieline check --base <base-ref>
    ```
 
-9. Read [grading.md](references/grading.md) and grade the contract change. The
-   grading scope covers both sides of every link — artifacts the branch moved,
-   and links or criteria the branch added or re-worded against unchanged code.
-   You authored these links, so dispatch fresh subagents batched by artifact
-   path and give them only the emitted scope entries, never your authoring
-   rationale.
-10. Summarize the semantic diff, impacted ACs, grade findings, freshness
+9. Read [criterion-grading.md](references/criterion-grading.md). Routine
+   closeout uses `contract grade . --base <base-ref> --unit criterion --scope claims`.
+   Grade changed rules, scenarios, applicability, and links across their full
+   evidence neighborhoods. Reconcile implementation-only ACs and removed rules
+   explicitly; an empty grading scope does not mean behavior was reviewed.
+   Use `--scope impacted` for security/permission changes, uncertain drift, or
+   an explicit request for broader grading. Dispatch fresh subagents by AC,
+   giving only emitted context and raw artifacts, never authoring rationale.
+10. For implementation and reconciliation, apply the finding-resolution loop
+    in [grading.md](references/grading.md#resolve-findings-during-implementation).
+    The independent grader reports; the implementing agent owns investigation
+    and correction within the authorized task. A grading-only request still
+    stops after its report.
+11. Summarize the semantic diff, impacted ACs, grade findings, freshness
     warnings, coverage delta, likely duplicates, unresolved conflicts, and
     unmapped source files.
 
@@ -273,7 +289,9 @@ branch and let normal PR review accept or reject it.
 
 ## Completion
 
-Leave the branch with valid YAML and a byte-current `.tieline/manifest/`.
+Leave the branch with valid YAML and a byte-current `.tieline/manifest/` in
+committed mode. In post-merge mode, validate current authored content before
+handoff and report pending generated publication explicitly.
 For implementation and repository-contract flows, completion also requires a
 semantic-closeout disposition for every changed behavior cluster against the
 final diff; later implementation changes invalidate the earlier closeout.

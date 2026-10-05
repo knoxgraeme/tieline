@@ -228,7 +228,7 @@ capability:
   );
   assert.equal(testClaim?.framework_hint, "node-test");
   assert.match(
-    testClaim?.reviewed_content_hash ?? "",
+    testClaim?.compiled_content_hash ?? "",
     /^[a-f0-9]{64}$/,
     "the shared claim carries the reviewed hash needed by assurance inspection"
   );

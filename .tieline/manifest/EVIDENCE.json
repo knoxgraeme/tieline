@@ -16,9 +16,9 @@
             "criterion": "Tieline must append an Observation before semantic matching and allow it to remain unattributed.",
             "links": [
               {
+                "compiled_content_hash": "4cef226cccd7a9a79c00bb3ba04dc22edfa3117149b4b7f49220d7d33fe080b9",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "4cef226cccd7a9a79c00bb3ba04dc22edfa3117149b4b7f49220d7d33fe080b9",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/observation-repository.ts",
@@ -26,9 +26,9 @@
                 }
               },
               {
+                "compiled_content_hash": "193c1bd6db39da3f0f24d4c359cf3e49b4921b61eb44d38a628d747d5a64fc11",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "193c1bd6db39da3f0f24d4c359cf3e49b4921b61eb44d38a628d747d5a64fc11",
                 "target": {
                   "kind": "code",
                   "path": "src/domain/evidence-write-store.ts",
@@ -36,9 +36,9 @@
                 }
               },
               {
+                "compiled_content_hash": "3ef451b18a7ba0a915b2a1e17bb8c7eb49986279bc8b6a0da88897bb3f41cb49",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3ef451b18a7ba0a915b2a1e17bb8c7eb49986279bc8b6a0da88897bb3f41cb49",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/observations.ts",
@@ -46,9 +46,9 @@
                 }
               },
               {
+                "compiled_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -57,9 +57,9 @@
                 }
               },
               {
+                "compiled_content_hash": "adb7f24a51ed58dd08603edb06dc3f0243fc7ac49598d76146ed8455824f1d85",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "adb7f24a51ed58dd08603edb06dc3f0243fc7ac49598d76146ed8455824f1d85",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -106,9 +106,9 @@
             "criterion": "Tieline must let a Backlog Item target zero or more Stories and Acceptance Criteria without becoming their lifecycle container.",
             "links": [
               {
+                "compiled_content_hash": "c4a1432a19c2f9e886e73d886c86176de1bb70444b25a0e7a1ea4bff79bff636",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c4a1432a19c2f9e886e73d886c86176de1bb70444b25a0e7a1ea4bff79bff636",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/backlog-repository.ts",
@@ -116,9 +116,9 @@
                 }
               },
               {
+                "compiled_content_hash": "d3a057be9af8b1b67c8ecdfe8934fdbda28ce7b814e038e52a39238059049a4a",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d3a057be9af8b1b67c8ecdfe8934fdbda28ce7b814e038e52a39238059049a4a",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/backlog-items.ts",
@@ -126,9 +126,9 @@
                 }
               },
               {
+                "compiled_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -167,9 +167,9 @@
             "criterion": "Tieline must resolve help content by source and external identifier while preserving Story and Acceptance Criterion backlinks.",
             "links": [
               {
+                "compiled_content_hash": "9a1416b339b6857c2401cfb2e3628da262c2d1f919402d45f1f4381ff3f08eb5",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9a1416b339b6857c2401cfb2e3628da262c2d1f919402d45f1f4381ff3f08eb5",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/help-repository.ts",
@@ -177,9 +177,9 @@
                 }
               },
               {
+                "compiled_content_hash": "ba6d3573cd111f4a59d462cb78b2a0627f3c96aa5ce5ee5f130da404f64aa7e9",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ba6d3573cd111f4a59d462cb78b2a0627f3c96aa5ce5ee5f130da404f64aa7e9",
                 "target": {
                   "kind": "code",
                   "path": "src/authoring/help-schema.ts",
@@ -187,9 +187,9 @@
                 }
               },
               {
+                "compiled_content_hash": "ea9f9094ff3afd1a0e448210b9a98bfb6a225f7546379041d5fd4e08d22f7e77",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ea9f9094ff3afd1a0e448210b9a98bfb6a225f7546379041d5fd4e08d22f7e77",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/import-help.ts",
@@ -197,9 +197,9 @@
                 }
               },
               {
+                "compiled_content_hash": "e728a57e21632153feb213d860a5d106721790098bbb5335855b205eb7e05423",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e728a57e21632153feb213d860a5d106721790098bbb5335855b205eb7e05423",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/find-help.ts",
@@ -207,9 +207,9 @@
                 }
               },
               {
+                "compiled_content_hash": "0db266fcdc030af5b2e56dd117ea82148c077c71cb73c69630f304cf3828d987",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0db266fcdc030af5b2e56dd117ea82148c077c71cb73c69630f304cf3828d987",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/get-help-articles.ts",
@@ -217,9 +217,9 @@
                 }
               },
               {
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

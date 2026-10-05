@@ -145,7 +145,7 @@ Compilation writes `.tieline/manifest/`, one file per capability plus a small in
 ```text
 .tieline/manifest/
   index.json        schema version and stable repository key
-  CONTRACT.json     one capability plus its source file and reviewed hashes
+  CONTRACT.json     one capability plus its source file and compiled hashes
   RETRIEVAL.json
   ...
 ```
@@ -178,7 +178,7 @@ Implementation-link and test-link coverage are independently `none`, `partial`, 
 repository-owned Stories. Only direct AC links count; Story-level fallback links remain
 searchable.
 
-Freshness compares linked repository content with the reviewed manifest hash. It does not claim
+Freshness compares linked repository content with the compiled manifest hash. It does not claim
 that a test ran or passed. Test-execution receipts are outside the current assurance model.
 
 Repository mapping coverage uses the configured source roots and exclusions as its denominator.
@@ -191,8 +191,8 @@ Each mapped file has a confidence tier:
 | Tier | What is known | What remains unknown |
 | --- | --- | --- |
 | `asserted` | An accepted link names the file | Whether the evidence was measured against current bytes |
-| `hash_current` | The file matches the content recorded in the reviewed manifest | Whether the implementation still does what the AC says |
+| `hash_current` | The file matches the content recorded at manifest compilation | Whether the implementation still does what the AC says |
 
-`hash_current` compares against the committed manifest because that is the record of the content
-a reviewer accepted. Compiling a new manifest from the working tree measures the current state but
-cannot, by itself, show drift from the previously accepted state.
+`hash_current` compares against the committed manifest's compilation baseline.
+Compiling a new manifest from the working tree measures the current state but
+cannot, by itself, show drift from the previous baseline or prove semantic review.

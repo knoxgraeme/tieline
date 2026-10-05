@@ -112,3 +112,43 @@ and topology projections against a disposable database.
 
 The current baseline is intentionally breaking: pre-release databases from the earlier model must
 be recreated rather than upgraded in place.
+
+## Post-merge manifest maintenance (opt in)
+
+The default `committed` workflow is unchanged. To delegate fingerprint maintenance,
+set the top-level `manifest_mode` to `post_merge` in `.tieline/config.json` and
+install the [refresh workflow](examples/tieline-manifest-refresh.yml) on your
+integration branch. Use a pinned Tieline npm dependency that includes this feature.
+Configure the workflow's branch filter (for example `env/staging`), approved write
+identity, and failure notifications before enabling the mode. This repository
+itself continues to use committed manifests.
+
+Retain pre-merge YAML validation, `contract reconcile --base <target>`, selected
+`contract grade --unit criterion --scope claims`, and `tieline check`. Check and
+grade compile current authored definitions in memory; broken evidence still
+fails before merge. Use `contract compile --output <temporary-directory>` for a
+review artifact without committing fingerprint churn. Claim comparison reads
+base YAML, so a delayed publisher cannot fabricate onboarding scope. The existing
+generated-artifact gate still recompiles and validates everything, but in this
+mode defers the committed-manifest byte comparison only; topology comparison
+continues unchanged.
+
+The publisher command is an explicit write operation:
+
+```sh
+tieline contract refresh-manifest . --branch env/staging --remote origin --json
+```
+
+It fetches the latest remote tip into a private ref and compiles in a temporary
+worktree. Only standard `.tieline/manifest/` output is committed; standard
+`.tieline/spec/` input is required. Normal pushes prevent overwriting concurrent
+merges; up to three attempts recompile newer tips. Git operations have 30-second
+timeouts. No-op refreshes create no commit, and the example workflow excludes
+manifest-only pushes to avoid loops. Local user changes remain untouched.
+
+A failed refresh remains a failed job; checks report publication as pending until
+it succeeds. Rerun the job to recover. Branch protection may reject the bot's push;
+retain committed mode until an approved publishing identity/workflow is available,
+rather than bypassing required checks. Automatic hashing records a source snapshot,
+not a semantic verdict. Existing context/topology reads retain explicit published
+snapshot freshness and may remain stale while publication is pending.
