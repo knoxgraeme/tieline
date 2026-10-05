@@ -40,9 +40,18 @@ facts identify legal citations, not semantic truth or successful test execution.
 - `inconclusive`: unavailable evidence, external dependencies, or parser limits
   prevent a sound decision. State exactly what is missing.
 
+When the inspected evidence is demonstrably irrelevant (for example, prose
+linked as executable implementation), use `unsupported` and report the bad link.
+When relevant code delegates the claimed behavior to unavailable evidence, use
+`inconclusive`; absence of that evidence does not prove the behavior is wrong.
+
 Also inspect whether each link is relevant. Record every wrong or overstated
 local link in `link_findings`, even if the AC has enough other evidence to be
-supported. External links are displayed for context but have no locally verified
+supported. A relevant implementation file remains the right locator when its
+behavior is buggy or incomplete: report that defect in the AC grade and reason,
+not as a wrong-link finding. Reserve link findings for irrelevant, obsolete, or
+misidentified evidence, including prose mislabeled as an implementation.
+External links are displayed for context but have no locally verified
 citations; explain external evidence limitations in the verdict reason.
 Do not treat a missing parser citation as proof of a product defect.
 
