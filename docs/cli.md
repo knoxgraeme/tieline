@@ -313,3 +313,32 @@ Context and reconciliation responses retain a deprecated `reviewed_content_hash`
 alias during migration. Database column names remain unchanged behind adapters.
 The normalized manifest digest changes on migration, so regenerate dependent
 topology artifacts once. Hash freshness and semantic review remain separate facts.
+
+### Commit-bound closeout
+
+```bash
+tieline contract closeout . --base origin/main --head HEAD --emit-scope --json
+tieline contract closeout . --base origin/main --head HEAD --verify .context/closeout.json --json
+```
+
+Closeout reads committed config and authored YAML from the target/head merge base
+and head, independently of compiled manifests and dirty working-tree content.
+Both old and new links contribute affected ACs, including removed rules, inherited
+applicability/lifecycle changes and implementation-only edits. Configuration changes
+conservatively include all ACs. Output records resolved full commits, a scope hash,
+and `unmapped_changed_paths`; completeness applies only to the listed ACs.
+
+The report copies the emitted `binding` and records `still_valid`, `updated`, or
+`unresolved` dispositions with explanations; related ACs may share a disposition.
+Updated findings cite changed repository paths. Changed claims cannot be marked
+`still_valid`. See [the report format](../skills/tieline/references/closeout.md).
+Missing/unresolved dispositions return exit 1; stale bindings, duplicates, unknown
+ACs and invalid paths fail validation. `complete: true` does not imply `ready: true`
+or semantic correctness. A zero exit is evidence of current, resolved review
+records, not proof of their truth, executed tests or human approval.
+
+Keep the report outside its own commit and include it in the PR body. A new head
+or target revision requires renewed verification. For CI, supply expected revisions
+from trusted PR event metadata, not from the report. This command does not install
+a CI job or change branch protection. It requires root-level committed Tieline
+configuration, at most 1,000 affected ACs and a report no larger than 2 MiB.

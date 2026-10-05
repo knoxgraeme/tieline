@@ -180,7 +180,7 @@
             "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -444,11 +444,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "f4f60d5ce09a16f515cc88f6fd5cfd50ac0d6bbe930f75983ec19e4569109f82",
-            "criterion": "Criterion grading must select changed rules, scenarios, AC or Story applicability, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.",
+            "contract_hash": "fb9a076a915d2a1d73d389215dfc9cf1b1d83a3cf73b5b883b1c83c4d1dd4d0b",
+            "criterion": "Criterion grading must select changed rules, scenarios, AC, Story or capability applicability, Story lifecycle, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.",
             "links": [
               {
-                "compiled_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
+                "compiled_content_hash": "37a7cde62112ab775a0239dc7d9be1604c2ac3a1a0df7138724382a06ed45771",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -459,7 +459,7 @@
                 }
               },
               {
-                "compiled_content_hash": "30ff7d41a0053f037cd59165e32a6ac3c7a2a892568905c2bd55855d18f08f47",
+                "compiled_content_hash": "608c14463fc6c34f4fae773ff98c97bab588701815daeef5ebb28595f63635d6",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -497,7 +497,7 @@
             "criterion": "Criterion verification must accept multiple exact citations from an AC's evidence, preserve irrelevant-link findings separately from overall support, distinguish inconclusive evidence from unsupported claims, and reject stale, duplicate, missing, or fabricated evidence without claiming semantic proof.",
             "links": [
               {
-                "compiled_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
+                "compiled_content_hash": "37a7cde62112ab775a0239dc7d9be1604c2ac3a1a0df7138724382a06ed45771",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -508,7 +508,7 @@
                 }
               },
               {
-                "compiled_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
+                "compiled_content_hash": "37a7cde62112ab775a0239dc7d9be1604c2ac3a1a0df7138724382a06ed45771",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -519,7 +519,7 @@
                 }
               },
               {
-                "compiled_content_hash": "30ff7d41a0053f037cd59165e32a6ac3c7a2a892568905c2bd55855d18f08f47",
+                "compiled_content_hash": "608c14463fc6c34f4fae773ff98c97bab588701815daeef5ebb28595f63635d6",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -564,12 +564,138 @@
         "stable_id": "GRADING-003",
         "supersedes": null,
         "title": "Review complete acceptance criteria with selective scope"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "cc58764b089c02cf6d42c1f21ab36720fb985f3ffbc49b37bd63fb31d1abecf5",
+            "criterion": "Closeout must derive affected rules from immutable merge-base and head definitions and both revisions' links, including changed claims, implementation-only changes, removed rules, inherited applicability and lifecycle changes, and configuration changes, independently of manifest publication and uncommitted content.",
+            "links": [
+              {
+                "compiled_content_hash": "da0ddb369f5ec16d373d5e0aac4817f275ed38df52e2a3d923bcff71d78a7568",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/closeout.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildCloseoutScope"
+                }
+              },
+              {
+                "compiled_content_hash": "31e011763b3a9238e587afb52c8fade8abe088fe7428211e806b202189dac4fb",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-closeout.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "a changed implementation loses its link or its rule in the PR",
+                "position": 0,
+                "stable_id": "GRADING-004-AC1-S1",
+                "then": "the previously linked rule still requires a disposition",
+                "when": "closeout scope is emitted"
+              },
+              {
+                "given": "fingerprints are refreshed without reviewing changed implementation",
+                "position": 1,
+                "stable_id": "GRADING-004-AC1-S2",
+                "then": "the implementation's affected rules remain in scope",
+                "when": "closeout scope is emitted against the same target"
+              }
+            ],
+            "stable_id": "GRADING-004-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "980d6e5f2ceafc7c5e1905a0c8ddd467c2ec601ca002defd5a81ffdf56a565aa",
+            "criterion": "Closeout verification must bind dispositions to resolved repository, target, merge-base and head identities, reject stale or invalid reports, require a disposition for every affected rule, and fail readiness for missing or unresolved dispositions without asserting semantic truth or human approval.",
+            "links": [
+              {
+                "compiled_content_hash": "99a061881f705843d75bc86c976c2902434d572b34b8f44b17c2b090533207ef",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/closeout.ts",
+                  "repository": "tieline",
+                  "selector": "function:runCloseout"
+                }
+              },
+              {
+                "compiled_content_hash": "da0ddb369f5ec16d373d5e0aac4817f275ed38df52e2a3d923bcff71d78a7568",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/closeout.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyCloseoutReport"
+                }
+              },
+              {
+                "compiled_content_hash": "31e011763b3a9238e587afb52c8fade8abe088fe7428211e806b202189dac4fb",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-closeout.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "a report names the prior head commit",
+                "position": 0,
+                "stable_id": "GRADING-004-AC2-S1",
+                "then": "the report is rejected even if the affected rule list is unchanged",
+                "when": "verification runs against the current head"
+              },
+              {
+                "given": "every affected rule has a disposition but one remains unresolved",
+                "position": 1,
+                "stable_id": "GRADING-004-AC2-S2",
+                "then": "the result is complete but not ready and exits nonzero",
+                "when": "verification runs"
+              }
+            ],
+            "stable_id": "GRADING-004-AC2",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "regenerated fingerprints cannot stand in for review",
+        "contract_hash": "3aa07ad42132fe076a450847afeba8d2007248e0b7ebe0c762d83292c85d356f",
+        "goal": "account for every affected accepted rule at the reviewed revision",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-004",
+        "supersedes": null,
+        "title": "Record semantic review against immutable revisions"
       }
     ],
     "supersedes": null
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "e3002dccdfaa150f16a4a36d7c82523973e76280566952fc25d895c91db80145"
+    "sha256": "2273ef279324e999c793469d84c160ce3a416a9e71fdc60d02b6490663c560cb"
   }
 }

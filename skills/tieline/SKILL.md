@@ -119,6 +119,9 @@ Planning-only and grading-only flows keep their earlier stopping points.
    commit-only. A commit-only request always overrides the open-pull-request
    exception: stop after the local follow-up commit and do not push. This
    authority covers only the in-scope contract and generated artifacts.
+   After the final authorized commit, follow [closeout.md](references/closeout.md)
+   to verify and attach a commit-bound disposition report. Keep that report
+   outside the reviewed commit; compilation fingerprints are not review records.
 6. If the implementation diff changes after closeout, run closeout again against
    the new final diff before handoff or publication.
 

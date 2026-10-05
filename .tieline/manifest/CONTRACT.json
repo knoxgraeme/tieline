@@ -350,7 +350,7 @@
                 }
               },
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -554,7 +554,7 @@
                 }
               },
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -785,7 +785,7 @@
             "criterion": "Tieline must report every acceptance criterion linked to an exact repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must return an explicit has_criteria, no_criteria, or not_found status for every requested path.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {

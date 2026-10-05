@@ -10,8 +10,8 @@ caller explicitly requests strict mode.
 tieline contract grade . --base <base-ref> --unit criterion --scope claims --emit-scope --json
 ```
 
-`claims` selects added or changed criterion text, scenarios, AC/Story
-applicability, and local or external code/test links (including removals).
+`claims` selects added or changed criterion text, scenarios, AC/Story/capability
+applicability, Story lifecycle, and local or external code/test links (including removals).
 Every selected AC includes all its local implementation/test evidence, even
 files unchanged in the branch. Rules with no links remain in scope.
 `implementation_only_criteria` and `removed_criteria` are explicit reconciliation
@@ -96,3 +96,7 @@ For implementation, return findings to the implementing agent and follow
 [the resolution loop](grading.md#resolve-findings-during-implementation). For a
 grading-only request, report and stop. Keep the grader read-only in both cases.
 Remove temporary verdict files after reporting.
+
+For an implementation flow with authorized commits, preserve review dispositions
+separately through [commit-bound closeout](closeout.md). Verified grading is input
+to that record; neither a grade nor a compiled fingerprint substitutes for it.

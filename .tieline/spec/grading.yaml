@@ -232,7 +232,7 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: GRADING-003-AC1
-          criterion: Criterion grading must select changed rules, scenarios, AC or Story applicability, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.
+          criterion: Criterion grading must select changed rules, scenarios, AC, Story or capability applicability, Story lifecycle, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.
           scenarios:
             - given: an unchanged AC has two links and only one source file changes
               when: claims scope is requested
@@ -284,3 +284,63 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-criterion-grade.ts
+    - key: GRADING-004
+      title: Record semantic review against immutable revisions
+      actor: implementing agent
+      goal: account for every affected accepted rule at the reviewed revision
+      benefit: regenerated fingerprints cannot stand in for review
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-004-AC1
+          criterion: Closeout must derive affected rules from immutable merge-base and head definitions and both revisions' links, including changed claims, implementation-only changes, removed rules, inherited applicability and lifecycle changes, and configuration changes, independently of manifest publication and uncommitted content.
+          scenarios:
+            - given: a changed implementation loses its link or its rule in the PR
+              when: closeout scope is emitted
+              then: the previously linked rule still requires a disposition
+            - given: fingerprints are refreshed without reviewing changed implementation
+              when: closeout scope is emitted against the same target
+              then: the implementation's affected rules remain in scope
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/closeout.ts
+                selector: function:buildCloseoutScope
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-closeout.ts
+        - key: GRADING-004-AC2
+          criterion: Closeout verification must bind dispositions to resolved repository, target, merge-base and head identities, reject stale or invalid reports, require a disposition for every affected rule, and fail readiness for missing or unresolved dispositions without asserting semantic truth or human approval.
+          scenarios:
+            - given: a report names the prior head commit
+              when: verification runs against the current head
+              then: the report is rejected even if the affected rule list is unchanged
+            - given: every affected rule has a disposition but one remains unresolved
+              when: verification runs
+              then: the result is complete but not ready and exits nonzero
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/closeout.ts
+                selector: function:verifyCloseoutReport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/closeout.ts
+                selector: function:runCloseout
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-closeout.ts

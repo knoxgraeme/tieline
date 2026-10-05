@@ -36,6 +36,12 @@ publication with disposable local Git remotes, and `test:grading-evaluation`
 checks the evaluation harness with canned verdicts. Canned verdicts test the
 scorer; they are not evidence of model quality.
 
+`npm run test:closeout` uses disposable local Git histories to verify immutable
+scope, removed rules/links, inherited applicability, stale commit bindings,
+missing/duplicate dispositions, and unresolved readiness. It also exercises the
+actual CLI from a subdirectory with malformed uncommitted configuration. These
+tests verify report mechanics, not whether an agent's explanation is correct.
+
 Run a separate semantic experiment when changing the grading rubric:
 
 ```bash
