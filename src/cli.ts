@@ -408,6 +408,8 @@ function buildProgram(
         "emitScope"
       )
     )
+    .addOption(new Option("--unit <unit>", "grade individual links or complete criteria").choices(["link", "criterion"]).default("link"))
+    .addOption(new Option("--scope <scope>", "criterion scope: changed claims or all impacted claims").choices(["claims", "impacted"]).default("impacted"))
     .option("--strict", "exit non-zero when unsupported verdicts remain")
     .option("--repo <key>", "stable repository key")
     .option("--json", "emit machine-readable JSON")
@@ -419,6 +421,8 @@ function buildProgram(
           {
             repository,
             base: opts.base,
+            unit: opts.unit,
+            scope: opts.scope,
             emitScope: Boolean(opts.emitScope),
             verify: opts.verify,
             strict: Boolean(opts.strict),

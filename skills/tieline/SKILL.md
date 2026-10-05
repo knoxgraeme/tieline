@@ -259,12 +259,14 @@ merge-only publisher must own that boundary when hosted publication is enabled.
    tieline check --base <base-ref>
    ```
 
-9. Read [grading.md](references/grading.md) and grade the contract change. The
-   grading scope covers both sides of every link — artifacts the branch moved,
-   and links or criteria the branch added or re-worded against unchanged code.
-   You authored these links, so dispatch fresh subagents batched by artifact
-   path and give them only the emitted scope entries, never your authoring
-   rationale.
+9. Read [criterion-grading.md](references/criterion-grading.md). Routine
+   closeout uses `contract grade . --base <base-ref> --unit criterion --scope claims`.
+   Grade changed rules, scenarios, applicability, and links across their full
+   evidence neighborhoods. Reconcile implementation-only ACs and removed rules
+   explicitly; an empty grading scope does not mean behavior was reviewed.
+   Use `--scope impacted` for security/permission changes, uncertain drift, or
+   an explicit request for broader grading. Dispatch fresh subagents by AC,
+   giving only emitted context and raw artifacts, never authoring rationale.
 10. For implementation and reconciliation, apply the finding-resolution loop
     in [grading.md](references/grading.md#resolve-findings-during-implementation).
     The independent grader reports; the implementing agent owns investigation

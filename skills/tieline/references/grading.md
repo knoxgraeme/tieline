@@ -3,6 +3,11 @@
 Tieline supplies a complete diff-scoped work list and a closed set of legal
 citations. Supply the semantic judgment the deterministic tooling cannot make.
 
+Routine implementation closeout uses [criterion-grading.md](criterion-grading.md)
+so one judgment can consider the whole AC. Use the link workflow below for an
+explicit link-level review or compatibility with existing callers. Both modes
+use the finding-resolution loop at the end of this reference during implementation.
+
 ## Emit the work list
 
 Use the caller's base ref when supplied. Otherwise, determine the comparison

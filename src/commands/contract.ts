@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { PostgresContractSyncRepository } from "../adapters/postgres/contract-sync-repository.js";
 import { PostgresContractReadRepository } from "../adapters/postgres/contract-read-repository.js";
@@ -52,6 +52,7 @@ import {
   renderGradeScopeText,
   verifyGradeVerdicts,
 } from "../contract/grade.js";
+import { buildCriterionGradeScope, parseCriterionGradeVerdicts, verifyCriterionGradeVerdicts } from "../contract/criterion-grade.js";
 import { runContractContext } from "./contract-context.js";
 export { renderIntentContextText } from "./contract-context.js";
 import { resolveCommandContext, wrap, type CommandIO } from "./shared.js";
@@ -77,6 +78,8 @@ export interface ContractCommandOptions {
   expectedPreviousCommit?: string;
   /** Git ref the working tree is compared against. Required by `reconcile`. */
   base?: string;
+  unit?: string;
+  scope?: string;
   emitScope?: boolean;
   verify?: string;
   strict?: boolean;
@@ -102,6 +105,8 @@ interface ParsedContractCommand {
   ignore: string[];
   expectedPreviousCommit?: string;
   base?: string;
+  unit: "link" | "criterion";
+  scope: "claims" | "impacted";
   emitScope: boolean;
   verify?: string;
   strict: boolean;
@@ -144,8 +149,19 @@ function resolveContractCommand(
         // manifest, which is a directory of per-capability files.
         action === "review" ? TIELINE_REVIEW_PAGE : ".tieline/manifest"
       );
+  if (options.unit !== undefined && options.unit !== "link" && options.unit !== "criterion") {
+    throw new Error("Grading unit must be link or criterion.");
+  }
+  if (options.scope !== undefined && options.scope !== "claims" && options.scope !== "impacted") {
+    throw new Error("Grading scope must be claims or impacted.");
+  }
+  if (options.scope === "claims" && options.unit !== "criterion") {
+    throw new Error("--scope claims requires --unit criterion.");
+  }
   return {
     action,
+    unit: options.unit ?? "link",
+    scope: options.scope ?? "impacted",
     repositoryRoot: root,
     repositoryKey,
     commit: options.commit,
@@ -198,7 +214,7 @@ async function runGrade(
       } Run \`tieline contract compile .\` and commit the manifest.`
     );
   }
-  const scope = await buildGradeScope({
+  const scopeInput = {
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
@@ -211,12 +227,15 @@ async function runGrade(
     sourceRoots: parsed.sourceRoots,
     ignore: parsed.ignore,
     specDirectory: parsed.specDirectory,
-  });
+  };
+  const scope = parsed.unit === "criterion"
+    ? await buildCriterionGradeScope({ ...scopeInput, selection: parsed.scope })
+    : await buildGradeScope(scopeInput);
   if (parsed.emitScope) {
     io.write(
       parsed.json
         ? `${JSON.stringify(scope, null, 2)}\n`
-        : renderGradeScopeText(scope)
+        : "unit" in scope ? renderCriterionScope(scope) : renderGradeScopeText(scope)
     );
     return 0;
   }
@@ -226,6 +245,7 @@ async function runGrade(
     : resolve(parsed.repositoryRoot, parsed.verify!);
   let document: unknown;
   try {
+    if (statSync(verdictsPath).size > 16 * 1024 * 1024) throw new Error("Verdicts exceed 16 MiB.");
     document = JSON.parse(readFileSync(verdictsPath, "utf8"));
   } catch (error) {
     throw new Error(
@@ -233,6 +253,14 @@ async function runGrade(
         error instanceof Error ? error.message : String(error)
       }`
     );
+  }
+  if ("unit" in scope) {
+    const report = verifyCriterionGradeVerdicts({ scope, verdicts: parseCriterionGradeVerdicts(document), strict: parsed.strict });
+    io.write(parsed.json ? `${JSON.stringify(report, null, 2)}\n` :
+      `Grades: ${report.scoped_criteria} criterion/criteria; ${JSON.stringify(report.counts)}.\n` +
+      report.entries.map((entry) => `  ${entry.acceptance_criterion_stable_id}: ${entry.grade}: ${entry.reason}\n` +
+        entry.link_findings.map((finding) => `    link ${finding.link_id}: ${finding.reason}\n`).join("")).join("") + renderReconciliationInventory(scope));
+    return report.strict_failure ? 1 : 0;
   }
   const report = verifyGradeVerdicts({
     scope,
@@ -245,6 +273,18 @@ async function runGrade(
       : renderGradeReportText(report)
   );
   return report.strict_failure ? 1 : 0;
+}
+
+function renderCriterionScope(scope: Awaited<ReturnType<typeof buildCriterionGradeScope>>): string {
+  return `Grading scope: ${scope.scoped_criteria} criterion/criteria (${scope.selection}).\n` +
+    scope.entries.map((entry) => `  ${entry.id} ${entry.acceptance_criterion_stable_id}: ${entry.acceptance_criterion.criterion}\n` +
+      entry.evidence.map((link) => `    ${link.id} ${link.path}: ${link.symbols.join(", ") || "no legal citations"}\n`).join("")).join("") +
+    renderReconciliationInventory(scope);
+}
+
+function renderReconciliationInventory(scope: Awaited<ReturnType<typeof buildCriterionGradeScope>>): string {
+  return `Implementation-only ACs requiring reconciliation: ${scope.implementation_only_criteria.join(", ") || "none"}.\n` +
+    `Removed ACs requiring review: ${scope.removed_criteria.join(", ") || "none"}.\n`;
 }
 
 /**
