@@ -188,7 +188,7 @@ capability:
                 path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC6
-          criterion: Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
+          criterion: In committed manifest mode, Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
           rationale: A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.
           scenarios:
             - given: a specification file changed without the manifest being recompiled
@@ -980,3 +980,93 @@ capability:
                 repository: tieline
                 path: tests/unit/topology/test-code-topology-command.ts
                 framework_hint: custom-script
+    - key: CONTRACT-005
+      title: Maintain generated manifests after integration
+      actor: repository maintainer
+      goal: automate fingerprint publication while reviewing behavior before merge
+      benefit: feature branches avoid unrelated generated churn without concealing contract problems
+      lifecycle: production
+      acceptance_criteria:
+        - key: CONTRACT-005-AC1
+          criterion: In explicitly configured post_merge mode, check and grading must compile current authored definitions before review, check must still reject missing or broken evidence, grading must compare base authored YAML even when generated publication is pending, and publication freshness must remain explicit.
+          scenarios:
+            - given: the integration baseline has authored rules but no published manifest
+              when: an unchanged claim is graded in claims mode
+              then: it must not be treated as a newly added claim
+            - given: a current authored link targets a missing file or invalid selector
+              when: the PR is checked in post_merge mode
+              then: the check must fail before publication
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:runCheckCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest-locators.ts
+                selector: function:inspectManifestLocators
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/authored-snapshot.ts
+                selector: function:readAuthoredContractAtBase
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest-maintenance.ts
+        - key: CONTRACT-005-AC2
+          criterion: Explicit manifest publication must compile and validate an opted-in integration branch in a disposable worktree, commit only standard manifest output, preserve local work, avoid force pushes, retry at most three times after concurrent remote changes, and expose terminal failure without publishing an obsolete snapshot.
+          scenarios:
+            - given: another merge advances the remote during publication
+              when: the normal push is rejected
+              then: the publisher must compile the new tip before retrying
+            - given: the manifest already matches the fetched source
+              when: publication runs again
+              then: no additional commit must be created
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/refresh-manifest.ts
+                selector: function:runManifestRefresh
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest-maintenance.ts
+        - key: CONTRACT-005-AC3
+          criterion: The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining committed topology comparison.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: scripts/generated-artifact-gate.ts
+                selector: function:runGeneratedArtifactGate
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-generated-artifacts.ts

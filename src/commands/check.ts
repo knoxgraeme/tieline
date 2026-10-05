@@ -1,3 +1,4 @@
+import { inspectManifestLocators } from "../contract/manifest-locators.js";
 import {
   compileContractManifest,
   readContractManifest,
@@ -43,7 +44,8 @@ export type CheckExitReason =
   | "broken_links"
   | "broken_links_warn_only"
   | "stale_manifest"
-  | "stale_manifest_warn_only";
+  | "stale_manifest_warn_only"
+  | "invalid_locators";
 
 /**
  * A changed source file that no manifest link names.
@@ -272,11 +274,24 @@ export async function runCheckCommand(
 ): Promise<number> {
   const base = options.base;
   const failOnBroken = options.failOnBroken !== false;
-  const failOnStaleManifest = options.failOnStaleManifest !== false;
+
   const { root, workspace, repositoryKey, manifestPath, specDirectory } =
     resolveCommandContext(options);
+  const postMerge = workspace?.config.manifest_mode === "post_merge";
+  const failOnStaleManifest = !postMerge && options.failOnStaleManifest !== false;
   let manifest;
-  try {
+  let publishedManifest = null;
+  let publicationError: string | null = null;
+  if (postMerge) {
+    // Validate today's authored claims before allowing any publication deferral.
+    // Strict compilation still rejects missing/unreadable linked artifacts.
+    manifest = compileContractManifest({ repositoryRoot: root, repositoryKey, specDirectory });
+    try { publishedManifest = readContractManifest(manifestPath); } catch (error) {
+      publicationError = error instanceof Error ? error.message : String(error);
+      // Missing or malformed generated output is explicitly pending publication;
+      // it never substitutes for the validated authored contract above.
+    }
+  } else try {
     manifest = readContractManifest(manifestPath);
   } catch (error) {
     throw new Error(
@@ -295,8 +310,8 @@ export async function runCheckCommand(
       specDirectory,
     });
     manifestCurrent =
-      serializeContractManifest(manifest) ===
-      serializeContractManifest(currentManifest);
+      (postMerge ? publishedManifest !== null && serializeContractManifest(publishedManifest) === serializeContractManifest(currentManifest)
+        : serializeContractManifest(manifest) === serializeContractManifest(currentManifest));
   } catch (error) {
     manifestCompileError =
       error instanceof Error ? error.message : String(error);
@@ -308,14 +323,19 @@ export async function runCheckCommand(
     specDirectory,
   });
   const brokenLinks = impacts.filter(isBrokenImpact);
+  const locatorFindings = postMerge ? await inspectManifestLocators(root, manifest) : [];
+  const invalidLocators = locatorFindings.filter((finding) => finding.resolution === "unresolved" || finding.resolution === "ambiguous");
   // A manifest that does not match its own recompilation is drift, not a
   // judgement call, so it gates alongside broken links. A compile failure is
   // deliberately excluded: it is already reported on its own, and counting it
   // as staleness would report one fault twice.
   const staleManifest = !manifestCurrent && manifestCompileError === null;
   const staleManifestMessage =
-    "The committed manifest does not match current YAML or linked content; compile it before merge.";
+    postMerge
+      ? "The published manifest is stale, absent, or unreadable; post-merge refresh is pending. Current authored rules were compiled for this check."
+      : "The committed manifest does not match current YAML or linked content; compile it before merge.";
   const errors = [
+    ...invalidLocators.map((finding) => `${finding.path}: ${finding.selector} is ${finding.resolution}.`),
     ...brokenLinks.map(
       (impact) =>
         `${impact.acceptance_criterion_stable_id} links to ${impact.path}, but ${describeBrokenCause(
@@ -342,12 +362,12 @@ export async function runCheckCommand(
     : [];
   const brokenLinksFail = brokenLinks.length > 0 && failOnBroken;
   const staleManifestFails = staleManifest && failOnStaleManifest;
-  const exitCode = brokenLinksFail || staleManifestFails ? 1 : 0;
+  const exitCode = brokenLinksFail || staleManifestFails || invalidLocators.length > 0 ? 1 : 0;
   // Broken links outrank a stale manifest when both hold: recorded evidence
   // that no longer exists is the more severe fault, and the full picture stays
   // available in `errors`, `warnings`, and `manifest_current`.
   const exitReason: CheckExitReason =
-    brokenLinks.length > 0
+    invalidLocators.length > 0 ? "invalid_locators" : brokenLinks.length > 0
       ? failOnBroken
         ? "broken_links"
         : "broken_links_warn_only"
@@ -360,6 +380,7 @@ export async function runCheckCommand(
     base,
     repository: repositoryKey,
     manifest_current: manifestCurrent,
+    ...(postMerge ? { manifest_mode: "post_merge", manifest_publication: manifestCurrent ? "current" : "pending", authored_contract_validated: true, manifest_publication_error: publicationError, locator_findings: locatorFindings } : {}),
     manifest_compile_error: manifestCompileError,
     changes,
     impacts,
@@ -373,6 +394,7 @@ export async function runCheckCommand(
     exit_reason: exitReason,
     errors,
     warnings: [
+      ...locatorFindings.filter((finding) => finding.resolution === "not_checked").map((finding) => `${finding.path}: ${finding.selector} could not be checked (${finding.reason}).`),
       // Reported here only when it is not already an error, so a gating stale
       // manifest is named once rather than in both lists.
       ...(staleManifest && !failOnStaleManifest ? [staleManifestMessage] : []),
@@ -418,6 +440,7 @@ export async function runCheckCommand(
         "  Broken links fail this check. Re-run with --no-fail-on-broken to downgrade them to warnings.\n"
       );
     }
+    for (const finding of invalidLocators) io.write(`  Invalid locator: ${finding.path} ${finding.selector} (${finding.resolution}).\n`);
     if (staleManifestFails) {
       io.write(
         "  A stale manifest fails this check. Run `tieline contract compile` and commit the result, or re-run with --no-fail-on-stale-manifest to downgrade it to a warning.\n"
