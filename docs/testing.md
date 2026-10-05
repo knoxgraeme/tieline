@@ -51,6 +51,51 @@ TIELINE_S3_TEST_ACCESS_KEY_ID=... TIELINE_S3_TEST_SECRET_ACCESS_KEY=... \
   npx tsx tests/integration/object-store-s3.ts
 ```
 
+## Contract grading evaluations
+
+Deterministic grading tests run in `npm run check`: `test:criterion-grade` covers
+scope selection and citation verification, `test:manifest-maintenance` exercises
+publication with disposable local Git remotes, and `test:grading-evaluation`
+checks the evaluation harness with canned verdicts. Canned verdicts test the
+scorer; they are not evidence of model quality.
+
+`npm run test:closeout` uses disposable local Git histories to verify immutable
+scope, removed rules/links, inherited applicability, stale commit bindings,
+missing/duplicate dispositions, and unresolved readiness. It also exercises the
+actual CLI from a subdirectory with malformed uncommitted configuration. These
+tests verify report mechanics, not whether an agent's explanation is correct.
+
+Run a separate semantic experiment when changing the grading rubric:
+
+```bash
+npm run eval:grading -- prepare .context/grading-experiment
+# Give fresh independent graders only grader-instructions.md,
+# grader-rubric.md and each case's packet.json from that directory.
+# Save their original responses as case-XX/verdicts.json.
+npm run eval:grading -- score .context/grading-experiment
+```
+
+Preparation refuses to overwrite an experiment and freezes the rubric with a
+hash and corpus version. The grader must not see evaluator expectations or
+authoring rationale. Use disposable, credential-free environments with no
+network or product execution; the supplied packets contain all authorized
+evidence. This harness has no model client and does not provide an agent sandbox;
+the caller must enforce isolation. Ordinary checks require no model credentials.
+
+Scoring regenerates scopes from controlled fixtures, rejects altered source,
+extra files, changed packets and a mismatched rubric receipt, and verifies
+citations with the production verifier. It reports case pass rates, false
+support, missed and spurious link findings, and verification failures. A failing
+case makes scoring exit nonzero. Receipts detect accidental changes, not a
+malicious host rewriting both data and receipts. Preserve original results when
+correcting a corpus; never reclassify an earlier experiment as passing.
+
+The seven cases cover distributed support, overclaims, obsolete links,
+irrelevant evidence, implementation drift, cosmetic edits, and unavailable
+dependencies. They are a small rubric regression corpus, not a general quality
+benchmark or an automated end-to-end agent-fix evaluation. See the
+[initial experiment report](evaluations/grading-2026-10-05.md).
+
 ## Disposable database guard
 
 `npm run test:integration` and the other database-writing integration commands require guarded, disposable test credentials and a verified test-only database target. Never point them at a development, staging, or production `DATABASE_URL`. The ordinary offline suite does not need production credentials.

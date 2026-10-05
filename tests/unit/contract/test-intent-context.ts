@@ -458,11 +458,11 @@ await test("returns complete AC context with separate assurance dimensions", asy
     assert.equal(current?.assurance.source_evidence?.canonical_selector, "function:first");
     assert.equal(
       current?.assurance.source_evidence?.analyzed_content_hash,
-      current?.reviewed_content_hash
+      current?.compiled_content_hash
     );
     assert.equal(current?.provenance, "authored");
     assert.equal(current?.link_scope, "direct");
-    assert.match(current?.reviewed_content_hash ?? "", /^[a-f0-9]{64}$/);
+    assert.match(current?.compiled_content_hash ?? "", /^[a-f0-9]{64}$/);
 
     const unsupported = context.intent_neighborhood?.direct_claims.find(
       (claim) => claim.target.path === "src/unsupported.rb"

@@ -62,7 +62,9 @@ export interface InspectedIntentClaim {
   provenance: ClaimingCriterion["provenance"];
   link_scope: ClaimingCriterion["link_scope"];
   target: IntentAssetTarget;
-  reviewed_content_hash: string | null;
+  compiled_content_hash: string | null;
+  /** @deprecated Compilation baseline only; use compiled_content_hash. */
+  reviewed_content_hash?: string | null;
   assurance: ArtifactAssurance;
 }
 
@@ -254,10 +256,11 @@ async function inspectedClaim(
     provenance: claim.provenance,
     link_scope: claim.link_scope,
     target: targetFor(claim),
-    reviewed_content_hash: claim.reviewed_content_hash,
+    compiled_content_hash: claim.compiled_content_hash,
+    reviewed_content_hash: claim.compiled_content_hash,
     assurance: await inspector.inspect({
       target: assuranceTarget(claim),
-      reviewed_content_hash: claim.reviewed_content_hash,
+      compiled_content_hash: claim.compiled_content_hash,
     }),
   };
 }

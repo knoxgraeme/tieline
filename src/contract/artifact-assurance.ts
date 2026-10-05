@@ -100,7 +100,7 @@ export interface ArtifactAssurance extends ArtifactFreshnessInspection {
 
 export interface ArtifactAssuranceInput {
   target: ArtifactTarget;
-  reviewed_content_hash: string | null;
+  compiled_content_hash: string | null;
 }
 
 export interface ArtifactAssuranceInspector {
@@ -134,7 +134,7 @@ function inputKey(input: ArtifactAssuranceInput): string {
     input.target.path,
     input.target.selector ?? "",
     input.target.kind === "test" ? (input.target.framework_hint ?? "") : "",
-    input.reviewed_content_hash ?? "",
+    input.compiled_content_hash ?? "",
   ].join("\0");
 }
 
@@ -143,7 +143,7 @@ function locatorKey(target: ArtifactTarget): string {
 }
 
 function freshnessKey(input: ArtifactAssuranceInput): string {
-  return [input.target.repository, input.target.path, input.reviewed_content_hash ?? ""].join("\0");
+  return [input.target.repository, input.target.path, input.compiled_content_hash ?? ""].join("\0");
 }
 
 function isFilesystemError(error: unknown): error is NodeJS.ErrnoException {
@@ -388,7 +388,7 @@ export function createArtifactAssuranceInspector(
       } else {
         inspection = {
           freshness:
-            input.reviewed_content_hash !== null && measured.hash === input.reviewed_content_hash
+            input.compiled_content_hash !== null && measured.hash === input.compiled_content_hash
               ? "current"
               : "stale",
           freshness_reason: null,
@@ -440,7 +440,7 @@ export function createArtifactAssuranceInspector(
     return locatorResult(
       resolution,
       snapshotRead.snapshot,
-      input.reviewed_content_hash,
+      input.compiled_content_hash,
       options.repositoryRoot,
       maxEvidenceBytes,
       maxEvidenceLines
@@ -456,7 +456,7 @@ export function createArtifactAssuranceInspector(
       if (!pending) {
         pending = (async () => {
           const freshness = inspectFreshness(input);
-          const locatorKeyValue = `${locatorKey(input.target)}\0${input.reviewed_content_hash ?? ""}`;
+          const locatorKeyValue = `${locatorKey(input.target)}\0${input.compiled_content_hash ?? ""}`;
           let locator = locators.get(locatorKeyValue);
           if (!locator) {
             locator = inspectLocator(input, freshness);

@@ -18,6 +18,7 @@ import { runCli } from "../../../src/cli.js";
 import { isStillFile, readFileWithin } from "../../../src/contract/bounded-read.js";
 import { runCheckCommand } from "../../../src/commands/check.js";
 import { readScreensConfig } from "../../../src/config.js";
+import { readAuthoredContractAtBase } from "../../../src/contract/authored-snapshot.js";
 import { loadAcceptedContractWithSources } from "../../../src/contract/load.js";
 import {
   compileContractManifest,
@@ -950,34 +951,55 @@ await test("round-trips screens through the manifest directory and git snapshots
   assert.throws(() => readContractManifest(directory), /duplicate screen key 'notes-list'/);
 });
 
-await test("writes manifest schema version 3 only when the manifest holds screens", () => {
+await test("writes manifest schema version 4 only when the manifest holds screens", () => {
   const index = (directory: string) => JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8"));
   const withScreens = workspace({ screens: ENABLED, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
   const compiled = compile(withScreens);
-  assert.equal(compiled.manifest.schema_version, 3);
+  assert.equal(compiled.manifest.schema_version, 4);
   const directory = resolve(withScreens.root, ".tieline/manifest");
   writeContractManifest(directory, compiled);
-  assert.equal(index(directory).schema_version, 3);
+  assert.equal(index(directory).schema_version, 4);
 
-  // Enabled, but nothing to hold yet; and never enabled: both stay version 2.
+  // Enabled, but nothing to hold yet; and never enabled: both stay version 3.
   for (const plain of [workspace({ screens: ENABLED }), workspace({})]) {
-    assert.equal(compile(plain).manifest.schema_version, 2);
+    assert.equal(compile(plain).manifest.schema_version, 3);
   }
 
-  // Version 2 cannot hold screens, from disk or from a git snapshot.
-  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 2 })}\n`);
-  assert.throws(() => readContractManifest(directory), /records screens or shows links under schema version 2, which cannot hold them\. Run 'tieline contract compile \.'/);
+  // Version 3 cannot hold screens, from disk or from a git snapshot, nor can
+  // version 2, which is read as 3.
+  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 3 })}\n`);
+  assert.throws(() => readContractManifest(directory), /records screens or shows links under schema version 3, which cannot hold them\. Run 'tieline contract compile \.'/);
   const snapshot = () =>
     parseContractManifestSnapshot(
       readdirSync(directory).map((name) => ({ name, content: readFileSync(resolve(directory, name), "utf8") })),
       "ref 'main'"
     );
-  assert.throws(snapshot, /at ref 'main' records screens or shows links under schema version 2/);
+  assert.throws(snapshot, /at ref 'main' records screens or shows links under schema version 3/);
+  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 2 })}\n`);
+  assert.throws(() => readContractManifest(directory), /records screens or shows links under schema version 3, which cannot hold them/);
 
   // A newer format is named as one, not reported as damage.
-  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 4 })}\n`);
-  assert.throws(() => readContractManifest(directory), /declares schema version 4, newer than this version of Tieline reads \(up to 3\)\. Upgrade Tieline to read it\./);
-  assert.throws(snapshot, /at ref 'main' declares schema version 4, newer than this version of Tieline reads/);
+  writeFileSync(resolve(directory, "index.json"), `${JSON.stringify({ ...index(directory), schema_version: 5 })}\n`);
+  assert.throws(() => readContractManifest(directory), /declares schema version 5, newer than this version of Tieline reads \(up to 4\)\. Upgrade Tieline to read it\./);
+  assert.throws(snapshot, /at ref 'main' declares schema version 5, newer than this version of Tieline reads/);
+});
+
+await test("reads a base's shows links against its own screen catalog in post-merge mode", () => {
+  // Post-merge grading compiles the base from its authored files, not a
+  // committed manifest; its shows links must still find their screens.
+  const ws = workspace({ screens: ENABLED, git: true, notes: { storyShows: ["notes-list"] }, catalog: CATALOG });
+  ws.commit("base");
+  const base = readAuthoredContractAtBase({ repositoryRoot: ws.root, repositoryKey: REPO_KEY, specDirectory: ".tieline/spec", base: "HEAD" });
+  assert.ok(base);
+  assert.equal(base.schema_version, 4);
+  assert.deepEqual(
+    base.screen_catalogs?.flatMap((catalog) => catalog.screens.map((screen) => screen.stable_id)).sort(),
+    compile(ws).manifest.screen_catalogs?.flatMap((catalog) => catalog.screens.map((screen) => screen.stable_id)).sort()
+  );
+  // A base that never enabled screens reads no catalog, as before.
+  const plain = workspace({ git: true });
+  plain.commit("base");
+  assert.equal(readAuthoredContractAtBase({ repositoryRoot: plain.root, repositoryKey: REPO_KEY, specDirectory: ".tieline/spec", base: "HEAD" })?.schema_version, 3);
 });
 
 await test("compiles a capture record beside the image, outside the screen's contract hash", () => {
@@ -1084,7 +1106,7 @@ await test("strips screens for sync down to exactly the pre-screens manifest", (
   assert.deepEqual(paths(manifest.inputs), paths(expected.inputs));
   assert.deepEqual({ ...manifest, inputs: [] }, { ...expected, inputs: [] });
   assert.equal("screen_catalogs" in manifest, false);
-  assert.equal(manifest.schema_version, 2);
+  assert.equal(manifest.schema_version, 3);
   const unchanged = manifestWithoutScreens(compile(disabled).manifest);
   assert.deepEqual(unchanged.skipped, { screens: 0, shows_links: 0 });
 });

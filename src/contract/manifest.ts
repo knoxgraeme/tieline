@@ -51,15 +51,15 @@ import {
   type SourceSnapshotReader,
 } from "./source-snapshot.js";
 
-export const CONTRACT_MANIFEST_VERSION = 2 as const;
+export const CONTRACT_MANIFEST_VERSION = 3 as const;
 /**
  * The manifest format that also holds screen catalogs and `shows` links. A
  * manifest is written in it only when it holds them, so a repository that
- * never enabled screens keeps writing version 2 byte for byte, while a reader
+ * never enabled screens keeps writing version 3 byte for byte, while a reader
  * that predates screens refuses this format by its version instead of
  * mistaking the new fields for damage.
  */
-export const CONTRACT_MANIFEST_SCREENS_VERSION = 3 as const;
+export const CONTRACT_MANIFEST_SCREENS_VERSION = 4 as const;
 export type ContractManifestVersion =
   | typeof CONTRACT_MANIFEST_VERSION
   | typeof CONTRACT_MANIFEST_SCREENS_VERSION;
@@ -73,10 +73,11 @@ export interface ManifestLink {
   relation: ContractLink["relation"];
   provenance: ContractLink["provenance"];
   target: ContractLink["target"];
-  reviewed_content_hash: string | null;
+  /** Whole-file contents at compilation, not a record of semantic review. */
+  compiled_content_hash: string | null;
   /**
    * Runtime-only measurement used by repository sync. It is deliberately
-   * excluded from serialized manifests so reviewed evidence stays immutable.
+   * excluded from serialized manifests so the compiled baseline stays immutable.
    */
   current_content_hash?: string | null;
 }
@@ -260,7 +261,7 @@ export interface WrittenContractManifest {
  * `throw` refuses to produce a manifest at all. This is the gate: a manifest a
  * reviewer accepts must never record evidence for content that was not read.
  *
- * `omit_hash` records `reviewed_content_hash: null` for that one link and
+ * `omit_hash` records `compiled_content_hash: null` for that one link and
  * compiles the rest. It exists so ADVISORY, READ-ONLY commands can describe the
  * drift instead of dying on it. A manifest compiled this way is a report, not
  * reviewed evidence: a null reviewed hash already means "not current" to
@@ -429,13 +430,23 @@ export function attachCurrentArtifactHashes(
 const hashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const stableIdSchema = z.string().trim().min(1).max(160);
 const nonEmptyTextSchema = z.string().trim().min(1);
-const manifestLinkSchema = z.union([
+const manifestLinkSchema = z.preprocess((value, context) => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const link = value as Record<string, unknown>;
+  if (!("reviewed_content_hash" in link)) return value;
+  if ("compiled_content_hash" in link && link.compiled_content_hash !== link.reviewed_content_hash) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Conflicting compiled_content_hash and legacy reviewed_content_hash." });
+    return z.NEVER;
+  }
+  const { reviewed_content_hash, ...rest } = link;
+  return { ...rest, compiled_content_hash: reviewed_content_hash };
+}, z.union([
   z
     .object({
       relation: z.enum(["implements", "enforces"]),
       provenance: linkProvenanceSchema,
       target: codeTargetSchema,
-      reviewed_content_hash: hashSchema.nullable(),
+      compiled_content_hash: hashSchema.nullable(),
     })
     .strict(),
   z
@@ -443,7 +454,7 @@ const manifestLinkSchema = z.union([
       relation: z.literal("tests"),
       provenance: linkProvenanceSchema,
       target: testTargetSchema,
-      reviewed_content_hash: hashSchema.nullable(),
+      compiled_content_hash: hashSchema.nullable(),
     })
     .strict(),
   z
@@ -451,10 +462,10 @@ const manifestLinkSchema = z.union([
       relation: z.literal("documents"),
       provenance: linkProvenanceSchema,
       target: helpTargetSchema,
-      reviewed_content_hash: z.null(),
+      compiled_content_hash: z.null(),
     })
     .strict(),
-]);
+]));
 const manifestScreenLinksSchema = z.array(screenLinkSchema).min(1).optional();
 const manifestScreenSchema = z
   .object({
@@ -532,10 +543,12 @@ const manifestInputSchema = z
   .strict();
 const contractManifestIndexSchema = z
   .object({
-    schema_version: z.union([
-      z.literal(CONTRACT_MANIFEST_VERSION),
-      z.literal(CONTRACT_MANIFEST_SCREENS_VERSION),
-    ]),
+    // Version 2 named a link's hash reviewed_content_hash; it is read as 3.
+    schema_version: z
+      .union([z.literal(2), z.literal(CONTRACT_MANIFEST_VERSION), z.literal(CONTRACT_MANIFEST_SCREENS_VERSION)])
+      .transform((version) =>
+        version === CONTRACT_MANIFEST_SCREENS_VERSION ? CONTRACT_MANIFEST_SCREENS_VERSION : CONTRACT_MANIFEST_VERSION
+      ),
     repository: z
       .object({
         key: stableIdSchema,
@@ -631,7 +644,7 @@ function describeIssues(issues: z.ZodIssue[]): string[] {
 }
 
 function parseManifestPart<T>(
-  schema: z.ZodType<T>,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
   value: unknown,
   description: string,
   path: string
@@ -1110,7 +1123,7 @@ function contractHash(value: unknown): string {
   return sha256(stableJson(value));
 }
 
-function reviewedContentHash(
+function compiledContentHash(
   context: CompileContext,
   link: ContractLink
 ): string | null {
@@ -1151,7 +1164,7 @@ function compileLinks(
       relation: link.relation,
       provenance: link.provenance,
       target: link.target,
-      reviewed_content_hash: reviewedContentHash(context, link),
+      compiled_content_hash: compiledContentHash(context, link),
     }))
     .sort((left, right) =>
       stableJson([left.relation, left.target]).localeCompare(

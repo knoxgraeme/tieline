@@ -1,0 +1,568 @@
+{
+  "date": "2026-10-05",
+  "method": "Fresh independent host-agent runs; engine version, cost and latency not instrumented. Before runs predate frozen-rubric receipts. Historical scores retain original expectations.",
+  "runs": [
+    {
+      "experiment": "before-a",
+      "corpus_version": 1,
+      "receipt": null,
+      "cases": 6,
+      "passed": 4,
+      "false_support": 0,
+      "missed_link_findings": 0,
+      "spurious_link_findings": 2,
+      "results": [
+        {
+          "case": "case-01",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-02",
+          "pass": false,
+          "grade": "partial",
+          "expected_grades": [
+            "partial",
+            "unsupported"
+          ],
+          "link_findings": [
+            "src/custom.ts"
+          ],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-03",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [
+            "src/legacy.ts"
+          ],
+          "expected_link_findings": [
+            "src/legacy.ts"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-04",
+          "pass": true,
+          "grade": "inconclusive",
+          "expected_grades": [
+            "inconclusive"
+          ],
+          "link_findings": [
+            "src/notes.md"
+          ],
+          "expected_link_findings": [
+            "src/notes.md"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-05",
+          "pass": false,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [
+            "src/checkout.ts"
+          ],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-06",
+          "pass": true,
+          "grade": null,
+          "expected_grades": [],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        }
+      ]
+    },
+    {
+      "experiment": "before-b",
+      "corpus_version": 1,
+      "receipt": null,
+      "cases": 6,
+      "passed": 4,
+      "false_support": 0,
+      "missed_link_findings": 0,
+      "spurious_link_findings": 2,
+      "results": [
+        {
+          "case": "case-01",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-02",
+          "pass": false,
+          "grade": "partial",
+          "expected_grades": [
+            "partial",
+            "unsupported"
+          ],
+          "link_findings": [
+            "src/custom.ts"
+          ],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-03",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [
+            "src/legacy.ts"
+          ],
+          "expected_link_findings": [
+            "src/legacy.ts"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-04",
+          "pass": true,
+          "grade": "inconclusive",
+          "expected_grades": [
+            "inconclusive"
+          ],
+          "link_findings": [
+            "src/notes.md"
+          ],
+          "expected_link_findings": [
+            "src/notes.md"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-05",
+          "pass": false,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [
+            "src/checkout.ts"
+          ],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-06",
+          "pass": true,
+          "grade": null,
+          "expected_grades": [],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        }
+      ]
+    },
+    {
+      "experiment": "refined-a",
+      "corpus_version": 1,
+      "receipt": {
+        "schema_version": 1,
+        "prepared_at": "2026-10-05T05:32:12.665Z",
+        "rubric_sha256": "07fb6fe04d71ded3369abe61661aad120153f1d60c50877fed298fa0487cdbe5",
+        "cases": 6
+      },
+      "cases": 6,
+      "passed": 5,
+      "false_support": 0,
+      "missed_link_findings": 0,
+      "spurious_link_findings": 0,
+      "results": [
+        {
+          "case": "case-01",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-02",
+          "pass": true,
+          "grade": "partial",
+          "expected_grades": [
+            "partial",
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-03",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [
+            "src/legacy.ts"
+          ],
+          "expected_link_findings": [
+            "src/legacy.ts"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-04",
+          "pass": false,
+          "grade": "unsupported",
+          "expected_grades": [
+            "inconclusive"
+          ],
+          "link_findings": [
+            "src/notes.md"
+          ],
+          "expected_link_findings": [
+            "src/notes.md"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-05",
+          "pass": true,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-06",
+          "pass": true,
+          "grade": null,
+          "expected_grades": [],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        }
+      ]
+    },
+    {
+      "experiment": "refined-b",
+      "corpus_version": 1,
+      "receipt": {
+        "schema_version": 1,
+        "prepared_at": "2026-10-05T05:32:13.488Z",
+        "rubric_sha256": "07fb6fe04d71ded3369abe61661aad120153f1d60c50877fed298fa0487cdbe5",
+        "cases": 6
+      },
+      "cases": 6,
+      "passed": 5,
+      "false_support": 0,
+      "missed_link_findings": 0,
+      "spurious_link_findings": 0,
+      "results": [
+        {
+          "case": "case-01",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-02",
+          "pass": true,
+          "grade": "partial",
+          "expected_grades": [
+            "partial",
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-03",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [
+            "src/legacy.ts"
+          ],
+          "expected_link_findings": [
+            "src/legacy.ts"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-04",
+          "pass": false,
+          "grade": "unsupported",
+          "expected_grades": [
+            "inconclusive"
+          ],
+          "link_findings": [
+            "src/notes.md"
+          ],
+          "expected_link_findings": [
+            "src/notes.md"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-05",
+          "pass": true,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-06",
+          "pass": true,
+          "grade": null,
+          "expected_grades": [],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        }
+      ]
+    },
+    {
+      "experiment": "v2-a",
+      "corpus_version": 2,
+      "receipt": {
+        "schema_version": 1,
+        "prepared_at": "2026-10-05T05:36:50.771Z",
+        "corpus_version": 2,
+        "rubric_sha256": "743d10bfa1ee95517db90c842ee8913a5c7740b1429bbdad983b6b84dbc59e3a",
+        "cases": 7
+      },
+      "cases": 7,
+      "passed": 7,
+      "false_support": 0,
+      "missed_link_findings": 0,
+      "spurious_link_findings": 0,
+      "results": [
+        {
+          "case": "case-01",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-02",
+          "pass": true,
+          "grade": "partial",
+          "expected_grades": [
+            "partial",
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-03",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [
+            "src/legacy.ts"
+          ],
+          "expected_link_findings": [
+            "src/legacy.ts"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-04",
+          "pass": true,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [
+            "src/notes.md"
+          ],
+          "expected_link_findings": [
+            "src/notes.md"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-05",
+          "pass": true,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-06",
+          "pass": true,
+          "grade": null,
+          "expected_grades": [],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-07",
+          "pass": true,
+          "grade": "inconclusive",
+          "expected_grades": [
+            "inconclusive"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        }
+      ]
+    },
+    {
+      "experiment": "v2-b",
+      "corpus_version": 2,
+      "receipt": {
+        "schema_version": 1,
+        "prepared_at": "2026-10-05T05:36:51.584Z",
+        "corpus_version": 2,
+        "rubric_sha256": "743d10bfa1ee95517db90c842ee8913a5c7740b1429bbdad983b6b84dbc59e3a",
+        "cases": 7
+      },
+      "cases": 7,
+      "passed": 7,
+      "false_support": 0,
+      "missed_link_findings": 0,
+      "spurious_link_findings": 0,
+      "results": [
+        {
+          "case": "case-01",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-02",
+          "pass": true,
+          "grade": "partial",
+          "expected_grades": [
+            "partial",
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-03",
+          "pass": true,
+          "grade": "supported",
+          "expected_grades": [
+            "supported"
+          ],
+          "link_findings": [
+            "src/legacy.ts"
+          ],
+          "expected_link_findings": [
+            "src/legacy.ts"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-04",
+          "pass": true,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [
+            "src/notes.md"
+          ],
+          "expected_link_findings": [
+            "src/notes.md"
+          ],
+          "verification_cause": null
+        },
+        {
+          "case": "case-05",
+          "pass": true,
+          "grade": "unsupported",
+          "expected_grades": [
+            "unsupported"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-06",
+          "pass": true,
+          "grade": null,
+          "expected_grades": [],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        },
+        {
+          "case": "case-07",
+          "pass": true,
+          "grade": "inconclusive",
+          "expected_grades": [
+            "inconclusive"
+          ],
+          "link_findings": [],
+          "expected_link_findings": [],
+          "verification_cause": null
+        }
+      ]
+    }
+  ]
+}

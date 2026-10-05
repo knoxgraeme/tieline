@@ -192,9 +192,9 @@ function manifestEvidencePaths(manifest: ContractManifest): Map<string, string> 
         if (
           link.target.kind !== "help" &&
           link.target.repository === manifest.repository.key &&
-          link.reviewed_content_hash !== null
+          link.compiled_content_hash !== null
         ) {
-          expected.set(link.target.path, link.reviewed_content_hash);
+          expected.set(link.target.path, link.compiled_content_hash);
         }
       }
     }

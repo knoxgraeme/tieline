@@ -16,9 +16,9 @@
             "criterion": "Tieline must return structured Stories with ordered Acceptance Criteria, direct and fallback links, coverage, freshness, lifecycle, and authority.",
             "links": [
               {
+                "compiled_content_hash": "b4fb85553cabc8ce7b215216da7ed51396ce2a36a816c63e3d13e1fb240e6be4",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "484a403c56ce158b6d1a388580201cda1673361318a6b8f98c3537d91e904042",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-read-repository.ts",
@@ -26,9 +26,9 @@
                 }
               },
               {
+                "compiled_content_hash": "064008fbc25df528d469a03551c717b654b1428ad9f3f98e8c0655537426e0fa",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0ed8ee5102600c032a0416652f263126dc8c46fc25f0b5479c74fb84bb81d06d",
                 "target": {
                   "kind": "code",
                   "path": "src/domain/contract-read-store.ts",
@@ -36,9 +36,9 @@
                 }
               },
               {
+                "compiled_content_hash": "9b9c130cc69a84d5fb9e1b88dcecef00e5cac68fb1bbebbbfd5097bfcffb6124",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9b9c130cc69a84d5fb9e1b88dcecef00e5cac68fb1bbebbbfd5097bfcffb6124",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/query-stories.ts",
@@ -46,9 +46,9 @@
                 }
               },
               {
+                "compiled_content_hash": "247a8d08d4b53c005a350c4ac1da2f0fc7274bcf3255582f98dee3fe84e03c64",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "247a8d08d4b53c005a350c4ac1da2f0fc7274bcf3255582f98dee3fe84e03c64",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/schemas/query-stories.ts",
@@ -56,9 +56,9 @@
                 }
               },
               {
+                "compiled_content_hash": "9588c406d2b7c9658e540a3aa449612d9e8f0ea83029bdef8b1a5d8276a3099f",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9588c406d2b7c9658e540a3aa449612d9e8f0ea83029bdef8b1a5d8276a3099f",
                 "target": {
                   "kind": "code",
                   "path": "src/types.ts",
@@ -66,9 +66,9 @@
                 }
               },
               {
+                "compiled_content_hash": "4f79a84a320ec139c09999050a13d95b6d2fecf2f73553f467c734fffc067fbb",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a4a503119dd59c04a20553186ce939100d273310c1cffeab02fdcd8f4402ec6f",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -107,9 +107,9 @@
             "criterion": "Tieline must resolve a versioned retrieval profile before cross-type search and allow caller filters only to narrow it.",
             "links": [
               {
+                "compiled_content_hash": "2cbc4f84eddb2efc8a06c143e5279ae85304799b74b0b5074779a4c326600c34",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2cbc4f84eddb2efc8a06c143e5279ae85304799b74b0b5074779a4c326600c34",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/profile-repository.ts",
@@ -117,9 +117,9 @@
                 }
               },
               {
+                "compiled_content_hash": "17710e74ff29c6d3501b4f4074b0f3ebe7819f34fa020ddfe3330c344d64350c",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "17710e74ff29c6d3501b4f4074b0f3ebe7819f34fa020ddfe3330c344d64350c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/profile.ts",
@@ -127,9 +127,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1e1ad3b5e0ac11dd0eebba9568a72565adcda3c4295643de128763a4e1504be6",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "46f1542b61e06f355c27cf31fbaf3030a1f11f5cc91492f588807fe387c63800",
                 "target": {
                   "kind": "code",
                   "path": "src/resources.ts",
@@ -137,9 +137,9 @@
                 }
               },
               {
+                "compiled_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -148,9 +148,9 @@
                 }
               },
               {
+                "compiled_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

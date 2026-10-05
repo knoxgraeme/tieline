@@ -269,7 +269,7 @@ diff touched them, because a link can rot without the change under review going 
 
 | State | Cause | Effect |
 | --- | --- | --- |
-| stale | The linked file changed since it was reviewed, or was never reviewed against a recorded hash. Whether the AC still holds needs a human. | Warning, exit 0 |
+| stale | The linked file differs from its compiled baseline, or has no recorded baseline. Whether the AC still holds needs semantic review. | Warning, exit 0 |
 | broken | The linked path is missing, is not a file, or resolves outside the repository. | Error, exit 1 |
 | stale manifest | The committed manifest differs from what the current contract compiles to. | Error, exit 1 |
 
@@ -401,3 +401,89 @@ Code paths are labeled `derived_code_dependency`; authored joins are `contract_c
 only `may_be_impacted` with `semantic_support: not_assessed`. Two files sharing an AC do not
 thereby depend on one another, and no topology result proves that an implementation satisfies an
 AC or that a linked test passed.
+
+### Review complete criteria
+
+Legacy `contract grade` callers retain link-level, all-impacted behavior. For
+routine closeout, select changed claims and grade an AC across its evidence:
+
+```sh
+tieline contract grade . --base origin/main --unit criterion --scope claims --emit-scope --json
+tieline contract grade . --base origin/main --unit criterion --scope claims --verify verdicts.json --json
+```
+
+Claims include criterion text, scenarios, AC/Story applicability, and code/test
+link changes, including removal. All local evidence of a selected AC is included,
+not just changed files. `implementation_only_criteria` and `removed_criteria`
+remain explicit reconciliation work. Use `--scope impacted` for sensitive or
+uncertain implementation drift. An empty claims scope is not a semantic approval.
+
+Each verdict requires `id`, `grade`, and `reason`. Supported verdicts carry a
+`citations` array of exact `{link_id, selector}` pairs. Optional `link_findings`
+records irrelevant locators independently of overall support. `inconclusive`
+distinguishes unavailable evidence from a contradicted claim. Verification binds
+all supporting source snapshots, rejects duplicate/out-of-scope identities, and
+downgrades missing judgments or fabricated citations. Strict criterion mode fails
+on unsupported, inconclusive, or link findings; partial alone remains advisory.
+Scopes are bounded to 1,000 criteria/5,000 links and verdict input to 16 MiB.
+See the [agent workflow](../skills/tieline/references/criterion-grading.md).
+
+### Publish a post-merge manifest
+
+`manifest_mode: "post_merge"` is an explicit opt-in in `.tieline/config.json`.
+The default remains `committed`. In post-merge mode, `check` and `contract grade`
+validate current YAML in memory and report pending publication; broken evidence
+still fails. Grading compares authored YAML at the base, not a stale generated
+baseline. Existing artifact-first context reads retain published freshness.
+
+```sh
+tieline contract refresh-manifest . --branch env/staging --remote origin --json
+```
+
+This command **writes to the named remote branch**. Run it only in the approved
+post-merge publisher. It uses a temporary worktree, stages only standard manifest
+output, and uses normal pushes with at most three attempts for concurrent merges.
+The working checkout and current branch are left alone. See
+[maintenance setup and recovery](operations.md#post-merge-manifest-maintenance-opt-in).
+
+### Compiled fingerprints and legacy manifests
+
+Manifest version 3 names file fingerprints `compiled_content_hash`. This is a
+whole-file SHA-256 measurement made by compilation, not proof that a rule was
+reviewed. Current readers also accept version 2 manifests and normalize the old
+`reviewed_content_hash` field without changing its baseline. Conflicting old/new
+values are rejected. Serialization emits only the new field. Upgrade consumers
+before publishing v3 manifests; older clients reject the new manifest version.
+Context and reconciliation responses retain a deprecated `reviewed_content_hash`
+alias during migration. Database column names remain unchanged behind adapters.
+The normalized manifest digest changes on migration, so regenerate dependent
+topology artifacts once. Hash freshness and semantic review remain separate facts.
+
+### Commit-bound closeout
+
+```bash
+tieline contract closeout . --base origin/main --head HEAD --emit-scope --json
+tieline contract closeout . --base origin/main --head HEAD --verify .context/closeout.json --json
+```
+
+Closeout reads committed config and authored YAML from the target/head merge base
+and head, independently of compiled manifests and dirty working-tree content.
+Both old and new links contribute affected ACs, including removed rules, inherited
+applicability/lifecycle changes and implementation-only edits. Configuration changes
+conservatively include all ACs. Output records resolved full commits, a scope hash,
+and `unmapped_changed_paths`; completeness applies only to the listed ACs.
+
+The report copies the emitted `binding` and records `still_valid`, `updated`, or
+`unresolved` dispositions with explanations; related ACs may share a disposition.
+Updated findings cite changed repository paths. Changed claims cannot be marked
+`still_valid`. See [the report format](../skills/tieline/references/closeout.md).
+Missing/unresolved dispositions return exit 1; stale bindings, duplicates, unknown
+ACs and invalid paths fail validation. `complete: true` does not imply `ready: true`
+or semantic correctness. A zero exit is evidence of current, resolved review
+records, not proof of their truth, executed tests or human approval.
+
+Keep the report outside its own commit and include it in the PR body. A new head
+or target revision requires renewed verification. For CI, supply expected revisions
+from trusted PR event metadata, not from the report. This command does not install
+a CI job or change branch protection. It requires root-level committed Tieline
+configuration, at most 1,000 affected ACs and a report no larger than 2 MiB.

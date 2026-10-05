@@ -233,7 +233,7 @@ capability:
                 path: tests/unit/contract/test-contract-command.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC6
-          criterion: Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
+          criterion: In committed manifest mode, Tieline must fail the check when the committed manifest differs from the manifest the contract compiles to, unless that gate is explicitly downgraded.
           rationale: A manifest merged without recompilation records evidence hashes that were never reviewed against the code they name. Comparing the committed manifest with a fresh compilation is a byte diff of a deterministic function, so nothing is being judged, which is the same reason broken links already fail. Findings that do need judgement stay warn-only.
           scenarios:
             - given: a specification file changed without the manifest being recompiled
@@ -337,7 +337,7 @@ capability:
                 path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC8
-          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.
+          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and keep Git commit provenance separate from manifest content while supplying it explicitly for database synchronization.
           rationale: A revision in the tracked repository-level index made every branch conflict in one shared generated file and became stale as soon as that generated file was committed. Content identity belongs to the reviewed manifest, while Git revision belongs to the runtime projection checkpoint and audit boundary.
           scenarios:
             - given: accepted specifications and linked artifacts whose content is unchanged across two Git revisions
@@ -410,12 +410,6 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tieline/status.ts
-            - relation: enforces
-              provenance: authored
-              target:
-                kind: code
-                repository: tieline
-                path: .gitattributes
             - relation: tests
               provenance: authored
               target:
@@ -452,6 +446,26 @@ capability:
                 path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC9
+          criterion: Compiled evidence fingerprints must identify file contents at compilation without implying semantic review, and readers must accept legacy fingerprints without losing their baseline.
+          scenarios:
+            - given: a version 2 manifest containing reviewed_content_hash
+              when: the manifest is read by a current client
+              then: the same baseline is available as compiled_content_hash and conflicting aliases are rejected
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC10
           criterion: Tieline must report, from git alone, when each Story, acceptance criterion, and screen was added, changed, or removed and in which pull request, by comparing each first-parent commit's compiled manifest with its parent's, must show each one's last change on the review page, and must say when older history was not read or a commit's manifest is not held by the clone instead of attributing changes it cannot see.
           rationale: Reviewers and agents need to know which change last touched a piece of behavior, and a shallow or partial clone must not make every item look newly added.
           scenarios:
@@ -490,7 +504,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-contract-history.ts
                 framework_hint: custom-script
-        - key: CONTRACT-001-AC10
+        - key: CONTRACT-001-AC11
           criterion: Repository sync must record each Story, acceptance criterion, and screen a synced commit's history added, changed, or removed, with its commit and pull request, backfilling from git history on its first record and recording only what changed after the last recorded commit afterwards, must record nothing twice, must leave sync unchanged when the synced commit is not a git commit, and exact acceptance criterion context must include the criterion's changes.
           rationale: Agents and hosted readers without a checkout need to know when and in which pull request behavior last changed, and a sync that runs again or late must neither duplicate nor lose that history.
           scenarios:
@@ -1117,6 +1131,96 @@ capability:
                 path: tests/unit/topology/test-code-topology-command.ts
                 framework_hint: custom-script
     - key: CONTRACT-005
+      title: Maintain generated manifests after integration
+      actor: repository maintainer
+      goal: automate fingerprint publication while reviewing behavior before merge
+      benefit: feature branches avoid unrelated generated churn without concealing contract problems
+      lifecycle: production
+      acceptance_criteria:
+        - key: CONTRACT-005-AC1
+          criterion: In explicitly configured post_merge mode, check and grading must compile current authored definitions before review, check must still reject missing or broken evidence, grading must compare base authored YAML even when generated publication is pending, and publication freshness must remain explicit.
+          scenarios:
+            - given: the integration baseline has authored rules but no published manifest
+              when: an unchanged claim is graded in claims mode
+              then: it must not be treated as a newly added claim
+            - given: a current authored link targets a missing file or invalid selector
+              when: the PR is checked in post_merge mode
+              then: the check must fail before publication
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:runCheckCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest-locators.ts
+                selector: function:inspectManifestLocators
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/authored-snapshot.ts
+                selector: function:readAuthoredContractAtBase
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest-maintenance.ts
+        - key: CONTRACT-005-AC2
+          criterion: Explicit manifest publication must compile and validate an opted-in integration branch in a disposable worktree, commit only standard manifest output, preserve local work, avoid force pushes, retry at most three times after concurrent remote changes, and expose terminal failure without publishing an obsolete snapshot.
+          scenarios:
+            - given: another merge advances the remote during publication
+              when: the normal push is rejected
+              then: the publisher must compile the new tip before retrying
+            - given: the manifest already matches the fetched source
+              when: publication runs again
+              then: no additional commit must be created
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/refresh-manifest.ts
+                selector: function:runManifestRefresh
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest-maintenance.ts
+        - key: CONTRACT-005-AC3
+          criterion: The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining committed topology comparison.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: scripts/generated-artifact-gate.ts
+                selector: function:runGeneratedArtifactGate
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-generated-artifacts.ts
+    - key: CONTRACT-006
       title: Review the screens that show accepted behavior
       actor: maintainer
       goal: catalog an application's user-visible screens beside the Stories and Acceptance Criteria they show
@@ -1126,7 +1230,7 @@ capability:
         - screen catalog
         - shows links
       acceptance_criteria:
-        - key: CONTRACT-005-AC1
+        - key: CONTRACT-006-AC1
           criterion: Tieline must leave compile, check, review, sync, and exact context reads unchanged and must never read a screen catalog unless the repository enables screens in its configuration.
           rationale: Screens are optional; a repository that does not opt in must not pay for or be broken by the feature.
           scenarios:
@@ -1165,7 +1269,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC2
+        - key: CONTRACT-006-AC2
           criterion: Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.
           rationale: The catalog is the reference a shows link resolves against, so an invalid entry or an unresolvable key would make screen review untrustworthy.
           links:
@@ -1197,9 +1301,13 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC3
+        - key: CONTRACT-006-AC3
           criterion: Tieline must compile the screen catalog and shows links into the manifest deterministically without changing any contract hash, must fail check on an invalid catalog or a committed shows link to a removed screen, and must remove screens before database sync.
           rationale: The manifest is the reviewed read model, so screens must appear in it reproducibly, while the database and evidence consumers keep seeing exactly the contract they saw before screens existed.
+          scenarios:
+            - given: a repository in post_merge manifest mode whose base commit has shows links
+              when: a branch is graded against that base
+              then: the base must be compiled with its own screen catalog, so its links name known screens
           links:
             - relation: implements
               provenance: authored
@@ -1229,7 +1337,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC4
+        - key: CONTRACT-006-AC4
           criterion: The screen importer must bound and validate untrusted JSON before writing, must update catalog entries by key so a repeated import changes nothing, must delete entries only when pruning is requested, and must refuse or explicitly skip entries for undeclared capabilities.
           rationale: Most catalog entries arrive from external capture tools, so the importer is a trust boundary and must be safe to run repeatedly.
           scenarios:
@@ -1268,7 +1376,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-import.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC5
+        - key: CONTRACT-006-AC5
           criterion: The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.
           rationale: Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.
           scenarios:
@@ -1304,7 +1412,7 @@ capability:
                 repository: tieline
                 path: tests/browser/test-review-page-browser.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC6
+        - key: CONTRACT-006-AC6
           criterion: The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.
           rationale: Reviewers of a pull request need to see which behavior and which screens moved without a database, a hosted service, or committed screenshots.
           scenarios:
@@ -1373,7 +1481,7 @@ capability:
                 repository: tieline
                 path: tests/browser/test-review-page-browser.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC7
+        - key: CONTRACT-006-AC7
           criterion: Tieline must report screens missing a screenshot digest, a capture record, a committed ARIA snapshot, or a literal @screen test tag, ARIA snapshots that differ from their capture record or belong to no catalogued screen, and screens captured in different environments, through screens audit and as check warnings that never change the check's exit code, reading test files and snapshots only within fixed bounds and never through symbolic links.
           rationale: Incremental capture only re-captures screens a branch may affect, so a cheap audit must find what it cannot, and check must surface it without making an unrelated pull request fail.
           scenarios:
@@ -1426,7 +1534,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-audit.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC8
+        - key: CONTRACT-006-AC8
           criterion: Tieline must select the screens a branch may have changed since its branch point, because their committed capture outputs or catalog entry changed, a changed test tags them, a Story or AC that shows them links a changed file, a changed file or one of its code-topology dependents matches their paths or their showing Stories' and ACs' links, or a configured global path changed, and must report every reason for each screen and every rule it could not evaluate.
           rationale: Re-capturing only affected screens keeps pull requests fast, and selection is a heuristic, so reviewers must see why each screen was chosen and where the selection may be narrower than it should be.
           scenarios:
@@ -1475,7 +1583,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-capture-selection.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC9
+        - key: CONTRACT-006-AC9
           criterion: Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.
           rationale: Committed screen outputs are reviewed as the truth about how screens look, so a partial, untrusted, or stale capture must never replace them, and pull requests must not merge with outputs a fresh capture would not reproduce.
           scenarios:
@@ -1573,7 +1681,7 @@ capability:
                 repository: tieline
                 path: tests/browser/test-screens-browser.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC10
+        - key: CONTRACT-006-AC10
           criterion: Tieline must account for every catalogued screen as captured or marked not captured with one of a closed set of reasons, must skip marked screens and report selected screens no test tags instead of failing the capture, must report page files no screen claims and acceptance criteria showing screens that no @ac-tagged test linked from them proves, must keep screens that differ between repeated captures out of the committed outputs, and must fail a strict audit while any of these remain.
           rationale: Captures are only worth reviewing if every screen a user can reach is either captured from the real app or explicitly excused, and documented UI behavior is proven by a test, so gaps must be visible and gateable rather than silently skipped.
           scenarios:
@@ -1626,7 +1734,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-capture.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC11
+        - key: CONTRACT-006-AC11
           criterion: The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, offer screen capture during onboarding of a repository with a user interface and backfill before reporting when the user accepts, and keep a screens-enabled repository's captures current before handing off a change to what users see.
           rationale: Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.
           scenarios:
@@ -1668,7 +1776,7 @@ capability:
                 repository: tieline
                 path: tests/unit/runtime/test-tieline.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC12
+        - key: CONTRACT-006-AC12
           criterion: With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.
           rationale: A hosted page is reviewed as evidence of a change, so it must never show an image the store lacks or one the catalog does not record, and publishing a pull request must never change what main shows.
           scenarios:
@@ -1759,7 +1867,7 @@ capability:
                 repository: tieline
                 path: tests/integration/integration-hosted-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC13
+        - key: CONTRACT-006-AC13
           criterion: Tieline must delete a closed pull request's hosted page only after a grace period, a branch's page after the configured days without a publish, and main's image history beyond the configured number of replaced images per screen, and must delete an image only when no page or retained history references it and nothing referenced it within a grace period, removing it from the object store before its record and keeping the record of any image it could not remove.
           rationale: Hosted screens must stay bounded without deleting an image a page still shows, a merge is about to make main show, or a publish has just claimed.
           scenarios:
@@ -1801,7 +1909,7 @@ capability:
                 repository: tieline
                 path: tests/integration/integration-hosted-screens.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC14
+        - key: CONTRACT-006-AC14
           criterion: The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.
           rationale: The site exposes review evidence over the network behind only the host's access control, so it must never serve anything publishing did not record, nor bytes that changed after they were verified.
           scenarios:
@@ -1846,7 +1954,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-hosted-site.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC15
+        - key: CONTRACT-006-AC15
           criterion: Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.
           rationale: Hosted screens depend on a bucket, three database credentials, and the host's access control being right, and a team must be able to prove all of them before trusting the site with its review evidence.
           scenarios:
@@ -1902,7 +2010,7 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-hosted-site.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC16
+        - key: CONTRACT-006-AC16
           criterion: The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.
           rationale: Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.
           scenarios:
@@ -1935,7 +2043,7 @@ capability:
                 repository: tieline
                 path: tests/unit/runtime/test-tieline.ts
                 framework_hint: custom-script
-        - key: CONTRACT-005-AC17
+        - key: CONTRACT-006-AC17
           criterion: Tieline must generate, as one committed scene file, a scene for every catalogued page that no other test captures and that is not marked not captured, each running the repository's setup module before opening the page, must skip and report a route with parameters when no setup module chooses its URL, must fail a generated scene whose page answers with an error or whose route keeps a parameter, and must fail the strict audit while the generated file differs from what the catalog generates.
           rationale: Scenes are written by agents, not people, so every page must be captured without anyone writing a test just to open it, and a stale or wrong generated scene must never stand in for the screen.
           scenarios:
