@@ -16,7 +16,7 @@
             "criterion": "Tieline must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -178,7 +178,7 @@
             "criterion": "Tieline initialization must persist deterministic repository and runtime inputs from explicit flags and auto-detection without generating semantic contract content.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -222,7 +222,7 @@
             "criterion": "Tieline initialization must prepare explicitly selected project-agent targets and install the tieline skill through Skillfish only for those supported agents and scope.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -287,7 +287,7 @@
             "criterion": "Tieline must preserve a ready workspace and report a structured installer error when requested skill installation fails.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -331,7 +331,7 @@
             "criterion": "Tieline status must expose concise structured onboarding state without duplicating the authoring workflow.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -375,7 +375,7 @@
             "criterion": "Tieline initialization must print an exact Tieline retry command when requested skill installation is incomplete.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -430,7 +430,7 @@
             "criterion": "Tieline initialization must accept context sources only through repeatable --context flags and validate each as an existing repository path or explicit HTTP(S) URL before mutation.",
             "links": [
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -484,7 +484,7 @@
                 }
               },
               {
-                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
+                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -777,7 +777,7 @@
                 }
               },
               {
-                "compiled_content_hash": "3ee4d56df489f07672e974d51fcb22044ff43c06a864802158553ed4c5383061",
+                "compiled_content_hash": "bb0d44a6c4d786d303a942ea9809e0085227c4976c948695804d6e6c4825259d",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -852,7 +852,7 @@
                 }
               },
               {
-                "compiled_content_hash": "3ee4d56df489f07672e974d51fcb22044ff43c06a864802158553ed4c5383061",
+                "compiled_content_hash": "bb0d44a6c4d786d303a942ea9809e0085227c4976c948695804d6e6c4825259d",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -886,7 +886,7 @@
             "criterion": "Tieline's project-installed skill and equivalent MCP prompt must make semantic closeout discoverable before handoff or branch publication, classify every changed behavior cluster including relevant untracked files, directly apply and validate justified contract changes within the authorized commit or publication boundary, and rerun after later implementation changes.",
             "links": [
               {
-                "compiled_content_hash": "3ee4d56df489f07672e974d51fcb22044ff43c06a864802158553ed4c5383061",
+                "compiled_content_hash": "bb0d44a6c4d786d303a942ea9809e0085227c4976c948695804d6e6c4825259d",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {

@@ -16,6 +16,8 @@ export function criterionReviewBasis(record: IntentAcceptanceCriterionRecord): s
       .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right))),
     applies_to: record.acceptance_criterion.applies_to,
     story_applies_to: record.story.applies_to,
+    capability_applies_to: record.capability.applies_to,
+    story_lifecycle: record.story.lifecycle,
     links: record.claims.map((claim) => [contractClaimIdentity(claim), claim.provenance]),
   });
 }
@@ -67,6 +69,9 @@ export async function buildCriterionGradeScope(
   const evidenceScope = await buildGradeScope({
     ...input,
     baseManifest: null,
+    // Selection already used the diff. Evidence identity must not change merely
+    // because an unchanged file moves from untracked to committed/added.
+    changes: input.changes.filter((change) => change.status === "renamed"),
     manifest: {
       ...input.manifest,
       capabilities: input.manifest.capabilities.map((capability) => ({

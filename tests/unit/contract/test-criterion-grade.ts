@@ -37,6 +37,13 @@ try {
   const impacted = await build("impacted");
   const entry = impacted.entries[0]!;
   assert.equal(entry.evidence.length, 2, "unchanged supporting files are included");
+  const newClaimScope = (changes: Array<{ status: "added"; path: string }>) => buildCriterionGradeScope({
+    repositoryRoot: root, base: "HEAD", manifest, baseManifest: null,
+    changes, sourceRoots: ["src"], selection: "claims",
+  });
+  assert.deepEqual((await newClaimScope([])).entries,
+    (await newClaimScope([{ status: "added", path: "src/checkout.ts" }])).entries,
+    "tracking unchanged new evidence must not invalidate an AC judgment");
   const verify = (verdicts: unknown, scope = impacted, strict = false) => verifyCriterionGradeVerdicts({ scope, verdicts: parseCriterionGradeVerdicts({ verdicts }), strict });
   const supported = { id: entry.id, grade: "supported", reason: "Confirmation and checkout jointly enforce the condition.", citations: entry.evidence.map((link) => ({ link_id: link.id, selector: link.symbols[0]! })) };
   assert.equal(verify([supported]).counts.supported, 1);
@@ -54,13 +61,15 @@ try {
   assert.equal(verify([{ ...supported, link_findings: [linkFinding] }], impacted, true).findings.length, 1, "supported behavior does not hide bad links");
   assert.throws(() => verify([{ ...supported, link_findings: [linkFinding, linkFinding] }]), /Duplicate/);
   assert.throws(() => verify([{ ...supported, link_findings: [{ ...linkFinding, link_id: `grade:${"0".repeat(64)}` }] }]), /out-of-scope/);
-  for (const mutation of ["scenario", "applicability", "story-applicability", "link-removal"] as const) {
+  for (const mutation of ["scenario", "applicability", "story-applicability", "capability-applicability", "lifecycle", "link-removal"] as const) {
     const changed = structuredClone(manifest);
     const story = changed.capabilities[0]!.stories[0]!;
     const ac = story.acceptance_criteria[0]!;
     if (mutation === "scenario") ac.scenarios[0]!.then = "an explicit error is returned";
     if (mutation === "applicability") ac.applies_to = { plan: ["pro"] };
     if (mutation === "story-applicability") story.applies_to = { plan: ["pro"] };
+    if (mutation === "capability-applicability") changed.capabilities[0]!.applies_to = { plan: ["pro"] };
+    if (mutation === "lifecycle") story.lifecycle = "retired";
     if (mutation === "link-removal") ac.links.pop();
     const scope = await build("claims", changed);
     assert.equal(scope.scoped_criteria, 1, mutation);

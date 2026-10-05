@@ -180,6 +180,8 @@ export function workspaceStartForCommand(
           "output",
           "spec",
           "base",
+          "head",
+          "verify",
           "expected-previous-commit",
         ]),
         1
@@ -432,6 +434,18 @@ function buildProgram(
           io
         )
       );
+    });
+  contract.command("closeout")
+    .description("Emit commit-bound affected rules or verify disposition completeness (JSON)")
+    .argument("[repository]", "Git repository path")
+    .requiredOption("--base <ref>", "PR target revision; comparison uses its merge base with head")
+    .option("--head <ref>", "reviewed revision", "HEAD")
+    .addOption(new Option("--emit-scope", "emit affected rules from immutable commits").conflicts("verify"))
+    .addOption(new Option("--verify <report.json>", "verify an external closeout report").conflicts("emitScope"))
+    .option("--json", "emit JSON (the default)")
+    .action(async (repository: string | undefined, opts) => {
+      const { runCloseout } = await import("./commands/closeout.js");
+      setExit(runCloseout({ repository, base: opts.base, head: opts.head, emitScope: opts.emitScope, verify: opts.verify }, io));
     });
   contract.command("refresh-manifest")
     .description("Publish a post-merge manifest refresh to an integration branch")
@@ -750,12 +764,16 @@ export async function runCli(
     program.outputHelp();
     return 0;
   }
-  loadWorkspaceProfileForCommand(
-    command,
-    workspaceStartForCommand(command, args, env),
-    env
-  );
-  await reloadRuntimeConfig(env);
+  // Closeout reads immutable Git objects; a dirty workspace profile must not
+  // replace or prevent inspection of the committed configuration.
+  if (!(command === "contract" && args[0] === "closeout")) {
+    loadWorkspaceProfileForCommand(
+      command,
+      workspaceStartForCommand(command, args, env),
+      env
+    );
+    await reloadRuntimeConfig(env);
+  }
   try {
     await program.parseAsync(argv, { from: "user" });
     return exitCode;
