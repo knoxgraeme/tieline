@@ -406,6 +406,26 @@ capability:
                 repository: tieline
                 path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
+        - key: CONTRACT-001-AC9
+          criterion: Compiled evidence fingerprints must identify file contents at compilation without implying semantic review, and readers must accept legacy fingerprints without losing their baseline.
+          scenarios:
+            - given: a version 2 manifest containing reviewed_content_hash
+              when: the manifest is read by a current client
+              then: the same baseline is available as compiled_content_hash and conflicting aliases are rejected
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest.ts
+                framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
       actor: implementing agent

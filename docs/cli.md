@@ -147,7 +147,7 @@ diff touched them, because a link can rot without the change under review going 
 
 | State | Cause | Effect |
 | --- | --- | --- |
-| stale | The linked file changed since it was reviewed, or was never reviewed against a recorded hash. Whether the AC still holds needs a human. | Warning, exit 0 |
+| stale | The linked file differs from its compiled baseline, or has no recorded baseline. Whether the AC still holds needs semantic review. | Warning, exit 0 |
 | broken | The linked path is missing, is not a file, or resolves outside the repository. | Error, exit 1 |
 | stale manifest | The committed manifest differs from what the current contract compiles to. | Error, exit 1 |
 
@@ -300,3 +300,16 @@ post-merge publisher. It uses a temporary worktree, stages only standard manifes
 output, and uses normal pushes with at most three attempts for concurrent merges.
 The working checkout and current branch are left alone. See
 [maintenance setup and recovery](operations.md#post-merge-manifest-maintenance-opt-in).
+
+### Compiled fingerprints and legacy manifests
+
+Manifest version 3 names file fingerprints `compiled_content_hash`. This is a
+whole-file SHA-256 measurement made by compilation, not proof that a rule was
+reviewed. Current readers also accept version 2 manifests and normalize the old
+`reviewed_content_hash` field without changing its baseline. Conflicting old/new
+values are rejected. Serialization emits only the new field. Upgrade consumers
+before publishing v3 manifests; older clients reject the new manifest version.
+Context and reconciliation responses retain a deprecated `reviewed_content_hash`
+alias during migration. Database column names remain unchanged behind adapters.
+The normalized manifest digest changes on migration, so regenerate dependent
+topology artifacts once. Hash freshness and semantic review remain separate facts.

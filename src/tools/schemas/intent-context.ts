@@ -141,7 +141,8 @@ const intentContextClaimShape = {
   provenance: linkProvenanceSchema,
   link_scope: z.enum(["direct", "story_fallback"]),
   target: intentContextTarget,
-  reviewed_content_hash: intentContextHash.nullable(),
+  compiled_content_hash: intentContextHash.nullable(),
+  reviewed_content_hash: intentContextHash.nullable().optional().describe("Deprecated alias of compiled_content_hash; not proof of review."),
   assurance: intentContextAssurance,
 };
 const intentContextClaim = z.object(intentContextClaimShape).strict();

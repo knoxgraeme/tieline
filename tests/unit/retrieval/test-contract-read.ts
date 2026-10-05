@@ -26,7 +26,7 @@ function codeLink(
       selector: null,
       framework_hint: null,
     },
-    reviewed_content_hash: "a".repeat(64),
+    compiled_content_hash: "a".repeat(64),
     freshness: "current",
   };
 }
@@ -45,7 +45,7 @@ function helpLink(
       title: "Living contract",
       url: null,
     },
-    reviewed_content_hash: null,
+    compiled_content_hash: null,
     freshness: "not_applicable",
   };
 }

@@ -262,7 +262,7 @@ try {
   assert.deepEqual(
     JSON.parse(readFileSync(resolve(manifestPath, "index.json"), "utf8")),
     {
-      schema_version: 2,
+      schema_version: 3,
       repository: { key: "contract-command-test" },
     }
   );
@@ -772,12 +772,12 @@ try {
           (criterion: { links: unknown[] }) => criterion.links
         ),
       ] as Array<{
-        reviewed_content_hash: string | null;
+        compiled_content_hash: string | null;
         target: { kind: string };
       }>) {
         if (link.target.kind === "help") continue;
         assert.match(
-          link.reviewed_content_hash ?? "",
+          link.compiled_content_hash ?? "",
           /^[a-f0-9]{64}$/,
           "no tolerant compilation reached the manifest on disk"
         );

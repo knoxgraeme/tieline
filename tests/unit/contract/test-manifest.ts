@@ -134,7 +134,7 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
       record_id: "00000000-0000-4000-8000-000000000001",
       revision: 2,
     });
-    assert.match(story.links[0]!.reviewed_content_hash!, /^[a-f0-9]{64}$/);
+    assert.match(story.links[0]!.compiled_content_hash!, /^[a-f0-9]{64}$/);
     assert.equal(story.links[0]!.provenance, "authored");
     const testLink = story.acceptance_criteria[0]!.links.find(
       (link) => link.target.kind === "test"
@@ -142,9 +142,9 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
     const helpLink = story.acceptance_criteria[0]!.links.find(
       (link) => link.target.kind === "help"
     );
-    assert.match(testLink!.reviewed_content_hash!, /^[a-f0-9]{64}$/);
+    assert.match(testLink!.compiled_content_hash!, /^[a-f0-9]{64}$/);
     assert.equal(
-      helpLink!.reviewed_content_hash,
+      helpLink!.compiled_content_hash,
       null,
       "unresolved help locators stay in the manifest without inventing content"
     );
@@ -160,11 +160,36 @@ await test("keeps the shared manifest index free of runtime revisions", () => {
     writeContractManifest(directory, compile(root));
     assert.deepEqual(
       JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
-      { schema_version: 2, repository: { key: "tieline" } }
+      { schema_version: 3, repository: { key: "tieline" } }
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+await test("normalizes legacy v2 hashes without implying review and rejects conflicting aliases", () => {
+  const root = fixture();
+  try {
+    const directory = manifestDirectory(root);
+    const compiled = compile(root);
+    writeContractManifest(directory, compiled);
+    const shardPath = resolve(directory, "CONTRACT.json");
+    const canonical = readFileSync(shardPath, "utf8");
+    assert.ok(!canonical.includes("reviewed_content_hash"));
+    writeFileSync(resolve(directory, "index.json"), JSON.stringify({ schema_version: 2, repository: { key: "tieline" } }));
+    writeFileSync(shardPath, canonical.replaceAll("compiled_content_hash", "reviewed_content_hash"));
+    const legacy = readContractManifest(directory);
+    assert.deepEqual(legacy, compiled.manifest);
+    assert.equal(manifestDigest(legacy), manifestDigest(compiled.manifest));
+    // A legacy baseline still detects file drift rather than blessing current contents.
+    const oldHash = legacy.capabilities[0]!.stories[0]!.links[0]!.compiled_content_hash;
+    writeFileSync(resolve(root, "src/contract.ts"), "// changed comment\nexport const contract = true;\n");
+    const measured = attachCurrentArtifactHashes(legacy, root).capabilities[0]!.stories[0]!.links[0]!;
+    assert.equal(measured.compiled_content_hash, oldHash);
+    assert.notEqual(measured.current_content_hash, oldHash);
+    writeFileSync(shardPath, canonical.replaceAll('"compiled_content_hash":', '"reviewed_content_hash": "' + "0".repeat(64) + '", "compiled_content_hash":'));
+    assert.throws(() => readContractManifest(directory), /Conflicting compiled_content_hash/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 await test("changes contract semantics when only link provenance changes", () => {
@@ -223,7 +248,7 @@ await test("changes only the linked artifact basis when repository content chang
     const afterTestLink = afterCriterion.links.find(
       (link) => link.target.kind === "test"
     );
-    assert.notEqual(beforeTestLink!.reviewed_content_hash, afterTestLink!.reviewed_content_hash);
+    assert.notEqual(beforeTestLink!.compiled_content_hash, afterTestLink!.compiled_content_hash);
     assert.notEqual(
       manifestDigest(before),
       manifestDigest(after),
@@ -252,7 +277,7 @@ await test("keeps reviewed hashes while measuring current artifact content for s
     const reviewedTestLink = criterion.links.find(
       (link) => link.target.kind === "test"
     )!;
-    const reviewedHash = reviewedTestLink.reviewed_content_hash;
+    const reviewedHash = reviewedTestLink.compiled_content_hash;
 
     writeFileSync(
       resolve(root, "scripts/contract.test.ts"),
@@ -264,7 +289,7 @@ await test("keeps reviewed hashes while measuring current artifact content for s
         (link) => link.target.kind === "test"
       )!;
 
-    assert.equal(measuredTestLink.reviewed_content_hash, reviewedHash);
+    assert.equal(measuredTestLink.compiled_content_hash, reviewedHash);
     assert.notEqual(measuredTestLink.current_content_hash, reviewedHash);
     assert.doesNotMatch(
       serializeContractManifest(measured),
@@ -294,14 +319,14 @@ await test("rejects malformed nested content in a reviewed manifest", () => {
   try {
     const compiled = compile(root);
     compiled.manifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!
-      .links[0]!.reviewed_content_hash = "not-a-content-hash";
+      .links[0]!.compiled_content_hash = "not-a-content-hash";
     const directory = manifestDirectory(root);
     writeContractManifest(directory, compiled);
     assert.throws(
       () => readContractManifest(directory),
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
-        assert.match(error.message, /reviewed_content_hash/i);
+        assert.match(error.message, /compiled_content_hash/i);
         assert.match(error.message, /CONTRACT\.json/);
         return true;
       }
@@ -363,7 +388,7 @@ await test("round-trips a compiled manifest through the directory it writes", ()
     assert.deepEqual(
       JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
       {
-        schema_version: 2,
+        schema_version: 3,
         repository: { key: "tieline" },
       }
     );
@@ -736,7 +761,7 @@ await test("omits the reviewed hash of an unhashable artifact when asked to tole
 
     const story = manifest.capabilities[0]!.stories[0]!;
     assert.equal(
-      story.links[0]!.reviewed_content_hash,
+      story.links[0]!.compiled_content_hash,
       null,
       "a link whose artifact is gone keeps its locator and records no content"
     );
@@ -751,7 +776,7 @@ await test("omits the reviewed hash of an unhashable artifact when asked to tole
     const testLink = story.acceptance_criteria[0]!.links.find(
       (link) => link.target.kind === "test"
     )!;
-    assert.match(testLink.reviewed_content_hash!, /^[a-f0-9]{64}$/);
+    assert.match(testLink.compiled_content_hash!, /^[a-f0-9]{64}$/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -770,7 +795,7 @@ await test("tolerates an artifact that is a directory rather than a file", () =>
       onUnhashableArtifact: "omit_hash",
     });
     assert.equal(
-      manifest.capabilities[0]!.stories[0]!.links[0]!.reviewed_content_hash,
+      manifest.capabilities[0]!.stories[0]!.links[0]!.compiled_content_hash,
       null
     );
     assert.throws(

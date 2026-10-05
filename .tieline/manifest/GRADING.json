@@ -19,9 +19,9 @@
             "criterion": "Tieline must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.",
             "links": [
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -30,9 +30,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1438afa3db251356fd7f6990cea68bfab652b7f3916f977ffbe0135308cbb9d8",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a3b1297f3e9d11940788b32f1a4d8dd4fd9605e0f61905ad872213c5075d4b89",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/reconciliation.ts",
@@ -41,9 +41,9 @@
                 }
               },
               {
+                "compiled_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -87,9 +87,9 @@
             "criterion": "Tieline must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
             "links": [
               {
+                "compiled_content_hash": "21f88d52beb2217195f3ddbf6e67c58e01e7dc914a43cb0fdb80d0e36ca9570c",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "21f88d52beb2217195f3ddbf6e67c58e01e7dc914a43cb0fdb80d0e36ca9570c",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/code-analysis/selector-resolution.ts",
@@ -98,9 +98,9 @@
                 }
               },
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -109,9 +109,9 @@
                 }
               },
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -120,9 +120,9 @@
                 }
               },
               {
+                "compiled_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -180,9 +180,9 @@
             "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
+                "compiled_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a222e7758ae9ad020eca7db3d5e9aafb9e5cf92c819ee786141a93c2bb41c8b9",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -191,9 +191,9 @@
                 }
               },
               {
+                "compiled_content_hash": "c31e49ce4f546cc8fbda8ff5f7e8a4bf1c7eb8b045508a633344408204f6e6bc",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ce7740b5e1976c37901eadc7ee34ad965d9458a0f145310672dd56970fb9064c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -202,9 +202,9 @@
                 }
               },
               {
+                "compiled_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -243,9 +243,9 @@
             "criterion": "Tieline must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.",
             "links": [
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -254,9 +254,9 @@
                 }
               },
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -265,9 +265,9 @@
                 }
               },
               {
+                "compiled_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -297,9 +297,9 @@
             "criterion": "Tieline must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.",
             "links": [
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -308,9 +308,9 @@
                 }
               },
               {
+                "compiled_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -347,9 +347,9 @@
             "criterion": "Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.",
             "links": [
               {
+                "compiled_content_hash": "c31e49ce4f546cc8fbda8ff5f7e8a4bf1c7eb8b045508a633344408204f6e6bc",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ce7740b5e1976c37901eadc7ee34ad965d9458a0f145310672dd56970fb9064c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -358,9 +358,9 @@
                 }
               },
               {
+                "compiled_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d8f555135927f94b4c4bf7a7378cb96b611c2b1c2e3f3873a7f9311ce949dd9b",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/grade.ts",
@@ -369,9 +369,9 @@
                 }
               },
               {
+                "compiled_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "06568c00b14d46411887471809684c0ec4106c2b5bbc45dc3bc5e1f5b9ae89b0",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -408,9 +408,9 @@
             "criterion": "The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and keep independent grading read-only; during implementation the host must investigate findings, record fixed, rejected-with-evidence, or unresolved dispositions, and regrade affected claims after corrections within a bounded loop.",
             "links": [
               {
+                "compiled_content_hash": "df63d28341a943f4c1354c89f50362d9fe983b8048f68d7ab6969f4bff5707c0",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "df63d28341a943f4c1354c89f50362d9fe983b8048f68d7ab6969f4bff5707c0",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/grading.md",
@@ -448,9 +448,9 @@
             "criterion": "Criterion grading must select changed rules, scenarios, AC or Story applicability, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.",
             "links": [
               {
+                "compiled_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/criterion-grade.ts",
@@ -459,9 +459,9 @@
                 }
               },
               {
+                "compiled_content_hash": "30ff7d41a0053f037cd59165e32a6ac3c7a2a892568905c2bd55855d18f08f47",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "177271ee0768fe3aa9231f8b2ce5989a5f303bb075787afd5d0cca6bbd2a572d",
                 "target": {
                   "kind": "test",
                   "path": "tests/unit/contract/test-criterion-grade.ts",
@@ -497,9 +497,9 @@
             "criterion": "Criterion verification must accept multiple exact citations from an AC's evidence, preserve irrelevant-link findings separately from overall support, distinguish inconclusive evidence from unsupported claims, and reject stale, duplicate, missing, or fabricated evidence without claiming semantic proof.",
             "links": [
               {
+                "compiled_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/criterion-grade.ts",
@@ -508,9 +508,9 @@
                 }
               },
               {
+                "compiled_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/criterion-grade.ts",
@@ -519,9 +519,9 @@
                 }
               },
               {
+                "compiled_content_hash": "30ff7d41a0053f037cd59165e32a6ac3c7a2a892568905c2bd55855d18f08f47",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "177271ee0768fe3aa9231f8b2ce5989a5f303bb075787afd5d0cca6bbd2a572d",
                 "target": {
                   "kind": "test",
                   "path": "tests/unit/contract/test-criterion-grade.ts",

@@ -28,7 +28,7 @@ export async function inspectManifestLocators(repositoryRoot: string, manifest: 
         const selector = claim.selector!;
         if (seen.has(selector)) continue;
         seen.add(selector);
-        const result = await inspector.inspect({ target: { kind: claim.target_kind, repository: claim.repository, path, selector }, reviewed_content_hash: claim.reviewed_content_hash });
+        const result = await inspector.inspect({ target: { kind: claim.target_kind, repository: claim.repository, path, selector }, compiled_content_hash: claim.compiled_content_hash });
         if (result.locator_resolution !== "resolved") findings.push({ path, selector, resolution: result.locator_resolution, reason: result.locator_reason });
       }
     } finally { await inspector.dispose(); }

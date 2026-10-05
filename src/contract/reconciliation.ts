@@ -92,7 +92,9 @@ export interface ClaimingCriterion {
   /** Test framework hint when authored; code claims always carry null. */
   framework_hint: string | null;
   /** Immutable reviewed content identity carried into current assurance reads. */
-  reviewed_content_hash: ManifestLink["reviewed_content_hash"];
+  compiled_content_hash: ManifestLink["compiled_content_hash"];
+  /** @deprecated Compilation baseline only; use compiled_content_hash. */
+  reviewed_content_hash?: string | null;
 }
 
 export type IntentCapabilityRecord = Omit<ManifestCapability, "stories">;
@@ -373,7 +375,8 @@ export function buildContractIntentIndex(
               link.target.kind === "test"
                 ? (link.target.framework_hint ?? null)
                 : null,
-            reviewed_content_hash: link.reviewed_content_hash,
+            compiled_content_hash: link.compiled_content_hash,
+            reviewed_content_hash: link.compiled_content_hash,
           };
           const key = contractClaimIdentity(claim);
           if (seen.has(key)) continue;

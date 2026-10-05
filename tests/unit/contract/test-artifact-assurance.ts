@@ -61,7 +61,7 @@ function artifact(
       path,
       ...(selector ? { selector } : {}),
     },
-    reviewed_content_hash: reviewedContentHash,
+    compiled_content_hash: reviewedContentHash,
   };
 }
 
