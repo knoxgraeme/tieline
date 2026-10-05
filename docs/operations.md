@@ -24,6 +24,19 @@ Managed Postgres environments may require an administrator to preinstall pgvecto
 contrib extensions or grant the equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities
 before `tieline migrate` runs.
 
+### One database is one trust boundary
+
+A Tieline database can serve every repository in an organization, and its roles are not scoped to
+any one of them. The reader reads every repository's data; the planning writer writes planning
+data for any of them; repository sync can sync any repository's contract and publish its `main`
+screens page; and the screens publisher can write any repository's pull-request and branch pages.
+With `--provision-roles`, every repository that uses the database holds the same logins.
+
+So share a database only among repositories whose maintainers and CI you trust alike. Give a
+repository that must not be able to affect the others, such as one with outside maintainers, its
+own database. `screens publish --trusted` keeps a pull request from choosing which repository it
+publishes as, but it cannot narrow what a credential itself can reach.
+
 ## Run the MCP server
 
 ```bash

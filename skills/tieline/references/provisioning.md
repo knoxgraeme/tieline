@@ -1,7 +1,11 @@
 # Provision hosted database
 
 The Tieline database is organization infrastructure shared across
-repositories, not part of any one application. Keep every provider artifact
+repositories, not part of any one application. It is also one trust
+boundary: its credentials act on every repository it serves, so when the
+user says this repository must stay apart from the others (outside
+maintainers, a client's code), provision a project for it alone rather than
+reusing one. Keep every provider artifact
 out of the repository: no provider project files, no `.env` entries, no
 connection strings in any tracked or untracked repository file. The
 repository records only `default_database_mode`; credentials live in

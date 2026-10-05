@@ -709,7 +709,9 @@ fails after the contract was synced, sync exits 1, and running it again retries 
 The capture publisher role (`tieline_capture_publisher`) can add images and write pull-request
 and branch pages, and nothing else: the database refuses it any write to `main`'s page or
 history, and any deletion. Only repository sync writes `main`, and only `prune`, with the same
-role, deletes.
+role, deletes. Neither role is limited to one repository: in a database several repositories
+share, each can write every one's pages, so share one only among repositories you trust alike
+(see [Operations](operations.md#one-database-is-one-trust-boundary)).
 
 **Retention.** Each ref keeps only its latest page. A closed pull request's page is deleted by
 the first `prune` at least 24 hours after it closed, which leaves time for the merge to reach
