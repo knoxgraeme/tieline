@@ -182,7 +182,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "a9987519e8e7ab7b76f7bf0e59988346e1d3a8eb152714dd11c3cc12ed54a826",
+                "reviewed_content_hash": "2e52a000d3e6c24b10441663e9182c2cdd8c95592663b3b395b0c6600d097fd0",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -193,7 +193,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "265711807a5cf51c84686fd76f14273dac05e244c84993e0d5b0054a595b318c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -349,7 +349,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "5be61ec23e0006adec9df415177d418dd89b22f9644674d3d6770652b50999f3",
+                "reviewed_content_hash": "265711807a5cf51c84686fd76f14273dac05e244c84993e0d5b0054a595b318c",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -410,7 +410,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9fda4fd4efe431bac4b1f7fa6bc9939dbb75fab8a9f1581676d329e514a151ed",
+                "reviewed_content_hash": "df63d28341a943f4c1354c89f50362d9fe983b8048f68d7ab6969f4bff5707c0",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/grading.md",
@@ -438,12 +438,138 @@
         "stable_id": "GRADING-002",
         "supersedes": null,
         "title": "Refuse grading claims that cannot be checked"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f4f60d5ce09a16f515cc88f6fd5cfd50ac0d6bbe930f75983ec19e4569109f82",
+            "criterion": "Criterion grading must select changed rules, scenarios, AC or Story applicability, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/criterion-grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildCriterionGradeScope"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "177271ee0768fe3aa9231f8b2ce5989a5f303bb075787afd5d0cca6bbd2a572d",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-criterion-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "an unchanged AC has two links and only one source file changes",
+                "position": 0,
+                "stable_id": "GRADING-003-AC1-S1",
+                "then": "the AC is reported as implementation-only without being graded",
+                "when": "claims scope is requested"
+              },
+              {
+                "given": "only a scenario changes or all evidence links are removed",
+                "position": 1,
+                "stable_id": "GRADING-003-AC1-S2",
+                "then": "the AC remains in scope for judgment",
+                "when": "claims scope is requested"
+              }
+            ],
+            "stable_id": "GRADING-003-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "35e37160f7ab30329175554aadf8bb9abf210130904d192a3ed38713ab4014bc",
+            "criterion": "Criterion verification must accept multiple exact citations from an AC's evidence, preserve irrelevant-link findings separately from overall support, distinguish inconclusive evidence from unsupported claims, and reject stale, duplicate, missing, or fabricated evidence without claiming semantic proof.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/criterion-grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:parseCriterionGradeVerdicts"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "db131816f18cd8256610809082ca337123fc6cbd3b7f842661522db03e10e571",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/criterion-grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyCriterionGradeVerdicts"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "177271ee0768fe3aa9231f8b2ce5989a5f303bb075787afd5d0cca6bbd2a572d",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-criterion-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "separate confirmation and checkout declarations jointly support the rule",
+                "position": 0,
+                "stable_id": "GRADING-003-AC2-S1",
+                "then": "verification accepts both legal citations for the same AC",
+                "when": "a supported verdict cites both declarations"
+              },
+              {
+                "given": "one irrelevant link accompanies otherwise supported behavior",
+                "position": 1,
+                "stable_id": "GRADING-003-AC2-S2",
+                "then": "the finding remains visible and fails explicitly requested strict mode",
+                "when": "its link finding is verified"
+              }
+            ],
+            "stable_id": "GRADING-003-AC2",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "multi-file behavior can be assessed without repeating review for every cosmetic source edit",
+        "contract_hash": "80ce2e78a1668ae045ffad7c962d6be21c617df00460d1ceb6bfc4aeefab83df",
+        "goal": "review changed claims with all their supporting evidence",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-003",
+        "supersedes": null,
+        "title": "Review complete acceptance criteria with selective scope"
       }
     ],
     "supersedes": null
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "bf4bd677ac6ae6bbc3e78bf65831ee62f92937639481b6f6d5f5740da94048d6"
+    "sha256": "e3002dccdfaa150f16a4a36d7c82523973e76280566952fc25d895c91db80145"
   }
 }

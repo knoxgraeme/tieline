@@ -256,3 +256,29 @@ Code paths are labeled `derived_code_dependency`; authored joins are `contract_c
 only `may_be_impacted` with `semantic_support: not_assessed`. Two files sharing an AC do not
 thereby depend on one another, and no topology result proves that an implementation satisfies an
 AC or that a linked test passed.
+
+### Review complete criteria
+
+Legacy `contract grade` callers retain link-level, all-impacted behavior. For
+routine closeout, select changed claims and grade an AC across its evidence:
+
+```sh
+tieline contract grade . --base origin/main --unit criterion --scope claims --emit-scope --json
+tieline contract grade . --base origin/main --unit criterion --scope claims --verify verdicts.json --json
+```
+
+Claims include criterion text, scenarios, AC/Story applicability, and code/test
+link changes, including removal. All local evidence of a selected AC is included,
+not just changed files. `implementation_only_criteria` and `removed_criteria`
+remain explicit reconciliation work. Use `--scope impacted` for sensitive or
+uncertain implementation drift. An empty claims scope is not a semantic approval.
+
+Each verdict requires `id`, `grade`, and `reason`. Supported verdicts carry a
+`citations` array of exact `{link_id, selector}` pairs. Optional `link_findings`
+records irrelevant locators independently of overall support. `inconclusive`
+distinguishes unavailable evidence from a contradicted claim. Verification binds
+all supporting source snapshots, rejects duplicate/out-of-scope identities, and
+downgrades missing judgments or fabricated citations. Strict criterion mode fails
+on unsupported, inconclusive, or link findings; partial alone remains advisory.
+Scopes are bounded to 1,000 criteria/5,000 links and verdict input to 16 MiB.
+See the [agent workflow](../skills/tieline/references/criterion-grading.md).
