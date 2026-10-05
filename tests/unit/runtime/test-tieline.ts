@@ -1863,6 +1863,40 @@ capability:
   assert.match(onboardingReference, /Ask focused questions only/);
   assert.match(
     onboardingReference,
+    /Only when the repository has a user interface[\s\S]*\*\*Capture your app's screens too\?\*\*[\s\S]*Skip the\s+question for repositories without a user interface/,
+    "onboarding offers screen capture only for repositories with a user interface"
+  );
+  assert.match(
+    onboardingReference,
+    /If screens were enabled, backfill them now[\s\S]*screens-capture\.md[\s\S]*`tieline screens audit --strict` passes[\s\S]*never the screenshots/,
+    "an onboarding that enabled screens backfills them before the report"
+  );
+  assert.ok(
+    onboardingReference.indexOf("Capture your app's screens too") < onboardingReference.indexOf("Close the conversation with a handoff"),
+    "the screens question comes before the autonomous handoff"
+  );
+  assert.match(
+    onboardingReference,
+    /When the answer is yes and the database is hosted[\s\S]*\*\*Share screens on a private review site\?\*\*[\s\S]*Skip the question for offline and\s+local databases/,
+    "onboarding offers hosted screens only with screens on and a database a hosted site can reach"
+  );
+  assert.ok(
+    onboardingReference.indexOf("Share screens on a private review site") < onboardingReference.indexOf("Close the conversation with a handoff"),
+    "the hosted screens question comes before the autonomous handoff"
+  );
+  assert.match(
+    onboardingReference,
+    /copy `assets\/workflows\/screens-verify\.yml` from this\s+skill's directory to `\.github\/workflows\/screens-verify\.yml`/,
+    "an onboarding that enabled screens adds the pull-request check"
+  );
+  for (const workflow of ["screens-verify", "screens-hosted", "screens-hosted-publish", "screens-hosted-main"]) {
+    assert.ok(
+      existsSync(resolve(process.cwd(), `skills/tieline/assets/workflows/${workflow}.yml`)),
+      `the skill ships ${workflow}.yml for onboarding to copy`
+    );
+  }
+  assert.match(
+    onboardingReference,
     /Set expectations first/,
     "onboarding must open by orienting the user before asking questions"
   );
@@ -1991,6 +2025,40 @@ capability:
   assert.match(reportReference, /pull-request body/);
   assert.match(tielineSkill, /references\/report\.md/);
   assert.match(onboardingReference, /references\/report\.md/);
+  const hostedScreensReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/hosted-screens.md"),
+    "utf8"
+  );
+  assert.match(
+    hostedScreensReference,
+    /Never print a secret, read\s+one back into the conversation, or ask the user\s+to paste one/,
+    "hosted screens provisioning must keep secrets out of the conversation"
+  );
+  for (const region of ["aws-us-east-2", "aws-us-east-1", "aws-eu-central-1", "aws-ap-southeast-1"]) {
+    assert.match(hostedScreensReference, new RegExp(region), `Object Storage region ${region} must be listed`);
+  }
+  assert.match(
+    hostedScreensReference,
+    /--scope storage:read --scope storage:write[^\n]*> "\$dir\/publish\.json"/,
+    "the publishing credential must be written straight to a private file"
+  );
+  assert.match(
+    hostedScreensReference,
+    /--scope storage:read --name tieline-screens-site --output json > "\$dir\/site\.json"/,
+    "the hosted site must get a read-only credential"
+  );
+  assert.match(hostedScreensReference, /umask 077/, "credential files must be private");
+  assert.match(hostedScreensReference, /TIELINE_SCREENS_S3_ACCESS_KEY_ID/, "hand-off uses names Lambda hosts accept");
+  assert.match(hostedScreensReference, /tieline hosted check --url/, "the site's access control must be verified");
+  assert.match(
+    hostedScreensReference,
+    /`assets\/workflows\/`[\s\S]*Delete\s+`\.github\/workflows\/screens-verify\.yml`/,
+    "hosted screens adds the hosted workflows in place of the plain check"
+  );
+  assert.match(
+    readFileSync(resolve(process.cwd(), "skills/tieline/references/screens.md"), "utf8"),
+    /\[hosted-screens\.md\]\(hosted-screens\.md\)/
+  );
   const provisioningReference = readFileSync(
     resolve(
       process.cwd(),
@@ -2004,6 +2072,13 @@ capability:
     "picking the menu option is the consent; no double-ask"
   );
   assert.match(provisioningReference, /neonctl orgs list.*--output json/);
+  // The region no longer has to be chosen before the project exists: every
+  // provisioned project is in one with Object Storage (asserted above).
+  assert.match(
+    provisioningReference,
+    /hosted screens, also follow \[hosted-screens\.md\]\(hosted-screens\.md\)\s+once the project exists/,
+    "provisioning must route hosted screens to its reference"
+  );
   assert.match(
     provisioningReference,
     /exactly one.*--org-id/s,
@@ -2023,6 +2098,17 @@ capability:
     provisioningReference,
     /neonctl projects create.*--org-id/s,
     "Neon project creation must pass the resolved organization explicitly"
+  );
+  assert.match(
+    provisioningReference,
+    /neonctl projects create[^\n]*--region-id aws-us-east-2/,
+    "a provisioned project defaults to a region with Object Storage, so hosted screens can use it"
+  );
+  assert.match(provisioningReference, /Do not ask the user for a region/);
+  assert.match(
+    provisioningReference,
+    /one trust\s+boundary: its credentials act on every repository it serves/,
+    "provisioning must say a shared database is one trust boundary"
   );
   assert.match(
     provisioningReference,
@@ -2066,6 +2152,50 @@ capability:
     "grading guidance must leave semantic satisfaction to the host agent"
   );
   assert.doesNotMatch(tielineSkill, /agent handoff printed/i);
+  const screensReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/screens.md"),
+    "utf8"
+  );
+  const screensCaptureReference = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/screens-capture.md"),
+    "utf8"
+  );
+  assert.match(tielineSkill, /references\/screens-capture\.md/);
+  assert.match(
+    tielineSkill,
+    /change touches what users see, keep its screens current/i,
+    "semantic closeout must keep a screens-enabled repository's captures current"
+  );
+  assert.match(screensReference, /screens-capture\.md/);
+  assert.match(screensReference, /`capture` is the capture record, written only by `tieline screens capture`/);
+  assert.doesNotMatch(screensReference, /`scene` and `capture` are reserved/);
+  assert.match(
+    screensCaptureReference,
+    /Capture the real app, never a faked response[\s\S]*page\.route[\s\S]*not_captured[\s\S]*needs-real-trigger/,
+    "scenes must never fake the app's own responses; such states are marked not captured"
+  );
+  assert.match(
+    screensCaptureReference,
+    /that criterion's test[\s\S]*@ac:<criterion key>[\s\S]*Then as Playwright assertions[\s\S]*`tests` link/,
+    "a scene for a screen an acceptance criterion shows must be that criterion's tagged, linked test"
+  );
+  assert.match(
+    screensCaptureReference,
+    /Start from the acceptance criteria[\s\S]*Then sweep for states no criterion covers[\s\S]*Report hidden states/,
+    "a backfill must start from acceptance criteria and report hidden states"
+  );
+  assert.match(screensCaptureReference, /tieline screens capture --all --repeat 3/);
+  assert.match(screensCaptureReference, /tieline screens audit --strict/);
+  assert.match(screensCaptureReference, /tieline screens capture --changed --base <base-ref> --verify/);
+  assert.match(screensCaptureReference, /never by a person: do not ask the user to write a test/);
+  assert.match(screensCaptureReference, /tieline screens scenes/);
+  assert.match(screensCaptureReference, /exports `prepare\(page, screen\)`/);
+  assert.match(screensCaptureReference, /Never write capture outputs by hand/);
+  // A swept state is linked to the criterion that already states it, and a
+  // broad criterion a change leaves true does not cover a new state.
+  assert.match(screensCaptureReference, /Before treating a state as\s+uncovered, look for a criterion that already states it/);
+  assert.match(screensCaptureReference, /one criterion can show several/);
+  assert.match(tielineSkill, /A broad AC the change merely leaves true does not cover a new\s+state/);
 
   // Public documentation structure is under test: keep the README concise while ensuring the
   // linked guides retain setup and assurance details.
@@ -2373,6 +2503,24 @@ capability:
   assert.equal(bareContract.status, 1);
   assert.match(bareContract.stderr, /Usage: tieline contract/);
   assert.doesNotMatch(bareContract.stderr, /Tieline error:/);
+
+  // `tieline/hosted` resolves through the package's exports and loads in a
+  // host's function runtime without the CLI's configuration, which throws on
+  // a non-loopback HTTP_HOST.
+  const hostedEntry = spawnSync(
+    "node",
+    [
+      "--input-type=module",
+      "-e",
+      'const hosted = await import("tieline/hosted"); console.log(Object.keys(hosted).sort().join(","));',
+    ],
+    { cwd: process.cwd(), encoding: "utf8", env: { ...process.env, HTTP_HOST: "0.0.0.0" } }
+  );
+  assert.equal(hostedEntry.status, 0, hostedEntry.stderr);
+  assert.equal(
+    hostedEntry.stdout.trim(),
+    "HOSTED_SITE_HEADER,HOSTED_SITE_LIMITS,createHostedScreensHandler,createHostedScreensSite"
+  );
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

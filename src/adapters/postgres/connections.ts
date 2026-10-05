@@ -6,6 +6,7 @@ let readSql: Sql | null = null;
 let writeSql: Sql | null = null;
 let syncSql: Sql | null = null;
 let adminSql: Sql | null = null;
+let screensPublishSql: Sql | null = null;
 
 export function getReadSql(): Sql {
   if (!readSql) {
@@ -51,11 +52,23 @@ export function getAdminSql(): Sql {
   return adminSql;
 }
 
+export function getScreensPublishSql(): Sql {
+  if (!screensPublishSql) {
+    if (!config.dbScreensPublishUrl) {
+      throw new Error(
+        "DATABASE_URL_SCREENS_PUBLISH is not set. Publishing hosted screens requires the tieline_capture_publisher connection."
+      );
+    }
+    screensPublishSql = postgres(config.dbScreensPublishUrl, { max: 2, idle_timeout: 20, prepare: false });
+  }
+  return screensPublishSql;
+}
+
 export async function closeConnections(): Promise<void> {
   await Promise.all(
-    [readSql, writeSql, syncSql, adminSql]
+    [readSql, writeSql, syncSql, adminSql, screensPublishSql]
       .filter((sql): sql is Sql => sql !== null)
       .map((sql) => sql.end({ timeout: 5 }))
   );
-  readSql = writeSql = syncSql = adminSql = null;
+  readSql = writeSql = syncSql = adminSql = screensPublishSql = null;
 }

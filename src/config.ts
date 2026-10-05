@@ -91,11 +91,13 @@ export function readSelectorConfig(configValue: unknown): SelectorConfig {
  * with `enabled: false`, compiles, checks, reviews, and syncs exactly as it did
  * before the feature existed, and its catalog directory is never read.
  *
- * Both directories are relative to the `.tieline/` directory, matching
+ * Every directory is relative to the `.tieline/` directory, matching
  * `files.spec_directory`. The catalog is reviewed YAML and must stay inside
- * `.tieline/`; the captures directory holds git-ignored screenshots and may sit
- * anywhere inside the repository. Defaults are applied when the block is read,
- * not when it is parsed, so rewriting a workspace config never adds them.
+ * `.tieline/`, as must the text directory that holds the committed ARIA
+ * snapshots of captured screens; the captures directory holds git-ignored
+ * screenshots and may sit anywhere inside the repository. Defaults are applied
+ * when the block is read, not when it is parsed, so rewriting a workspace
+ * config never adds them.
  */
 const screensDirectorySchema = z
   .string()
@@ -107,11 +109,126 @@ const screensDirectorySchema = z
     "must be a relative POSIX path"
   );
 
+/**
+ * A repository-relative path pattern: `*` matches within one path segment and
+ * `**` across any number of segments, none included (see `screenPathPattern`).
+ * Patterns are read from reviewed configuration but still bounded, and may not
+ * climb out of the repository.
+ */
+const screensPathPatternSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(240)
+  .refine(
+    (value) =>
+      !value.includes("\\") &&
+      !value.startsWith("/") &&
+      !/^[A-Za-z]:/.test(value) &&
+      !value.split("/").some((segment) => segment === ".."),
+    "must be a repository-relative POSIX path pattern without '..' segments"
+  );
+
+/**
+ * How screens are captured. `tests` names the files whose `@screen:<key>` tags
+ * link catalog entries to the Playwright tests that capture them; when it is
+ * omitted, files named like Playwright tests (`*.spec.ts`, `*.test.ts`,
+ * `*.screens.ts`, and their JavaScript forms) are read. `global_paths` names
+ * files whose change may affect every screen (themes, layouts, global styles,
+ * translations), so a branch that touches one re-captures them all.
+ * `playwright_config` and `project` choose the Playwright configuration file
+ * and the one project that captures (one viewport per screen), and
+ * `timeout_minutes` bounds a whole capture run. `pages` names the files that
+ * define pages, so a page no screen claims is reported. `generated_scenes`
+ * names the file `tieline screens scenes` writes, with a scene for each
+ * catalogued page no other test captures, and the agent-written `setup`
+ * module that signs in, seeds data, and fills in route parameters.
+ */
+const screensCaptureConfigSchema = z
+  .object({
+    tests: z.array(screensPathPatternSchema).min(1).max(50).optional(),
+    global_paths: z.array(screensPathPatternSchema).max(50).optional(),
+    playwright_config: screensPathPatternSchema
+      .refine((value) => !value.includes("*"), "must name a file, not a pattern")
+      .optional(),
+    project: z.string().trim().min(1).max(120).optional(),
+    timeout_minutes: z.number().int().min(1).max(240).optional(),
+    pages: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(241)
+          .refine(
+            (value) => screensPathPatternSchema.safeParse(value.replace(/^!/, "")).success,
+            "must be a repository-relative POSIX path pattern without '..' segments, optionally starting with '!'"
+          )
+      )
+      .min(1)
+      .max(50)
+      .optional(),
+    generated_scenes: z
+      .object({
+        file: screensPathPatternSchema.refine((value) => !value.includes("*"), "must name a file, not a pattern"),
+        setup: screensPathPatternSchema
+          .refine((value) => !value.includes("*"), "must name a file, not a pattern")
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+/**
+ * Hosted screens. When enabled, `tieline screens publish` stores a pull
+ * request's or branch's review page and the images it shows, and repository
+ * sync does the same for `main`. Images go to the S3-compatible `bucket`,
+ * whose endpoint and credentials come from the environment, never from this
+ * file. `site_url` is the deployed site, used to link to a published page.
+ * `retention` bounds what is kept: branches not published for `branch_days`
+ * are deleted, and `main` keeps the last `main_history` images each screen
+ * replaced, and none for a screen its page no longer shows.
+ */
+const screensHostedConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    bucket: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, "must be a valid S3 bucket name")
+      .refine((value) => !value.includes(".."), "must be a valid S3 bucket name"),
+    site_url: z
+      .string()
+      .trim()
+      .max(200)
+      .refine((value) => {
+        try {
+          const url = new URL(value);
+          return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash;
+        } catch {
+          return false;
+        }
+      }, "must be the hosted site's https URL, without credentials, a query, or a fragment")
+      .optional(),
+    retention: z
+      .object({
+        branch_days: z.number().int().min(1).max(365).optional(),
+        main_history: z.number().int().min(0).max(100).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 export const screensConfigSchema = z
   .object({
     enabled: z.boolean(),
     catalog_directory: screensDirectorySchema.optional(),
     captures_directory: screensDirectorySchema.optional(),
+    text_directory: screensDirectorySchema.optional(),
+    capture: screensCaptureConfigSchema.optional(),
+    hosted: screensHostedConfigSchema.optional(),
   })
   .strict();
 
@@ -119,12 +236,54 @@ export type ScreensConfigBlock = z.infer<typeof screensConfigSchema>;
 
 export const DEFAULT_SCREENS_CATALOG_DIRECTORY = "screens";
 export const DEFAULT_SCREENS_CAPTURES_DIRECTORY = "captures";
+export const DEFAULT_SCREENS_TEXT_DIRECTORY = "screen-text";
+
+export interface ScreensCaptureConfig {
+  /** Scene test file patterns; null means the Playwright naming defaults. */
+  tests: string[] | null;
+  /** Path patterns whose change selects every screen for capture. */
+  global_paths: string[];
+  /** Repository-relative Playwright configuration; null lets Playwright find it. */
+  playwright_config: string | null;
+  /** The Playwright project that captures; null runs the configuration's projects. */
+  project: string | null;
+  /** Longest a capture run may take before it is stopped. */
+  timeout_minutes: number;
+  /**
+   * Patterns for the files that define pages; `!` excludes. Every matching
+   * file must be claimed by some screen's `paths`. Empty means not checked.
+   */
+  pages: string[];
+  /** The generated page scenes file and its setup module; null when not used. */
+  generated_scenes: { file: string; setup: string | null } | null;
+}
+
+export const DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES = 30;
+export const DEFAULT_SCREENS_BRANCH_DAYS = 14;
+export const DEFAULT_SCREENS_MAIN_HISTORY = 5;
+
+export interface ScreensHostedConfig {
+  bucket: string;
+  /** The deployed site, without a trailing slash, for links; null when not set. */
+  site_url: string | null;
+  retention: {
+    /** Days a branch's page is kept after its last publish. */
+    branch_days: number;
+    /** Replaced `main` images kept per screen. */
+    main_history: number;
+  };
+}
 
 export interface ScreensConfig {
   /** Catalog directory relative to `.tieline/`. */
   catalog_directory: string;
   /** Screenshot directory relative to `.tieline/`. */
   captures_directory: string;
+  /** Committed ARIA snapshot directory relative to `.tieline/`. */
+  text_directory: string;
+  capture: ScreensCaptureConfig;
+  /** Null unless hosted screens are enabled. */
+  hosted: ScreensHostedConfig | null;
 }
 
 /**
@@ -154,6 +313,35 @@ export function readScreensConfig(configValue: unknown): ScreensConfig | null {
       parsed.data.catalog_directory ?? DEFAULT_SCREENS_CATALOG_DIRECTORY,
     captures_directory:
       parsed.data.captures_directory ?? DEFAULT_SCREENS_CAPTURES_DIRECTORY,
+    text_directory:
+      parsed.data.text_directory ?? DEFAULT_SCREENS_TEXT_DIRECTORY,
+    capture: {
+      tests: parsed.data.capture?.tests ?? null,
+      global_paths: parsed.data.capture?.global_paths ?? [],
+      playwright_config: parsed.data.capture?.playwright_config ?? null,
+      project: parsed.data.capture?.project ?? null,
+      timeout_minutes:
+        parsed.data.capture?.timeout_minutes ?? DEFAULT_SCREENS_CAPTURE_TIMEOUT_MINUTES,
+      pages: parsed.data.capture?.pages ?? [],
+      generated_scenes: parsed.data.capture?.generated_scenes
+        ? {
+            file: parsed.data.capture.generated_scenes.file,
+            setup: parsed.data.capture.generated_scenes.setup ?? null,
+          }
+        : null,
+    },
+    hosted: parsed.data.hosted?.enabled
+      ? {
+          bucket: parsed.data.hosted.bucket,
+          site_url: parsed.data.hosted.site_url?.replace(/\/+$/, "") ?? null,
+          retention: {
+            branch_days:
+              parsed.data.hosted.retention?.branch_days ?? DEFAULT_SCREENS_BRANCH_DAYS,
+            main_history:
+              parsed.data.hosted.retention?.main_history ?? DEFAULT_SCREENS_MAIN_HISTORY,
+          },
+        }
+      : null,
   };
 }
 
@@ -162,6 +350,7 @@ export interface Config {
   dbWriteUrl: string | undefined;
   dbSyncUrl: string | undefined;
   dbAdminUrl: string | undefined;
+  dbScreensPublishUrl: string | undefined;
   transport: "http" | "stdio";
   port: number;
   httpHost: string;
@@ -255,6 +444,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dbWriteUrl: env.DATABASE_URL_WRITE,
     dbSyncUrl: env.DATABASE_URL_SYNC,
     dbAdminUrl: env.DATABASE_URL_ADMIN,
+    dbScreensPublishUrl: env.DATABASE_URL_SCREENS_PUBLISH,
     transport: env.TRANSPORT === "http" ? "http" : "stdio",
     port: boundedNumber("PORT", env.PORT, 3000, {
       min: 1,

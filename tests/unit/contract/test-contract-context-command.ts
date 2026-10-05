@@ -260,7 +260,11 @@ capability:
     ),
     0
   );
-  const criterionContext = JSON.parse(output);
+  const { history: criterionContextHistory, ...criterionContext } = JSON.parse(output) as Record<string, unknown>;
+  // A found criterion also reports its git history, or why there is none.
+  assert.ok(
+    typeof criterionContextHistory === "object" && criterionContextHistory !== null && "unavailable" in criterionContextHistory
+  );
   assert.deepEqual(
     criterionContext,
     await lookupAcceptanceCriterionIntentContext({

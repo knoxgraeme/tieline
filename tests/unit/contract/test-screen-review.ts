@@ -20,6 +20,7 @@ interface EmbeddedScreen {
   title: string;
   image: { src: string; label: string } | null;
   shown_by: Array<{ story: string; criterion: string | null }>;
+  capture_test: string | null;
 }
 
 const workspaces: ScreensWorkspace[] = [];
@@ -95,6 +96,46 @@ await test("renders the Screens view, linked screens, and coverage from the cata
   assert.match(story, /id="NOTES-001-AC1"[\s\S]*Screens <span>2<\/span>[\s\S]*data-open-screen="notes-share-denied"/);
   assert.match(story, /<img data-src="captures\/notes\/notes-list.png" alt="">/);
   assert.doesNotMatch(story, / src="captures/, "thumbnails load only when scrolled into view");
+  // A Story's thumbnail says whether it has an image to load; a criterion
+  // lists its screens as one-line chips with no thumbnail at all.
+  assert.match(story, /<span class="chip-shot" data-kind="page" data-state="loading"><img data-src="captures\/notes\/notes-list.png" alt=""><i aria-hidden="true">Page<\/i><\/span>/);
+  const criterion = /id="NOTES-001-AC1"[\s\S]*?<\/section>/.exec(story)![0];
+  assert.match(criterion, /<div class="shown-screens shown-screens-compact">/);
+  assert.match(criterion, /<button type="button" class="screen-chip-text" data-open-screen="notes-share-denied"><b>Sharing not allowed<\/b><small>Inline error<\/small><\/button>/);
+  assert.doesNotMatch(criterion, /<img|chip-shot/);
+  // Lifecycle is drawn as a shape and named for assistive technology, and
+  // no glyph depends on font coverage.
+  assert.match(page, /<i class="lifecycle lifecycle-in_progress" role="img" aria-label="In progress" title="In progress"><\/i>/);
+  assert.match(story, /<dt>Status<\/dt>\s*<dd><span class="status"><i class="lifecycle lifecycle-production" aria-hidden="true"><\/i>Production<\/span><\/dd>/);
+  assert.doesNotMatch(page, /⌕/);
+});
+
+await test("offers a canvas layout, a screenshot filter, and the test that captures each screen", () => {
+  const ws = workspace({
+    screens: { enabled: true },
+    catalog: {
+      ".tieline/screens/NOTES.yaml": NOTES_CATALOG_YAML.replace(
+        "    image:\n      path: notes/notes-list.png\n",
+        `    image:\n      path: notes/notes-list.png\n      sha256: ${"a".repeat(64)}\n    capture:\n      fingerprint: ${"b".repeat(64)}\n      text_sha256: ${"c".repeat(64)}\n      test: e2e/notes.screens.ts\n`
+      ),
+      ".tieline/screens/SHARING.yaml": SHARING_CATALOG_YAML,
+    },
+  });
+  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec").path, "utf8");
+  const byKey = new Map(embeddedData(page).screens.map((screen) => [screen.key, screen]));
+  assert.equal(byKey.get("notes-list")!.capture_test, "e2e/notes.screens.ts");
+  assert.equal(byKey.get("notes-list-empty")!.capture_test, null);
+  // The grid stays the default; the canvas is one switch away, and its
+  // board and controls are rendered for the script to lay out.
+  assert.match(
+    page,
+    /<button type="button" data-layout-choice="grid" aria-pressed="true">Grid<\/button>\s*<button type="button" data-layout-choice="canvas" aria-pressed="false">Canvas<\/button>/
+  );
+  assert.match(
+    page,
+    /<div class="screens-map" id="screens-map" data-layout="grid" aria-label="Screen map">\s*<div class="screens-board" id="screens-board"><\/div>\s*<div class="canvas-tools" id="canvas-tools" hidden>/
+  );
+  assert.match(page, /<select id="screen-capture-filter">[\s\S]*<option value="not-captured">Not captured, with a reason<\/option>/);
 });
 
 await test("embeds catalog text inertly", () => {
@@ -163,6 +204,7 @@ await test("explains an enabled but empty catalog and still lists every Story", 
   assert.match(page, /<h1>No screens yet<\/h1>/);
   assert.match(page, /tieline screens import &lt;file&gt;/);
   assert.doesNotMatch(page, /id="screens-map"/);
+  assert.doesNotMatch(page, /<button type="button" data-layout-choice=/, "no layout to choose without screens");
   assert.match(page, /data-story-key="NOTES-001"/);
 });
 

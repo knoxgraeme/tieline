@@ -27,7 +27,7 @@ const STATUS_LABELS: Record<ReviewChangeStatus, string> = {
 };
 
 /** Lists open by default only while they are short enough to scan. */
-const OPEN_LIST_LIMIT = 20;
+const OPEN_LIST_LIMIT = 8;
 
 export function indexReviewChanges(changes: ReviewChanges): ReviewChangeIndex {
   const records = new Map(changes.records.map((record) => [record.stable_id, record]));
@@ -72,9 +72,8 @@ function recordItem(record: ContractRecordChange): string {
     record.status === "removed"
       ? `<code>${label}</code>`
       : `<a href="#${escapeHtml(record.story_stable_id)}" data-change-link><code>${label}</code></a>`;
-  return `<li class="changed-${record.status}">${renderChangeBadge(record)} ${target} <span>${escapeHtml(
-    record.title
-  )}${escapeHtml(aspectText(record.aspects))}</span></li>`;
+  const title = escapeHtml(`${record.title}${aspectText(record.aspects)}`);
+  return `<li class="changed-${record.status}">${renderChangeBadge(record)} ${target} <span title="${title}">${title}</span></li>`;
 }
 
 function screenItem(screen: ScreenRecordChange, linkable: boolean): string {
@@ -83,9 +82,8 @@ function screenItem(screen: ScreenRecordChange, linkable: boolean): string {
     linkable && screen.status !== "removed"
       ? `<a href="#screen/${encodeURIComponent(screen.stable_id)}" data-change-link>${label}</a>`
       : label;
-  return `<li class="changed-${screen.status}">${renderChangeBadge(screen)} ${target} <span>${escapeHtml(
-    screen.title
-  )}${escapeHtml(aspectText(screen.aspects))}</span></li>`;
+  const title = escapeHtml(`${screen.title}${aspectText(screen.aspects)}`);
+  return `<li class="changed-${screen.status}">${renderChangeBadge(screen)} ${target} <span title="${title}">${title}</span></li>`;
 }
 
 function changeList(title: string, items: string[]): string {
@@ -156,45 +154,106 @@ export const REVIEW_CHANGE_SCRIPT = `
     })();
 `;
 
+/**
+ * Every change mark is drawn without hue: New is a solid fill, Changed an
+ * outline, Removed a dashed outline with the item struck through. All of them
+ * live here, so a page built without a base carries none of these rules.
+ */
 export const REVIEW_CHANGE_STYLES = `    .changes {
-      margin-bottom: 1.5rem;
-      padding: .75rem .9rem;
-      background: #f3f7ff;
-      border: 1px solid #c9dafb;
-      border-radius: 4px;
-      font-size: .78rem;
+      margin-bottom: 24px;
+      padding: 10px 16px;
+      background: var(--bg-1);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      font-size: var(--text-md);
     }
-    .changes header { display: flex; flex-wrap: wrap; gap: .35rem .75rem; align-items: baseline; }
-    .changes header span { color: var(--muted); }
-    .changes-note { margin: .4rem 0 0; color: var(--muted); }
-    .changes-unavailable { background: #fff6e2; border-color: #e7cb99; }
-    .changes-list { margin-top: .5rem; }
-    .changes-list summary { cursor: pointer; font-weight: 700; }
-    .changes-list summary span { color: #858d98; font: .64rem var(--mono); }
-    .changes-list ul { display: grid; gap: .25rem; margin: .4rem 0 0; padding-left: .2rem; list-style: none; }
-    .changes-list li { display: flex; flex-wrap: wrap; gap: .4rem; align-items: baseline; }
-    .changes-list li span:last-child { color: var(--muted); }
-    .changes-list .changed-removed code { text-decoration: line-through; }
+    .changes header { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+    .changes header strong { color: var(--fg-1); font-weight: 600; }
+    .changes header span { color: var(--fg-3); }
+    .changes-note { margin: 4px 0 0; color: var(--fg-3); }
+    .changes-unavailable { background: var(--bg); border: 1px dashed var(--fg-4); }
+    .changes-list { margin-top: 6px; }
+    .changes-list summary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--fg-2);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-weight: 500;
+      list-style: none;
+    }
+    .changes-list summary::-webkit-details-marker { display: none; }
+    .changes-list summary::before {
+      width: 0;
+      height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 5px solid currentColor;
+      content: "";
+    }
+    .changes-list[open] summary::before { transform: rotate(90deg); }
+    .changes-list summary span { color: var(--fg-3); font: var(--text-sm) var(--font-mono); }
+    .changes-list ul {
+      display: grid;
+      max-height: 40vh;
+      margin: 4px 0 0 2px;
+      padding: 0 0 0 14px;
+      border-left: 1px solid var(--line);
+      list-style: none;
+      overflow: auto;
+    }
+    .changes-list li {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-height: 28px;
+    }
+    .changes-list li > span:last-child { overflow: hidden; color: var(--fg-3); text-overflow: ellipsis; white-space: nowrap; }
+    .changes-list .changed-removed code, .changes-list .changed-removed > span:last-child { color: var(--fg-3); text-decoration: line-through; }
     .change-badge {
-      display: inline-block;
-      padding: .02rem .35rem;
-      border-radius: 3px;
-      font: 700 .58rem/1.5 var(--body);
-      letter-spacing: .03em;
-      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      height: 18px;
+      padding: 0 6px;
+      color: var(--fg-1);
+      background: var(--bg);
+      border: 1px solid var(--fg-1);
+      border-radius: var(--r-sm);
+      font: 600 var(--text-xs)/1 var(--font-sans);
+      letter-spacing: .02em;
+      white-space: nowrap;
       vertical-align: middle;
     }
-    .change-added { color: #1f6f4a; background: #e3f4ea; }
-    .change-changed { color: #8a5a00; background: #fff1d6; }
-    .change-removed { color: #a1263a; background: #fdecee; }
-    .nav-group a[data-change] span::after {
-      margin-left: .35rem;
-      padding: 0 .3rem;
-      border-radius: 3px;
-      font-size: .55rem;
-      font-weight: 800;
-      text-transform: uppercase;
+    .change-added { color: var(--inverse); background: var(--fg-1); }
+    .change-removed { color: var(--fg-3); border-color: var(--fg-3); border-style: dashed; }
+    .nav-group a[data-change] code::after {
+      display: inline-flex;
+      align-items: center;
+      height: 16px;
+      padding: 0 5px;
+      border: 1px solid var(--fg-1);
+      border-radius: var(--r-sm);
+      font: 600 var(--text-xs)/1 var(--font-sans);
+      letter-spacing: .02em;
     }
-    .nav-group a[data-change="added"] span::after { content: "New"; color: #1f6f4a; background: #e3f4ea; }
-    .nav-group a[data-change="changed"] span::after { content: "Changed"; color: #8a5a00; background: #fff1d6; }
+    .nav-group a[data-change="added"] code::after { content: "New"; color: var(--inverse); background: var(--fg-1); }
+    .nav-group a[data-change="changed"] code::after { content: "Changed"; color: var(--fg-1); background: var(--bg); }
+    .criterion[data-change="changed"] .criterion-number { color: var(--fg-1); border: 1px solid var(--fg-1); }
+    .criterion[data-change="added"] .criterion-number { color: var(--inverse); background: var(--fg-1); }
+    .criterion[data-change="removed"] .criterion-number { border: 1px dashed var(--fg-3); }
+    .criterion-removed .criterion-head code, .criterion-removed .criterion-text { color: var(--fg-3); text-decoration: line-through; }
+    .criterion-removed .criterion-text { font-weight: 400; }
+    .shot > .change-badge, .chip-shot > .change-badge { position: absolute; top: 6px; right: 6px; z-index: 1; }
+    .screen-chip-text > .change-badge { height: 16px; }
+    .screens-map[data-layout="canvas"] .screen-card:has(.change-badge) { position: relative; z-index: 1; }
+    .screens-map[data-layout="canvas"] .screen-card:has(.change-badge) .shot {
+      outline: calc(2px / var(--canvas-scale)) solid var(--fg-1);
+      outline-offset: calc(1px / var(--canvas-scale));
+    }
+    .screens-map[data-band="far"] .shot > .change-badge { visibility: hidden; }
+    @media print {
+      .change-added, .criterion[data-change="added"] .criterion-number { color: #000; background: none; border: 2px solid #000; }
+    }
 `;

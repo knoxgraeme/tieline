@@ -141,6 +141,13 @@ capability:
         - key: CONTRACT-001-AC4
           criterion: Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.
           rationale: Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.
+          scenarios:
+            - given: a repository whose contract has no capabilities yet
+              when: the review page is rendered
+              then: the page must say there are no capabilities yet and how to begin onboarding with the installed skill
+            - given: a contract that does not validate
+              when: the review page is rendered
+              then: the page must list the validation notes and say the contract does not validate, without offering onboarding
           links:
             - relation: implements
               provenance: authored
@@ -173,6 +180,20 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-contract-command.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-review-changes.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC5
           criterion: Tieline must store the compiled manifest as one file per capability beside a repository-level index, must delete the file of any capability the contract no longer declares, and must refuse to read a manifest whose file names disagree with the capabilities they hold.
@@ -429,6 +450,97 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/integration/integration-contract-sync.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC9
+          criterion: Tieline must report, from git alone, when each Story, acceptance criterion, and screen was added, changed, or removed and in which pull request, by comparing each first-parent commit's compiled manifest with its parent's, must show each one's last change on the review page, and must say when older history was not read or a commit's manifest is not held by the clone instead of attributing changes it cannot see.
+          rationale: Reviewers and agents need to know which change last touched a piece of behavior, and a shallow or partial clone must not make every item look newly added.
+          scenarios:
+            - given: a pull request merged with a merge commit changed an acceptance criterion on its branch
+              when: the history of main is read
+              then: the change must be attributed to the merge commit and its pull request
+            - given: a long history whose manifest file listings together exceed the history's bound, though each fits alone
+              when: the history is read
+              then: Tieline must fail and name the bound rather than hold every commit's listing
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/history.ts
+                selector: function:readContractHistory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/history.ts
+                selector: function:readReviewHistory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract-history.ts
+                selector: function:runContractHistoryCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-contract-history.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC10
+          criterion: Repository sync must record each Story, acceptance criterion, and screen a synced commit's history added, changed, or removed, with its commit and pull request, backfilling from git history on its first record and recording only what changed after the last recorded commit afterwards, must record nothing twice, must leave sync unchanged when the synced commit is not a git commit, and exact acceptance criterion context must include the criterion's changes.
+          rationale: Agents and hosted readers without a checkout need to know when and in which pull request behavior last changed, and a sync that runs again or late must neither duplicate nor lose that history.
+          scenarios:
+            - given: two pull requests merged between two syncs
+              when: the second sync runs
+              then: each change must be recorded with the pull request that made it
+            - given: a clone that cannot read some commits in the synced history, such as a partial clone
+              when: sync records change events
+              then: it must not record changes newer than those commits, so a later sync that can read them records the gap and what followed it
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:recordSyncedChangeEvents
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/contract-change-events-repository.ts
+                selector: class:PostgresContractChangeEventsRepository
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/history.ts
+                selector: function:criterionHistory
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0006_contract_change_events.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-change-events.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-contract-history.ts
                 framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it
@@ -1124,6 +1236,9 @@ capability:
             - given: an import names a capability the contract does not declare
               when: the import runs without the skip option
               then: Tieline must name the unknown capability and write nothing
+            - given: an import changes the screenshot of a screen Tieline captured
+              when: the import is applied
+              then: Tieline must drop the screen's capture record, keep it when the picture is unchanged, and refuse capture records in the input
           links:
             - relation: implements
               provenance: authored
@@ -1156,6 +1271,10 @@ capability:
         - key: CONTRACT-005-AC5
           criterion: The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.
           rationale: Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.
+          scenarios:
+            - given: a catalog of about a thousand screens
+              when: the reviewer switches the Screens view to the canvas
+              then: every screen must fit in the window on one board, without requesting an image until cards are large enough to see
           links:
             - relation: implements
               provenance: authored
@@ -1178,6 +1297,13 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-screen-review.ts
                 framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-review-page-browser.ts
+                framework_hint: custom-script
         - key: CONTRACT-005-AC6
           criterion: The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.
           rationale: Reviewers of a pull request need to see which behavior and which screens moved without a database, a hosted service, or committed screenshots.
@@ -1188,6 +1314,15 @@ capability:
             - given: the base ref has no compiled manifest
               when: the review page is rendered against it
               then: every record must be reported as new and the page must say why
+            - given: a branch re-captures a screen whose committed ARIA snapshot changed
+              when: the review page is rendered against the base ref
+              then: the screen must be reported as changed with a text aspect, apart from its image and catalog fields
+            - given: a branch removes an acceptance criterion from a Story
+              when: the review page is rendered against the base ref
+              then: the criterion must stay at the end of that Story, struck through and marked removed, and the Story's header must say it changed
+            - given: a reviewer wants only what the branch changed
+              when: they press Changed in the Stories or Screens view
+              then: the navigation must list only changed Stories, or the map only new and changed screens, and pressing it again must restore the rest
           links:
             - relation: implements
               provenance: authored
@@ -1223,11 +1358,636 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/contract/screen-import.ts
-                selector: function:attachCaptureDigests
+                selector: function:createCaptureDigester
             - relation: tests
               provenance: authored
               target:
                 kind: test
                 repository: tieline
                 path: tests/unit/contract/test-review-changes.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-review-page-browser.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC7
+          criterion: Tieline must report screens missing a screenshot digest, a capture record, a committed ARIA snapshot, or a literal @screen test tag, ARIA snapshots that differ from their capture record or belong to no catalogued screen, and screens captured in different environments, through screens audit and as check warnings that never change the check's exit code, reading test files and snapshots only within fixed bounds and never through symbolic links.
+          rationale: Incremental capture only re-captures screens a branch may affect, so a cheap audit must find what it cannot, and check must surface it without making an unrelated pull request fail.
+          scenarios:
+            - given: the tag scan stops at one of its bounds
+              when: the audit runs
+              then: screens must not be reported as missing a test, and the audit must say why the scan is incomplete
+            - given: a capture record's ARIA snapshot digest differs from the committed snapshot
+              when: check runs
+              then: Tieline must warn about the mismatch and keep the exit code the check would otherwise have
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-audit.ts
+                selector: function:auditScreenCaptures
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-scenes.ts
+                selector: function:scanScreenScenes
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-text.ts
+                selector: function:readScreenTextDirectory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens.ts
+                selector: function:runScreensAuditCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/check.ts
+                selector: function:checkScreens
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-audit.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC8
+          criterion: Tieline must select the screens a branch may have changed since its branch point, because their committed capture outputs or catalog entry changed, a changed test tags them, a Story or AC that shows them links a changed file, a changed file or one of its code-topology dependents matches their paths or their showing Stories' and ACs' links, or a configured global path changed, and must report every reason for each screen and every rule it could not evaluate.
+          rationale: Re-capturing only affected screens keeps pull requests fast, and selection is a heuristic, so reviewers must see why each screen was chosen and where the selection may be narrower than it should be.
+          scenarios:
+            - given: a branch changes a shared component and the code topology is stale
+              when: screens changed since the base are selected
+              then: Tieline must report the dependency rule as unavailable rather than select nothing silently
+            - given: a branch changes a screen's committed screenshot digest by hand
+              when: screens changed since the base are selected
+              then: the screen must be selected so that verification re-captures it
+            - given: a branch removes or renames a test's @screen tag, or renames the test out of a test file name, and nothing else selects that screen
+              when: the screens it may have changed are selected
+              then: the screen must be selected, from the tags the test had at the branch point
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-selection.ts
+                selector: function:selectChangedScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-selection.ts
+                selector: function:selectScreensChangedSince
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:topologyDependents
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:runScreensCaptureCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-capture-selection.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC9
+          criterion: Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.
+          rationale: Committed screen outputs are reviewed as the truth about how screens look, so a partial, untrusted, or stale capture must never replace them, and pull requests must not merge with outputs a fresh capture would not reproduce.
+          scenarios:
+            - given: one selected screen's test fails or captures nothing
+              when: screens are captured
+              then: Tieline must name the screen and the failure and write no catalog, snapshot, or screenshot
+            - given: a committed screenshot digest was captured in a different environment
+              when: the screen is verified
+              then: Tieline must report the environment difference rather than compare the digests
+            - given: a test calls tielineSnapshot for a key it is not tagged with
+              when: the test runs, inside or outside a capture run
+              then: the test must fail and say which tag to add
+            - given: the catalog cannot be written after the capture replaced screenshots and ARIA snapshots
+              when: the capture fails
+              then: every screenshot and ARIA snapshot it replaced must be restored, so the catalog's digests and the captures directory still agree
+            - given: a capture that runs in several batches or is repeated
+              when: the whole capture passes screens.capture.timeout_minutes
+              then: it must stop without writing, the limit covering every batch and repeat together
+            - given: a capture that runs in several batches or is repeated
+              when: its screenshots are read back
+              then: the screenshots and ARIA snapshots it keeps must each stay within one byte bound across every batch, and a repeat run must keep only the digests it is compared by
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:readCapturedScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:verifyCapturedScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:planCaptureOutputs
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-run.ts
+                selector: function:keepVerifiedScreenshots
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:spawnPlaywright
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:resolvePlaywright
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/playwright/capture-screen.cts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/playwright/run-recorder.cts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-capture.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-playwright.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-screens-browser.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC10
+          criterion: Tieline must account for every catalogued screen as captured or marked not captured with one of a closed set of reasons, must skip marked screens and report selected screens no test tags instead of failing the capture, must report page files no screen claims and acceptance criteria showing screens that no @ac-tagged test linked from them proves, must keep screens that differ between repeated captures out of the committed outputs, and must fail a strict audit while any of these remain.
+          rationale: Captures are only worth reviewing if every screen a user can reach is either captured from the real app or explicitly excused, and documented UI behavior is proven by a test, so gaps must be visible and gateable rather than silently skipped.
+          scenarios:
+            - given: a screen needs a faked response to be reached
+              when: it is marked not captured with reason needs-real-trigger
+              then: capture must skip it and the audit must list it with its reason as accounted for
+            - given: a branch adds a page file that no screen's paths claim
+              when: check runs
+              then: Tieline must warn about the new page file without changing the exit code
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-audit.ts
+                selector: function:screenAuditStrictFailures
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-capture-selection.ts
+                selector: function:excludeNotCaptured
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-scenes.ts
+                selector: function:scanPageFiles
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-capture.ts
+                selector: function:runScreensCaptureCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-audit.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-capture.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC11
+          criterion: The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, offer screen capture during onboarding of a repository with a user interface and backfill before reporting when the user accepts, and keep a screens-enabled repository's captures current before handing off a change to what users see.
+          rationale: Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.
+          scenarios:
+            - given: onboarding a web app whose user accepts screen capture, with a provisioned or existing database
+              when: onboarding asks its questions
+              then: it must also offer hosted screens, and must not offer them for an offline or local database
+            - given: onboarding enabled screens
+              when: the backfill finishes
+              then: the onboarding pull request must add the screens check workflow the skill ships, or the hosted workflows in its place when hosted screens were accepted
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens-capture.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/SKILL.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/onboarding.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC12
+          criterion: With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.
+          rationale: A hosted page is reviewed as evidence of a change, so it must never show an image the store lacks or one the catalog does not record, and publishing a pull request must never change what main shows.
+          scenarios:
+            - given: a screenshot a page shows is neither in the object store nor usable in the captures directory
+              when: the page is published
+              then: Tieline must name the screen and publish nothing
+            - given: the capture publisher's database credentials
+              when: they are used to write main's page or history, or to delete anything
+              then: the database must refuse
+            - given: a sync of an older commit finishes after a sync of a newer one
+              when: main's hosted page is published
+              then: Tieline must keep the newer page
+            - given: the bucket holds an image's key with other bytes, and the captures directory holds the bytes the catalog names
+              when: the page is published
+              then: Tieline must store the image again before publishing the page, rather than count it as already stored
+            - given: a pull request's page shows main's image beside a screen whose image it changed
+              when: main later replaces that screen's image more times than retention keeps
+              then: main's image must stay stored while the pull request's page shows it
+            - given: the example pull-request workflow, and a pull request whose dependencies or tests are compromised
+              when: the workflow captures and publishes
+              then: the publishing credentials must be held only by a workflow the default branch owns, in an environment only the default branch can use, that installs Tieline from the default branch and runs none of the pull request's code
+            - given: the bucket holds an image the database has no record of, as after restoring the database apart from its bucket, and the captures directory cannot supply it
+              when: a page that shows it is published
+              then: Tieline must publish nothing and name the image, since the site would not serve it
+            - given: a trusted checkout, and a pull request whose configuration names another repository key, bucket, or site URL
+              when: the pull request is published with --trusted
+              then: Tieline must publish nothing and touch neither the database nor the bucket
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:runScreensPublishCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:storeHostedImages
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:publishMainScreens
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-hosting.ts
+                selector: function:readLocalHostedImage
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/object-store/s3.ts
+                selector: class:S3ObjectStore
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/hosted-screens-repository.ts
+                selector: class:PostgresHostedScreensRepository
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: migrations/0005_hosted_screens.sql
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-hosting.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-hosted-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC13
+          criterion: Tieline must delete a closed pull request's hosted page only after a grace period, a branch's page after the configured days without a publish, and main's image history beyond the configured number of replaced images per screen, and must delete an image only when no page or retained history references it and nothing referenced it within a grace period, removing it from the object store before its record and keeping the record of any image it could not remove.
+          rationale: Hosted screens must stay bounded without deleting an image a page still shows, a merge is about to make main show, or a publish has just claimed.
+          scenarios:
+            - given: the object store refuses to delete one of two unreferenced images
+              when: retention runs
+              then: Tieline must delete the other image and its record, and keep the refused image's record so the next run retries it
+            - given: a screen main's page no longer shows
+              when: screens prune runs
+              then: its history must be deleted, so its images can go once nothing else references them; when main's page cannot be read, history is kept and the prune says why
+            - given: object storage stalls while a prune deletes unreferenced images
+              when: screens prune runs
+              then: it must stop deleting at its time limit and release the screens lock, keeping what it did not delete for the next prune
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens-hosting.ts
+                selector: function:runScreensPruneCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/hosted-screens-repository.ts
+                selector: class:PostgresHostedScreensRepository
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-hosting.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-hosted-screens.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC14
+          criterion: The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.
+          rationale: The site exposes review evidence over the network behind only the host's access control, so it must never serve anything publishing did not record, nor bytes that changed after they were verified.
+          scenarios:
+            - given: the site is deployed without its database or object storage settings, or with an invalid repository key
+              when: any page is requested
+              then: the site must answer as itself with an error naming what is missing or invalid, instead of failing to load
+            - given: an object in the bucket was overwritten after its image was published
+              when: a visitor requests that image
+              then: the site must refuse it rather than serve the new bytes
+            - given: a published image too large for the host to return whose bytes in the bucket were replaced
+              when: a visitor requests it
+              then: the site must refuse it instead of redirecting to the bucket
+            - given: a catalog image given by an http URL
+              when: its screen is shown on a hosted page, which allows only https images
+              then: the page must show the screen without a picture rather than a broken image
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/hosted/handler.ts
+                selector: function:createHostedScreensHandler
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/hosted/index.ts
+                selector: function:createHostedScreensSite
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/object-store/s3.ts
+                selector: function:presignGetUrl
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-hosted-site.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC15
+          criterion: Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.
+          rationale: Hosted screens depend on a bucket, three database credentials, and the host's access control being right, and a team must be able to prove all of them before trusting the site with its review evidence.
+          scenarios:
+            - given: the host's access control protects static files but not the site's functions
+              when: tieline hosted check runs against the site
+              then: Tieline must fail because the site answered a visitor who had not logged in
+            - given: the publishing credential is the sync role, an owner, or another role that can delete, write history, rewrite a page's ref or an image's record, or escape row security
+              when: tieline hosted check runs
+              then: Tieline must fail and name what a capture job must not hold, as it must for a role that lacks what publishing needs
+            - given: the site redirects an anonymous visitor to another host or page that serves the site
+              when: tieline hosted check runs
+              then: Tieline must follow at most a bounded number of redirects and fail, passing only on a 401 or 403 or a redirect to a login
+            - given: a check fails after the storage probe was written
+              when: tieline hosted check finishes
+              then: the probe object must still be deleted
+            - given: a symbolic link inside the site directory where a site file or directory goes
+              when: tieline hosted init runs, even with --force
+              then: Tieline must refuse without writing through the link
+            - given: the sync credential is the capture publisher's, or another role row security keeps off main's page
+              when: tieline hosted check runs
+              then: Tieline must fail and name what sync needs that the role lacks
+            - given: the site's credential can write any table, even only update or delete published screens, or write on one column only
+              when: tieline hosted check runs
+              then: Tieline must fail, because the site's credential must only read
+            - given: the site URL has a path, such as https://screens.example.test/screens
+              when: tieline hosted check runs against the site
+              then: Tieline must ask for the page and an image beneath that path, not at the origin's root
+            - given: the site's or the publishing credential holds its role's grants, copied by hand, without membership in the role row security names
+              when: tieline hosted check runs
+              then: Tieline must fail, because row security would hide published pages from it or let it write none
+            - given: the publishing credential can also write contract change events, or any table beyond the pages and images it publishes
+              when: tieline hosted check runs
+              then: Tieline must fail and name each write a capture job must not hold
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/hosted.ts
+                selector: function:runHostedInitCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/hosted.ts
+                selector: function:runHostedCheckCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-hosted-site.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC16
+          criterion: The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.
+          rationale: Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.
+          scenarios:
+            - given: onboarding provisions a hosted database
+              when: the Neon project is created
+              then: it must be created in a region with object storage, aws-us-east-2 unless the user named another, without asking the user for a region
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/hosted-screens.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/provisioning.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: CONTRACT-005-AC17
+          criterion: Tieline must generate, as one committed scene file, a scene for every catalogued page that no other test captures and that is not marked not captured, each running the repository's setup module before opening the page, must skip and report a route with parameters when no setup module chooses its URL, must fail a generated scene whose page answers with an error or whose route keeps a parameter, and must fail the strict audit while the generated file differs from what the catalog generates.
+          rationale: Scenes are written by agents, not people, so every page must be captured without anyone writing a test just to open it, and a stale or wrong generated scene must never stand in for the screen.
+          scenarios:
+            - given: an agent writes its own scene for a page that has a generated scene
+              when: the generated scenes are regenerated
+              then: the page must leave the generated file so it is captured once
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-generated-scenes.ts
+                selector: function:planGeneratedScenes
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/screen-generated-scenes.ts
+                selector: function:generatedScenesStatus
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/screens.ts
+                selector: function:runScreensScenesCommand
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/playwright/page-scene.cts
+                selector: function:openAndCapture
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tieline/references/screens-capture.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-screen-generated-scenes.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/browser/test-screens-browser.ts
                 framework_hint: custom-script

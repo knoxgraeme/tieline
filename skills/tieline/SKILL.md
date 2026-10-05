@@ -34,7 +34,10 @@ create a separate draft, proposal, or semantic-approval record.
 Read [contract.md](references/contract.md) before editing contract YAML. Only
 when `.tieline/config.json` enables `screens`, also read
 [screens.md](references/screens.md) before authoring screen catalog entries or
-`shows` links.
+`shows` links, and [screens-capture.md](references/screens-capture.md) before
+writing scenes, capturing screens, or backfilling a screen catalog. When such a
+repository's change touches what users see, keep its screens current as that
+reference describes before handing off.
 
 ## Orient to this repository
 
@@ -92,8 +95,12 @@ Planning-only and grading-only flows keep their earlier stopping points.
    exclusion reason. Group related changes by coherent, externally observable
    behavior rather than by file, package, or internal implementation layer.
 2. Classify every changed behavior cluster as exactly one of:
-   - `covered`: an accepted AC already expresses the behavior accurately and its
-     evidence links still identify the right implementation or tests.
+   - `covered`: an accepted AC already states the behavior's observable outcome
+     accurately and its evidence links still identify the right implementation
+     or tests. A broad AC the change merely leaves true does not cover a new
+     state: an added empty, error, permission, or configuration state, or an
+     outcome a linked test proves that the AC's text and scenarios do not state,
+     is an `update` (add a scenario) or an `add`.
    - `exclude`: the cluster is internal-only, generated, test-only, or otherwise
      does not change observable product behavior. Retain the reason in the
      closeout report; do not create an AC merely to eliminate an unmapped file.

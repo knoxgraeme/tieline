@@ -1,0 +1,57 @@
+name: Screens on main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Syncs run one at a time and are never cancelled half-way. Each run syncs
+# main as it is when the run starts, not the push that queued it, so a run
+# that waited, ran out of order, or replaced another pending run syncs the
+# same commit or a newer one, never an older one. Change events still record
+# every commit in between, read from git history.
+concurrency:
+  group: screens-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # The secrets live in this environment, limited to the default branch, so
+    # no pull request's workflow can read them.
+    environment: hosted-screens
+    # The same pinned image the pull-request captures use. Keep this tag equal
+    # to the app's @playwright/test version.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      TIELINE_CAPTURE_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble
+      DATABASE_URL_SYNC: ${{ secrets.TIELINE_DATABASE_URL_SYNC }}
+      TIELINE_SCREENS_S3_ENDPOINT: ${{ secrets.TIELINE_SCREENS_S3_ENDPOINT }}
+      TIELINE_SCREENS_S3_REGION: ${{ secrets.TIELINE_SCREENS_S3_REGION }}
+      TIELINE_SCREENS_S3_ACCESS_KEY_ID: ${{ secrets.TIELINE_SCREENS_S3_ACCESS_KEY_ID }}
+      TIELINE_SCREENS_S3_SECRET_ACCESS_KEY: ${{ secrets.TIELINE_SCREENS_S3_SECRET_ACCESS_KEY }}
+      # Add the embedding settings your contract sync already uses here.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: npm ci
+      # Syncs the contract, then publishes main's page. The screenshots a
+      # pull request published are already stored, so this normally uploads
+      # nothing; it fails if main shows a screenshot the bucket lacks.
+      - id: sync
+        continue-on-error: true
+        run: npx tieline contract sync .
+      # A pull request from a fork, or a push straight to main, publishes no
+      # screenshots: capture them and sync again. Re-running sync at the same
+      # commit leaves the contract as it is and retries only the screens.
+      - if: steps.sync.outcome == 'failure'
+        run: |
+          npx tieline screens capture --all --verify
+          npx tieline contract sync .
+      # Retention runs only here, after main's sync, never on a pull request.
+      - run: npx tieline screens prune

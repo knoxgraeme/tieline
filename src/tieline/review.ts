@@ -8,11 +8,14 @@ import {
 import {
   renderContractReviewPage,
   type ContractReviewDocument,
+  type ReviewHistory,
 } from "../contract/review-page.js";
 import {
   buildScreenReviewModel,
   type ContractReviewScreens,
+  type HostedReviewImages,
 } from "../contract/screen-review-page.js";
+import type { ValidatedScreenCatalog } from "../contract/screen-catalog.js";
 import type { ReviewComparison } from "../contract/review-changes.js";
 import { screenSettingsForRepository } from "../contract/screen-catalog.js";
 import { ContractValidationError } from "../contract/validate.js";
@@ -64,38 +67,15 @@ export function writeWorkspaceReviewPage(
   repositoryKey: string,
   specDirectory = ".tieline/spec",
   outputPath?: string,
-  comparison?: ReviewComparison
+  comparison?: ReviewComparison,
+  history?: ReviewHistory
 ): ReviewPageResult {
-  let documents: ContractReviewDocument[] = [];
-  let warnings: string[] = [];
   const defaultPath = resolve(root, TIELINE_REVIEW_PAGE);
   const path = outputPath ?? defaultPath;
-  let screens: ContractReviewScreens | undefined;
-  // An invalid screens layout is refused before the preflight walks the spec
-  // directory, which a refused layout could fill with screenshots.
-  screenSettingsForRepository(root, { specDirectory });
-  if (hasAcceptedContractSources(root, specDirectory)) {
-    try {
-      const loaded = loadAcceptedContractWithSources(root, specDirectory);
-      documents = loaded.documents.map((document, index) => ({
-        path: loaded.sources[index]!.path,
-        document,
-      }));
-      warnings = loaded.warnings;
-      if (loaded.screens && loaded.screenCatalog) {
-        screens = {
-          catalog: loaded.screens,
-          capturesUrl: capturesUrl(
-            path,
-            loaded.screenCatalog.settings.capturesDirectory
-          ),
-        };
-      }
-    } catch (error) {
-      if (!(error instanceof ContractValidationError)) throw error;
-      warnings = error.issues;
-    }
-  }
+  const { documents, warnings, screens } = loadReviewInputs(root, specDirectory, (catalog, directory) => ({
+    catalog,
+    capturesUrl: capturesUrl(path, directory),
+  }));
   mkdirSync(dirname(path), { recursive: true });
   const serialized = renderContractReviewPage({
     repositoryKey,
@@ -104,6 +84,7 @@ export function writeWorkspaceReviewPage(
     onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
     ...(screens ? { screens } : {}),
     ...(comparison ? { comparison } : {}),
+    ...(history ? { history } : {}),
   });
   writeFileSync(path, serialized);
   if (path === defaultPath) ensureReviewPageIgnored(root);
@@ -122,6 +103,72 @@ export function writeWorkspaceReviewPage(
     ...(screens ? { screens: screenCoverageSummary(documents, screens) } : {}),
     warnings,
   };
+}
+
+interface ReviewInputs {
+  documents: ContractReviewDocument[];
+  warnings: string[];
+  screens?: ContractReviewScreens;
+}
+
+/**
+ * The contract documents a review page shows, or the validation issues that
+ * stopped them loading, and the screens when the repository enabled them.
+ */
+function loadReviewInputs(
+  root: string,
+  specDirectory: string,
+  screensFor: (catalog: ValidatedScreenCatalog, capturesDirectory: string) => ContractReviewScreens
+): ReviewInputs {
+  // An invalid screens layout is refused before the preflight walks the spec
+  // directory, which a refused layout could fill with screenshots.
+  screenSettingsForRepository(root, { specDirectory });
+  if (!hasAcceptedContractSources(root, specDirectory)) return { documents: [], warnings: [] };
+  try {
+    const loaded = loadAcceptedContractWithSources(root, specDirectory);
+    return {
+      documents: loaded.documents.map((document, index) => ({
+        path: loaded.sources[index]!.path,
+        document,
+      })),
+      warnings: loaded.warnings,
+      ...(loaded.screens && loaded.screenCatalog
+        ? { screens: screensFor(loaded.screens, loaded.screenCatalog.settings.capturesDirectory) }
+        : {}),
+    };
+  } catch (error) {
+    if (!(error instanceof ContractValidationError)) throw error;
+    return { documents: [], warnings: error.issues };
+  }
+}
+
+/**
+ * The review page a hosted site serves for one ref: the same page as the
+ * local one, with images addressed by digest and, when `comparison` is given,
+ * a changed screen's image on the base beside its new one. Nothing is written.
+ */
+export function renderHostedReviewPage(options: {
+  root: string;
+  repositoryKey: string;
+  specDirectory: string;
+  hosted: HostedReviewImages;
+  comparison?: ReviewComparison;
+  history?: ReviewHistory;
+}): string {
+  const { documents, warnings, screens } = loadReviewInputs(
+    options.root,
+    options.specDirectory,
+    (catalog) => ({ catalog, capturesUrl: "", hosted: options.hosted })
+  );
+  return renderContractReviewPage({
+    repositoryKey: options.repositoryKey,
+    documents,
+    warnings,
+    onboardingInstruction: ONBOARDING_AGENT_INSTRUCTION,
+    ...(screens ? { screens } : {}),
+    ...(options.comparison ? { comparison: options.comparison } : {}),
+    ...(options.history ? { history: options.history } : {}),
+  });
 }
 
 function screenCoverageSummary(

@@ -1,0 +1,22 @@
+version: 1
+capability:
+  key: SHARING
+  name: Sharing
+  description: Owners share notes with collaborators.
+  stories:
+    - key: SHARING-001
+      title: Share a note
+      actor: note owner
+      goal: invite a collaborator to a note
+      benefit: we can edit it together
+      lifecycle: in_progress
+      acceptance_criteria:
+        - key: SHARING-001-AC1
+          criterion: A viewer must not be able to share a note.
+          links:
+            - relation: tests
+              provenance: authored
+              target: { kind: test, repository: acme-notes, path: e2e/notes.screens.ts, framework_hint: playwright }
+            - relation: shows
+              provenance: authored
+              target: { kind: screen, key: notes-share-denied }

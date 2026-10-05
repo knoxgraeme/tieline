@@ -69,13 +69,106 @@
           {
             "aliases": [],
             "applies_to": null,
+            "contract_hash": "4c49abee42e2dede2883f3f8d6e96c36b1f443a12c702e71bceacc76972eef0b",
+            "criterion": "Repository sync must record each Story, acceptance criterion, and screen a synced commit's history added, changed, or removed, with its commit and pull request, backfilling from git history on its first record and recording only what changed after the last recorded commit afterwards, must record nothing twice, must leave sync unchanged when the synced commit is not a git commit, and exact acceptance criterion context must include the criterion's changes.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "10e30fdcfd787bed532061325a032b9aa9ed3c9234cdde827b4d26b30a82503b",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0006_contract_change_events.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5387d6dd4258917ff30890a945e1e49459b35613866ab69178c4d6d6e182baf5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-change-events-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresContractChangeEventsRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:recordSyncedChangeEvents"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0299a3a3d6c9d328d614353932e2c5db3cdf5f67246655f877da5dc83518b871",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/history.ts",
+                  "repository": "tieline",
+                  "selector": "function:criterionHistory"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "f12824193f5b3181b63b0f3273ba5401c5341c6196c538c88f868c0cf842c228",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-change-events.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "742e7e754fe2022b264be2cfa28230c8b56e198bfe93568acb77ed292f846daf",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-contract-history.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 9,
+            "rationale": "Agents and hosted readers without a checkout need to know when and in which pull request behavior last changed, and a sync that runs again or late must neither duplicate nor lose that history.",
+            "scenarios": [
+              {
+                "given": "two pull requests merged between two syncs",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC10-S1",
+                "then": "each change must be recorded with the pull request that made it",
+                "when": "the second sync runs"
+              },
+              {
+                "given": "a clone that cannot read some commits in the synced history, such as a partial clone",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC10-S2",
+                "then": "it must not record changes newer than those commits, so a later sync that can read them records the gap and what followed it",
+                "when": "sync records change events"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC10",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
             "contract_hash": "c02e83c8aa3e04461c0f91cb43c36e8beb69dfbc61595e95bf42c76fb1c28dbd",
             "criterion": "Tieline must compile deterministic manifests and report direct-AC and repository mapping coverage with explicit gaps.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -95,7 +188,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "41e9670f6931449870616ae37cae3d54db9ae2a6ee4bb9861a1b32480ddf4ae3",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -166,7 +259,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2bd740a65efd253fbda779010847244e3a976ae2931a8c29c0ed991e3e9ada42",
+                "reviewed_content_hash": "c13d95a5976a9a9d9714e744bd82aa7f6156afe93b52a20a7c59938ab734d8e9",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -241,13 +334,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "78ae92a5eca7820cb103f9a69387421632f64a6074dc9d2d8170c5de04c58494",
+            "contract_hash": "06c7d7f15476ab0ddb23143d897e85173568411f88f61d85a3fd560a1a098389",
             "criterion": "Tieline must render accepted Stories and Acceptance Criteria as a self-contained human-readable review page.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -257,7 +350,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "497cf067f7f47a7157f584f7bdab54411b4844c86b2f368b2af2c8791f6a9895",
+                "reviewed_content_hash": "db071eec1f004b481d2f0455021dbe3c5df85906bd3decfdae93b0d8e525c13e",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/html.ts",
@@ -268,7 +361,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f8e51448408d2b6244a5052c445d81146ba124b1617b63e141828d5e70fd64e2",
+                "reviewed_content_hash": "3b9cae0c83d518acab1da236630b4489a9ffe2a21a5d7678af7d0ac0777e3e18",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-page.ts",
@@ -278,7 +371,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "e15718d5a3db0c68fb3dc2e336353c4146b8685303c56fcdc96643be4c5b739b",
+                "reviewed_content_hash": "a864da6f5ac5b81af7fd8adbf2e3cb813e2756156e99e6197d29660768f1c801",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/review.ts",
@@ -295,11 +388,48 @@
                   "path": "tests/unit/contract/test-contract-command.ts",
                   "repository": "tieline"
                 }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "a38299a672930bf9b3f2463a5f77ea00915fd071473d66142d9df91bfd33d4bb",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-review-changes.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "b3c9001c287493a706f8776890545a5d8df7c34f0f3a073f56bedefc589e601b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
+                  "repository": "tieline"
+                }
               }
             ],
             "position": 3,
             "rationale": "Maintainers outside the implementation can review the same repository-owned contract accepted by the pull request.",
-            "scenarios": [],
+            "scenarios": [
+              {
+                "given": "a repository whose contract has no capabilities yet",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC4-S1",
+                "then": "the page must say there are no capabilities yet and how to begin onboarding with the installed skill",
+                "when": "the review page is rendered"
+              },
+              {
+                "given": "a contract that does not validate",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC4-S2",
+                "then": "the page must list the validation notes and say the contract does not validate, without offering onboarding",
+                "when": "the review page is rendered"
+              }
+            ],
             "stable_id": "CONTRACT-001-AC4",
             "supersedes": null
           },
@@ -312,7 +442,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -322,7 +452,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "41e9670f6931449870616ae37cae3d54db9ae2a6ee4bb9861a1b32480ddf4ae3",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -382,7 +512,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2bd740a65efd253fbda779010847244e3a976ae2931a8c29c0ed991e3e9ada42",
+                "reviewed_content_hash": "c13d95a5976a9a9d9714e744bd82aa7f6156afe93b52a20a7c59938ab734d8e9",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -392,7 +522,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "e1ecb1f269aa6a10b3baf1621e6731d489dd8c5b5b414a7f8aacfd297036c8ad",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -498,7 +628,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "41e9670f6931449870616ae37cae3d54db9ae2a6ee4bb9861a1b32480ddf4ae3",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -586,7 +716,7 @@
               {
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "2bd740a65efd253fbda779010847244e3a976ae2931a8c29c0ed991e3e9ada42",
+                "reviewed_content_hash": "c13d95a5976a9a9d9714e744bd82aa7f6156afe93b52a20a7c59938ab734d8e9",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -606,7 +736,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "e1ecb1f269aa6a10b3baf1621e6731d489dd8c5b5b414a7f8aacfd297036c8ad",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -616,7 +746,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -626,7 +756,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "41e9670f6931449870616ae37cae3d54db9ae2a6ee4bb9861a1b32480ddf4ae3",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -730,7 +860,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2868362406816135715d4cab5409c025e0d6a1ba92a9efe672dfe041848525fc",
+                "reviewed_content_hash": "b3c9001c287493a706f8776890545a5d8df7c34f0f3a073f56bedefc589e601b",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -766,6 +896,78 @@
             ],
             "stable_id": "CONTRACT-001-AC8",
             "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "76e955e7a7ff5f55f53bbefdd0e7f0ed5efd22d1a47f9b94078afd29a2d54d53",
+            "criterion": "Tieline must report, from git alone, when each Story, acceptance criterion, and screen was added, changed, or removed and in which pull request, by comparing each first-parent commit's compiled manifest with its parent's, must show each one's last change on the review page, and must say when older history was not read or a commit's manifest is not held by the clone instead of attributing changes it cannot see.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "4f7e9a6e66f7d962fa44ead1fb686dbc0c9419253a317f297c2e80c05c75c921",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract-history.ts",
+                  "repository": "tieline",
+                  "selector": "function:runContractHistoryCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0299a3a3d6c9d328d614353932e2c5db3cdf5f67246655f877da5dc83518b871",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/history.ts",
+                  "repository": "tieline",
+                  "selector": "function:readContractHistory"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0299a3a3d6c9d328d614353932e2c5db3cdf5f67246655f877da5dc83518b871",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/history.ts",
+                  "repository": "tieline",
+                  "selector": "function:readReviewHistory"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "742e7e754fe2022b264be2cfa28230c8b56e198bfe93568acb77ed292f846daf",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-contract-history.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 8,
+            "rationale": "Reviewers and agents need to know which change last touched a piece of behavior, and a shallow or partial clone must not make every item look newly added.",
+            "scenarios": [
+              {
+                "given": "a pull request merged with a merge commit changed an acceptance criterion on its branch",
+                "position": 0,
+                "stable_id": "CONTRACT-001-AC9-S1",
+                "then": "the change must be attributed to the merge commit and its pull request",
+                "when": "the history of main is read"
+              },
+              {
+                "given": "a long history whose manifest file listings together exceed the history's bound, though each fits alone",
+                "position": 1,
+                "stable_id": "CONTRACT-001-AC9-S2",
+                "then": "Tieline must fail and name the bound rather than hold every commit's listing",
+                "when": "the history is read"
+              }
+            ],
+            "stable_id": "CONTRACT-001-AC9",
+            "supersedes": null
           }
         ],
         "actor": "maintainer",
@@ -795,7 +997,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59dfedd119a5027ed5ff3d1bf08d0f80e670f18fc98cd9cc32e75b4ea8e84def",
+                "reviewed_content_hash": "e1ecb1f269aa6a10b3baf1621e6731d489dd8c5b5b414a7f8aacfd297036c8ad",
                 "target": {
                   "kind": "code",
                   "path": "src/cli.ts",
@@ -805,7 +1007,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -981,7 +1183,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1031,7 +1233,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1114,7 +1316,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1160,7 +1362,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "024072c37883377c56552d1f79544bc931318007a8fa502b13d22f5eaa042192",
+                "reviewed_content_hash": "caa08d08dca71ca3b6c1650f8e35ea0c036fb19f96ebb16f1da261c076028339",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract-context.ts",
@@ -1171,7 +1373,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -1182,7 +1384,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dff57fe5e86c1764135899f0ec8667a7fe0d06c97262d808d675823db1fd0d80",
+                "reviewed_content_hash": "7fdac86f99e28604ce71ec47f414a9a267f0aecc64030b69f58d6598608672ba",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/intent-context.ts",
@@ -1204,7 +1406,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f1199d9262c191d8eeeab0ae8cf5bd5a905abd3526a7e53a6e7465de480a94b5",
+                "reviewed_content_hash": "65050bdd6e2f8f1b7c01bc92e8ca426f0b85e9add42201e731219323dd57a264",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1215,7 +1417,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b8d103205d23821ed74efd33db20b129e84ceb827f297212321eedcc9a2dff2c",
+                "reviewed_content_hash": "23bd6c46d6e1d49a5a3769a7c5e7b6421f2b06d40b82375bd3e963f1419e0447",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1851,7 +2053,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "02611115924cfc2a4f83b8c8d61951729e885d43c1917afd2baa457947654ad8",
+                "reviewed_content_hash": "5bf944e612506bbf7d23367c1e63a9d4132a3f5dbd27b680c9d71213c9b34f9a",
                 "target": {
                   "kind": "code",
                   "path": "src/config.ts",
@@ -1873,7 +2075,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59328aa68c7b94a1e7a37a5622352e258babf7d85f9ce9556b3b1f0e39d65de5",
+                "reviewed_content_hash": "0fd6c4910dc1dfd19c9cf56e9cf06b685eb84de6f0b1c320ba8e14e36a510cfc",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1884,7 +2086,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f31d6f5ff644c0f81ed098d9b7d34d9403d2aed602e7e1831f997e90344d67f5",
+                "reviewed_content_hash": "5c17c67c22f89511450ae132b63eed387a530fbbbb765b86da010101780d25e8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1917,6 +2119,788 @@
           {
             "aliases": [],
             "applies_to": null,
+            "contract_hash": "c17aea918a1e9259fa927d616940e68c2b4243b0b96fbb7e8eb5aea8d33c3309",
+            "criterion": "Tieline must account for every catalogued screen as captured or marked not captured with one of a closed set of reasons, must skip marked screens and report selected screens no test tags instead of failing the capture, must report page files no screen claims and acceptance criteria showing screens that no @ac-tagged test linked from them proves, must keep screens that differ between repeated captures out of the committed outputs, and must fail a strict audit while any of these remain.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5095974f7155fdc665d3b5d3ba8bde4f55c464f99ac3901eb55f2d7078a904cd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensCaptureCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d80612332e86f591eac70ef57d9ddedf6ed52af363dd698af69e8da6a6a9ba43",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-audit.ts",
+                  "repository": "tieline",
+                  "selector": "function:screenAuditStrictFailures"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9c0ad51ad6d1cbe2f3c6aa2eb15d5389c3adabdc999d6b8b332afe1ee52ea6cc",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-selection.ts",
+                  "repository": "tieline",
+                  "selector": "function:excludeNotCaptured"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "1f2a26a79b2097d8eb0d769ccfef5ff0978f5ee6b6ad80435fd4f49d7d6bffb9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:scanPageFiles"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "68eb9b594c9cbe02f1d6a7d64b24285b12eaafcd114d0d721d5b5f6598da7764",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-audit.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "50c6297cbad22306b20b9ccb62de3eef33c68366baac35adedc38e0b9283529c",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-capture.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 9,
+            "rationale": "Captures are only worth reviewing if every screen a user can reach is either captured from the real app or explicitly excused, and documented UI behavior is proven by a test, so gaps must be visible and gateable rather than silently skipped.",
+            "scenarios": [
+              {
+                "given": "a screen needs a faked response to be reached",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC10-S1",
+                "then": "capture must skip it and the audit must list it with its reason as accounted for",
+                "when": "it is marked not captured with reason needs-real-trigger"
+              },
+              {
+                "given": "a branch adds a page file that no screen's paths claim",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC10-S2",
+                "then": "Tieline must warn about the new page file without changing the exit code",
+                "when": "check runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC10",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "43cb38f59c6146fdec920d4d4db65604cfd045870e4a2bca4f4bf7d7f594de87",
+            "criterion": "The Tieline skill must have agents capture screens only from the real app and mark a state they cannot reach without a faked response as not captured, write the scene for a screen an acceptance criterion shows as that criterion's tagged and linked test asserting its Then, backfill from acceptance criteria before other states while reporting states no criterion describes, offer screen capture during onboarding of a repository with a user interface and backfill before reporting when the user accepts, and keep a screens-enabled repository's captures current before handing off a change to what users see.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "fae2a429422e33251cd04099b56d514d516fa3d87e1efacfcb8847d18e9175e0",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/onboarding.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "356f8f0aec448860f5d47399c945fd8c0382db2bee69ce5ed70501955e8505f4",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens-capture.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8ebff6a7359dfd98f1dc0bc7f67d1972c4c466883eb248e1ccceca56fc71e847",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "c145a37f9c553d485e94879164ab1f888ebf6895c5bf8900f2d7d14f246ebb56",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/SKILL.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "b3c9001c287493a706f8776890545a5d8df7c34f0f3a073f56bedefc589e601b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 10,
+            "rationale": "Most scenes are written by agents, so the skill decides whether captures are truthful, whether documented behavior is proven, and whether a catalog stays complete as the product changes.",
+            "scenarios": [
+              {
+                "given": "onboarding a web app whose user accepts screen capture, with a provisioned or existing database",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC11-S1",
+                "then": "it must also offer hosted screens, and must not offer them for an offline or local database",
+                "when": "onboarding asks its questions"
+              },
+              {
+                "given": "onboarding enabled screens",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC11-S2",
+                "then": "the onboarding pull request must add the screens check workflow the skill ships, or the hosted workflows in its place when hosted screens were accepted",
+                "when": "the backfill finishes"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC11",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "71248c3e658c3b457ad4d393bc0690cc3d8ffd248de99448a99c4597ed91c2a5",
+            "criterion": "With hosted screens enabled, Tieline must publish a pull request's or branch's review page, compared with main's published state and showing a changed screen's previous image, only after every image the page shows is in the object store, must upload only images whose bytes match their catalog digest and are PNG, JPEG, WebP, GIF, or AVIF, must replace that ref's previous page, and must publish main's page only from repository sync and only for the commit sync last recorded.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "enforces",
+                "reviewed_content_hash": "108a59e75c3aa7c4449957e20ac1fb3038226c6bc986eb61f198f5b2d8498824",
+                "target": {
+                  "kind": "code",
+                  "path": "migrations/0005_hosted_screens.sql",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b4504d3294a9d03a4f60d7cb1c22b28efb8866411e37d682e3c13ca4e1dea79d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/object-store/s3.ts",
+                  "repository": "tieline",
+                  "selector": "class:S3ObjectStore"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "bf8a45b6dfbafe8bb23e44d93a585719ba6e86189fc97d3554b9917d6d333ccf",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/hosted-screens-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresHostedScreensRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "170804d3f9c4a3f538ccecd2792cb661c51462e89fb1218f40000846e29782a5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:publishMainScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "170804d3f9c4a3f538ccecd2792cb661c51462e89fb1218f40000846e29782a5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensPublishCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "170804d3f9c4a3f538ccecd2792cb661c51462e89fb1218f40000846e29782a5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:storeHostedImages"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "a84cc1e14fcfdc2556f5b00fe47987421c5e7c1970acb1f266f4ffcea8fd7c72",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:readLocalHostedImage"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "0e41276c614ff8455b4bc07fadb492ba02dfff6a722001d50f31359aa74490f9",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-hosted-screens.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "7d5e0eec93955d2cd7ffe6187600abf13ab42a1b8fbd7c96dc6faeb5b5ce4a3a",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosting.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 11,
+            "rationale": "A hosted page is reviewed as evidence of a change, so it must never show an image the store lacks or one the catalog does not record, and publishing a pull request must never change what main shows.",
+            "scenarios": [
+              {
+                "given": "a screenshot a page shows is neither in the object store nor usable in the captures directory",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC12-S1",
+                "then": "Tieline must name the screen and publish nothing",
+                "when": "the page is published"
+              },
+              {
+                "given": "the capture publisher's database credentials",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC12-S2",
+                "then": "the database must refuse",
+                "when": "they are used to write main's page or history, or to delete anything"
+              },
+              {
+                "given": "a sync of an older commit finishes after a sync of a newer one",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC12-S3",
+                "then": "Tieline must keep the newer page",
+                "when": "main's hosted page is published"
+              },
+              {
+                "given": "the bucket holds an image's key with other bytes, and the captures directory holds the bytes the catalog names",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC12-S4",
+                "then": "Tieline must store the image again before publishing the page, rather than count it as already stored",
+                "when": "the page is published"
+              },
+              {
+                "given": "a pull request's page shows main's image beside a screen whose image it changed",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC12-S5",
+                "then": "main's image must stay stored while the pull request's page shows it",
+                "when": "main later replaces that screen's image more times than retention keeps"
+              },
+              {
+                "given": "the example pull-request workflow, and a pull request whose dependencies or tests are compromised",
+                "position": 5,
+                "stable_id": "CONTRACT-005-AC12-S6",
+                "then": "the publishing credentials must be held only by a workflow the default branch owns, in an environment only the default branch can use, that installs Tieline from the default branch and runs none of the pull request's code",
+                "when": "the workflow captures and publishes"
+              },
+              {
+                "given": "the bucket holds an image the database has no record of, as after restoring the database apart from its bucket, and the captures directory cannot supply it",
+                "position": 6,
+                "stable_id": "CONTRACT-005-AC12-S7",
+                "then": "Tieline must publish nothing and name the image, since the site would not serve it",
+                "when": "a page that shows it is published"
+              },
+              {
+                "given": "a trusted checkout, and a pull request whose configuration names another repository key, bucket, or site URL",
+                "position": 7,
+                "stable_id": "CONTRACT-005-AC12-S8",
+                "then": "Tieline must publish nothing and touch neither the database nor the bucket",
+                "when": "the pull request is published with --trusted"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC12",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "e8b8b9967577b5c25bcd9607c2937450613824e4dbd4b40084341e99db845b64",
+            "criterion": "Tieline must delete a closed pull request's hosted page only after a grace period, a branch's page after the configured days without a publish, and main's image history beyond the configured number of replaced images per screen, and must delete an image only when no page or retained history references it and nothing referenced it within a grace period, removing it from the object store before its record and keeping the record of any image it could not remove.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "bf8a45b6dfbafe8bb23e44d93a585719ba6e86189fc97d3554b9917d6d333ccf",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/hosted-screens-repository.ts",
+                  "repository": "tieline",
+                  "selector": "class:PostgresHostedScreensRepository"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "170804d3f9c4a3f538ccecd2792cb661c51462e89fb1218f40000846e29782a5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-hosting.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensPruneCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "0e41276c614ff8455b4bc07fadb492ba02dfff6a722001d50f31359aa74490f9",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-hosted-screens.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "7d5e0eec93955d2cd7ffe6187600abf13ab42a1b8fbd7c96dc6faeb5b5ce4a3a",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosting.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 12,
+            "rationale": "Hosted screens must stay bounded without deleting an image a page still shows, a merge is about to make main show, or a publish has just claimed.",
+            "scenarios": [
+              {
+                "given": "the object store refuses to delete one of two unreferenced images",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC13-S1",
+                "then": "Tieline must delete the other image and its record, and keep the refused image's record so the next run retries it",
+                "when": "retention runs"
+              },
+              {
+                "given": "a screen main's page no longer shows",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC13-S2",
+                "then": "its history must be deleted, so its images can go once nothing else references them; when main's page cannot be read, history is kept and the prune says why",
+                "when": "screens prune runs"
+              },
+              {
+                "given": "object storage stalls while a prune deletes unreferenced images",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC13-S3",
+                "then": "it must stop deleting at its time limit and release the screens lock, keeping what it did not delete for the next prune",
+                "when": "screens prune runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC13",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "444608a027d064da095bdac02a89ac8d015a84a5fc7215741936db6e50b9caa6",
+            "criterion": "The hosted screens site must serve only pages publishing stored, by ref with main by default, and only images a publish recorded whose bytes still match their digest, must send every response marked as the site's with nosniff, no framing, and no shared caching, must answer an unpublished or malformed ref, an unknown path, or another method without reading the object store, and must hand an image larger than the host can return to a presigned link that expires within a minute.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b4504d3294a9d03a4f60d7cb1c22b28efb8866411e37d682e3c13ca4e1dea79d",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/object-store/s3.ts",
+                  "repository": "tieline",
+                  "selector": "function:presignGetUrl"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "e9655c55c72130838d6a77c2ee1cd567d9b0f461f4f8ce7bb3c2b32ec1935049",
+                "target": {
+                  "kind": "code",
+                  "path": "src/hosted/handler.ts",
+                  "repository": "tieline",
+                  "selector": "function:createHostedScreensHandler"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "617463a3a8c5fb5c1c5a683f65b2abc2000727a7b8385359c15be4acf336ac0a",
+                "target": {
+                  "kind": "code",
+                  "path": "src/hosted/index.ts",
+                  "repository": "tieline",
+                  "selector": "function:createHostedScreensSite"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "fa49f7f7d16d1b40ee8a850809c11e7aab474bf7ec43ee03623418b0f2fe25c5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosted-site.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 13,
+            "rationale": "The site exposes review evidence over the network behind only the host's access control, so it must never serve anything publishing did not record, nor bytes that changed after they were verified.",
+            "scenarios": [
+              {
+                "given": "the site is deployed without its database or object storage settings, or with an invalid repository key",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC14-S1",
+                "then": "the site must answer as itself with an error naming what is missing or invalid, instead of failing to load",
+                "when": "any page is requested"
+              },
+              {
+                "given": "an object in the bucket was overwritten after its image was published",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC14-S2",
+                "then": "the site must refuse it rather than serve the new bytes",
+                "when": "a visitor requests that image"
+              },
+              {
+                "given": "a published image too large for the host to return whose bytes in the bucket were replaced",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC14-S3",
+                "then": "the site must refuse it instead of redirecting to the bucket",
+                "when": "a visitor requests it"
+              },
+              {
+                "given": "a catalog image given by an http URL",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC14-S4",
+                "then": "the page must show the screen without a picture rather than a broken image",
+                "when": "its screen is shown on a hosted page, which allows only https images"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC14",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "5f4e076916f15f227d549c05fe8736337967951c1757d85c443d95835b03ccd4",
+            "criterion": "Tieline must write a site for a supported host without replacing edited files unless forced or writing outside the repository, and tieline hosted check must write, find, and delete a probe object in the bucket, must confirm that each database credential set can do its job and that the site's credential cannot write, and must fail when the deployed site answers a visitor who has not logged in.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "c693b521315f040a50ee47390f218b5b1ac2843d59beb46cf61ad27a0f444a78",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/hosted.ts",
+                  "repository": "tieline",
+                  "selector": "function:runHostedCheckCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "c693b521315f040a50ee47390f218b5b1ac2843d59beb46cf61ad27a0f444a78",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/hosted.ts",
+                  "repository": "tieline",
+                  "selector": "function:runHostedInitCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "fa49f7f7d16d1b40ee8a850809c11e7aab474bf7ec43ee03623418b0f2fe25c5",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-hosted-site.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 14,
+            "rationale": "Hosted screens depend on a bucket, three database credentials, and the host's access control being right, and a team must be able to prove all of them before trusting the site with its review evidence.",
+            "scenarios": [
+              {
+                "given": "the host's access control protects static files but not the site's functions",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC15-S1",
+                "then": "Tieline must fail because the site answered a visitor who had not logged in",
+                "when": "tieline hosted check runs against the site"
+              },
+              {
+                "given": "the publishing credential is the sync role, an owner, or another role that can delete, write history, rewrite a page's ref or an image's record, or escape row security",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC15-S2",
+                "then": "Tieline must fail and name what a capture job must not hold, as it must for a role that lacks what publishing needs",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the site redirects an anonymous visitor to another host or page that serves the site",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC15-S3",
+                "then": "Tieline must follow at most a bounded number of redirects and fail, passing only on a 401 or 403 or a redirect to a login",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "a check fails after the storage probe was written",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC15-S4",
+                "then": "the probe object must still be deleted",
+                "when": "tieline hosted check finishes"
+              },
+              {
+                "given": "a symbolic link inside the site directory where a site file or directory goes",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC15-S5",
+                "then": "Tieline must refuse without writing through the link",
+                "when": "tieline hosted init runs, even with --force"
+              },
+              {
+                "given": "the sync credential is the capture publisher's, or another role row security keeps off main's page",
+                "position": 5,
+                "stable_id": "CONTRACT-005-AC15-S6",
+                "then": "Tieline must fail and name what sync needs that the role lacks",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the site's credential can write any table, even only update or delete published screens, or write on one column only",
+                "position": 6,
+                "stable_id": "CONTRACT-005-AC15-S7",
+                "then": "Tieline must fail, because the site's credential must only read",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the site URL has a path, such as https://screens.example.test/screens",
+                "position": 7,
+                "stable_id": "CONTRACT-005-AC15-S8",
+                "then": "Tieline must ask for the page and an image beneath that path, not at the origin's root",
+                "when": "tieline hosted check runs against the site"
+              },
+              {
+                "given": "the site's or the publishing credential holds its role's grants, copied by hand, without membership in the role row security names",
+                "position": 8,
+                "stable_id": "CONTRACT-005-AC15-S9",
+                "then": "Tieline must fail, because row security would hide published pages from it or let it write none",
+                "when": "tieline hosted check runs"
+              },
+              {
+                "given": "the publishing credential can also write contract change events, or any table beyond the pages and images it publishes",
+                "position": 9,
+                "stable_id": "CONTRACT-005-AC15-S10",
+                "then": "Tieline must fail and name each write a capture job must not hold",
+                "when": "tieline hosted check runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC15",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "6e7f1458d11a734b98e08b0611371d77ede3182840e71cee0a915c0c3cc8a548",
+            "criterion": "The Tieline skill must have agents provision hosted screens storage in a region with object storage, with a read-write credential for publishing and a read-only one for the hosted site, written straight to private files outside the repository, must never have them print a secret, read one back, or ask the user to paste one, and must have them verify the bucket, the database credentials, and the site's access control with tieline hosted check.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "6a657e5687fe6c085aceb879de2ba23e2db2f8e8deb7dd177917d2156df52978",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/hosted-screens.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b1548f7068f1c0e90b9a7b7497c0db447dd10e1bd54d22dd21782df6d3110d49",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/provisioning.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "8ebff6a7359dfd98f1dc0bc7f67d1972c4c466883eb248e1ccceca56fc71e847",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "b3c9001c287493a706f8776890545a5d8df7c34f0f3a073f56bedefc589e601b",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-tieline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 15,
+            "rationale": "Provisioning is done by agents holding the user's provider account, so the skill decides whether storage credentials stay least-privilege and out of transcripts.",
+            "scenarios": [
+              {
+                "given": "onboarding provisions a hosted database",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC16-S1",
+                "then": "it must be created in a region with object storage, aws-us-east-2 unless the user named another, without asking the user for a region",
+                "when": "the Neon project is created"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC16",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "7bdbcbf87938e44c1ef34e050c0b464f280bbe4a82b9510ceb900071a97aa292",
+            "criterion": "Tieline must generate, as one committed scene file, a scene for every catalogued page that no other test captures and that is not marked not captured, each running the repository's setup module before opening the page, must skip and report a route with parameters when no setup module chooses its URL, must fail a generated scene whose page answers with an error or whose route keeps a parameter, and must fail the strict audit while the generated file differs from what the catalog generates.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "356f8f0aec448860f5d47399c945fd8c0382db2bee69ce5ed70501955e8505f4",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tieline/references/screens-capture.md",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "96554ce554bfedfa27456166a99c1d3703e2b07d0782201bbf24601f22000dbf",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensScenesCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b75d8889e8c57bce86256d8e2a3f709a23e3d45a2c9444b865f5d2749f03ed65",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-generated-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:generatedScenesStatus"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "b75d8889e8c57bce86256d8e2a3f709a23e3d45a2c9444b865f5d2749f03ed65",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-generated-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:planGeneratedScenes"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3aa2055fa6f6ac843780b2bf7381a1c7ce8299e614198356c77049799c6d6c13",
+                "target": {
+                  "kind": "code",
+                  "path": "src/playwright/page-scene.cts",
+                  "repository": "tieline",
+                  "selector": "function:openAndCapture"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "2e56c9fc461180d156a55c325a8da1cce4e2f0eedc30abcc748ce7217674b834",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-screens-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "dfa35275bcf662cd0be29109e6e59d0ea023fd4c417b12f5d67c849db1bb1045",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-generated-scenes.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 16,
+            "rationale": "Scenes are written by agents, not people, so every page must be captured without anyone writing a test just to open it, and a stale or wrong generated scene must never stand in for the screen.",
+            "scenarios": [
+              {
+                "given": "an agent writes its own scene for a page that has a generated scene",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC17-S1",
+                "then": "the page must leave the generated file so it is captured once",
+                "when": "the generated scenes are regenerated"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC17",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
             "contract_hash": "08440ab7c06ded22ac53c76fada6653134a9e0c8a4196adaa8b87fd58112dbde",
             "criterion": "Tieline must reject screen catalog entries with unknown kinds or fields, reserved phase-two fields, duplicate keys, unknown capabilities, unsafe image locators, or values beyond their bounds, and must reject shows links to screens the catalog does not contain.",
             "links": [
@@ -1934,7 +2918,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59328aa68c7b94a1e7a37a5622352e258babf7d85f9ce9556b3b1f0e39d65de5",
+                "reviewed_content_hash": "0fd6c4910dc1dfd19c9cf56e9cf06b685eb84de6f0b1c320ba8e14e36a510cfc",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-catalog.ts",
@@ -1956,7 +2940,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f31d6f5ff644c0f81ed098d9b7d34d9403d2aed602e7e1831f997e90344d67f5",
+                "reviewed_content_hash": "5c17c67c22f89511450ae132b63eed387a530fbbbb765b86da010101780d25e8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -1980,7 +2964,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "2bd740a65efd253fbda779010847244e3a976ae2931a8c29c0ed991e3e9ada42",
+                "reviewed_content_hash": "c13d95a5976a9a9d9714e744bd82aa7f6156afe93b52a20a7c59938ab734d8e9",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/check.ts",
@@ -1991,7 +2975,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "41e9670f6931449870616ae37cae3d54db9ae2a6ee4bb9861a1b32480ddf4ae3",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2002,7 +2986,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "41e9670f6931449870616ae37cae3d54db9ae2a6ee4bb9861a1b32480ddf4ae3",
+                "reviewed_content_hash": "586c78a7b7fe162efdb0b3aab7962a7eab08e76898979715dea998d8b25296bf",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/manifest.ts",
@@ -2013,7 +2997,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "f31d6f5ff644c0f81ed098d9b7d34d9403d2aed602e7e1831f997e90344d67f5",
+                "reviewed_content_hash": "5c17c67c22f89511450ae132b63eed387a530fbbbb765b86da010101780d25e8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2031,13 +3015,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "9fba5f04d79f37236b3bb971712f1e3fac7c2cd00f643e196307183a9075261f",
+            "contract_hash": "34ec343f4b9159d2ff8ee4f81da3c7aa52ac36947e8979c07a307de6e74be4b0",
             "criterion": "The screen importer must bound and validate untrusted JSON before writing, must update catalog entries by key so a repeated import changes nothing, must delete entries only when pruning is requested, and must refuse or explicitly skip entries for undeclared capabilities.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "c6f521a6b6ac3e65413cc4664315e6bb3b7ddfecb160d7b9e9561632c5556d4e",
+                "reviewed_content_hash": "96554ce554bfedfa27456166a99c1d3703e2b07d0782201bbf24601f22000dbf",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/screens.ts",
@@ -2048,7 +3032,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "04c66445b278fed9e43505e860252c603e97296dfa34ea0a3ee947dca936a95f",
+                "reviewed_content_hash": "b8e0ab635319e8b4246de1445a446486b213bd21e0a8c420deca8e8d02e1c05d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2059,7 +3043,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "04c66445b278fed9e43505e860252c603e97296dfa34ea0a3ee947dca936a95f",
+                "reviewed_content_hash": "b8e0ab635319e8b4246de1445a446486b213bd21e0a8c420deca8e8d02e1c05d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
@@ -2070,7 +3054,7 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "7a326e1f909bc57e99b7b47ea3d444fe040cffdbff9b816c022d5433069e46b5",
+                "reviewed_content_hash": "3123b3ffceda9fa12faa22437b1f2dd6867088e19ca31a8a3958c3b492adb421",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2088,6 +3072,13 @@
                 "stable_id": "CONTRACT-005-AC4-S1",
                 "then": "Tieline must name the unknown capability and write nothing",
                 "when": "the import runs without the skip option"
+              },
+              {
+                "given": "an import changes the screenshot of a screen Tieline captured",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC4-S2",
+                "then": "Tieline must drop the screen's capture record, keep it when the picture is unchanged, and refuse capture records in the input",
+                "when": "the import is applied"
               }
             ],
             "stable_id": "CONTRACT-005-AC4",
@@ -2096,13 +3087,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "cdba0c1a23742ce195b26cf174af89495db19d99fb4b8fc718a804dfa806c67e",
+            "contract_hash": "066eeeb7034e777ea0aedbb575d5e9cbb314749d16c68966c45430b283c8ad30",
             "criterion": "The review page must show every catalogued screen grouped by capability and group with kind, applicability, and link filters, search, a detail panel, coverage counts, and each Story's and AC's linked screens, and must render placeholders when screenshots are missing.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "f8e51448408d2b6244a5052c445d81146ba124b1617b63e141828d5e70fd64e2",
+                "reviewed_content_hash": "3b9cae0c83d518acab1da236630b4489a9ffe2a21a5d7678af7d0ac0777e3e18",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-page.ts",
@@ -2113,7 +3104,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "360eb2f31d68c3fbe6d64f5e03142d322bf6ccda642c6a610959bb8f408ee09c",
+                "reviewed_content_hash": "7936cf46d7c9c04c454c612010bad175b7883062a088ac627a902e827a7fefdc",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-review-page.ts",
@@ -2124,7 +3115,18 @@
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2d9223eb8e8a4944de30abb986955103f440b03b035d4f6d3611d0763769df87",
+                "reviewed_content_hash": "a37b30971c81be03d0a838b013da282a40f0037a51e244ab6bbf32840f979a54",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-review-page-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "07e4f820b52bbe8ade1d17b370e7630929959657a27e5fadc28d819acba8f276",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2135,20 +3137,28 @@
             ],
             "position": 4,
             "rationale": "Reviewers need to see an application's screens at catalog scale and reach the behavior each one shows without committed images.",
-            "scenarios": [],
+            "scenarios": [
+              {
+                "given": "a catalog of about a thousand screens",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC5-S1",
+                "then": "every screen must fit in the window on one board, without requesting an image until cards are large enough to see",
+                "when": "the reviewer switches the Screens view to the canvas"
+              }
+            ],
             "stable_id": "CONTRACT-005-AC5",
             "supersedes": null
           },
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "37d4ba4e80b6e2e2e85cc67d167847e01f05f9a04016355f54dd8b08e531e3fc",
+            "contract_hash": "68da381349d5ac5a1e0a6eef3aed8f1a47b691d964393593be3b1f142a8bf912",
             "criterion": "The review page must highlight the Stories, Acceptance Criteria, and screens a branch added, changed, or removed relative to a base ref, including screens whose screenshot was re-captured, using only git and keeping every record navigable.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dc20765b11f6a8faec4a60d71fd7be19e19195bd7bae8a11520619a572ff70d5",
+                "reviewed_content_hash": "b52fed19afd638c1e8037c83bb7d0d7ac0a67e6bedf29493945b696f87added3",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/contract.ts",
@@ -2170,7 +3180,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "0d2a8b91a00c834668e0261b0d116c3322696dfb87e7ee7e55b01e7f3194fc19",
+                "reviewed_content_hash": "6efbe975b14dbfc87330c7a49c3850a54fb2aa66f63e153e3623151f6ba7354f",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-changes-page.ts",
@@ -2181,7 +3191,7 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "500597ae25d94c88d612f64ff9ab6c4078942b43a688abbafeed3e8dc89b25c1",
+                "reviewed_content_hash": "3cc87797d9dbbfaedf297af95dde8ca1e23dda2191179ee71c4a46046a3af219",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/review-changes.ts",
@@ -2192,18 +3202,29 @@
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "04c66445b278fed9e43505e860252c603e97296dfa34ea0a3ee947dca936a95f",
+                "reviewed_content_hash": "b8e0ab635319e8b4246de1445a446486b213bd21e0a8c420deca8e8d02e1c05d",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/screen-import.ts",
                   "repository": "tieline",
-                  "selector": "function:attachCaptureDigests"
+                  "selector": "function:createCaptureDigester"
                 }
               },
               {
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "752c9de4de9bd83e2c9f090aec1eb62c0b4956769d738341a809a9398af1db75",
+                "reviewed_content_hash": "a37b30971c81be03d0a838b013da282a40f0037a51e244ab6bbf32840f979a54",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-review-page-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "a38299a672930bf9b3f2463a5f77ea00915fd071473d66142d9df91bfd33d4bb",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -2228,9 +3249,389 @@
                 "stable_id": "CONTRACT-005-AC6-S2",
                 "then": "every record must be reported as new and the page must say why",
                 "when": "the review page is rendered against it"
+              },
+              {
+                "given": "a branch re-captures a screen whose committed ARIA snapshot changed",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC6-S3",
+                "then": "the screen must be reported as changed with a text aspect, apart from its image and catalog fields",
+                "when": "the review page is rendered against the base ref"
+              },
+              {
+                "given": "a branch removes an acceptance criterion from a Story",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC6-S4",
+                "then": "the criterion must stay at the end of that Story, struck through and marked removed, and the Story's header must say it changed",
+                "when": "the review page is rendered against the base ref"
+              },
+              {
+                "given": "a reviewer wants only what the branch changed",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC6-S5",
+                "then": "the navigation must list only changed Stories, or the map only new and changed screens, and pressing it again must restore the rest",
+                "when": "they press Changed in the Stories or Screens view"
               }
             ],
             "stable_id": "CONTRACT-005-AC6",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f3a9e24a300d5f428e58243b11a745e8b97ce1e4ef0e3e6576b3e0ad78eee72a",
+            "criterion": "Tieline must report screens missing a screenshot digest, a capture record, a committed ARIA snapshot, or a literal @screen test tag, ARIA snapshots that differ from their capture record or belong to no catalogued screen, and screens captured in different environments, through screens audit and as check warnings that never change the check's exit code, reading test files and snapshots only within fixed bounds and never through symbolic links.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "c13d95a5976a9a9d9714e744bd82aa7f6156afe93b52a20a7c59938ab734d8e9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/check.ts",
+                  "repository": "tieline",
+                  "selector": "function:checkScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "96554ce554bfedfa27456166a99c1d3703e2b07d0782201bbf24601f22000dbf",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensAuditCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "d80612332e86f591eac70ef57d9ddedf6ed52af363dd698af69e8da6a6a9ba43",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-audit.ts",
+                  "repository": "tieline",
+                  "selector": "function:auditScreenCaptures"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "1f2a26a79b2097d8eb0d769ccfef5ff0978f5ee6b6ad80435fd4f49d7d6bffb9",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-scenes.ts",
+                  "repository": "tieline",
+                  "selector": "function:scanScreenScenes"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "691049b71fd20fee4e143b4179212d43f97706ac3ec975950a78917b428f43c5",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-text.ts",
+                  "repository": "tieline",
+                  "selector": "function:readScreenTextDirectory"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "68eb9b594c9cbe02f1d6a7d64b24285b12eaafcd114d0d721d5b5f6598da7764",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-audit.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 6,
+            "rationale": "Incremental capture only re-captures screens a branch may affect, so a cheap audit must find what it cannot, and check must surface it without making an unrelated pull request fail.",
+            "scenarios": [
+              {
+                "given": "the tag scan stops at one of its bounds",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC7-S1",
+                "then": "screens must not be reported as missing a test, and the audit must say why the scan is incomplete",
+                "when": "the audit runs"
+              },
+              {
+                "given": "a capture record's ARIA snapshot digest differs from the committed snapshot",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC7-S2",
+                "then": "Tieline must warn about the mismatch and keep the exit code the check would otherwise have",
+                "when": "check runs"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC7",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "b4713a66b8025b518d048915316bbea03a19a46794dac2a99111d5c3ce709793",
+            "criterion": "Tieline must select the screens a branch may have changed since its branch point, because their committed capture outputs or catalog entry changed, a changed test tags them, a Story or AC that shows them links a changed file, a changed file or one of its code-topology dependents matches their paths or their showing Stories' and ACs' links, or a configured global path changed, and must report every reason for each screen and every rule it could not evaluate.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5095974f7155fdc665d3b5d3ba8bde4f55c464f99ac3901eb55f2d7078a904cd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:runScreensCaptureCommand"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5095974f7155fdc665d3b5d3ba8bde4f55c464f99ac3901eb55f2d7078a904cd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:topologyDependents"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9c0ad51ad6d1cbe2f3c6aa2eb15d5389c3adabdc999d6b8b332afe1ee52ea6cc",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-selection.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectChangedScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "9c0ad51ad6d1cbe2f3c6aa2eb15d5389c3adabdc999d6b8b332afe1ee52ea6cc",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-selection.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectScreensChangedSince"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "6df7fdb073551b09ff5e7ffd4195c5857dd7ff3da8e2659fcc95d0c43cab23ff",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-capture-selection.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 7,
+            "rationale": "Re-capturing only affected screens keeps pull requests fast, and selection is a heuristic, so reviewers must see why each screen was chosen and where the selection may be narrower than it should be.",
+            "scenarios": [
+              {
+                "given": "a branch changes a shared component and the code topology is stale",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC8-S1",
+                "then": "Tieline must report the dependency rule as unavailable rather than select nothing silently",
+                "when": "screens changed since the base are selected"
+              },
+              {
+                "given": "a branch changes a screen's committed screenshot digest by hand",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC8-S2",
+                "then": "the screen must be selected so that verification re-captures it",
+                "when": "screens changed since the base are selected"
+              },
+              {
+                "given": "a branch removes or renames a test's @screen tag, or renames the test out of a test file name, and nothing else selects that screen",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC8-S3",
+                "then": "the screen must be selected, from the tags the test had at the branch point",
+                "when": "the screens it may have changed are selected"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC8",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "62f947b02c3dc67484645f4a7bd47cc937a4339ec5b7c2e7f5d137f0f17c0bca",
+            "criterion": "Tieline must capture selected screens with the repository's own Playwright tests tagged @screen:<key>, must write screenshots, committed ARIA snapshots, and capture records only when every selected screen was captured exactly once by a passing test, must bound, validate, and re-hash everything the run produces, must stop a run at its timeout or on cancellation without writing, and with verify must change no committed output, keeping only screenshots it reproduced exactly in the git-ignored captures directory and only when hosted screens are enabled, and must fail when a selected screen's committed outputs differ from a fresh capture, verifying every screen instead of a branch's changed ones when a selection rule could not run.",
+            "links": [
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5095974f7155fdc665d3b5d3ba8bde4f55c464f99ac3901eb55f2d7078a904cd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:resolvePlaywright"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "5095974f7155fdc665d3b5d3ba8bde4f55c464f99ac3901eb55f2d7078a904cd",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/screens-capture.ts",
+                  "repository": "tieline",
+                  "selector": "function:spawnPlaywright"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "23c69c94be3e809461fe0e3d4e0a68740711fd3d31d126e94b11f8ad77a3a701",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-run.ts",
+                  "repository": "tieline",
+                  "selector": "function:keepVerifiedScreenshots"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "23c69c94be3e809461fe0e3d4e0a68740711fd3d31d126e94b11f8ad77a3a701",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-run.ts",
+                  "repository": "tieline",
+                  "selector": "function:planCaptureOutputs"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "23c69c94be3e809461fe0e3d4e0a68740711fd3d31d126e94b11f8ad77a3a701",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-run.ts",
+                  "repository": "tieline",
+                  "selector": "function:readCapturedScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "23c69c94be3e809461fe0e3d4e0a68740711fd3d31d126e94b11f8ad77a3a701",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/screen-capture-run.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyCapturedScreens"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "3995ffed5e96f503c439a8f13152567f1bc390cb0483de9bbff7ccec6777ac4b",
+                "target": {
+                  "kind": "code",
+                  "path": "src/playwright/capture-screen.cts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "implements",
+                "reviewed_content_hash": "0294e46cf3337972fdad02421d04e27b60ec4fe5b0f9c8d7186ab23360bec105",
+                "target": {
+                  "kind": "code",
+                  "path": "src/playwright/run-recorder.cts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "2e56c9fc461180d156a55c325a8da1cce4e2f0eedc30abcc748ce7217674b834",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/browser/test-screens-browser.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "50c6297cbad22306b20b9ccb62de3eef33c68366baac35adedc38e0b9283529c",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-capture.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "provenance": "authored",
+                "relation": "tests",
+                "reviewed_content_hash": "dbd0118ff324e52967f26be7469d45a3843d552680ee4b0fec54905bc34ad995",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-screen-playwright.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 8,
+            "rationale": "Committed screen outputs are reviewed as the truth about how screens look, so a partial, untrusted, or stale capture must never replace them, and pull requests must not merge with outputs a fresh capture would not reproduce.",
+            "scenarios": [
+              {
+                "given": "one selected screen's test fails or captures nothing",
+                "position": 0,
+                "stable_id": "CONTRACT-005-AC9-S1",
+                "then": "Tieline must name the screen and the failure and write no catalog, snapshot, or screenshot",
+                "when": "screens are captured"
+              },
+              {
+                "given": "a committed screenshot digest was captured in a different environment",
+                "position": 1,
+                "stable_id": "CONTRACT-005-AC9-S2",
+                "then": "Tieline must report the environment difference rather than compare the digests",
+                "when": "the screen is verified"
+              },
+              {
+                "given": "a test calls tielineSnapshot for a key it is not tagged with",
+                "position": 2,
+                "stable_id": "CONTRACT-005-AC9-S3",
+                "then": "the test must fail and say which tag to add",
+                "when": "the test runs, inside or outside a capture run"
+              },
+              {
+                "given": "the catalog cannot be written after the capture replaced screenshots and ARIA snapshots",
+                "position": 3,
+                "stable_id": "CONTRACT-005-AC9-S4",
+                "then": "every screenshot and ARIA snapshot it replaced must be restored, so the catalog's digests and the captures directory still agree",
+                "when": "the capture fails"
+              },
+              {
+                "given": "a capture that runs in several batches or is repeated",
+                "position": 4,
+                "stable_id": "CONTRACT-005-AC9-S5",
+                "then": "it must stop without writing, the limit covering every batch and repeat together",
+                "when": "the whole capture passes screens.capture.timeout_minutes"
+              },
+              {
+                "given": "a capture that runs in several batches or is repeated",
+                "position": 5,
+                "stable_id": "CONTRACT-005-AC9-S6",
+                "then": "the screenshots and ARIA snapshots it keeps must each stay within one byte bound across every batch, and a repeat run must keep only the digests it is compared by",
+                "when": "its screenshots are read back"
+              }
+            ],
+            "stable_id": "CONTRACT-005-AC9",
             "supersedes": null
           }
         ],
@@ -2256,6 +3657,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "2aca191169253441f7eff515f4b68f82313f6644ec725914200f51a908a1bd16"
+    "sha256": "804c196e5d628d15994deddad9a1ee4dd00fcf4e0b5bea55736294471b08fd50"
   }
 }

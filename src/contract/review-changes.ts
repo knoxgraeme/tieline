@@ -21,8 +21,11 @@ export type ReviewChangeStatus = "added" | "changed" | "removed";
  */
 export type ContractChangeAspect = "content" | "screens" | "moved" | "reordered";
 
-/** Why a screen counts as changed. */
-export type ScreenChangeAspect = "details" | "image";
+/**
+ * Why a screen counts as changed: its catalog fields, its screenshot digest, or
+ * its committed ARIA snapshot (copy and structure, independent of pixels).
+ */
+export type ScreenChangeAspect = "details" | "image" | "text";
 
 export interface ContractRecordChange {
   kind: "story" | "acceptance_criterion";
@@ -221,6 +224,9 @@ export function diffReviewManifests(
     const aspects: ScreenChangeAspect[] = [];
     if (previous && previous.contract_hash !== screen.contract_hash) aspects.push("details");
     if (previous && imageChanged(previous.image, screen.image)) aspects.push("image");
+    if (previous && previous.capture?.text_sha256 !== screen.capture?.text_sha256) {
+      aspects.push("text");
+    }
     if (previous && aspects.length === 0) continue;
     screens.push({
       stable_id: stableId,

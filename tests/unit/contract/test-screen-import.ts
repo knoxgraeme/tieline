@@ -207,6 +207,53 @@ await test("updates by key: omitted optional fields are kept, null clears them",
   assert.equal((text.match(/- key: a$/gm) ?? []).length, 1, "never duplicates an entry");
 });
 
+await test("merges the files a screen names like any optional field", async () => {
+  const ws = workspace();
+  await importScreens(ws, [screen("a", { paths: ["src/pages/a.tsx"] })]);
+  assert.match(catalog(ws, "NOTES"), /    paths:\n      - src\/pages\/a\.tsx\n/);
+  // Omitted keeps them; null removes them.
+  const kept = await importScreens(ws, [screen("a")]);
+  assert.equal(kept.result.unchanged, 1);
+  await importScreens(ws, [screen("a", { paths: null })]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /paths:/);
+  await importFails(ws, [screen("a", { paths: ["../escape/**"] })], /screens\[0\] \("a"\) at paths\.0: must not contain empty, '\.', or '\.\.' segments/);
+});
+
+await test("imports not-captured markers, which retire a capture record", async () => {
+  const ws = workspace();
+  const marker = { reason: "external", detail: "Hosted by the payment provider." };
+  await importScreens(ws, [screen("a", { not_captured: marker })]);
+  assert.match(catalog(ws, "NOTES"), /    not_captured:\n      reason: external\n      detail: Hosted by the payment provider\.\n/);
+  const kept = await importScreens(ws, [screen("a")]);
+  assert.equal(kept.result.unchanged, 1);
+  await importScreens(ws, [screen("a", { not_captured: null })]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /not_captured:/);
+  await importFails(ws, [screen("a", { not_captured: { reason: "simulated", detail: "x" } })], /screens\[0\] \("a"\) at not_captured\.reason: Invalid enum value/);
+
+  // Marking a captured screen not captured drops its capture record.
+  ws.write(".tieline/captures/b.png", "captured");
+  ws.write(
+    ".tieline/screens/NOTES.yaml",
+    `${catalog(ws, "NOTES")}  - key: b
+    title: Screen b
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    image:
+      path: b.png
+      sha256: ${sha256("captured")}
+    capture:
+      fingerprint: ${"d".repeat(64)}
+      text_sha256: ${"e".repeat(64)}
+      test: e2e/notes.screens.ts
+`
+  );
+  await importScreens(ws, [screen("b", { image: "b.png", not_captured: { reason: "unstable", detail: "Its chart animates." } })]);
+  const text = catalog(ws, "NOTES");
+  assert.match(text, /  - key: b\n[\s\S]*not_captured:\n      reason: unstable/);
+  assert.doesNotMatch(text, /capture:\n      fingerprint/);
+});
+
 await test("preserves hand-written comments and untouched entries in an updated file", async () => {
   const ws = workspace();
   ws.write(".tieline/screens/NOTES.yaml", `version: 1
@@ -218,7 +265,9 @@ screens:
     title: Landing
     route: /
     kind: page
-    when: A member signs in.
+    when: A member signs in with a work account and lands on the notes they most recently opened.
+    applies_to:
+      role: [member, admin]
   - key: a
     title: Old title
     route: /notes
@@ -231,6 +280,11 @@ screens:
   assert.match(text, /# Reviewed by the design team\./);
   assert.match(text, /# The landing page\.\n {2}- key: landing\n {4}title: Landing/);
   assert.match(text, /title: Screen a/);
+  // Untouched entries keep their long lines and flow sequences as written.
+  assert.match(
+    text,
+    / {4}when: A member signs in with a work account and lands on the notes they most recently opened\.\n {4}applies_to:\n {6}role: \[member, admin\]\n/
+  );
 });
 
 await test("moves a screen whose capability changed instead of duplicating it", async () => {
@@ -403,6 +457,58 @@ await test("records each readable screenshot's digest and keeps a reviewed one w
   await importScreens(ws, [screen("a", { image: { url: "https://cdn.example.test/a.png", sha256: supplied } })]);
   assert.match(catalog(ws, "NOTES"), new RegExp(`url: https://cdn.example.test/a.png\n {6}sha256: ${supplied}`));
   await importFails(ws, [screen("a", { image: { path: "a.png", sha256: "ABC" } })], /must be a lowercase hex SHA-256 digest/);
+});
+
+await test("keeps a capture record while the picture is unchanged and drops it when the picture changes", async () => {
+  const ws = workspace();
+  ws.write(".tieline/captures/a.png", "captured by tieline");
+  const captured = {
+    fingerprint: "d".repeat(64),
+    text_sha256: "e".repeat(64),
+    test: "e2e/notes.screens.ts",
+  };
+  ws.write(
+    ".tieline/screens/NOTES.yaml",
+    `version: 1
+capability: NOTES
+screens:
+  - key: a
+    title: Screen a
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    image:
+      path: a.png
+      sha256: ${sha256("captured by tieline")}
+    capture:
+      fingerprint: ${captured.fingerprint}
+      text_sha256: ${captured.text_sha256}
+      test: ${captured.test}
+`
+  );
+  const record = new RegExp(`    capture:\n      fingerprint: ${captured.fingerprint}\n      text_sha256: ${captured.text_sha256}\n      test: e2e/notes.screens.ts\n`);
+
+  // Re-importing the same picture, with a new title, keeps the record.
+  const retitled = await importScreens(ws, [screen("a", { title: "Notes", image: "a.png" })]);
+  assert.deepEqual(retitled.result.updated, ["a"]);
+  assert.match(catalog(ws, "NOTES"), record);
+  const unchanged = await importScreens(ws, [screen("a", { title: "Notes", image: "a.png" })]);
+  assert.deepEqual(unchanged.result.updated, []);
+  assert.equal(unchanged.result.unchanged, 1);
+
+  // A screenshot another tool replaced is no longer what the capture recorded.
+  ws.write(".tieline/captures/a.png", "replaced by another tool");
+  const replaced = await importScreens(ws, [screen("a", { title: "Notes", image: "a.png" })]);
+  assert.deepEqual(replaced.result.updated, ["a"]);
+  assert.doesNotMatch(catalog(ws, "NOTES"), /capture:/);
+  assert.match(catalog(ws, "NOTES"), new RegExp(`sha256: ${sha256("replaced by another tool")}`));
+
+  // Only `tieline screens capture` writes capture records.
+  await importFails(
+    ws,
+    [screen("a", { image: "a.png", capture: captured })],
+    /screens\[0\] \("a"\) at capture: 'capture' is written by `tieline screens capture` and cannot be imported/
+  );
 });
 
 await test("refuses screenshots that escape the captures directory or exceed the size bound", () => {

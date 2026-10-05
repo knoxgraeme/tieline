@@ -34,7 +34,11 @@ import {
 import {
   SCREEN_KINDS,
   screenEntrySchema,
+  screenCaptureSchema,
+  screenNotCapturedSchema,
   screenImageSchema,
+  type ScreenCapture,
+  type ScreenNotCaptured,
   type ScreenEntry,
   type ScreenImage,
   type ScreenKind,
@@ -100,6 +104,13 @@ export interface ManifestScreen {
   applies_to: Applicability | null;
   copy: string[];
   image: ScreenImage | null;
+  /**
+   * What the last Tieline capture recorded. Present only once the screen has
+   * been captured, so catalogs that never were compile to the same bytes.
+   */
+  capture?: ScreenCapture;
+  /** Why the screen is deliberately not captured; present only when it is not. */
+  not_captured?: ScreenNotCaptured;
   contract_hash: string;
 }
 
@@ -456,6 +467,8 @@ const manifestScreenSchema = z
     applies_to: screenEntrySchema.shape.applies_to.unwrap().nullable(),
     copy: screenEntrySchema.shape.copy.unwrap(),
     image: screenImageSchema.nullable(),
+    capture: screenCaptureSchema.optional(),
+    not_captured: screenNotCapturedSchema.optional(),
     contract_hash: hashSchema,
   })
   .strict();
@@ -540,6 +553,25 @@ const contractManifestShardSchema = z
         screens: z.array(manifestScreenSchema),
       })
       .strict()
+      .optional(),
+  })
+  .strict();
+
+/** The whole manifest as one value, as `serializeContractManifest` writes it. */
+const storedContractManifestSchema = contractManifestIndexSchema
+  .extend({
+    inputs: z.array(manifestInputSchema),
+    capabilities: z.array(manifestCapabilitySchema).min(1),
+    screen_catalogs: z
+      .array(
+        z
+          .object({
+            capability: stableIdSchema,
+            input: manifestInputSchema,
+            screens: z.array(manifestScreenSchema),
+          })
+          .strict()
+      )
       .optional(),
   })
   .strict();
@@ -1262,9 +1294,10 @@ function compileCapability(
 }
 
 /**
- * What a screen is, for its `contract_hash`. The image locator is left out: it
- * says where a screenshot happens to be stored, not what the screen shows, and
- * capture fingerprints (a later phase) are the signal for visual change.
+ * What a screen is, for its `contract_hash`. The image locator and the capture
+ * record are left out: they say how the screen currently looks and where that
+ * picture is stored, not what the screen is, and the review diff reports them
+ * separately as image and text changes.
  */
 function screenSemantics(capability: string, entry: ScreenEntry): unknown {
   return {
@@ -1291,6 +1324,8 @@ function compileScreen(capability: string, entry: ScreenEntry): ManifestScreen {
     applies_to: entry.applies_to ?? null,
     copy: entry.copy ?? [],
     image: entry.image ?? null,
+    ...(entry.capture ? { capture: entry.capture } : {}),
+    ...(entry.not_captured ? { not_captured: entry.not_captured } : {}),
     contract_hash: contractHash(screenSemantics(capability, entry)),
   };
 }
@@ -1417,6 +1452,34 @@ export function serializeContractManifest(manifest: ContractManifest): string {
     ...manifest,
     capabilities: manifest.capabilities.map(reviewedCapability),
   });
+}
+
+/**
+ * The manifest as one JSON value, for storage outside the repository: hosted
+ * screens keep `main`'s in Postgres as the base pull requests are compared
+ * with. `parseStoredContractManifest` reads it back.
+ */
+export function storedContractManifest(manifest: ContractManifest): unknown {
+  return JSON.parse(serializeContractManifest(manifest)) as unknown;
+}
+
+/**
+ * Reads a manifest written by `storedContractManifest`, applying the same
+ * schemas as the manifest files. `origin` says where it came from, for errors.
+ */
+export function parseStoredContractManifest(value: unknown, origin: string): ContractManifest {
+  const parsed = parseManifestPart(
+    storedContractManifestSchema,
+    value,
+    "The stored contract manifest",
+    origin
+  ) as ContractManifest;
+  if (parsed.schema_version === CONTRACT_MANIFEST_VERSION && holdsScreenFields(parsed)) {
+    throw new ContractManifestError(
+      `The stored contract manifest '${origin}' records screens or shows links under schema version ${CONTRACT_MANIFEST_VERSION}, which cannot hold them.`
+    );
+  }
+  return parsed;
 }
 
 /**

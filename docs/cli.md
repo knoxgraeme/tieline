@@ -36,7 +36,9 @@ Asset context returns `has_context`, `no_criteria`, or `not_found`. A selector-q
 includes exact-selector and file-level claims while excluding claims for other selectors in the
 same file; a path-only query keeps every claim's full kind, repository, path, selector, and
 framework-hint identity. AC context returns the exact Capability, Story, AC, scenarios, direct
-links, and Story-fallback links. Both entry points stop after one AC-mediated hop.
+links, and Story-fallback links, and its `history`: the AC's latest 20 changes, newest first,
+each with its commit, date, and pull request, read from git as [`contract history`](#history)
+reads it, or why there is none. Both entry points stop after one AC-mediated hop.
 
 The associated code and tests are an **intent neighborhood** and their shared AC links are
 **contract coupling** — not a runtime dependency graph or a comprehensive blast radius.
@@ -127,9 +129,10 @@ fresh grading contexts so authors do not judge their own rationale.
 tieline contract review .
 ```
 
-Writes `.tieline/review.html`, a self-contained page with capability navigation, Story and AC
-cards, scenario steps, evidence links, search, lifecycle filters, and a print layout. Open the
-file directly in a browser. Use `--output <path>` to write it elsewhere. When
+Writes `.tieline/review.html`, a self-contained page with capability navigation, each Story's
+lifecycle and acceptance criteria, scenarios and evidence links folded under each criterion,
+search (`/`), `j` and `k` to move between Stories, links to a single criterion (`#<AC key>`), and
+a print layout that expands everything. Open the file directly in a browser. Use `--output <path>` to write it elsewhere. When
 [screens](screens.md) are enabled, the page adds a Screens view and shows each Story's and AC's
 linked screens.
 
@@ -140,6 +143,27 @@ tieline contract review . --base origin/main
 `--base <ref>` highlights the Stories, ACs, and screens the branch added, changed, or removed
 relative to the manifest committed where the branch left that ref (`git merge-base <ref> HEAD`).
 It reads only git, so it works offline. See [Changes on a branch](screens.md#changes-on-a-branch).
+
+`contract review` also shows when each Story, AC, and screen last changed ("Last changed in #71 ·
+2026-09-30 · 4 changes"), linked to the pull request when `origin` is on GitHub, from the history
+`contract history` reads. Without git history the page is written without it and says why.
+
+### History
+
+```bash
+tieline contract history [--key <stable-id>] [--limit <n>] [--ref <ref>] [--json]
+```
+
+Lists when Stories, ACs, and screens were added, changed, or removed, newest first, with the pull
+request that did it, or one item's changes with `--key`. A commit changed an item when the
+manifest it commits differs from its first parent's for that item: its content, its `shows`
+links, its place, or a screen's screenshot digest or ARIA snapshot. History follows the
+first-parent line, so on `main` a pull request merged with a merge commit counts as that commit,
+and the pull request number is read from the commit subject (`… (#123)` or
+`Merge pull request #123`). It reads at most `--limit` commits that changed the contract (200 by
+default, up to 2000) and says when older history was not read. A shallow clone's history is
+reported as cut short, and commits a partial clone does not hold are listed as unreadable
+instead of being fetched.
 
 ## Screens
 
@@ -156,6 +180,68 @@ Re-importing updates entries by key and never duplicates them. `--prune` removes
 omits, only within the capabilities it names. An entry for a capability the spec does not declare
 stops the import unless `--skip-unknown-capabilities` is passed. Pass `--json` for a
 machine-readable summary.
+
+```bash
+tieline screens capture --changed --base origin/main [--dry-run | --verify] [--repeat <n>] [--json]
+tieline screens capture --all [--verify]
+```
+
+Captures the screens a branch may have changed with the repository's own Playwright tests tagged
+`@screen:<key>`, each selected with the rule and file that selected it. `--all` and
+`--screen <key>` select every screen or named ones. `--dry-run` only reports the selection;
+`--verify` compares a fresh capture with the committed outputs, writes nothing (with hosted
+screens on, it keeps the screenshots it reproduced exactly in the git-ignored captures directory),
+and exits 1 on any difference; `capture --changed --base <base> --verify` is the recommended
+pull-request check, and verifies every screen when a selection rule cannot run. `--repeat <n>` keeps
+only screens captured identically n times. Screens marked not captured are skipped, and selected
+screens no test tags are listed as not covered. See [Capture with Playwright](screens.md#capture-with-playwright) and
+[Selecting screens to capture](screens.md#selecting-screens-to-capture).
+
+```bash
+tieline screens scenes [--check] [--json]
+```
+
+Writes `screens.capture.generated_scenes.file`: a scene for every catalogued page no other test
+captures, each calling the configured setup module and capturing the page, so no one writes a
+test just to open a page. `--check` writes nothing and exits 1 when the file is out of date with
+the catalog. See [Generated page scenes](screens.md#generated-page-scenes).
+
+```bash
+tieline screens audit [--strict | --capture] [--json]
+```
+
+Lists screens missing a screenshot digest, capture record, committed ARIA snapshot, or
+`@screen` test, mismatched and orphaned ARIA snapshots, page files no screen claims, and UI
+acceptance criteria no `@ac:`-tagged test proves, and generated page scenes that are out of date,
+without capturing anything. `--strict` exits 1
+on any of them, as a coverage gate. `--capture` re-captures every screen and reports the drift.
+See [Audit](screens.md#audit) and [Coverage](screens.md#coverage).
+
+```bash
+tieline screens publish (--pull-request <number> | --branch <name>) [--commit <sha>] [--summary-file <path>] [--trusted <path>] [--json]
+tieline screens close --pull-request <number> [--json]
+tieline screens prune [--json]
+```
+
+With [hosted screens](screens.md#hosted-screens) enabled, `publish` stores a pull request's or
+branch's review page, compared with `main`, and uploads the screenshots the bucket lacks; it
+publishes nothing unless every screenshot the page shows is stored. `--trusted <path>` names a
+checkout Tieline trusts, such as the default branch's: the published checkout must name its
+repository key, bucket, and site URL, or nothing is published. `close` marks a pull request
+closed, and `prune`, run after sync on `main`, deletes what retention no longer keeps. `main` is
+published by `tieline contract sync`, never by `publish`. `--summary-file` writes the Markdown
+CI posts as the pull request's screens comment.
+
+```bash
+tieline hosted init --host netlify [--directory <path>] [--force] [--json]
+tieline hosted check [--url <site>] [--json]
+```
+
+`hosted init` writes a Netlify site that serves hosted screens into `.tieline/hosted/`, without
+replacing edited files unless `--force` is passed. `hosted check` writes, finds, and deletes a
+probe object in the bucket, checks that each database credential set in the environment can do
+its job, and, given the site's URL (or `screens.hosted.site_url`), fails if the site answers a
+visitor who has not logged in. See [Hosted screens](screens.md#hosted-screens).
 
 ## CI check
 
@@ -196,7 +282,8 @@ manifest fails because no trustworthy result can be computed.
 
 When [screens](screens.md) are enabled, the check also fails when the screen catalog does not
 validate, and treats a `shows` link in the working-tree spec to a screen the catalog does not
-contain as a broken link. Repositories without screens see no difference.
+contain as a broken link. It also warns, without changing the exit code, about the screens
+`tieline screens audit` reports. Repositories without screens see no difference.
 
 See [the GitHub Actions example](examples/tieline-check.yml).
 
@@ -210,8 +297,23 @@ Sync is idempotent and checkpointed. A delayed job cannot overwrite a newer proj
 planning changed while a materializing pull request was open, the merged repository version wins
 and the later planning revision is preserved as a handoff conflict for reconciliation.
 
-Screens are not synced yet: sync removes screen catalogs and `shows` links before writing and
-reports what it skipped. See [Screens](screens.md#database-sync).
+Sync also records **change events**: when each Story, AC, and screen was added, changed, or
+removed on the synced branch, and in which pull request, read from the committed manifest's git
+history as [`contract history`](#history) reads it. The first sync records the history git holds
+(at most 2000 commits that changed the contract); each later one records what changed after the
+last recorded commit, so several pull requests merged between syncs are each recorded. Recording
+the same commit again changes nothing. When the synced commit is not a git commit (an explicit
+`--commit` label) or git history cannot be read, sync says so and is otherwise unchanged. When
+some commits cannot be read, such as those a partial clone does not hold, changes newer than
+them wait: recording them would move the resume point past the gap, so a later sync, once git
+can read those commits, records the gap and what followed it; when the
+database refuses the events, the contract stays synced, sync exits 1, and running it again
+records what was missed. Run `tieline migrate` after upgrading so the table exists.
+
+Screens are not synced to the contract tables: sync removes screen catalogs and `shows` links
+before writing and reports what it skipped. With hosted screens enabled, sync then publishes
+`main`'s hosted page and exits 1 if it could not, after the contract was synced; running it again
+at the same commit retries only the screens. See [Screens](screens.md#database-sync).
 
 ## Derived code topology and blast radius
 

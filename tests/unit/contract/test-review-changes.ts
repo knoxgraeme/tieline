@@ -217,6 +217,51 @@ await test("reports acceptance criteria reordered within their Story, not ones s
   );
 });
 
+await test("reports a changed ARIA snapshot as a text change, apart from the image and details", () => {
+  const capturedCatalog = (imageDigest: string, textDigest: string | null): string =>
+    `version: 1
+capability: NOTES
+screens:
+  - key: notes-list
+    title: Notes list
+    route: /notes
+    kind: page
+    when: A member opens Notes.
+    image:
+      path: notes-list.png
+      sha256: ${imageDigest}
+${
+  textDigest
+    ? `    capture:
+      fingerprint: ${DIGEST_C}
+      text_sha256: ${textDigest}
+      test: e2e/notes.screens.ts
+`
+    : ""
+}`;
+  const ws = createScreensWorkspace({
+    screens: { enabled: true },
+    catalog: { ".tieline/screens/NOTES.yaml": capturedCatalog(DIGEST_A, DIGEST_A) },
+  });
+  workspaces.push(ws);
+  const base = compile(ws);
+  const aspectsAfter = (imageDigest: string, textDigest: string | null) => {
+    ws.write(".tieline/screens/NOTES.yaml", capturedCatalog(imageDigest, textDigest));
+    return diffReviewManifests(base, compile(ws), "origin/main").screens.map((screen) => [
+      screen.stable_id,
+      screen.status,
+      screen.aspects,
+    ]);
+  };
+  // Copy that changed without a pixel difference (an accessible name, say).
+  assert.deepEqual(aspectsAfter(DIGEST_A, DIGEST_B), [["notes-list", "changed", ["text"]]]);
+  assert.deepEqual(aspectsAfter(DIGEST_B, DIGEST_B), [["notes-list", "changed", ["image", "text"]]]);
+  assert.deepEqual(aspectsAfter(DIGEST_B, DIGEST_A), [["notes-list", "changed", ["image"]]]);
+  // A capture record that disappears takes its ARIA snapshot with it.
+  assert.deepEqual(aspectsAfter(DIGEST_A, null), [["notes-list", "changed", ["text"]]]);
+  assert.deepEqual(aspectsAfter(DIGEST_A, DIGEST_A), []);
+});
+
 await test("badges changes across both views while keeping the whole contract navigable", () => {
   const ws = branchWorkspace(true);
   const base = compile(ws);
@@ -232,6 +277,16 @@ await test("badges changes across both views while keeping the whole contract na
   assert.match(page, /data-story-key="SHARING-001"\s+data-lifecycle="in_progress"\s*>/, "unchanged Stories carry no badge");
   assert.match(page, /<code>NOTES-001-AC2<\/code> <span class="change-badge change-changed"/);
   assert.match(page, /<select id="screen-change-filter">/);
+  // The changed criterion carries its state for the number gutter, and the
+  // Story counts it in its criteria heading.
+  assert.match(page, /<section class="criterion" id="NOTES-001-AC2" data-change="changed">/);
+  assert.match(page, /<section class="criterion" id="NOTES-001-AC1">/);
+  assert.match(page, /<small class="changed-count">· 1 changed<\/small>/);
+  // Each view can be narrowed to what changed.
+  assert.match(page, /id="story-change-toggle" aria-pressed="false"[^>]*>Changed <span>1<\/span>/);
+  assert.match(page, /id="screen-change-toggle" aria-pressed="false"[^>]*>Changed <span>3<\/span>/);
+  // A changed screen is tagged on the Story's thumbnail without its picture.
+  assert.match(page, /data-open-screen="note-saved-toast">\s*<span class="chip-shot" data-kind="toast" data-state="none"><i>No capture<\/i> <span class="change-badge change-changed"/);
   const data = JSON.parse(/<script type="application\/json" id="screen-data">([\s\S]*?)<\/script>/.exec(page)![1]!);
   const byKey = new Map<string, { change?: unknown }>(data.screens.map((screen: { key: string }) => [screen.key, screen]));
   assert.deepEqual(byKey.get("notes-list")!.change, { status: "changed", aspects: ["image"] });
@@ -252,10 +307,40 @@ await test("badges changes across both views while keeping the whole contract na
     ".change-badge {",
     '"change":',
     "data-change-link",
+    'id="story-change-toggle"',
+    'id="screen-change-toggle"',
+    'class="changed-count"',
+    'class="criterion criterion-removed"',
   ]) {
     assert.equal(plain.includes(marker), false, marker);
   }
   assert.equal(plain.includes(REVIEW_CHANGE_SCRIPT), false);
+});
+
+await test("shows a removed criterion struck through on the Story it left", () => {
+  const ws = branchWorkspace(false);
+  const base = compile(ws);
+  ws.write(
+    ".tieline/spec/notes.yaml",
+    notesSpecYaml().replace(/        - key: NOTES-001-AC2\n.*\n/, "")
+  );
+  const changes = diffReviewManifests(base, compile(ws), "origin/main");
+  assert.deepEqual(
+    changes.records.map((record) => [record.stable_id, record.status]),
+    [["NOTES-001-AC2", "removed"]]
+  );
+  const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, { changes }).path, "utf8");
+  const story = /<template id="story-NOTES-001">([\s\S]*?)<\/template>/.exec(page)![1]!;
+  assert.match(
+    story,
+    /<section class="criterion criterion-removed" data-change="removed">\s*<span class="criterion-number" aria-hidden="true">–<\/span>\s*<div>\s*<header class="criterion-head"><code>NOTES-001-AC2<\/code> <span class="change-badge change-removed"[^>]*>Removed<\/span><\/header>\s*<p class="criterion-text">The notes list must invite a member without notes to write one\.<\/p>/
+  );
+  // It is not a live criterion: nothing can link to it.
+  assert.doesNotMatch(story, /id="NOTES-001-AC2"/);
+  assert.match(story, /<small class="changed-count">· 1 changed<\/small>/);
+  // Another Story shows no removal of this one.
+  const sharing = /<template id="story-SHARING-001">([\s\S]*?)<\/template>/.exec(page)![1]!;
+  assert.doesNotMatch(sharing, /criterion-removed|changed-count/);
 });
 
 await test("routes a summary link through history so every router on the page hears it", () => {
@@ -323,6 +408,12 @@ await test("summarizes Story and AC changes for repositories without screens", (
   const page = readFileSync(writeWorkspaceReviewPage(ws.root, REPO_KEY, ".tieline/spec", undefined, { changes }).path, "utf8");
   assert.match(page, /0 Stories, 1 acceptance criteria, and 0 screens changed\./);
   assert.match(page, /data-story-key="NOTES-001"\s+data-lifecycle="production" data-change="changed"/);
+  // The Story did not change itself, but its header still says one of its
+  // criteria did, as its navigation entry does.
+  assert.match(
+    page,
+    /<code>NOTES-001<\/code> <span class="change-badge change-changed" title="Changed on this branch \(acceptance criteria\)">Changed<\/span><\/p>/
+  );
   assert.equal(page.includes("screen-data"), false);
   assert.equal(page.includes("view-tabs"), false);
 });
@@ -434,17 +525,27 @@ await test("reads every base manifest file through one git process", async () =>
   writeFileSync(resolve(bin, "git"), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nexec '${realGit}' "$@"\n`, { mode: 0o755 });
   const path = process.env.PATH;
   process.env.PATH = `${bin}:${path ?? ""}`;
-  try {
+  // The page also reads its history through git, so compare a review with a
+  // base against one without: the base may add exactly one process.
+  const calls = async (args: string[]): Promise<string[]> => {
+    writeFileSync(log, "");
     const capture = captureIO();
-    assert.equal(await runCli(["contract", "review", ws.root, "--base", "HEAD", "--json"], capture.io, {}), 0);
-    assert.equal(JSON.parse(capture.output()).changes.base_has_manifest, true);
+    assert.equal(await runCli(["contract", "review", ws.root, ...args, "--json"], capture.io, {}), 0);
+    if (args.length > 0) assert.equal(JSON.parse(capture.output()).changes.base_has_manifest, true);
+    return readFileSync(log, "utf8").split("\n").filter(Boolean);
+  };
+  let withoutBase: string[];
+  let withBase: string[];
+  try {
+    withoutBase = await calls([]);
+    withBase = await calls(["--base", "HEAD"]);
   } finally {
     process.env.PATH = path;
+    rmSync(bin, { recursive: true, force: true });
   }
-  const calls = readFileSync(log, "utf8").split("\n").filter(Boolean);
-  rmSync(bin, { recursive: true, force: true });
-  assert.equal(calls.filter((call) => call === "cat-file --batch").length, 1);
-  assert.deepEqual(calls.filter((call) => /^show \S+:\.tieline\/manifest\//.test(call)), []);
+  const batches = (list: string[]) => list.filter((call) => call === "cat-file --batch").length;
+  assert.equal(batches(withBase) - batches(withoutBase), 1);
+  assert.deepEqual(withBase.filter((call) => /^show \S+:\.tieline\/manifest\//.test(call)), []);
 });
 
 await test("refuses a base manifest past its total size before reading it", async () => {
@@ -570,6 +671,11 @@ await test("compares against a git ref from the CLI and explains when it cannot"
     /<aside class="changes changes-unavailable"[^>]*>\s*<header><strong>Changes against <code>HEAD<\/code> are not shown<\/strong><\/header>\s*<p class="changes-note">the working-tree contract does not compile \(Contract validation failed:/
   );
   assert.match(page, /\.changes-unavailable \{/);
+  // With nothing valid to show, the page says the contract does not
+  // validate instead of offering onboarding.
+  assert.match(page, /<strong>Review notes <span>· 1<\/span><\/strong>/);
+  assert.match(page, /<h1>The contract does not validate<\/h1>/);
+  assert.doesNotMatch(page, /No capabilities yet|Invoke the installed skill/);
 
   await assert.rejects(
     () => runCli(["contract", "review", ws.root, "--base", "no-such-ref", "--json"], captureIO().io, {}),

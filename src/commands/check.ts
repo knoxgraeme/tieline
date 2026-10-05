@@ -15,6 +15,16 @@ import {
 } from "../contract/screen-catalog.js";
 import { ContractValidationError } from "../contract/validate.js";
 import {
+  auditScreenCaptures,
+  screenAuditWarnings,
+  summarizeScreenAudit,
+  type ScreenAuditContract,
+  type ScreenAuditSummary,
+} from "../contract/screen-audit.js";
+import { workingTreeChangesSince } from "../contract/screen-capture-selection.js";
+import { scanPageFiles, scanScreenScenes } from "../contract/screen-scenes.js";
+import { readScreenTextDirectory } from "../contract/screen-text.js";
+import {
   analyzeContractImpact,
   changesSince,
   describeBrokenCause,
@@ -90,6 +100,12 @@ export interface ScreenCheck {
   broken_links: BrokenScreenLink[];
   /** Catalog problems, and `shows` declarations the validator refuses. */
   catalog_issues: string[];
+  /**
+   * What `tieline screens audit` reports as missing, counted. Advisory: it
+   * never changes the exit code. Null when the catalog is invalid or screens
+   * are disabled.
+   */
+  captures: ScreenAuditSummary | null;
 }
 
 type ScreenLinkOwner = Omit<BrokenScreenLink, "screen_key" | "provenance">;
@@ -166,8 +182,9 @@ function declaredScreenLinks(
 function checkScreens(
   root: string,
   specDirectory: string,
-  manifest: ContractManifest
-): ScreenCheck | null {
+  manifest: ContractManifest,
+  audited: { contract: ScreenAuditContract; added: ReadonlySet<string> }
+): { check: ScreenCheck; warnings: string[] } | null {
   const settings = screenSettingsForRepository(root, { specDirectory });
   if (!settings) {
     // A repository that never enabled screens has no screen data in its
@@ -179,14 +196,18 @@ function checkScreens(
     );
     if (links.length === 0 && manifest.screen_catalogs === undefined) return null;
     return {
-      status: "disabled_with_screen_data",
-      catalog_path: null,
-      catalog_screens: screens,
-      shows_links: links.length,
-      broken_links: [],
-      catalog_issues: [
-        `the committed manifest records ${screens} screen(s) and ${links.length} shows link(s), but screens are not enabled in .tieline/config.json; enable screens again, or remove the screens and shows links and recompile`,
-      ],
+      check: {
+        status: "disabled_with_screen_data",
+        catalog_path: null,
+        catalog_screens: screens,
+        shows_links: links.length,
+        broken_links: [],
+        catalog_issues: [
+          `the committed manifest records ${screens} screen(s) and ${links.length} shows link(s), but screens are not enabled in .tieline/config.json; enable screens again, or remove the screens and shows links and recompile`,
+        ],
+        captures: null,
+      },
+      warnings: [],
     };
   }
   // Capability keys and links are read leniently, so a catalog naming an
@@ -221,7 +242,18 @@ function checkScreens(
     ? declaredScreenLinks(declaredLinks)
     : manifestScreenLinks(manifest);
   const catalogInvalid = issues.length > 0;
-  return {
+  const audit = catalogInvalid
+    ? null
+    : auditScreenCaptures({
+        settings,
+        catalog,
+        text: readScreenTextDirectory(settings),
+        scenes: scanScreenScenes(root, settings.sceneTests),
+        pages: scanPageFiles(root, settings.capture.pages),
+        contract: audited.contract,
+      });
+  const captures = audit ? summarizeScreenAudit(audit) : null;
+  const check: ScreenCheck = {
     status: catalogInvalid ? "catalog_invalid" : "evaluated",
     catalog_path: settings.catalogPath,
     catalog_screens: catalog.screens.size,
@@ -238,6 +270,11 @@ function checkScreens(
             provenance: link.provenance,
           })),
     catalog_issues: issues,
+    captures,
+  };
+  return {
+    check,
+    warnings: audit ? screenAuditWarnings(audit, audited.added) : [],
   };
 }
 
@@ -487,8 +524,9 @@ export async function runCheckCommand(
   // failure here is itself a finding rather than a reason to abort the check.
   let manifestCurrent = false;
   let manifestCompileError: string | null = null;
+  let currentManifest: ContractManifest | null = null;
   try {
-    const currentManifest = compileContractManifest({
+    currentManifest = compileContractManifest({
       repositoryRoot: root,
       repositoryKey,
       specDirectory,
@@ -509,7 +547,23 @@ export async function runCheckCommand(
   const brokenLinks = impacts.filter(isBrokenImpact);
   // Null unless the repository enabled screens, so a disabled feature adds
   // nothing to the result, the output, or the exit code.
-  const screens = checkScreens(root, specDirectory, manifest);
+  // Tests are matched against the working-tree contract, the one a branch is
+  // changing; when it does not compile, the audit says so.
+  const screenResult = checkScreens(root, specDirectory, manifest, {
+    contract: currentManifest
+      ? { manifest: currentManifest }
+      : { manifest: null, detail: `the working-tree contract does not compile: ${manifestCompileError ?? "unknown error"}` },
+    // New files a developer has not added to git yet count as added here, so
+    // a page file created locally is named before it is committed.
+    added: screenSettingsForRepository(root, { specDirectory })
+      ? new Set(
+          workingTreeChangesSince(root, comparison.commit).flatMap((change) =>
+            change.status === "added" || change.status === "renamed" ? [change.path] : []
+          )
+        )
+      : new Set<string>(),
+  });
+  const screens = screenResult?.check ?? null;
   const brokenScreenLinks = screens?.broken_links ?? [];
   const screenCatalogInvalid =
     screens?.status === "catalog_invalid" || screens?.status === "disabled_with_screen_data";
@@ -610,6 +664,7 @@ export async function runCheckCommand(
         : unclaimed.length
           ? [unclaimedSummaryWarning(unclaimed.length)]
           : []),
+      ...(screenResult?.warnings ?? []),
     ],
   };
   if (options.json) {
@@ -623,6 +678,10 @@ export async function runCheckCommand(
     const screenSummary = screens
       ? `; broken screen link(s)=${brokenScreenLinks.length}${
           screenCatalogInvalid ? "; screen catalog=invalid" : ""
+        }${
+          screens.captures
+            ? `; screens missing capture output(s)=${screens.captures.incomplete}`
+            : ""
         }`
       : "";
     io.write(

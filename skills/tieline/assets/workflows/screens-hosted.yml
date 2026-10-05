@@ -1,0 +1,56 @@
+name: Screens
+
+# Runs the pull request's code (its dependencies, tests, and Tieline), so it
+# holds no credentials. screens-hosted-publish.yml, which the default branch
+# owns, publishes what it captured.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+# One run per pull request at a time; a newer push cancels an older run, which
+# then publishes nothing.
+concurrency:
+  group: screens-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    # Captures that count are made in the pinned Playwright image, so exact
+    # digests compare like for like. Keep this tag equal to the app's
+    # @playwright/test version.
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      TIELINE_CAPTURE_IMAGE: mcr.microsoft.com/playwright:v1.63.0-noble
+    steps:
+      # The pull request's head, the commit the publish workflow reads.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: npm ci
+      # Re-captures the screens this pull request may have changed (every
+      # screen if a selection rule cannot run) and fails, naming each screen,
+      # when the committed outputs differ. With hosted screens on, it keeps the
+      # screenshots it reproduced exactly; every other screen keeps the image
+      # main already published.
+      - run: npx tieline screens capture --changed --base "origin/${{ github.base_ref }}" --verify
+      # Turn on once the catalog is backfilled: fails while any screen, page,
+      # or UI acceptance criterion is unaccounted for.
+      # - run: npx tieline screens audit --strict
+      # Hands the reproduced screenshots to the publish workflow. Keep the path
+      # equal to screens.captures_directory. Pull requests from forks are
+      # verified, not published.
+      - if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens-captures
+          path: .tieline/captures/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 1

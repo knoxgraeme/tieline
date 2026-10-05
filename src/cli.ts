@@ -168,7 +168,7 @@ export function workspaceStartForCommand(
     );
   }
   if (command === "contract") {
-    if (args[0] === "criteria" || args[0] === "context") {
+    if (args[0] === "criteria" || args[0] === "context" || args[0] === "history") {
       return optionValue(args, "repository") ?? process.cwd();
     }
     return (
@@ -200,7 +200,7 @@ export function workspaceStartForCommand(
   if (command === "status") {
     return firstPositional(args, new Set()) ?? process.cwd();
   }
-  if (command === "screens") {
+  if (command === "screens" || command === "hosted") {
     return optionValue(args, "repository") ?? process.cwd();
   }
   return process.cwd();
@@ -466,6 +466,31 @@ function buildProgram(
       );
     });
   contract
+    .command("history")
+    .description(
+      "Show when Stories, acceptance criteria, and screens changed, and in which pull request"
+    )
+    .option("--key <stable-id>", "one Story, acceptance criterion, or screen")
+    .option("--limit <n>", "commits that changed the contract to read (default 200, at most 2000)")
+    .option("--ref <ref>", "read history back from this ref (default HEAD)")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runContractHistoryCommand } = await import("./commands/contract-history.js");
+      setExit(
+        runContractHistoryCommand(
+          {
+            repository: opts.repository,
+            key: opts.key,
+            ...(opts.limit === undefined ? {} : { limit: Number(opts.limit) }),
+            ref: opts.ref,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+  contract
     .command("context")
     .description(
       "Inspect the exact intent neighborhood for an asset or Acceptance Criterion"
@@ -529,6 +554,212 @@ function buildProgram(
             dryRun: Boolean(opts.dryRun),
             json: Boolean(opts.json),
           },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("capture")
+    .description(
+      "Capture screens with the repository's Playwright tests tagged @screen:<key>"
+    )
+    .option("--all", "select every catalogued screen")
+    .option("--changed", "select the screens a branch may have changed (needs --base)")
+    .option("--base <ref>", "with --changed: compare from where the branch left this ref")
+    .option("--screen <key>", "select a screen by key (repeatable)", collect, [])
+    .option("--dry-run", "report the selection and each reason without capturing")
+    .option(
+      "--verify",
+      "compare a fresh capture with the committed outputs; write nothing and fail on any difference"
+    )
+    .option(
+      "--repeat <n>",
+      "capture n times (1-5) and keep only screens every run captured identically"
+    )
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensCaptureCommand } = await import("./commands/screens-capture.js");
+      setExit(
+        await runScreensCaptureCommand(
+          {
+            repository: opts.repository,
+            all: Boolean(opts.all),
+            changed: Boolean(opts.changed),
+            base: opts.base,
+            screens: opts.screen,
+            dryRun: Boolean(opts.dryRun),
+            verify: Boolean(opts.verify),
+            ...(opts.repeat === undefined ? {} : { repeat: Number(opts.repeat) }),
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("scenes")
+    .description(
+      "Generate a scene for each catalogued page no other test captures (screens.capture.generated_scenes)"
+    )
+    .option("--check", "write nothing; fail when the generated file is out of date with the catalog")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensScenesCommand } = await import("./commands/screens.js");
+      setExit(
+        runScreensScenesCommand(
+          { repository: opts.repository, check: Boolean(opts.check), json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("audit")
+    .description(
+      "List screens whose capture outputs are missing or inconsistent, without capturing"
+    )
+    .option(
+      "--capture",
+      "re-capture every screen and report the ones that drifted (writes the outputs)"
+    )
+    .option(
+      "--strict",
+      "fail when any screen, page file, or UI acceptance criterion is unaccounted for"
+    )
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      if (opts.capture && opts.strict) {
+        throw new Error("--strict checks coverage without capturing; run it separately from --capture.");
+      }
+      if (opts.capture) {
+        const { runScreensAuditCaptureCommand } = await import("./commands/screens-capture.js");
+        setExit(
+          await runScreensAuditCaptureCommand(
+            { repository: opts.repository, json: Boolean(opts.json) },
+            io
+          )
+        );
+        return;
+      }
+      const { runScreensAuditCommand } = await import("./commands/screens.js");
+      setExit(
+        await runScreensAuditCommand(
+          { repository: opts.repository, json: Boolean(opts.json), strict: Boolean(opts.strict) },
+          io
+        )
+      );
+    });
+
+  const hosted = program
+    .command("hosted")
+    .description("Set up and check the hosted screens site (requires screens.hosted)");
+  hosted
+    .command("init")
+    .description("Write a site that serves hosted screens, for a host to deploy")
+    .requiredOption("--host <host>", "the host to deploy to: netlify")
+    .option("--directory <path>", "where to write the site (default: .tieline/hosted)")
+    .option("--force", "replace files that already exist with other content")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runHostedInitCommand } = await import("./commands/hosted.js");
+      setExit(
+        runHostedInitCommand(
+          {
+            repository: opts.repository,
+            host: opts.host,
+            directory: opts.directory,
+            force: Boolean(opts.force),
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+  hosted
+    .command("check")
+    .description(
+      "Check the bucket, the database credentials set here, and that the site asks visitors to log in"
+    )
+    .option("--url <url>", "the deployed site (default: screens.hosted.site_url)")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runHostedCheckCommand } = await import("./commands/hosted.js");
+      setExit(
+        await runHostedCheckCommand(
+          { repository: opts.repository, url: opts.url, json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("publish")
+    .description(
+      "Publish a pull request's or branch's review page and screenshots to hosted screens (requires screens.hosted)"
+    )
+    .option("--pull-request <number>", "publish as this pull request")
+    .option("--branch <name>", "publish as this branch")
+    .option("--commit <sha>", "the commit published (default: HEAD)")
+    .option("--summary-file <path>", "once published, write a Markdown summary for a pull-request comment")
+    .option(
+      "--trusted <path>",
+      "a trusted checkout (the default branch's) whose repository key, bucket, and site URL the published checkout must name"
+    )
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensPublishCommand } = await import("./commands/screens-hosting.js");
+      setExit(
+        await runScreensPublishCommand(
+          {
+            repository: opts.repository,
+            pullRequest: opts.pullRequest,
+            branch: opts.branch,
+            commit: opts.commit,
+            summaryFile: opts.summaryFile,
+            trusted: opts.trusted,
+            json: Boolean(opts.json),
+          },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("close")
+    .description("Mark a pull request's hosted page closed, so prune deletes it")
+    .requiredOption("--pull-request <number>", "the closed pull request")
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensCloseCommand } = await import("./commands/screens-hosting.js");
+      setExit(
+        await runScreensCloseCommand(
+          { repository: opts.repository, pullRequest: opts.pullRequest, json: Boolean(opts.json) },
+          io
+        )
+      );
+    });
+
+  screens
+    .command("prune")
+    .description(
+      "Delete hosted pages and screenshots retention no longer keeps (run after sync on main)"
+    )
+    .option("--repository <path>", "repository path")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (opts) => {
+      const { runScreensPruneCommand } = await import("./commands/screens-hosting.js");
+      setExit(
+        await runScreensPruneCommand(
+          { repository: opts.repository, json: Boolean(opts.json) },
           io
         )
       );

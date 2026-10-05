@@ -9,7 +9,7 @@ import {
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { z, type ZodIssue } from "zod";
-import { readScreensConfig } from "../config.js";
+import { readScreensConfig, type ScreensHostedConfig } from "../config.js";
 import { isStillFile, readFileWithin, type BoundedRead } from "./bounded-read.js";
 import { withinRepository } from "./paths.js";
 import { applicabilitySchema, stableKeySchema } from "./schema.js";
@@ -47,8 +47,12 @@ export const SCREEN_LIMITS = {
   whenChars: 500,
   copyItems: 50,
   copyChars: 500,
+  pathPatterns: 20,
+  pathPatternChars: 240,
   imagePathChars: 500,
   imageUrlChars: 2_048,
+  testPathChars: 500,
+  notCapturedDetailChars: 500,
   applicabilityDimensions: 16,
   applicabilityValues: 32,
   applicabilityChars: 120,
@@ -75,19 +79,25 @@ function boundedLine(max: number) {
   );
 }
 
+function relativePathProblem(value: string, base: string): string | null {
+  if (CONTROL_CHARACTERS.test(value)) return "must not contain control characters";
+  if (value.includes("\\")) return "must use '/' as the path separator";
+  if (value.startsWith("/")) return `must be relative to ${base}`;
+  if (value.includes(":")) return "must be a relative path, not a URL or drive path";
+  if (value.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return "must not contain empty, '.', or '..' segments";
+  }
+  return null;
+}
+
 /**
  * Why an image path cannot be used, or null. Paths are relative to the
  * configured captures directory, so anything that could name a file outside it,
  * or be read as a URL by a browser, is refused.
  */
 export function screenImagePathProblem(value: string): string | null {
-  if (CONTROL_CHARACTERS.test(value)) return "must not contain control characters";
-  if (value.includes("\\")) return "must use '/' as the path separator";
-  if (value.startsWith("/")) return "must be relative to the captures directory";
-  if (value.includes(":")) return "must be a relative path, not a URL or drive path";
-  if (value.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
-    return "must not contain empty, '.', or '..' segments";
-  }
+  const problem = relativePathProblem(value, "the captures directory");
+  if (problem) return problem;
   if (!IMAGE_EXTENSION.test(value)) {
     return "must name a .png, .jpg, .jpeg, .webp, .gif, .avif, or .svg file";
   }
@@ -139,6 +149,77 @@ export const screenImageSchema = z.union([
     .object({ url: screenImageUrlSchema, sha256: screenImageDigestSchema.optional() })
     .strict(),
 ]);
+
+/**
+ * Why a repository-relative file path cannot be recorded, or null. Used for
+ * paths a capture writes into the catalog, which reviewers and later commands
+ * read back as locations inside the repository.
+ */
+export function repositoryFilePathProblem(value: string): string | null {
+  return relativePathProblem(value, "the repository root");
+}
+
+/**
+ * What a Tieline capture recorded about a screen, written by
+ * `tieline screens capture` and committed with the catalog:
+ *
+ * - `fingerprint`: the SHA-256 of the canonical capture settings (browser,
+ *   viewport, fonts, and the rest), so digests are only compared like for like;
+ * - `text_sha256`: the SHA-256 of the screen's committed ARIA snapshot;
+ * - `test`: the repository-relative test file that captured it.
+ */
+export const screenCaptureSchema = z
+  .object({
+    fingerprint: screenImageDigestSchema,
+    text_sha256: screenImageDigestSchema,
+    test: boundedText(SCREEN_LIMITS.testPathChars).superRefine((value, ctx) => {
+      const problem = repositoryFilePathProblem(value);
+      if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+    }),
+  })
+  .strict();
+
+/**
+ * A repository-relative path pattern naming files that render a screen: `*`
+ * matches within one path segment and `**` across any number of segments, none
+ * included, and a pattern also covers everything beneath the path it matches
+ * (see `screenPathPattern`).
+ */
+export const screenPathPatternSchema = boundedText(SCREEN_LIMITS.pathPatternChars).superRefine(
+  (value, ctx) => {
+    const problem = relativePathProblem(value, "the repository root");
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  }
+);
+
+/**
+ * Why a screen is deliberately not captured. A screen is either captured or
+ * says why not, so a catalog can account for every screen honestly:
+ *
+ * - `flag-off`: behind a feature flag that is off in the capture profile;
+ * - `external`: on another site, such as a payment or sign-in provider;
+ * - `unreachable`: no path in the app leads to it;
+ * - `needs-real-trigger`: reaching it would mean faking a response, and no
+ *   seeded data or test-only switch in the app makes it happen for real yet;
+ * - `unstable`: its capture differs from run to run until it is fixed;
+ * - `other`: explained in `detail`.
+ */
+export const SCREEN_NOT_CAPTURED_REASONS = [
+  "flag-off",
+  "external",
+  "unreachable",
+  "needs-real-trigger",
+  "unstable",
+  "other",
+] as const;
+export type ScreenNotCapturedReason = (typeof SCREEN_NOT_CAPTURED_REASONS)[number];
+
+export const screenNotCapturedSchema = z
+  .object({
+    reason: z.enum(SCREEN_NOT_CAPTURED_REASONS),
+    detail: boundedText(SCREEN_LIMITS.notCapturedDetailChars),
+  })
+  .strict();
 
 /** The shared applicability schema, with bounds on its size. */
 export const screenApplicabilitySchema = applicabilitySchema.superRefine((value, ctx) => {
@@ -204,22 +285,60 @@ export const screenEntrySchema = z
       .array(boundedText(SCREEN_LIMITS.copyChars))
       .max(SCREEN_LIMITS.copyItems)
       .optional(),
+    /**
+     * Files that render the screen, usually its page or route file. Used only
+     * to decide which screens a branch may have changed; shared components need
+     * not be listed, because the code-topology blast radius follows them to the
+     * files that use them.
+     */
+    paths: z
+      .array(screenPathPatternSchema)
+      .min(1)
+      .max(SCREEN_LIMITS.pathPatterns)
+      .optional(),
     image: screenImageSchema.optional(),
     scene: reservedField("scene", "the script that reaches a screen"),
-    capture: reservedField("capture", "capture fingerprints"),
+    capture: screenCaptureSchema.optional(),
+    not_captured: screenNotCapturedSchema.optional(),
   })
   .strict();
+
+/**
+ * A capture record describes a screenshot Tieline wrote into the captures
+ * directory, so an entry that has one must locate that screenshot by path and
+ * record its digest. Anything else would be a record of a picture nobody can
+ * find or compare.
+ */
+const catalogScreenEntrySchema = screenEntrySchema.superRefine((entry, ctx) => {
+  if (!entry.capture) return;
+  if (entry.not_captured) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["not_captured"],
+      message: "a screen with a capture record cannot also be marked not captured; remove one",
+    });
+  }
+  if (!entry.image || !("path" in entry.image) || entry.image.sha256 === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["capture"],
+      message: "a capture record requires an image path with its sha256",
+    });
+  }
+});
 
 /** One catalog file: the screens of exactly one capability. */
 export const screenCatalogDocumentSchema = z
   .object({
     version: z.literal(1),
     capability: stableKeySchema,
-    screens: z.array(screenEntrySchema).max(SCREEN_LIMITS.screens),
+    screens: z.array(catalogScreenEntrySchema).max(SCREEN_LIMITS.screens),
   })
   .strict();
 
 export type ScreenImage = z.infer<typeof screenImageSchema>;
+export type ScreenCapture = z.infer<typeof screenCaptureSchema>;
+export type ScreenNotCaptured = z.infer<typeof screenNotCapturedSchema>;
 export type ScreenEntry = z.infer<typeof screenEntrySchema>;
 export type ScreenCatalogDocument = z.infer<typeof screenCatalogDocumentSchema>;
 
@@ -244,10 +363,34 @@ export interface ScreenSettings {
   catalogExisted: boolean;
   /** Absolute captures directory. */
   capturesDirectory: string;
+  /** Absolute directory of committed ARIA snapshots, one `<key>.yml` per screen. */
+  textDirectory: string;
   /** Catalog directory relative to the repository root, `/`-separated. */
   catalogPath: string;
   /** Captures directory relative to the repository root, `/`-separated. */
   capturesPath: string;
+  /** Text directory relative to the repository root, `/`-separated. */
+  textPath: string;
+  /** Scene test file patterns; null means the Playwright naming defaults. */
+  sceneTests: string[] | null;
+  /** Path patterns whose change selects every screen for capture. */
+  globalPaths: string[];
+  /** How a capture run starts Playwright. */
+  capture: {
+    /** Repository-relative Playwright configuration, or null for Playwright's default. */
+    playwrightConfig: string | null;
+    project: string | null;
+    timeoutMinutes: number;
+    /** Page file patterns, `!` excluding; empty when page coverage is not checked. */
+    pages: string[];
+    /**
+     * Repository-relative paths of the generated page scenes file and its
+     * setup module, or null when scenes are not generated.
+     */
+    generatedScenes: { file: string; setup: string | null } | null;
+  };
+  /** Where hosted screens are published; null unless hosting is enabled. */
+  hosted: ScreensHostedConfig | null;
 }
 
 function portable(path: string): string {
@@ -428,15 +571,50 @@ export function screenSettingsForRepository(
       );
     }
   }
+  // Committed ARIA snapshots are written by capture, so the text directory is
+  // judged like the catalog: inside `.tieline/` by where it really resolves,
+  // apart from the catalog and the spec (whose loaders read every YAML file
+  // in them), and outside the git-ignored captures directory.
+  const textDirectory = resolve(workspace, config.text_directory);
+  const realText = realDestination(textDirectory);
+  const textProblem =
+    textDirectory === workspace || !withinRepository(workspace, textDirectory)
+      ? `the text directory must be a directory inside '${portable(relative(root, workspace))}'`
+      : realText === realWorkspace || !withinRepository(realWorkspace, realText)
+        ? `it resolves to '${realText}' through a symbolic link, outside '${portable(relative(root, workspace))}'`
+        : withinRepository(realCatalog, realText) || withinRepository(realText, realCatalog)
+          ? "the text directory must not overlap the screen catalog, whose loader reads every YAML file in it"
+          : specs.some((spec) => withinRepository(spec.real, realText) || withinRepository(realText, spec.real))
+            ? "the text directory must not overlap the spec directory, whose loader reads every YAML file in it"
+          : withinRepository(realCaptures, realText)
+            ? "the text directory must not be inside the git-ignored captures directory"
+            : null;
+  if (textProblem) {
+    throw new Error(
+      `Invalid 'screens.text_directory' '${config.text_directory}': ${textProblem}.`
+    );
+  }
   return {
     catalogDirectory,
     realCatalogDirectory: realCatalog,
     capturesDirectory,
+    textDirectory,
     realCapturesDirectory: realCaptures,
     realWorkspaceDirectory: realWorkspace,
     catalogExisted: pathExists(catalogDirectory),
     catalogPath: portable(relative(root, catalogDirectory)),
     capturesPath: portable(relative(root, capturesDirectory)) || ".",
+    textPath: portable(relative(root, textDirectory)),
+    sceneTests: config.capture.tests,
+    globalPaths: config.capture.global_paths,
+    capture: {
+      playwrightConfig: config.capture.playwright_config,
+      project: config.capture.project,
+      timeoutMinutes: config.capture.timeout_minutes,
+      pages: config.capture.pages,
+      generatedScenes: config.capture.generated_scenes,
+    },
+    hosted: config.hosted,
   };
 }
 

@@ -1,0 +1,4 @@
+body { margin: 0; font-family: sans-serif; background: #ffffff; color: #1f2328; }
+main { padding: 24px; }
+h1 { font-size: 24px; margin: 0 0 16px; }
+[role="alert"] { color: #b42318; }

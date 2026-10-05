@@ -2,11 +2,15 @@
 
 [Screens](../screens.md) · **Capture and hosted review (proposal)**
 
-**Status: proposal for review. Nothing on this page is implemented.** What exists today — the
-catalog, `shows` links, `tieline screens import`, the Screens view, and
-`tieline contract review --base` — is documented in [Screens](../screens.md). This page proposes
-how screenshots get produced for any app, and how a team can review them together, so that the
-later phases can be reviewed before any database, role, or hosting change is built.
+**Status: proposal for review. Capture (sections 1 to 4, step 2 of the
+[proposed order](#8-proposed-order)) and hosted review (section 5, step 4) are implemented;
+history is not.** What exists today — the catalog, `shows` links, `tieline screens import`, the
+Screens view, `tieline contract review --base`, `tieline screens capture`, `tieline screens
+audit`, `tieline screens publish`, and the hosted site — is documented in
+[Screens](../screens.md), and [how capture was built](#how-capture-was-built) and
+[how hosting was built](#how-hosting-was-built) record where they refine this proposal. This page proposes how screenshots get produced for any
+app, and how a team can review them together, so that the later phases can be reviewed before
+any database, role, or hosting change is built.
 
 ## Goals
 
@@ -84,8 +88,9 @@ records the ARIA snapshot, and hands both to the reporter.
   only some of them, the reporter discards the others, so a screen that was not selected always
   keeps `main`'s digest.
 
-Plain pages need no hand-written test: a `screensFromCatalog()` helper generates one navigation
-test per `page` entry, filling route parameters from a small fixtures map.
+Plain pages need no hand-written test: `tieline screens scenes` generates one navigation scene
+per `page` entry, and an agent-written setup module fills in route parameters, logins, and seed
+data (built as a committed file; see [how capture was built](#how-capture-was-built)).
 
 ### Three ways to adopt, lowest effort first
 
@@ -122,7 +127,7 @@ the screens a branch may have affected, chosen by these rules in order:
 
 1. screens whose catalog entry or scene test changed in the diff;
 2. screens shown by acceptance criteria whose linked code or tests changed (contract coupling);
-3. screens owned by changed files, through optional path globs per catalog group;
+3. screens owned by changed files, through optional path globs per catalog entry (`paths`);
 4. screens owned by dependents of changed files, through the existing code-topology blast radius,
    so a change to a shared component reaches the pages that use it;
 5. everything, when a configured global path changed (theme, layout, global styles, translations).
@@ -140,9 +145,10 @@ a pull request in one of two ways:
 - for same-repository pull requests, the trusted publish job (section 5) pushes a commit with the
   updated outputs to the pull request's branch, when the repository opts in.
 
-Either way, pull-request CI runs `tieline screens capture --changed --verify` in the pinned image.
-It fails, naming each screen and the command to fix it, when a selected screen's fresh digest or
-ARIA snapshot differs from what the branch commits. A required `--verify` check means a pull
+Either way, pull-request CI runs `tieline screens capture --changed --base <base> --verify` in the
+pinned image, which verifies every screen instead when a selection rule cannot run (see
+[how capture was built](#how-capture-was-built)). It fails, naming each screen and the command to
+fix it, when a screen's fresh digest or ARIA snapshot differs from what the branch commits. A required `--verify` check means a pull
 request cannot merge with stale screen outputs, so the post-merge sync of `main` reads a
 trustworthy catalog.
 
@@ -292,8 +298,9 @@ after the host's access check, instead of streaming them.
 
 Each host's own feature: Netlify "Private" project visibility (viewers log in to Netlify and must
 be invited; Free, Personal, and Pro), a shared password (Pro, optionally previews only), or team
-SSO (Enterprise). Tieline documents the setup per host and never implements login. To confirm
-before building: that Netlify's protection also covers the site's functions.
+SSO (Enterprise). Tieline documents the setup per host and never implements login.
+`tieline hosted check --url <site>` confirms, for each deployment, that the protection also
+covers the site's functions.
 
 ### Pull-request comment
 
@@ -308,12 +315,15 @@ the `contract_hash` (content), its `shows` links (which are kept out of that has
 screens the image digest and the ARIA snapshot. The commit maps to a pull request through the
 squash-merge title (`… (#123)`) or the host's API.
 
-- **Offline:** the review page can show "Last changed in #71 · 4 changes" by walking manifest
-  history with a bounded depth.
-- **Hosted:** the post-merge sync records a change event only when one of those identities changes,
-  and records which one. Today every
-  sync increments the revision of every Story and AC and records the last synced commit, so
-  "last changed" cannot be read from the database yet; the new events fix that.
+- **Offline (built):** `tieline contract history` reads it from git, and the review page, local
+  and hosted, shows "Last changed in #71 · 4 changes" on each Story, AC, and screen, walking at
+  most 200 commits that changed the manifest by default. It applies to every Tieline repository,
+  not only those with screens.
+- **Hosted (built):** the post-merge sync records a change event, with its commit and pull
+  request, only when one of those identities changes, and records which one, in
+  `contract_change_events`. It backfills from git on its first run and records what changed after
+  the last recorded commit afterwards, idempotently. `main`'s screen history records the pull
+  request too, and `get_acceptance_criterion_context` returns an AC's changes from git.
 
 ## 7. Risks and required review
 
@@ -333,12 +343,126 @@ implementing agent, as `AGENTS.md` requires.
 
 1. Done in this change: catalog, `shows` links, import, Screens view, `--base` changes, image
    digests, and branch-point comparisons for every `--base` command.
-2. Capture: the Playwright fixture and reporter, `capture --all`, `--changed`, and `--verify` with
-   selection reasons, committed ARIA snapshots, capture records, and `screens audit`.
-3. Offline history: "last changed by" from git.
-4. Hosted: review of this design, then the migration and roles, `publish`, the core handler and
-   Netlify adapter, the sync of accepted screen state, and the pull-request comment.
+2. Done: capture. The Playwright fixture and reporter, `capture --all`, `--changed`, and
+   `--verify` with selection reasons, committed ARIA snapshots, capture records, and
+   `screens audit`.
+3. Done: offline history, "last changed by" from git, for Stories, ACs, and screens.
+4. Done: hosted. The migration and roles, `publish`, the sync of accepted screen state,
+   retention, the core handler and Netlify adapter, `hosted check`, CI templates, and the
+   pull-request comment.
 5. More hosts and image stores as teams need them.
+
+## How capture was built
+
+Step 2 follows sections 1 to 4, with these refinements found while building it:
+
+- **Path ownership is per screen, not per group.** Each catalog entry may list `paths`: the files
+  that render it, usually one page or route file. A group is a display label, so keying ownership
+  off it would break when a heading is reworded and leave ungrouped screens unowned. Shared
+  components need no listing: the dependency rule follows them through the code-topology blast
+  radius to the page files that import them. `paths` is used only for selection and stays out of
+  the manifest and the contract hash.
+- **A sixth selection rule, `outputs`.** A screen whose committed digest, capture record, or ARIA
+  snapshot changed on the branch is always selected, so `--verify` re-captures every output a
+  pull request touches and a hand-edited digest cannot pass.
+- **New files count.** `--changed` adds untracked files git does not ignore to the branch's
+  changes, since a developer capturing locally often has not added them yet. `tieline check` is
+  unchanged.
+- **The capture record also names the scene's test file** (`capture.test`), tying each screenshot
+  to the test that produced it as well as to its screen, Stories, and ACs.
+- **The frozen clock is not in the fingerprint.** Whether and when a test froze `page.clock` is
+  not observable from the page, and recording the live time would change the fingerprint on every
+  run. A scene that shows the time must freeze it; otherwise verification reports the screenshot as
+  changed, which is the honest result.
+- **`check` and `audit` find `@screen` tests by reading tags as text**, bounded, without loading
+  the app's Playwright configuration or running repository code; the capture run itself is the
+  authority on which test captured which screen. A tag must be written literally to be found.
+- **`--verify` writes nothing**, not even git-ignored screenshots, unless hosted screens are
+  enabled; then it keeps the screenshots it reproduced exactly, for the publish job.
+- **The fixture and reporter are CommonJS** (`tieline/playwright`), so they load in test projects
+  Playwright compiles to CommonJS on every Node version Tieline supports, as well as in ESM
+  projects. Tieline's package gained an `exports` map for that subpath; every existing file path
+  stays importable.
+- **The pull-request gate verifies the screens a branch may have changed**
+  (`capture --changed --base <base> --verify`), so a pull request's capture time grows with its
+  change, as with Chromatic's TurboSnap. It was briefly `--all --verify`, which re-checked every
+  screen on every pull request; that observes changes selection cannot see, such as server code
+  or data, but costs a full capture per pull request. Instead, a selection that may be narrower
+  than it should be, because a rule could not run, falls back to verifying every screen and says
+  why, and drift outside what the rules see is found with `audit --capture` or `--all --verify`
+  when wanted.
+- **Every screen is captured or marked not captured with a reason** (`not_captured`: flag off,
+  external, unreachable, needs a real trigger, unstable, other). Captures never come from faked
+  responses: a state that would need one is marked `needs-real-trigger` until seeded data or a
+  test-only switch in the app reaches it for real. The audit flags scene tests that intercept
+  requests for review.
+- **A screen that shows an acceptance criterion is captured by that criterion's test,** tagged
+  `@ac:<key>` beside `@screen:<key>`: the Then is asserted and the resulting screen captured. The
+  audit reports UI criteria no tagged test proves, tagged files the criterion's `tests` links do
+  not name, and tags that name no criterion. Screens with no criterion are the hidden states to
+  review.
+- **Coverage grows screen by screen.** A selected screen no test tags is reported as not covered
+  instead of failing the run; `--repeat` finds unstable screens during a backfill; page files
+  (`capture.pages`) that no screen claims are reported; and `audit --strict` turns all of it into
+  a gate once a backfill is done.
+- **Page scenes are generated, as a committed file, not at run time.** `tieline screens scenes`
+  writes one scene per catalogued page no other test captures, calling an agent-written setup
+  module that signs in, seeds data, and fills in route parameters (this proposal's
+  `screensFromCatalog()` and its fixtures map). A committed file keeps the tags written out, so the
+  scan, selection, audit, and `--verify` need nothing new, and reviewers see which pages it
+  captures; the strict audit fails while it is out of date. Every other scene is written by an
+  agent, following the skill, so no one writes a test by hand.
+
+## How hosting was built
+
+Step 4 follows section 5, simplified for the least moving parts:
+
+- **Pages are rendered once, at publish, and stored.** Each ref has one row holding its rendered
+  review page, the manifest it was rendered from, the image digests it shows, and its head commit;
+  publishing again replaces the row. The site will only serve stored pages, so it renders
+  nothing, and a pull request's page reflects `main` as it was when the pull request was last
+  published.
+- **`main`'s accepted state is its row plus an image history**, not separate `screens` and
+  `screen_links` tables: the row's stored manifest is the base pull requests are compared with,
+  and `screen_history` records each image a screen had on `main`, for retention and "before"
+  pictures. Change events for "last changed by" are left to the history step.
+- **Row policies keep the publisher off `main`.** `screen_snapshots` holds `main`, pull requests,
+  and branches; the capture publisher may insert and update only non-`main` rows and delete
+  nothing, and only repository sync writes `main` and history.
+- **Images are protected from retention by when they were last referenced.** Publishing records
+  every image it is about to show before checking the bucket, under a per-repository lock that
+  retention also takes, and retention deletes an image only once nothing has referenced it for
+  24 hours. A closed pull request's page stays 24 hours too, so a merge reaches `main`'s sync
+  before its images can go.
+- **Publishing works from a developer's machine as well as CI,** with the publisher credentials;
+  it never needs a deploy.
+- **The CI template captures in a `pull_request` workflow and publishes from one the default
+  branch owns.** The capture workflow runs the pull request's code with no credentials and hands
+  the screenshots it reproduced on as an artifact. A `workflow_run` workflow, which GitHub reads
+  from the default branch, finds the open pull request whose head is the captured commit through
+  the API, installs Tieline from the default branch, reads the pull request's checkout as data, and
+  publishes with `screens publish --repository`, re-hashing every screenshot; closing runs from
+  `pull_request_target` on the base branch. The secrets live in an environment limited to the
+  default branch. A first version published from the capture job, reasoning that whoever can push
+  a branch can already edit its workflow; a second split the jobs inside the `pull_request`
+  workflow, which stops a compromised dependency but not a branch that rewrites the workflow or
+  adds one. Only workflows the default branch owns, with environment-scoped secrets, stop both.
+  Pull requests from forks are verified, not published.
+- **The site re-checks every image's digest before serving it,** because a bucket credential
+  could overwrite an object, and hands an image larger than the host can return to a presigned
+  link that expires within a minute.
+- **`tieline hosted check` replaces the manual check** of whether the host's access control also
+  covers its functions: it asks the deployed site for a page and an image without logging in and
+  fails if the site answers. It also round-trips a probe object through the bucket and checks
+  that each database credential can do its job, which is how a Neon Object Storage bucket is
+  verified.
+- **The pull-request comment is posted by the workflow** from a Markdown summary
+  `publish --summary-file` writes, so Tieline holds no GitHub token.
+- **Images are stored without an extension** (`<repository key>/sha256/<digest>`), with their type
+  recorded from the bytes; SVG is refused rather than served under a sandboxing policy.
+- **The bucket client is a few signed `fetch` calls** (Signature Version 4, path-style), checked
+  against AWS's published signing example and a local S3-compatible server, rather than an SDK
+  dependency.
 
 ## How this compares to existing tools
 
@@ -382,6 +506,14 @@ side-by-side and overlay diff views. Those are candidates for later, not prerequ
   (implemented in this change for `check`, `reconcile`, `grade`, `blast-radius`, and `review`).
 - Committed screen outputs must match a fresh capture (`capture --verify`), and capture runs
   without credentials while a separate trusted job publishes.
+- The pull-request gate verifies the screens a branch may have changed
+  (`capture --changed --base <base> --verify`), and every screen when a selection rule cannot run.
+- Scenes are generated for pages and written by agents for everything else; no scene is written
+  by hand.
+- Every screen is captured or marked not captured with a reason; captures never use faked
+  responses.
+- A screen that shows an acceptance criterion is captured by that criterion's test, tagged
+  `@ac:<key>`, which asserts its Then. A full backfill starts from the acceptance criteria.
 
 ## Follow-ups not yet designed
 

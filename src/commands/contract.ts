@@ -20,6 +20,21 @@ import {
   type ContractManifest,
 } from "../contract/manifest.js";
 import { resolveComparisonBase } from "../contract/comparison-base.js";
+import {
+  CONTRACT_HISTORY_LIMITS,
+  readContractHistory,
+  readReviewHistory,
+  type ContractHistory,
+} from "../contract/history.js";
+import { PostgresContractChangeEventsRepository } from "../adapters/postgres/contract-change-events-repository.js";
+import { screenSettingsForRepository } from "../contract/screen-catalog.js";
+import {
+  DEFAULT_HOSTED_SCREENS_DEPENDENCIES,
+  publishMainScreens,
+  renderMainScreensResult,
+  type HostedSettings,
+  type MainScreensResult,
+} from "./screens-hosting.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import {
   diffReviewManifests,
@@ -125,6 +140,8 @@ interface ParsedContractCommand {
 
 const SCREENS_NOT_SYNCED =
   "screens and shows links stay in the repository manifest; database sync does not store them yet.";
+const SCREENS_HOSTED =
+  "screens and shows links are not stored in the contract tables; main's hosted page shows them.";
 
 function gitCommit(repositoryRoot: string): string {
   try {
@@ -506,6 +523,157 @@ function reviewChangesAgainstBase(
   return { changes: diffReviewManifests(baseManifest, current, base) };
 }
 
+type ChangeEventsResult =
+  | {
+      status: "recorded";
+      recorded: number;
+      commits_read: number;
+      /** The commit recording resumed after, or null for a first, backfilling record. */
+      since: string | null;
+      truncated: boolean;
+      unreadable_commits: number;
+      /**
+       * Changes newer than a commit that could not be read, left for a later
+       * sync: recording them would move the resume point past the gap.
+       */
+      held_back: number;
+    }
+  | { status: "unavailable"; detail: string }
+  | { status: "failed"; detail: string };
+
+/**
+ * Records when each Story, criterion, and screen changed, from the committed
+ * manifest's git history: everything after the last recorded commit, or the
+ * whole bounded history on the first record. History git cannot read is
+ * reported and leaves the sync as it was; a database failure comes after the
+ * contract was synced and is its own outcome, and running sync again records
+ * what was missed, since recording is idempotent.
+ */
+async function recordSyncedChangeEvents(
+  parsed: ParsedContractCommand,
+  repositoryKey: string,
+  commit: string
+): Promise<ChangeEventsResult> {
+  if (!/^([a-f0-9]{40}|[a-f0-9]{64})$/.test(commit)) {
+    return { status: "unavailable", detail: `the synced commit '${commit}' is not a full git commit SHA` };
+  }
+  const directory = relative(resolve(parsed.repositoryRoot), resolve(parsed.outputPath)).split(sep).join("/");
+  if (!directory || directory === ".." || directory.startsWith("../") || isAbsolute(directory)) {
+    return { status: "unavailable", detail: "the manifest is outside the repository" };
+  }
+  const events = new PostgresContractChangeEventsRepository(getSyncSql);
+  let since: string | null;
+  try {
+    since = await events.lastRecordedCommit(repositoryKey);
+  } catch (error) {
+    return { status: "failed", detail: error instanceof Error ? error.message : String(error) };
+  }
+  let history: ContractHistory;
+  try {
+    try {
+      history = readContractHistory(parsed.repositoryRoot, directory, {
+        ref: commit,
+        limit: CONTRACT_HISTORY_LIMITS.maxCommits,
+        ...(since ? { until: since } : {}),
+      });
+    } catch (error) {
+      if (!since) throw error;
+      // The last recorded commit is not in this clone: read back from the
+      // synced commit instead; commits recorded before are skipped.
+      history = readContractHistory(parsed.repositoryRoot, directory, {
+        ref: commit,
+        limit: CONTRACT_HISTORY_LIMITS.maxCommits,
+      });
+    }
+  } catch (error) {
+    const stderr = (error as { stderr?: unknown } | null)?.stderr;
+    return {
+      status: "unavailable",
+      detail: `git history could not be read: ${
+        typeof stderr === "string" && stderr.trim() ? stderr.trim().split("\n")[0] : error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+  try {
+    // Recording resumes after the newest recorded change, so nothing newer
+    // than an unreadable commit is recorded yet: once git can read that
+    // commit (say, after the missing objects are fetched), a later sync
+    // records the gap and what followed it.
+    return {
+      status: "recorded",
+      recorded: await events.record(repositoryKey, history.beforeUnreadable),
+      commits_read: history.commits.length,
+      since,
+      truncated: history.truncated,
+      unreadable_commits: history.unreadable.length,
+      held_back: history.changes.length - history.beforeUnreadable.length,
+    };
+  } catch (error) {
+    return { status: "failed", detail: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function renderChangeEvents(result: ChangeEventsResult): string {
+  switch (result.status) {
+    case "recorded":
+      return `Recorded ${result.recorded} change event(s) from ${result.commits_read} commit(s)${
+        result.since ? ` since ${result.since.slice(0, 12)}` : ""
+      }${result.truncated ? "; older history was not read" : ""}${
+        result.unreadable_commits > 0 ? `; ${result.unreadable_commits} commit(s) could not be read` : ""
+      }${
+        result.held_back > 0
+          ? `; ${result.held_back} newer change(s) wait until git can read them, so a later sync records the gap first`
+          : ""
+      }.\n`;
+    case "unavailable":
+      return `Change events were not recorded: ${result.detail}.\n`;
+    case "failed":
+      return `The contract was synced, but its change events were not recorded: ${result.detail}. Run \`tieline migrate\` if the table is missing, then run sync again; it records what was missed.\n`;
+  }
+}
+
+/**
+ * The repository's hosted screens settings, or null when screens or hosting
+ * are off, which is the ordinary case and leaves sync unchanged.
+ */
+function hostedScreenSettings(repositoryRoot: string): HostedSettings | null {
+  const settings = screenSettingsForRepository(repositoryRoot);
+  return settings?.hosted ? { ...settings, hosted: settings.hosted } : null;
+}
+
+/**
+ * Publishes `main`'s hosted screens after its contract is synced. A failure
+ * here comes after the contract was written, so it is reported as its own
+ * outcome rather than thrown: the contract sync stands, and running sync
+ * again at the same commit retries only the screens.
+ */
+async function publishSyncedMainScreens(
+  parsed: ParsedContractCommand,
+  manifest: ContractManifest,
+  commit: string,
+  settings: HostedSettings
+): Promise<MainScreensResult> {
+  try {
+    return await publishMainScreens({
+      root: parsed.repositoryRoot,
+      repositoryKey: manifest.repository.key,
+      specDirectory: parsed.specDirectory,
+      manifestPath: parsed.outputPath,
+      manifest,
+      commit,
+      settings,
+      repository: DEFAULT_HOSTED_SCREENS_DEPENDENCIES.repository("sync"),
+      store: DEFAULT_HOSTED_SCREENS_DEPENDENCIES.store(settings.hosted),
+    });
+  } catch (error) {
+    return {
+      outcome: "failed",
+      commit,
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 /**
  * The committed manifest, when one is readable and belongs to this repository.
  * Its absence is ordinary — a repository may never have compiled one — so it is
@@ -770,12 +938,16 @@ export async function runContractCommand(
 
   if (parsed.action === "review") {
     const branch = parsed.base ? reviewChangesAgainstBase(parsed, parsed.base) : undefined;
+    // When each item last changed is read from git; a page without it is
+    // still complete, so history that cannot be read is only reported.
+    const history = readReviewHistory(parsed.repositoryRoot, parsed.manifestPath);
     const result = writeWorkspaceReviewPage(
       parsed.repositoryRoot,
       parsed.repositoryKey,
       parsed.specDirectory,
       parsed.outputPath,
-      branch
+      branch,
+      history.status === "read" ? { items: history.items, truncated: history.truncated } : undefined
     );
     const changes = branch
       ? branch.changes
@@ -790,6 +962,10 @@ export async function runContractCommand(
       acceptance_criteria: result.acceptance_criteria,
       ...(result.screens ? { screens: result.screens } : {}),
       ...(changes ? { changes } : {}),
+      history:
+        history.status === "read"
+          ? { changes: history.changes, items: history.items.size, truncated: history.truncated, unreadable_commits: history.unreadable }
+          : { unavailable: history.detail },
       warnings: result.warnings,
     };
     io.write(
@@ -802,6 +978,12 @@ export async function runContractCommand(
               ? `Changes against ${parsed.base}: ${branch.changes.records.filter((record) => record.kind === "story").length} Stories, ${branch.changes.records.filter((record) => record.kind === "acceptance_criterion").length} acceptance criteria, ${branch.changes.screens.length} screens.\n`
               : branch
                 ? `Changes against ${parsed.base} are not shown: ${branch.unavailable}\n`
+                : ""
+          }${
+            history.status === "unavailable"
+              ? `When each item last changed is not shown: ${history.detail}\n`
+              : history.unreadable > 0
+                ? `${history.unreadable} commit(s) in the history could not be read, so some items may show an older last change.\n`
                 : ""
           }`
     );
@@ -863,6 +1045,11 @@ export async function runContractCommand(
       syncableManifest,
       parsed.repositoryRoot
     );
+    // Hosted screens are published after the contract is synced, for the
+    // commit just synced. Their settings are read first, so a configuration
+    // error stops sync before anything is written; a repository that did not
+    // enable them syncs exactly as before.
+    const hosted = hostedScreenSettings(parsed.repositoryRoot);
     try {
       const result = await new PostgresContractSyncRepository(getSyncSql).sync(
         manifest,
@@ -899,6 +1086,11 @@ export async function runContractCommand(
           (entry) => entry.embedding_status === "unavailable"
         ).length,
       };
+      const changeEvents = await recordSyncedChangeEvents(parsed, manifest.repository.key, commit);
+      const hostedScreens = hosted
+        ? await publishSyncedMainScreens(parsed, reviewedManifest, commit, hosted)
+        : undefined;
+      const skippedReason = hostedScreens ? SCREENS_HOSTED : SCREENS_NOT_SYNCED;
       io.write(
         parsed.json
           ? `${JSON.stringify({
@@ -910,18 +1102,22 @@ export async function runContractCommand(
                 ? {
                     screens_skipped: {
                       ...skippedScreens,
-                      reason: SCREENS_NOT_SYNCED,
+                      reason: skippedReason,
                     },
                   }
                 : {}),
+              change_events: changeEvents,
+              ...(hostedScreens ? { hosted_screens: hostedScreens } : {}),
             }, null, 2)}\n`
           : `Contract ${result.outcome}: ${result.stories} Stories, ${result.acceptance_criteria} acceptance criteria, ${result.conflicts.length} handoff conflict(s), ${result.reconciled_code_assets} orphaned code asset(s) reconciled; ${indexing.documents} semantic document(s) indexed (${indexing.embedded} embedded, ${indexing.unchanged} unchanged, ${indexing.embedding_unavailable} embedding unavailable).\n${
               screensSkipped
-                ? `Skipped ${skippedScreens.screens} screen(s) and ${skippedScreens.shows_links} shows link(s): ${SCREENS_NOT_SYNCED}\n`
+                ? `Skipped ${skippedScreens.screens} screen(s) and ${skippedScreens.shows_links} shows link(s): ${skippedReason}\n`
                 : ""
             }`
       );
-      return 0;
+      if (!parsed.json) io.write(renderChangeEvents(changeEvents));
+      if (hostedScreens && !parsed.json) renderMainScreensResult(hostedScreens, io);
+      return hostedScreens?.outcome === "failed" || changeEvents.status === "failed" ? 1 : 0;
     } finally {
       await closeConnections();
     }

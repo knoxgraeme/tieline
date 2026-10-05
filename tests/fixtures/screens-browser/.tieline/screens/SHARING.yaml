@@ -1,0 +1,12 @@
+version: 1
+capability: SHARING
+screens:
+  - key: notes-share-denied
+    title: Sharing not allowed
+    route: /notes/:noteId
+    kind: inline-error
+    when: A viewer presses Share.
+    applies_to:
+      role: [viewer]
+    paths:
+      - app/note.html

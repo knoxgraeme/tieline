@@ -72,7 +72,7 @@ export class ScreenImportError extends Error {
  * `readFileWithin`, failing with import errors: a file that cannot be opened,
  * is not a regular file, or is over `maxBytes` stops the import.
  */
-function readBoundedFile(
+export function readBoundedFile(
   path: string,
   maxBytes: number,
   label: string,
@@ -137,12 +137,23 @@ const screenImportEntrySchema = screenEntrySchema.extend({
   group: screenEntrySchema.shape.group.unwrap().nullable().optional(),
   applies_to: screenEntrySchema.shape.applies_to.unwrap().nullable().optional(),
   copy: screenEntrySchema.shape.copy.unwrap().nullable().optional(),
+  paths: screenEntrySchema.shape.paths.unwrap().nullable().optional(),
+  not_captured: screenEntrySchema.shape.not_captured.unwrap().nullable().optional(),
   image: z
     .union([
       screenImagePathSchema.transform((path): ScreenImage => ({ path })),
       screenImageSchema,
     ])
     .nullable()
+    .optional(),
+  // A capture record vouches for a screenshot Tieline itself captured, so only
+  // `tieline screens capture` writes one.
+  capture: z
+    .never({
+      errorMap: () => ({
+        message: "'capture' is written by `tieline screens capture` and cannot be imported",
+      }),
+    })
     .optional(),
 });
 
@@ -349,12 +360,33 @@ function withCurrentDigest(
   return sha256 === undefined ? merged : { ...merged, image: { path: image.path, sha256 } };
 }
 
+/**
+ * Keeps an entry's capture record only while it still describes the picture.
+ * An import that leaves the image's path and digest as they were keeps it; one
+ * that changes either drops it, because the record would otherwise vouch for a
+ * screenshot its capture never saw.
+ */
+function withCaptureRecord(merged: ScreenEntry, previous: ScreenEntry | undefined): ScreenEntry {
+  const capture = previous?.capture;
+  const before = previous?.image;
+  const after = merged.image;
+  // Marking a screen not captured retires its capture record.
+  if (!capture || merged.not_captured || !before || !after || !("path" in before) || !("path" in after)) {
+    return merged;
+  }
+  return before.path === after.path && before.sha256 !== undefined && before.sha256 === after.sha256
+    ? { ...merged, capture }
+    : merged;
+}
+
 /** A catalog entry in the field order the catalog documents use. */
 function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefined): ScreenEntry {
   const group = mergedField(imported.group, current?.group);
   const appliesTo = mergedField(imported.applies_to, current?.applies_to);
   const copy = mergedField(imported.copy, current?.copy);
+  const paths = mergedField(imported.paths, current?.paths);
   const image = mergedImage(imported.image, current?.image);
+  const notCaptured = mergedField(imported.not_captured, current?.not_captured);
   return {
     key: imported.key,
     title: imported.title,
@@ -364,8 +396,20 @@ function catalogEntry(imported: ScreenImportEntry, current: ScreenEntry | undefi
     when: imported.when,
     ...(appliesTo === undefined ? {} : { applies_to: appliesTo }),
     ...(copy === undefined || copy.length === 0 ? {} : { copy }),
+    ...(paths === undefined ? {} : { paths }),
     ...(image === undefined ? {} : { image }),
+    ...(notCaptured === undefined ? {} : { not_captured: notCaptured }),
   };
+}
+
+/**
+ * Writes an edited catalog document without restyling what was not edited:
+ * no re-wrapping of long lines (the default folds at 80 columns) and no
+ * padding added inside flow sequences such as `[viewer]`, so the reviewed
+ * diff shows only the entries that changed.
+ */
+export function serializeScreenCatalogDocument(document: Document): string {
+  return document.toString({ flowCollectionPadding: false, lineWidth: 0 });
 }
 
 interface EditableCatalog {
@@ -534,10 +578,9 @@ export function planScreenImport(
     const previous = previousCapability
       ? catalogs.get(previousCapability)?.entries.get(entry.key)
       : undefined;
-    const merged = withCurrentDigest(
-      catalogEntry(entry, previous),
-      entry,
-      options.digestScreenshot
+    const merged = withCaptureRecord(
+      withCurrentDigest(catalogEntry(entry, previous), entry, options.digestScreenshot),
+      previous
     );
     const target = catalogFor(entry.capability);
     if (previousCapability !== undefined && previousCapability !== entry.capability) {
@@ -580,8 +623,8 @@ export function planScreenImport(
   const issues: string[] = [];
   const outputs = [...catalogs.values()].map((catalog) => {
     const content = touched.has(catalog.capability)
-      ? catalog.document.toString()
-      : (catalog.original ?? catalog.document.toString());
+      ? serializeScreenCatalogDocument(catalog.document)
+      : (catalog.original ?? serializeScreenCatalogDocument(catalog.document));
     return { catalog, content };
   });
   // The loader refuses oversized files, and a catalog with too many files or

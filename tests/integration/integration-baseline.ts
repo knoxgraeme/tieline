@@ -199,7 +199,7 @@ const migrationPreflight = (await runDatabasePreflight({ DATABASE_URL_ADMIN: adm
 assert.deepEqual(migrationPreflight, {
   key: "migrations",
   status: "pass",
-  message: "All 4 migrations are applied with matching checksums.",
+  message: "All 6 migrations are applied with matching checksums.",
 });
 
 const sql = postgres(adminUrl, { max: 1, prepare: false });

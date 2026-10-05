@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Grocery list · Acme Notes</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Grocery list</h1>
+      <p>Apples, bread, coffee.</p>
+      <button type="button" id="share">Share</button>
+      <p role="alert" id="denied" hidden>Only editors can share this note</p>
+    </main>
+    <script>
+      document.getElementById("share").addEventListener("click", () => {
+        document.getElementById("denied").hidden = false;
+      });
+    </script>
+  </body>
+</html>

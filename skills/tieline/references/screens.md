@@ -38,11 +38,20 @@ screens:
 - `copy` holds only key visible text, verbatim. Do not paraphrase.
 - `applies_to` reuses the Story/AC applicability dimensions (for example `role`, `plan`); omit
   it when the screen applies to everyone.
+- `paths` is optional: the page or route files that render the screen, as repository-relative
+  patterns. Name the screen's own page file; shared components need no listing.
 - `image` is optional: `{ path }` relative to the git-ignored captures directory, or
   `{ url }` with `http(s)`, plus an optional `sha256` of the screenshot. Never commit screenshot
   files, never invent an image path that a capture did not produce, and never type a digest by
-  hand — the importer records it from the file.
-- `scene` and `capture` are reserved for a later release and must be omitted.
+  hand — the importer or `tieline screens capture` records it from the file.
+- `capture` is the capture record, written only by `tieline screens capture`. Never write it by
+  hand.
+- `not_captured` (`reason` and `detail`) says why a screen is deliberately not captured; see
+  [screens-capture.md](screens-capture.md).
+- `scene` is reserved and must be omitted.
+
+To capture screens, or to backfill or update a catalog, read
+[screens-capture.md](screens-capture.md).
 
 Prefer `tieline screens import <file>` when a capture tool or a list of screens already exists;
 it validates the whole input, merges by key, and never deletes without `--prune`. Read the
@@ -81,3 +90,9 @@ Point reviewers at `.tieline/review.html`, whose Screens view shows the catalog,
 and each Story's and AC's linked screens. For branch work, render it with
 `tieline contract review . --base <base-ref>` so the new, changed, and removed Stories, ACs, and
 screens are highlighted.
+
+## Hosted screens
+
+When `screens.hosted` is enabled, CI publishes each pull request's screens to the team's hosted
+site, and sync on `main` publishes `main`; nothing in this workflow changes. To set up the
+bucket and its credentials, read [hosted-screens.md](hosted-screens.md).

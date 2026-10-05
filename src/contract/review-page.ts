@@ -7,7 +7,7 @@ import type {
   ContractScenario,
 } from "./schema.js";
 import { renderUserStory } from "./schema.js";
-import { escapeHtml } from "./html.js";
+import { escapeHtml, SEARCH_ICON } from "./html.js";
 import {
   indexReviewChanges,
   renderChangeBadge,
@@ -18,6 +18,7 @@ import {
   REVIEW_CHANGE_STYLES,
   type ReviewChangeIndex,
 } from "./review-changes-page.js";
+import type { ItemHistory } from "./history.js";
 import type { ReviewComparison } from "./review-changes.js";
 import {
   buildScreenReviewModel,
@@ -57,20 +58,53 @@ export interface ContractReviewPageOptions {
    * the page is unchanged.
    */
   comparison?: ReviewComparison;
+  /**
+   * When each Story, criterion, and screen last changed, from git history.
+   * Without it the page shows no history.
+   */
+  history?: ReviewHistory;
 }
 
-function renderApplicability(applicability: Applicability | undefined): string {
+/** Each item's last change, keyed `<kind>:<stable id>`, and whether older history was read. */
+export interface ReviewHistory {
+  items: ReadonlyMap<string, ItemHistory>;
+  /** True when older commits were not read, so change counts may be low. */
+  truncated: boolean;
+}
+
+const LIFECYCLE_LABELS: Record<AcceptedStory["lifecycle"], string> = {
+  production: "Production",
+  in_progress: "In progress",
+  retired: "Retired",
+};
+
+/**
+ * "#71 · 2026-09-30 · 4 changes", linked when the host is known, after
+ * "Last changed in " unless a label already says so.
+ */
+function renderLastChanged(history: ReviewHistory | undefined, key: string, prefix = true): string {
+  const item = history?.items.get(key);
+  if (!history || !item) return "";
+  const label = item.url
+    ? `<a href="${escapeHtml(item.url)}" rel="noreferrer">${escapeHtml(item.label)}</a>`
+    : escapeHtml(item.label);
+  const count = `${item.changes}${history.truncated ? "+" : ""} change${item.changes === 1 && !history.truncated ? "" : "s"}`;
+  return `${prefix ? "Last changed in " : ""}${label} · ${escapeHtml(item.date)} · ${count}`;
+}
+
+/** "role: member, viewer · plan: pro", or "" when the item applies to everyone. */
+function applicabilityText(applicability: Applicability | undefined): string {
   if (!applicability) return "";
-  return `<div class="tags" aria-label="Applicability">
-    ${Object.entries(applicability)
-      .map(
-        ([dimension, values]) =>
-          `<span><b>${escapeHtml(dimension)}</b>${values
-            .map(escapeHtml)
-            .join(", ")}</span>`
-      )
-      .join("")}
-  </div>`;
+  return Object.entries(applicability)
+    .map(
+      ([dimension, values]) =>
+        `<b>${escapeHtml(dimension)}</b> ${values.map(escapeHtml).join(", ")}`
+    )
+    .join(" · ");
+}
+
+function renderLifecycle(lifecycle: AcceptedStory["lifecycle"]): string {
+  return `<span class="status"><i class="lifecycle lifecycle-${lifecycle}" aria-hidden="true"></i>${LIFECYCLE_LABELS[lifecycle]}</span>`;
 }
 
 function targetLabel(link: ContractLink): string {
@@ -90,7 +124,7 @@ function safeExternalUrl(value: string | undefined): string | null {
 
 function renderLinks(links: ContractLink[]): string {
   if (links.length === 0) return "";
-  return `<details class="references">
+  return `<details class="references disclosure">
     <summary>References <span>${links.length}</span></summary>
     <ul>
       ${links
@@ -110,9 +144,11 @@ function renderLinks(links: ContractLink[]): string {
   </details>`;
 }
 
-function renderScenarios(scenarios: ContractScenario[]): string {
+function renderScenarios(scenarios: ContractScenario[], open: boolean): string {
   if (scenarios.length === 0) return "";
-  return `<div class="scenarios">
+  return `<details class="scenarios disclosure"${open ? " open" : ""}>
+    <summary>Scenarios <span>${scenarios.length}</span></summary>
+    <div class="scenario-list">
     ${scenarios
       .map(
         (scenario, index) => `<section class="scenario">
@@ -128,7 +164,8 @@ function renderScenarios(scenarios: ContractScenario[]): string {
         </section>`
       )
       .join("")}
-  </div>`;
+    </div>
+  </details>`;
 }
 
 function storySearchText(
@@ -163,84 +200,113 @@ function storySearchText(
     .toLocaleLowerCase("en");
 }
 
+/**
+ * The criteria a branch removed from this Story, shown struck through at the
+ * end of its list so a removal is visible where it happened.
+ */
+function renderRemovedCriteria(story: AcceptedStory, changes: ReviewChangeIndex | undefined): string[] {
+  if (!changes) return [];
+  return changes.changes.records
+    .filter(
+      (record) =>
+        record.kind === "acceptance_criterion" &&
+        record.status === "removed" &&
+        record.story_stable_id === story.key
+    )
+    .map(
+      (record) => `<section class="criterion criterion-removed" data-change="removed">
+        <span class="criterion-number" aria-hidden="true">–</span>
+        <div>
+          <header class="criterion-head"><code>${escapeHtml(record.stable_id)}</code>${renderChangeBadge(record)}</header>
+          <p class="criterion-text">${escapeHtml(record.title)}</p>
+        </div>
+      </section>`
+    );
+}
+
 function renderStoryDocument(
   capabilityName: string,
   capabilityDescription: string,
   story: AcceptedStory,
   screens?: ScreenReviewModel,
-  changes?: ReviewChangeIndex
+  changes?: ReviewChangeIndex,
+  history?: ReviewHistory
 ): string {
   const criteria = story.acceptance_criteria
-    .map(
-      (criterion, index) => `<section class="criterion" id="${escapeHtml(
-        criterion.key
-      )}">
+    .map((criterion, index) => {
+      const change = changes?.records.get(criterion.key);
+      const applies = applicabilityText(criterion.applies_to);
+      return `<section class="criterion" id="${escapeHtml(criterion.key)}"${
+        change ? ` data-change="${change.status}"` : ""
+      }>
         <span class="criterion-number">${index + 1}</span>
         <div>
-          <code>${escapeHtml(criterion.key)}</code>${
-            changes ? renderChangeBadge(changes.records.get(criterion.key)) : ""
-          }
+          <header class="criterion-head"><code>${escapeHtml(criterion.key)}</code>${
+            changes ? renderChangeBadge(change) : ""
+          }${
+            history?.items.has(`acceptance_criterion:${criterion.key}`)
+              ? `<span class="last-changed">${renderLastChanged(history, `acceptance_criterion:${criterion.key}`)}</span>`
+              : ""
+          }</header>
           <p class="criterion-text">${escapeHtml(criterion.criterion)}</p>
           ${
             criterion.rationale
-              ? `<p class="rationale"><b>Why:</b> ${escapeHtml(criterion.rationale)}</p>`
+              ? `<p class="rationale"><b>Why</b> ${escapeHtml(criterion.rationale)}</p>`
+              : ""
+          }${applies ? `<p class="applies">Applies to ${applies}</p>` : ""}${
+            screens ? renderShownScreens(screens, criterion.key, "Screens", false) : ""
+          }${
+            criterion.scenarios.length > 0 || criterion.links.length > 0
+              ? `<div class="criterion-more">
+          ${renderScenarios(criterion.scenarios, change?.status === "added" || change?.status === "changed")}
+          ${renderLinks(criterion.links)}
+          </div>`
               : ""
           }
-          ${renderApplicability(criterion.applies_to)}
-          ${renderScenarios(criterion.scenarios)}
-          ${renderLinks(criterion.links)}${
-            screens ? renderShownScreens(screens, criterion.key, "Screens") : ""
-          }
         </div>
-      </section>`
-    )
+      </section>`;
+    })
     .join("");
+  const removed = renderRemovedCriteria(story, changes);
+  const changedCriteria =
+    (changes
+      ? story.acceptance_criteria.filter((criterion) => changes.records.has(criterion.key)).length
+      : 0) + removed.length;
+  const storyChange =
+    changes?.records.get(story.key) ??
+    (changes?.stories.has(story.key)
+      ? { status: "changed" as const, aspects: ["acceptance criteria"] }
+      : undefined);
+  const expandable =
+    story.links.length > 0 ||
+    story.acceptance_criteria.some(
+      (criterion) => criterion.scenarios.length > 0 || criterion.links.length > 0
+    );
+  const storyApplies = applicabilityText(story.applies_to);
 
   return `<article class="story-document">
     <header class="issue-header">
-      <p class="breadcrumbs"><span>Stories</span><b>/</b>${escapeHtml(capabilityName)}</p>
-      <code>${escapeHtml(story.key)}</code>${
-        changes ? renderChangeBadge(changes.records.get(story.key)) : ""
-      }
+      <p class="breadcrumbs"><span>${escapeHtml(capabilityName)}</span><b aria-hidden="true">·</b><code>${escapeHtml(story.key)}</code>${
+        changes ? renderChangeBadge(storyChange) : ""
+      }</p>
       <h1>${escapeHtml(story.title)}</h1>
     </header>
     <div class="issue-layout">
-      <div class="issue-main">
-        <section class="issue-section description">
-          <h2>Description</h2>
-          <p class="capability-description">${escapeHtml(capabilityDescription)}</p>
-          <blockquote>${escapeHtml(renderUserStory(story))}</blockquote>
-          ${renderApplicability(story.applies_to)}${
-            screens
-              ? renderShownScreens(screens, story.key, "Screens in this Story")
-              : ""
-          }
-        </section>
-        <section class="criteria issue-section">
-          <h2><span>Acceptance criteria</span><small>${story.acceptance_criteria.length}</small></h2>
-          ${criteria}
-        </section>
-        ${renderLinks(story.links)}
-      </div>
-      <aside class="issue-details">
+      <aside class="issue-details" aria-label="Story details">
         <h2>Details</h2>
         <dl>
           <div>
             <dt>Status</dt>
-            <dd>
-              <span class="status status-${story.lifecycle}">
-                <i aria-hidden="true"></i>${escapeHtml(story.lifecycle.replace("_", " "))}
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt>Capability</dt>
-            <dd>${escapeHtml(capabilityName)}</dd>
-          </div>
-          <div>
-            <dt>Criteria</dt>
-            <dd>${story.acceptance_criteria.length}</dd>
+            <dd>${renderLifecycle(story.lifecycle)}</dd>
           </div>${
+            history?.items.has(`story:${story.key}`)
+              ? `
+          <div>
+            <dt>Last changed</dt>
+            <dd class="last-changed">${renderLastChanged(history, `story:${story.key}`, false)}</dd>
+          </div>`
+              : ""
+          }${
             screens
               ? `
           <div>
@@ -248,21 +314,77 @@ function renderStoryDocument(
             <dd>${screens.shownByOwner.get(story.key)?.length ?? 0}</dd>
           </div>`
               : ""
-          }
-          ${
+          }${
             story.aliases.length > 0
-              ? `<div>
-                  <dt>Aliases</dt>
-                  <dd class="aliases">${story.aliases
-                    .map(escapeHtml)
-                    .join("<br>")}</dd>
-                </div>`
+              ? `
+          <div>
+            <dt>Aliases</dt>
+            <dd class="aliases">${story.aliases.map(escapeHtml).join("<br>")}</dd>
+          </div>`
+              : ""
+          }${
+            storyApplies
+              ? `
+          <div>
+            <dt>Applies to</dt>
+            <dd class="applies">${storyApplies}</dd>
+          </div>`
               : ""
           }
         </dl>
       </aside>
+      <div class="issue-main">
+        <section class="issue-section description">
+          <p class="story-lead">${escapeHtml(renderUserStory(story))}</p>
+          <p class="capability-description">${escapeHtml(capabilityDescription)}</p>${
+            screens
+              ? renderShownScreens(screens, story.key, "Screens in this Story")
+              : ""
+          }
+        </section>
+        <section class="criteria issue-section">
+          <div class="criteria-head">
+            <h2><span>Acceptance criteria</span><small>${story.acceptance_criteria.length}</small>${
+              changedCriteria > 0
+                ? `<small class="changed-count">· ${changedCriteria} changed</small>`
+                : ""
+            }</h2>${
+              expandable
+                ? `
+            <button type="button" class="expand-all" data-expand-all>Expand all</button>`
+                : ""
+            }
+          </div>
+          ${criteria}${removed.join("")}
+        </section>
+        ${renderLinks(story.links)}
+      </div>
     </div>
   </article>`;
+}
+
+function renderEmptyState(options: ContractReviewPageOptions): string {
+  if (options.warnings && options.warnings.length > 0) {
+    return `<div class="empty-state">
+        <h1>The contract does not validate</h1>
+        <p>Fix the review notes above, then run
+        <code>tieline contract compile .</code> to refresh this page.</p>
+      </div>`;
+  }
+  return `<div class="empty-state">
+        <h1>No capabilities yet</h1>
+        <p>This page lists the product's capabilities, user stories, and
+        acceptance criteria once semantic onboarding authors them under
+        <code>.tieline/spec/</code>.</p>
+        ${
+          options.onboardingInstruction
+            ? `<p>Invoke the installed skill in your coding agent to begin:</p>
+              <pre class="prompt">${escapeHtml(options.onboardingInstruction)}</pre>`
+            : ""
+        }
+        <p><code>tieline contract compile .</code> refreshes this page
+        whenever the contract changes.</p>
+      </div>`;
 }
 
 export function renderContractReviewPage(
@@ -273,7 +395,7 @@ export function renderContractReviewPage(
   const screens = options.screens
     ? buildScreenReviewModel(
         options.documents.map(({ document }) => document),
-        options.screens,
+        options.history ? { ...options.screens, history: options.history } : options.screens,
         changes
       )
     : undefined;
@@ -309,7 +431,7 @@ export function renderContractReviewPage(
                     changes ? renderStoryChangeAttribute(changes, story.key) : ""
                   }
                 >
-                  <i aria-hidden="true"></i>
+                  <i class="lifecycle lifecycle-${story.lifecycle}" role="img" aria-label="${LIFECYCLE_LABELS[story.lifecycle]}" title="${LIFECYCLE_LABELS[story.lifecycle]}"></i>
                   <span>${escapeHtml(story.title)}</span>
                   <code>${escapeHtml(story.key)}</code>
                 </a>
@@ -329,7 +451,8 @@ export function renderContractReviewPage(
           capability.description,
           story,
           screens,
-          changes
+          changes,
+          options.history
         )}</template>`
     )
     .join("");
@@ -340,27 +463,15 @@ export function renderContractReviewPage(
         firstEntry.capability.description,
         firstEntry.story,
         screens,
-        changes
+        changes,
+        options.history
       )
-    : `<div class="empty-state">
-        <h1>No capabilities yet</h1>
-        <p>This page lists the product's capabilities, user stories, and
-        acceptance criteria once semantic onboarding authors them under
-        <code>.tieline/spec/</code>.</p>
-        ${
-          options.onboardingInstruction
-            ? `<p>Invoke the installed skill in your coding agent to begin:</p>
-              <pre class="prompt">${escapeHtml(options.onboardingInstruction)}</pre>`
-            : ""
-        }
-        <p><code>tieline contract compile .</code> refreshes this page
-        whenever the contract changes.</p>
-      </div>`;
+    : renderEmptyState(options);
 
   const warnings =
     options.warnings && options.warnings.length > 0
       ? `<aside class="warnings" aria-label="Contract warnings">
-          <strong>Review notes</strong>
+          <strong>Review notes <span>· ${options.warnings.length}</span></strong>
           <ul>${options.warnings
             .map((warning) => `<li>${escapeHtml(warning)}</li>`)
             .join("")}</ul>
@@ -376,387 +487,560 @@ export function renderContractReviewPage(
   <title>${escapeHtml(options.repositoryKey)} · Tieline spec review</title>
   <style>
     :root {
-      --paper: #ffffff;
-      --nav: #f4f5f7;
-      --ink: #172b4d;
-      --muted: #5e6c84;
-      --line: #dfe1e6;
-      --accent: #0c66e4;
-      --green: #24775a;
-      --body: "Avenir Next", Avenir, "Century Gothic", sans-serif;
-      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+      --bg: #ffffff;
+      --bg-1: #fafafa;
+      --bg-2: #f4f4f5;
+      --bg-3: #e9e9eb;
+      --line: #e4e4e7;
+      --line-strong: #d4d4d8;
+      --fg-1: #18181b;
+      --fg-2: #3f3f46;
+      --fg-3: #62626b;
+      --fg-4: #85858e;
+      --inverse: #ffffff;
+      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --text-2xl: 1.5rem;
+      --text-xl: 1.25rem;
+      --text-lg: .9375rem;
+      --text-base: .875rem;
+      --text-md: .8125rem;
+      --text-sm: .75rem;
+      --text-xs: .6875rem;
+      --r-sm: 4px;
+      --r-md: 6px;
+      --shadow-overlay: -1px 0 0 var(--line), -16px 0 32px rgba(0, 0, 0, .08);
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      color: var(--ink);
-      background: var(--paper);
-      font: 14px/1.55 var(--body);
+      color: var(--fg-2);
+      background: var(--bg);
+      font: 400 var(--text-base)/1.5714 var(--font-sans);
+      -webkit-font-smoothing: antialiased;
     }
-    a { color: var(--accent); }
-    button, input { font: inherit; }
-    input:focus-visible, a:focus-visible, button:focus-visible {
-      outline: 3px solid rgba(47, 88, 203, .25);
+    a { color: var(--fg-1); }
+    button, input, select { color: inherit; font: inherit; }
+    :where(a, button, input, select, summary, [tabindex]):focus-visible {
+      outline: 2px solid var(--fg-1);
       outline-offset: 2px;
     }
-    code { font: .7rem/1.5 var(--mono); overflow-wrap: anywhere; }
+    code { font: var(--text-sm)/1rem var(--font-mono); overflow-wrap: anywhere; }
+    kbd {
+      display: inline-grid;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      place-items: center;
+      color: var(--fg-3);
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      font: 500 var(--text-xs)/1 var(--font-mono);
+    }
+    .wiki-content a { text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+    .wiki-content a:hover { text-decoration-color: var(--fg-1); }
     .wiki-shell {
       display: grid;
-      grid-template-columns: 280px minmax(0, 1fr);
+      grid-template-columns: 264px minmax(0, 1fr);
       min-height: 100vh;
     }
     .wiki-nav {
       position: sticky;
       top: 0;
       align-self: start;
+      display: flex;
+      flex-direction: column;
       height: 100vh;
-      padding: 1.15rem .9rem 2rem;
-      background: var(--nav);
+      padding: 16px 12px 0;
+      background: var(--bg-1);
       border-right: 1px solid var(--line);
       overflow-y: auto;
     }
-    .wiki-brand {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: .65rem;
-      padding: 0 .45rem 1rem;
-      border-bottom: 1px solid var(--line);
-    }
-    .wiki-brand b { font-size: 1rem; }
-    .wiki-brand p {
-      margin: .2rem 0 0;
-      color: var(--muted);
-      font-size: .72rem;
+    .wiki-nav > * { flex-shrink: 0; }
+    .wiki-brand { padding: 0 8px 12px; }
+    .wiki-brand b {
+      display: block;
+      color: var(--fg-1);
+      font-size: var(--text-md);
+      font-weight: 600;
+      line-height: 1.25rem;
       overflow-wrap: anywhere;
     }
-    .print {
-      padding: .25rem .5rem;
-      color: var(--muted);
-      background: white;
-      border: 1px solid #cfd2d7;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: .68rem;
-    }
-    .search {
-      position: relative;
-      display: block;
-      margin: 1rem .15rem 1.15rem;
-    }
-    .search input {
-      width: 100%;
-      height: 36px;
-      padding: .45rem 2rem .45rem .65rem;
-      background: white;
-      border: 1px solid #cfd2d7;
-      border-radius: 4px;
-    }
-    .search span {
+    .wiki-brand p { margin: 0; color: var(--fg-3); font-size: var(--text-sm); line-height: 1rem; }
+    .nav-open { display: none; }
+    .nav-search { display: flex; gap: 4px; margin: 4px 0 8px; }
+    .search { position: relative; display: block; flex: 1; min-width: 0; }
+    .search svg {
       position: absolute;
-      right: .65rem;
+      left: 9px;
       top: 50%;
-      color: var(--muted);
+      color: var(--fg-4);
       transform: translateY(-50%);
       pointer-events: none;
     }
-    .nav-group { margin-top: 1.1rem; }
+    .search input {
+      width: 100%;
+      height: 32px;
+      padding: 0 32px 0 30px;
+      color: var(--fg-1);
+      background: var(--bg-2);
+      border: 1px solid transparent;
+      border-radius: var(--r-sm);
+      font-size: var(--text-md);
+    }
+    .search input::placeholder { color: var(--fg-3); }
+    .search input:hover, .search input:focus { border-color: var(--line-strong); }
+    .search input:focus { background: var(--bg); }
+    .search kbd {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .search input:not(:placeholder-shown) ~ kbd, .search input:focus ~ kbd { display: none; }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 10px;
+      color: var(--fg-2);
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: var(--text-md);
+      white-space: nowrap;
+    }
+    .toggle span { color: var(--fg-3); font: var(--text-sm) var(--font-mono); font-variant-numeric: tabular-nums; }
+    .toggle:hover { background: var(--bg-2); }
+    .toggle[aria-pressed="true"] { color: var(--fg-1); background: var(--bg-3); border-color: var(--fg-1); font-weight: 500; }
+    .toggle[aria-pressed="true"] span { color: var(--fg-1); }
+    .nav-group { margin-top: 16px; }
     .nav-group[hidden], .nav-group li[hidden] { display: none; }
     .nav-group h2 {
-      margin: 0 .45rem .35rem;
-      color: var(--muted);
-      font-size: .66rem;
-      font-weight: 800;
-      letter-spacing: .055em;
+      margin: 0 8px 4px;
+      color: var(--fg-3);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      letter-spacing: .04em;
+      line-height: 1rem;
       text-transform: uppercase;
     }
     .nav-group ul { margin: 0; padding: 0; list-style: none; }
     .nav-group a {
       display: grid;
-      grid-template-columns: 8px minmax(0, 1fr);
-      gap: .1rem .45rem;
-      padding: .42rem .45rem;
-      color: #424852;
-      border-radius: 4px;
+      grid-template-columns: 10px minmax(0, 1fr);
+      gap: 2px 10px;
+      padding: 6px 8px;
+      color: var(--fg-2);
+      border-radius: var(--r-sm);
+      font-size: var(--text-md);
+      line-height: 1.125rem;
       text-decoration: none;
     }
-    .nav-group a:hover { background: #e9ebee; }
+    .nav-group a:hover { background: var(--bg-2); }
     .nav-group a[aria-current="page"] {
-      color: #0c66e4;
-      background: #e9f2ff;
-      box-shadow: inset 3px 0 #0c66e4;
+      color: var(--fg-1);
+      background: var(--bg-3);
+      box-shadow: inset 2px 0 var(--fg-1);
+      font-weight: 500;
     }
-    .nav-group a > i {
-      width: 6px;
-      height: 6px;
-      margin-top: .4rem;
-      background: #9ca3ae;
-      border-radius: 50%;
-    }
-    .nav-group a[data-lifecycle="production"] > i { background: var(--green); }
-    .nav-group a[data-lifecycle="in_progress"] > i { background: var(--accent); }
-    .nav-group a span { min-width: 0; font-size: .76rem; line-height: 1.35; }
+    .nav-group a > .lifecycle { margin-top: 4px; color: var(--fg-3); }
+    .nav-group a[aria-current="page"] > .lifecycle { color: var(--fg-1); }
+    .nav-group a[data-lifecycle="retired"] span { color: var(--fg-3); }
+    .nav-group a span { min-width: 0; }
     .nav-group a code {
       grid-column: 2;
-      color: #8a919c;
-      font-size: .59rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--fg-3);
+      font-size: var(--text-xs);
+      font-weight: 400;
+    }
+    .lifecycle {
+      display: inline-block;
+      flex: none;
+      width: 10px;
+      height: 10px;
+      color: var(--fg-1);
+      border-radius: 50%;
+    }
+    .lifecycle-production { background: currentColor; }
+    .lifecycle-in_progress {
+      border: 1.5px solid currentColor;
+      background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+    }
+    .lifecycle-retired {
+      border: 1.5px solid var(--fg-4);
+      background: linear-gradient(135deg, transparent calc(50% - .75px), var(--fg-4) 0 calc(50% + .75px), transparent 0);
     }
     .nav-empty {
       display: none;
-      margin: 1rem .45rem;
-      color: var(--muted);
-      font-size: .75rem;
+      margin: 16px 8px;
+      color: var(--fg-3);
+      font-size: var(--text-md);
     }
     .nav-empty.show { display: block; }
+    .wiki-foot {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: auto -12px 0;
+      padding: 8px 20px;
+      color: var(--fg-3);
+      background: var(--bg-1);
+      border-top: 1px solid var(--line);
+      font-size: var(--text-sm);
+    }
+    .keys { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; }
+    .keys > span { display: inline-flex; align-items: center; gap: 3px; }
+    .print {
+      height: 28px;
+      padding: 0 10px;
+      color: var(--fg-2);
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: var(--text-sm);
+    }
+    .print:hover { background: var(--bg-2); }
     .wiki-main { min-width: 0; }
     .wiki-content {
-      max-width: 1180px;
-      padding: clamp(1.75rem, 4vw, 3rem) clamp(1.25rem, 5vw, 4rem) 6rem;
+      max-width: 1088px;
+      padding: 32px 48px 96px;
     }
     .warnings {
-      margin-bottom: 1.5rem;
-      padding: .75rem .9rem;
-      background: #fff6e2;
-      border: 1px solid #e7cb99;
-      border-radius: 4px;
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-left: 3px solid var(--fg-1);
+      border-radius: var(--r-md);
+      font-size: var(--text-md);
     }
-    .warnings ul { margin: .3rem 0 0; padding-left: 1.15rem; }
-    .issue-header {
-      padding-bottom: 1.25rem;
-      border-bottom: 1px solid var(--line);
+    .warnings strong { display: flex; align-items: center; gap: 8px; color: var(--fg-1); font-weight: 600; }
+    .warnings strong::before {
+      display: inline-grid;
+      width: 16px;
+      height: 16px;
+      place-items: center;
+      color: var(--inverse);
+      background: var(--fg-1);
+      border-radius: 50%;
+      content: "!";
+      font: 700 11px/1 var(--font-sans);
     }
+    .warnings strong span { margin-left: -4px; color: var(--fg-3); font-weight: 400; }
+    .warnings ul { margin: 8px 0 0; padding-left: 24px; }
+    .warnings li + li { margin-top: 4px; }
+    .issue-header { padding-bottom: 16px; }
     .breadcrumbs {
       display: flex;
-      gap: .45rem;
-      margin: 0 0 .65rem;
-      color: var(--muted);
-      font-size: .72rem;
-    }
-    .breadcrumbs span { color: var(--accent); }
-    .breadcrumbs b { color: #a4acb8; font-weight: 400; }
-    .issue-header > code { color: var(--muted); }
-    .status {
-      display: inline-flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: .3rem;
-      padding: .13rem .38rem;
-      border-radius: 3px;
-      font-size: .61rem;
-      font-weight: 800;
-      text-transform: uppercase;
+      gap: 6px;
+      margin: 0 0 8px;
+      color: var(--fg-3);
+      font-size: var(--text-sm);
+      line-height: 1.125rem;
     }
-    .status i { width: 6px; height: 6px; border-radius: 50%; }
-    .status-production { color: var(--green); background: #e7f3ed; }
-    .status-production i { background: var(--green); }
-    .status-in_progress { color: var(--accent); background: #e9edfa; }
-    .status-in_progress i { background: var(--accent); }
-    .status-retired { color: var(--muted); background: #eceef1; }
-    .status-retired i { background: var(--muted); }
+    .breadcrumbs b { color: var(--fg-4); font-weight: 400; }
     .issue-header h1 {
-      max-width: 32ch;
-      margin: .35rem 0 0;
-      font-size: clamp(1.45rem, 2.5vw, 1.85rem);
-      line-height: 1.2;
-      letter-spacing: -.015em;
+      max-width: 40ch;
+      margin: 0;
+      color: var(--fg-1);
+      font-size: var(--text-2xl);
+      font-weight: 600;
+      line-height: 2rem;
+      letter-spacing: -.01em;
     }
     .issue-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 250px;
-      gap: clamp(2rem, 5vw, 4rem);
+      grid-template-columns: minmax(0, 720px) 224px;
+      grid-template-areas: "main props";
+      gap: 48px;
       align-items: start;
-      margin-top: 1.5rem;
+      margin-top: 8px;
     }
-    .issue-main { min-width: 0; }
-    .issue-section + .issue-section { margin-top: 2rem; }
-    .issue-section > h2, .issue-details > h2 {
-      margin: 0 0 .75rem;
-      font-size: .92rem;
-      line-height: 1.3;
-    }
-    .capability-description { max-width: 66ch; margin: 0; color: var(--muted); font-size: .82rem; }
-    blockquote {
-      margin: .85rem 0 0;
-      padding: .8rem .95rem;
-      color: #424a55;
-      background: #f7f8fa;
-      border: 1px solid #e3e5e9;
-      border-left: 3px solid var(--accent);
-      border-radius: 0 4px 4px 0;
-      font-size: .86rem;
-    }
-    .aliases { color: var(--muted); font-size: .76rem; }
-    .tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .75rem; }
-    .tags span {
-      display: inline-flex;
-      gap: .3rem;
-      padding: .16rem .4rem;
-      color: var(--muted);
-      background: #f0f1f3;
-      border-radius: 3px;
-      font-size: .67rem;
-    }
-    .tags b { color: var(--ink); text-transform: capitalize; }
-    .criteria > h2 {
-      display: flex;
-      align-items: center;
-      gap: .55rem;
-      margin: 0 0 .75rem;
-      font-size: .92rem;
-      line-height: 1.3;
-    }
-    .criteria > h2 small {
-      display: grid;
-      min-width: 22px;
-      height: 22px;
-      padding: 0 .35rem;
-      place-items: center;
-      color: var(--muted);
-      background: #f0f1f3;
-      border-radius: 11px;
-      font: 700 .64rem var(--mono);
-    }
-    .criterion {
-      display: grid;
-      grid-template-columns: 30px minmax(0, 1fr);
-      gap: .75rem;
-      margin-top: .65rem;
-      padding: .9rem;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-    }
-    .criterion > div {
-      min-width: 0;
-    }
-    .criterion-number {
-      display: grid;
-      width: 25px;
-      height: 25px;
-      place-items: center;
-      color: var(--accent);
-      background: #edf0fa;
-      border-radius: 4px;
-      font: 700 .66rem var(--mono);
-    }
-    .criterion-text { margin: .3rem 0 0; font-size: .84rem; font-weight: 700; line-height: 1.45; }
-    .rationale {
-      margin: .65rem 0 0;
-      padding: .5rem .65rem;
-      color: var(--muted);
-      background: #faf7ef;
-      border-left: 2px solid #c9983c;
-      font-size: .72rem;
-    }
-    .scenarios { display: grid; gap: .45rem; margin-top: .7rem; }
-    .scenario {
-      padding: .65rem .75rem;
-      background: #f7f8fa;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-    }
-    .scenario header { display: flex; flex-wrap: wrap; gap: .35rem .65rem; margin-bottom: .4rem; font-size: .7rem; }
-    .scenario header span { color: var(--accent); font-family: var(--mono); }
-    .scenario dl { display: grid; gap: .25rem; margin: 0; }
-    .scenario dl div { display: grid; grid-template-columns: 44px minmax(0, 1fr); }
-    .scenario dt { color: var(--muted); font-size: .62rem; font-weight: 800; text-transform: uppercase; }
-    .scenario dd { margin: 0; font-size: .74rem; }
-    .references {
-      margin-top: 1.2rem;
-      padding-top: .75rem;
-      border-top: 1px solid var(--line);
-    }
-    .criterion .references { margin-top: .75rem; }
-    .references summary {
-      display: flex;
-      align-items: center;
-      gap: .45rem;
-      width: max-content;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: .72rem;
-      font-weight: 700;
-      list-style: none;
-    }
-    .references summary::-webkit-details-marker { display: none; }
-    .references summary::before {
-      color: #9aa1ab;
-      content: "›";
-      font: 1rem/1 var(--mono);
-      transition: transform .12s ease;
-    }
-    .references[open] summary::before { transform: rotate(90deg); }
-    .references summary span {
-      min-width: 19px;
-      padding: 0 .3rem;
-      color: #858d98;
-      background: #f0f1f3;
-      border-radius: 9px;
-      font: .6rem/18px var(--mono);
-      text-align: center;
-    }
-    .references ul { display: grid; gap: .35rem; margin: .6rem 0 0 1.25rem; padding: 0; list-style: none; }
-    .references li { display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: .5rem; font: .66rem/1.45 var(--mono); }
-    .references small { color: var(--muted); }
+    .issue-main { grid-area: main; min-width: 0; }
     .issue-details {
+      grid-area: props;
       position: sticky;
-      top: 1.25rem;
-      padding: 1rem;
-      background: #fafbfc;
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      top: 32px;
+      padding: 0 0 0 16px;
+      border-left: 1px solid var(--line);
+    }
+    .issue-details > h2 {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
     .issue-details dl { margin: 0; }
     .issue-details dl > div {
       display: grid;
-      grid-template-columns: 78px minmax(0, 1fr);
-      gap: .65rem;
-      padding: .7rem 0;
-      border-top: 1px solid var(--line);
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 8px;
+      padding: 6px 0;
     }
-    .issue-details dt {
-      color: var(--muted);
-      font-size: .68rem;
-      font-weight: 700;
-    }
+    .issue-details dt { color: var(--fg-3); font-size: var(--text-sm); line-height: 1.25rem; }
     .issue-details dd {
       min-width: 0;
       margin: 0;
-      font-size: .72rem;
+      color: var(--fg-1);
+      font-size: var(--text-md);
+      line-height: 1.25rem;
       overflow-wrap: anywhere;
     }
-    .empty-document { color: var(--muted); }
-    .empty-state { max-width: 58ch; margin: 3rem auto 0; }
-    .empty-state h1 { font-size: 1.4rem; letter-spacing: -.015em; }
-    .empty-state p { color: var(--muted); font-size: .86rem; }
+    .issue-details .last-changed, .issue-details .aliases, .issue-details .applies { color: var(--fg-2); font-size: var(--text-md); }
+    .status { display: inline-flex; align-items: center; gap: 8px; }
+    .issue-section + .issue-section { margin-top: 32px; }
+    .story-lead {
+      max-width: 66ch;
+      margin: 0;
+      color: var(--fg-2);
+      font-size: var(--text-lg);
+      line-height: 1.5rem;
+    }
+    .capability-description {
+      max-width: 66ch;
+      margin: 8px 0 0;
+      color: var(--fg-3);
+      font-size: var(--text-md);
+      line-height: 1.25rem;
+    }
+    .criteria-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .criteria-head h2 {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 0;
+      color: var(--fg-1);
+      font-size: var(--text-md);
+      font-weight: 600;
+      line-height: 1.25rem;
+    }
+    .criteria-head h2 small {
+      color: var(--fg-3);
+      font: 400 var(--text-sm) var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .criteria-head h2 .changed-count { margin-left: -4px; color: var(--fg-1); font-family: var(--font-sans); }
+    .expand-all {
+      height: 24px;
+      margin-left: auto;
+      padding: 0 8px;
+      color: var(--fg-3);
+      background: none;
+      border: 0;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: var(--text-sm);
+    }
+    .expand-all:hover { color: var(--fg-1); background: var(--bg-2); }
+    .criterion {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 12px;
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+      scroll-margin-top: 16px;
+    }
+    .criterion > div { min-width: 0; }
+    .criterion-number {
+      display: grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      color: var(--fg-3);
+      border-radius: var(--r-sm);
+      font: 500 var(--text-sm)/1 var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .criterion-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+      min-height: 20px;
+      color: var(--fg-3);
+    }
+    .criterion-head .last-changed { margin-left: auto; }
+    .criterion-text {
+      margin: 4px 0 0;
+      color: var(--fg-1);
+      font-size: var(--text-base);
+      font-weight: 500;
+      line-height: 1.375rem;
+    }
+    .last-changed { color: var(--fg-3); font-size: var(--text-sm); }
+    .rationale {
+      max-width: 72ch;
+      margin: 6px 0 0;
+      color: var(--fg-3);
+      font-size: var(--text-md);
+      line-height: 1.25rem;
+    }
+    .rationale b { margin-right: 4px; color: var(--fg-2); font-weight: 600; }
+    .applies { margin: 6px 0 0; color: var(--fg-3); font-size: var(--text-sm); }
+    .applies b { color: var(--fg-2); font-weight: 500; }
+    .criterion-more { display: flex; flex-wrap: wrap; gap: 0 16px; margin-top: 8px; }
+    .criterion-more > details[open] { flex-basis: 100%; }
+    .disclosure > summary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--fg-3);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: var(--text-sm);
+      font-weight: 500;
+      line-height: 1.5rem;
+      list-style: none;
+    }
+    .disclosure > summary::-webkit-details-marker { display: none; }
+    .disclosure > summary::before {
+      width: 0;
+      height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 5px solid currentColor;
+      content: "";
+      transition: transform .12s ease;
+    }
+    .disclosure[open] > summary::before { transform: rotate(90deg); }
+    .disclosure > summary:hover { color: var(--fg-1); }
+    .disclosure > summary span { font-family: var(--font-mono); font-weight: 400; font-variant-numeric: tabular-nums; }
+    .scenario-list, .references ul {
+      margin: 4px 0 4px 2px;
+      padding-left: 14px;
+      border-left: 1px solid var(--line);
+    }
+    .scenario { padding: 8px 0; }
+    .scenario + .scenario { border-top: 1px solid var(--line); }
+    .scenario header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      margin-bottom: 4px;
+      color: var(--fg-3);
+      font-size: var(--text-sm);
+    }
+    .scenario header strong { color: var(--fg-1); font-weight: 500; }
+    .scenario dl { display: grid; gap: 2px; margin: 0; }
+    .scenario dl div { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+    .scenario dt {
+      color: var(--fg-3);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      letter-spacing: .04em;
+      line-height: 1.25rem;
+      text-transform: uppercase;
+    }
+    .scenario dd { margin: 0; color: var(--fg-2); font-size: var(--text-md); line-height: 1.25rem; }
+    .references ul { display: grid; list-style: none; }
+    .references li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      padding: 4px 0;
+      font: var(--text-sm)/1rem var(--font-mono);
+    }
+    .references li > :not(small) { color: var(--fg-2); overflow-wrap: anywhere; }
+    .references small { order: 2; color: var(--fg-3); font-family: var(--font-sans); white-space: nowrap; }
+    .issue-main > .references { margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .empty-state { max-width: 58ch; margin: 48px 0 0; }
+    .empty-state h1 {
+      margin: 0 0 8px;
+      color: var(--fg-1);
+      font-size: var(--text-xl);
+      font-weight: 600;
+      line-height: 1.75rem;
+    }
+    .empty-state p { color: var(--fg-2); }
     .empty-state .prompt {
-      padding: .8rem .95rem;
-      color: var(--ink);
-      background: #f7f8fa;
-      border: 1px solid #e3e5e9;
-      border-left: 3px solid var(--accent);
-      border-radius: 0 4px 4px 0;
-      font: .78rem/1.5 var(--mono);
+      padding: 12px 16px;
+      color: var(--fg-1);
+      background: var(--bg-2);
+      border-radius: var(--r-md);
+      font: var(--text-md)/1.25rem var(--font-mono);
       white-space: pre-wrap;
       user-select: all;
     }
-    @media (max-width: 980px) {
-      .issue-layout { grid-template-columns: 1fr; }
-      .issue-details { position: static; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .disclosure > summary::before { transition: none; }
+    }
+    @media (max-width: 1199px) {
+      .issue-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "props" "main";
+        gap: 24px;
+      }
+      .issue-details { position: static; padding: 0 0 12px; border-left: 0; border-bottom: 1px solid var(--line); }
+      .issue-details dl { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+      .issue-details dl > div { display: flex; align-items: baseline; gap: 8px; padding: 0; }
     }
     @media (max-width: 760px) {
       .wiki-shell { display: block; }
       .wiki-nav {
-        position: static;
+        z-index: 20;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
         height: auto;
-        max-height: 44vh;
+        min-height: 48px;
+        padding: 8px 12px;
         border-right: 0;
         border-bottom: 1px solid var(--line);
+        overflow: visible;
       }
-      .wiki-content { padding-top: 2rem; }
+      .wiki-brand { flex: 1 1 auto; min-width: 0; padding: 0; }
+      .wiki-brand p { display: none; }
+      .nav-open {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        padding: 0 12px;
+        color: var(--fg-1);
+        background: var(--bg);
+        border: 1px solid var(--line-strong);
+        border-radius: var(--r-sm);
+        cursor: pointer;
+        font-size: var(--text-md);
+      }
+      .wiki-shell:not([data-nav-open]) .nav-search,
+      .wiki-shell:not([data-nav-open]) .wiki-nav > nav,
+      .wiki-shell:not([data-nav-open]) .nav-empty,
+      .wiki-shell:not([data-nav-open]) .wiki-foot { display: none; }
+      .wiki-shell[data-nav-open] .wiki-nav {
+        position: fixed;
+        inset: 0;
+        flex-direction: column;
+        align-items: stretch;
+        padding-top: 12px;
+        overflow-y: auto;
+      }
+      .wiki-shell[data-nav-open] .wiki-brand { padding: 4px 80px 8px 8px; }
+      .wiki-shell[data-nav-open] .nav-open { position: absolute; top: 12px; right: 12px; }
+      .wiki-shell[data-nav-open] .nav-group a { min-height: 44px; align-content: center; }
+      .wiki-content { padding: 24px 16px 64px; }
     }
     @media (max-width: 520px) {
-      .scenario dl div { grid-template-columns: 1fr; }
+      .scenario dl div { grid-template-columns: 1fr; gap: 0; }
+      .criterion-head .last-changed { flex-basis: 100%; margin-left: 0; }
     }
     @media print {
       .wiki-shell { display: block; }
@@ -764,8 +1048,13 @@ export function renderContractReviewPage(
       .wiki-content { max-width: none; padding: 0; }
       .warnings { display: none; }
       .issue-layout { display: block; }
-      .issue-details { margin-top: 1.5rem; }
+      .issue-details { position: static; margin-bottom: 16px; padding: 0 0 8px; border: 0; border-bottom: 1px solid var(--line); }
+      .issue-details dl { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+      .issue-details dl > div { display: flex; gap: 8px; padding: 0; }
       .references:not([open]) > ul { display: grid !important; }
+      .scenarios:not([open]) > .scenario-list { display: block !important; }
+      .scenarios::details-content, .references::details-content { content-visibility: visible; }
+      .expand-all { display: none; }
       .criterion, .scenario { break-inside: avoid; }
     }
 ${screens ? SCREEN_REVIEW_STYLES : ""}${comparison ? REVIEW_CHANGE_STYLES : ""}  </style>
@@ -774,19 +1063,31 @@ ${screens ? SCREEN_REVIEW_STYLES : ""}${comparison ? REVIEW_CHANGE_STYLES : ""} 
   <div class="wiki-shell">
     <aside class="wiki-nav">
       <header class="wiki-brand">
-        <div>
-          <b>${escapeHtml(options.repositoryKey)}</b>
-          <p>Specification</p>
-        </div>
-        <button class="print" type="button" onclick="window.print()">Print</button>
+        <b>${escapeHtml(options.repositoryKey)}</b>
+        <p>Specification</p>
       </header>
-${screens ? renderScreenTabs(screens) : ""}      <label class="search">
-        <input id="search" type="search" placeholder="Search stories…" autocomplete="off">
-        <span aria-hidden="true">⌕</span>
-      </label>
+${screens ? renderScreenTabs(screens) : ""}      <button type="button" class="nav-open" id="nav-open" aria-expanded="false">Browse</button>
+      <div class="nav-search">
+        <label class="search">
+          ${SEARCH_ICON}
+          <input id="search" type="search" placeholder="Search" aria-label="Search stories" autocomplete="off">
+          <kbd aria-hidden="true">/</kbd>
+        </label>${
+          changes && changes.stories.size > 0
+            ? `
+        <button type="button" class="toggle" id="story-change-toggle" aria-pressed="false" title="Show only Stories changed on this branch">Changed <span>${changes.stories.size}</span></button>`
+            : ""
+        }
+      </div>
       <nav aria-label="Stories">${navigation}</nav>
       <p class="nav-empty" id="nav-empty">No matching stories.</p>
-${screens ? renderScreenSidebar(screens) : ""}    </aside>
+${screens ? renderScreenSidebar(screens) : ""}      <footer class="wiki-foot">
+        <p class="keys"><span><kbd>/</kbd> Search</span><span><kbd>j</kbd><kbd>k</kbd> Next, previous</span>${
+          screens ? `<span class="zoom-keys"><kbd>+</kbd><kbd>−</kbd> Zoom</span>` : ""
+        }</p>
+        <button class="print" type="button" onclick="window.print()">Print</button>
+      </footer>
+    </aside>
     <main class="wiki-main">
       <div class="wiki-content">
         ${warnings}${
@@ -805,11 +1106,23 @@ ${screens ? renderScreenSidebar(screens) : ""}    </aside>
   ${templates}
   <script>
     (() => {
+      const shell = document.querySelector(".wiki-shell");
+      const nav = document.querySelector(".wiki-nav");
       const search = document.querySelector("#search");
+      const changeToggle = document.querySelector("#story-change-toggle");
+      const sheetToggle = document.querySelector("#nav-open");
       const links = [...document.querySelectorAll("[data-story-link]")];
       const groups = [...document.querySelectorAll("[data-nav-group]")];
       const content = document.querySelector("#story-content");
       const empty = document.querySelector("#nav-empty");
+
+      // Below 760px the navigation is a sheet opened from the top bar.
+      function setSheet(open) {
+        if (open) shell.setAttribute("data-nav-open", "");
+        else shell.removeAttribute("data-nav-open");
+        sheetToggle.setAttribute("aria-expanded", String(open));
+        sheetToggle.textContent = open ? "Close" : "Browse";
+      }
 
       function showStory(link, updateHash = true) {
         const template = document.getElementById(link.dataset.templateId);
@@ -821,26 +1134,41 @@ ${screens ? renderScreenSidebar(screens) : ""}    </aside>
         }
         if (updateHash) {
           history.pushState(null, "", "#" + link.dataset.storyKey);
+          window.scrollTo({ top: 0, behavior: "instant" });
         }
         document.title =
           link.querySelector("span").textContent + " · Tieline spec review";
-        if (window.innerWidth <= 760) {
-          content.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
       }
 
       function updateSearch() {
         const query = search.value.trim().toLocaleLowerCase("en");
+        const changedOnly =
+          changeToggle !== null && changeToggle.getAttribute("aria-pressed") === "true";
         let visible = 0;
         for (const item of document.querySelectorAll("[data-nav-item]")) {
+          const link = item.querySelector("[data-story-link]");
           item.hidden =
-            query.length > 0 && !item.dataset.search.includes(query);
+            (query.length > 0 && !item.dataset.search.includes(query)) ||
+            (changedOnly && !link.hasAttribute("data-change"));
           if (!item.hidden) visible += 1;
         }
         for (const group of groups) {
           group.hidden = !group.querySelector("[data-nav-item]:not([hidden])");
         }
         empty.classList.toggle("show", visible === 0);
+      }
+
+      // The next or previous Story still listed, from the one shown.
+      function stepStory(offset) {
+        const listed = links.filter((link) => !link.closest("[data-nav-item]").hidden);
+        if (listed.length === 0) return;
+        const index = listed.findIndex((link) => link.getAttribute("aria-current") === "page");
+        const next = index === -1
+          ? (offset > 0 ? 0 : listed.length - 1)
+          : Math.min(listed.length - 1, Math.max(0, index + offset));
+        if (next === index) return;
+        showStory(listed[next]);
+        listed[next].scrollIntoView({ block: "nearest" });
       }
 
       for (const link of links) {
@@ -850,10 +1178,34 @@ ${screens ? renderScreenSidebar(screens) : ""}    </aside>
         });
       }
       search.addEventListener("input", updateSearch);
-      window.addEventListener("popstate", () => {
-        const link = linkFromHash() || links[0];
-        if (link) showStory(link, false);
+      if (changeToggle) {
+        changeToggle.addEventListener("click", () => {
+          changeToggle.setAttribute(
+            "aria-pressed",
+            String(changeToggle.getAttribute("aria-pressed") !== "true")
+          );
+          updateSearch();
+        });
+      }
+      sheetToggle.addEventListener("click", () => setSheet(!shell.hasAttribute("data-nav-open")));
+      nav.addEventListener("click", (event) => {
+        if (!shell.hasAttribute("data-nav-open")) return;
+        const target = event.target instanceof Element
+          ? event.target.closest("a[href], button[data-key]")
+          : null;
+        if (target) setSheet(false);
       });
+      content.addEventListener("click", (event) => {
+        const button = event.target instanceof Element
+          ? event.target.closest("[data-expand-all]")
+          : null;
+        if (!button) return;
+        const sections = [...content.querySelectorAll("details")];
+        const open = sections.some((section) => !section.open);
+        for (const section of sections) section.open = open;
+        button.textContent = open ? "Collapse all" : "Expand all";
+      });
+      window.addEventListener("popstate", route);
       document.addEventListener("keydown", (event) => {
         if (event.key === "/" && document.activeElement !== search) {
           event.preventDefault();
@@ -864,21 +1216,45 @@ ${screens ? renderScreenSidebar(screens) : ""}    </aside>
           search.blur();
           updateSearch();
         }
+        const typing = event.target instanceof HTMLElement &&
+          (event.target.matches("input, select, textarea") || event.target.isContentEditable);
+        if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+        if (event.key === "j" || event.key === "k") {
+          event.preventDefault();
+          stepStory(event.key === "j" ? 1 : -1);
+        }
       });
 
-      function linkFromHash() {
+      // A Story key selects that Story; a criterion key selects its Story
+      // and scrolls to the criterion.
+      function storyFromHash() {
+        let requested = "";
         try {
-          const requestedKey = decodeURIComponent(location.hash.slice(1));
-          return links.find(
-            (link) => link.dataset.storyKey === requestedKey
-          );
+          requested = decodeURIComponent(location.hash.slice(1));
         } catch {
-          return undefined;
+          return {};
         }
+        const story = links.find((link) => link.dataset.storyKey === requested);
+        if (story || !requested) return { link: story };
+        for (const link of links) {
+          const template = document.getElementById(link.dataset.templateId);
+          if (template && template.content.getElementById(requested)) {
+            return { link, target: requested };
+          }
+        }
+        return {};
       }
 
-      const initialLink = linkFromHash() || links[0];
-      if (initialLink) showStory(initialLink, false);
+      function route() {
+        const found = storyFromHash();
+        const link = found.link || links[0];
+        if (!link) return;
+        showStory(link, false);
+        const target = found.target && document.getElementById(found.target);
+        if (target) target.scrollIntoView({ block: "start" });
+      }
+
+      route();
     })();
   </script>
 ${changes ? `  <script>${REVIEW_CHANGE_SCRIPT}  </script>\n` : ""}${

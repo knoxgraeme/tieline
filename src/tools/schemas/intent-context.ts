@@ -248,4 +248,30 @@ export const getAcceptanceCriterionContextOutputShape = {
   status: z.enum(["found", "not_found"]),
   answer: z.string().min(1),
   intent_neighborhood: intentContextNeighborhood.nullable(),
+  /**
+   * When the criterion changed and in which pull request, from the committed
+   * manifest's git history; absent when the criterion was not found.
+   */
+  history: z
+    .object({
+      changes: z
+        .array(
+          z
+            .object({
+              status: z.enum(["added", "changed", "removed"]),
+              aspects: z.array(z.string()),
+              commit: z.string(),
+              date: z.string(),
+              subject: z.string(),
+              pull_request: z.number().int().positive().nullable(),
+            })
+            .strict()
+        )
+        .max(20),
+      total: z.number().int().nonnegative(),
+      truncated: z.boolean(),
+      unavailable: z.string().nullable(),
+    })
+    .strict()
+    .optional(),
 };
