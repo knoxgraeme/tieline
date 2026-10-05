@@ -2107,6 +2107,11 @@ capability:
   assert.match(provisioningReference, /Do not ask the user for a region/);
   assert.match(
     provisioningReference,
+    /one trust\s+boundary: its credentials act on every repository it serves/,
+    "provisioning must say a shared database is one trust boundary"
+  );
+  assert.match(
+    provisioningReference,
     /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tieline@latest init[^\n]*--skip-skill-install[^\n]*--database existing[^\n]*--provision-roles/,
     "hosted provisioning must pass the captured URI through the explicit existing-database role-provisioning command"
   );
