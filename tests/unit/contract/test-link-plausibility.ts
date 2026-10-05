@@ -180,7 +180,7 @@ function codeLink(path: string, relation = "implements"): ManifestLink {
     relation: relation as ManifestLink["relation"],
     provenance: "authored",
     target: { kind: "code", repository: REPOSITORY, path },
-    reviewed_content_hash: null,
+    compiled_content_hash: null,
   };
 }
 
@@ -225,7 +225,7 @@ function storyOf(topic: Topic, links: ManifestLink[]): ManifestStory {
 
 function manifestOf(stories: ManifestStory[]): ContractManifest {
   return {
-    schema_version: 2,
+    schema_version: 3,
     repository: { key: REPOSITORY },
     inputs: [],
     capabilities: [
@@ -293,7 +293,7 @@ try {
               source: "helpcenter",
               external_id: "article-1",
             },
-            reviewed_content_hash: null,
+            compiled_content_hash: null,
           },
           {
             relation: "implements",
@@ -303,7 +303,7 @@ try {
               repository: "another-repository",
               path: "src/elsewhere.ts",
             },
-            reviewed_content_hash: null,
+            compiled_content_hash: null,
           },
         ]),
         stable_id: "AC-EDGE-001",

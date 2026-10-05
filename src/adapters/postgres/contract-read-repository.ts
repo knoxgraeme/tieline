@@ -80,7 +80,7 @@ interface CodeLinkRow {
   owner_id: string;
   relation: "implements" | "enforces" | "tests";
   provenance: LinkProvenance;
-  reviewed_content_hash: string | null;
+  compiled_content_hash: string | null;
   current_content_hash: string | null;
   kind: "code" | "test";
   repository: string;
@@ -112,8 +112,8 @@ function freshnessForCodeLink(
 ): Freshness {
   if (authority === "planning") return "unknown";
   if (row.repository !== ownerRepository) return "unknown";
-  if (!row.reviewed_content_hash) return "unknown";
-  return row.reviewed_content_hash === row.current_content_hash
+  if (!row.compiled_content_hash) return "unknown";
+  return row.compiled_content_hash === row.current_content_hash
     ? "current"
     : "stale";
 }
@@ -135,7 +135,8 @@ function codeEvidenceLink(
       selector: row.selector,
       framework_hint: row.framework_hint,
     },
-    reviewed_content_hash: row.reviewed_content_hash,
+    compiled_content_hash: row.compiled_content_hash,
+    reviewed_content_hash: row.compiled_content_hash,
     freshness: freshnessForCodeLink(authority, ownerRepository, row),
   };
 }
@@ -155,6 +156,7 @@ function helpEvidenceLink(
       title: row.title,
       url: row.url,
     },
+    compiled_content_hash: null,
     reviewed_content_hash: null,
     freshness: "not_applicable",
   };
@@ -333,7 +335,7 @@ async function fetchStoryCodeLinks(
       sca.story_id as owner_id,
       sca.relation,
       sca.provenance,
-      sca.reviewed_content_hash,
+      sca.reviewed_content_hash as compiled_content_hash,
       ca.content_hash as current_content_hash,
       ca.kind,
       target_repository.key as repository,
@@ -357,7 +359,7 @@ async function fetchCriterionCodeLinks(
       cca.criterion_id as owner_id,
       cca.relation,
       cca.provenance,
-      cca.reviewed_content_hash,
+      cca.reviewed_content_hash as compiled_content_hash,
       ca.content_hash as current_content_hash,
       ca.kind,
       target_repository.key as repository,

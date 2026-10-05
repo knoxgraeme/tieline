@@ -46,6 +46,7 @@ export type GeneratedArtifactGateResult =
   | {
       status: "current";
       artifacts: GeneratedArtifactName[];
+      manifest_publication?: "deferred";
       trace_status: "complete";
       blast_radius_status: "complete";
       checkout_unchanged: true;
@@ -355,6 +356,7 @@ export async function runGeneratedArtifactGate(
   repositoryRoot = process.cwd()
 ): Promise<GeneratedArtifactGateResult> {
   const reviewedRoot = realpathSync(resolve(repositoryRoot));
+  const postMerge = findTielineWorkspace(reviewedRoot)?.config.manifest_mode === "post_merge";
   const before = snapshotGitVisibleFiles(reviewedRoot);
   const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tieline-derivation-gate-"));
   try {
@@ -377,6 +379,7 @@ export async function runGeneratedArtifactGate(
         ["topology", ".tieline/topology"],
       ] as const
     ).flatMap(([artifact, path]) => {
+      if (postMerge && artifact === "manifest") return [];
       const mismatch = compareGeneratedArtifact(
         artifact,
         resolve(reviewedRoot, path),
@@ -420,7 +423,8 @@ export async function runGeneratedArtifactGate(
     }
     return {
       status: "current",
-      artifacts: ["manifest", "topology"],
+      artifacts: postMerge ? ["topology"] : ["manifest", "topology"],
+      ...(postMerge ? { manifest_publication: "deferred" as const } : {}),
       trace_status: "complete",
       blast_radius_status: "complete",
       checkout_unchanged: true,

@@ -116,7 +116,7 @@ async function linkedImpact(input: {
   if (!change) return null;
   const assurance = await input.inspector.inspect({
     target: input.link.target,
-    reviewed_content_hash: input.link.reviewed_content_hash,
+    compiled_content_hash: input.link.compiled_content_hash,
   });
   return {
     target_kind: input.link.target.kind,
@@ -162,14 +162,14 @@ async function brokenLinkImpact(input: {
   if (input.link.target.kind === "help") return null;
   const freshness = input.inspector.inspectFreshness({
     target: input.link.target,
-    reviewed_content_hash: input.link.reviewed_content_hash,
+    compiled_content_hash: input.link.compiled_content_hash,
   });
   if (freshness.freshness !== "broken" || !freshness.broken_cause) {
     return null;
   }
   const assurance = await input.inspector.inspect({
     target: input.link.target,
-    reviewed_content_hash: input.link.reviewed_content_hash,
+    compiled_content_hash: input.link.compiled_content_hash,
   });
   return {
     target_kind: input.link.target.kind,

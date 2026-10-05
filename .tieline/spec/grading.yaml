@@ -215,7 +215,7 @@ capability:
                 path: tests/unit/contract/test-grade.ts
                 framework_hint: custom-script
         - key: GRADING-002-AC4
-          criterion: The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.
+          criterion: The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and keep independent grading read-only; during implementation the host must investigate findings, record fixed, rejected-with-evidence, or unresolved dispositions, and regrade affected claims after corrections within a bounded loop.
           rationale: The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.
           links:
             - relation: implements
@@ -224,3 +224,123 @@ capability:
                 kind: code
                 repository: tieline
                 path: skills/tieline/references/grading.md
+    - key: GRADING-003
+      title: Review complete acceptance criteria with selective scope
+      actor: implementing agent
+      goal: review changed claims with all their supporting evidence
+      benefit: multi-file behavior can be assessed without repeating review for every cosmetic source edit
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-003-AC1
+          criterion: Criterion grading must select changed rules, scenarios, AC, Story or capability applicability, Story lifecycle, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.
+          scenarios:
+            - given: an unchanged AC has two links and only one source file changes
+              when: claims scope is requested
+              then: the AC is reported as implementation-only without being graded
+            - given: only a scenario changes or all evidence links are removed
+              when: claims scope is requested
+              then: the AC remains in scope for judgment
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/criterion-grade.ts
+                selector: function:buildCriterionGradeScope
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-criterion-grade.ts
+        - key: GRADING-003-AC2
+          criterion: Criterion verification must accept multiple exact citations from an AC's evidence, preserve irrelevant-link findings separately from overall support, distinguish inconclusive evidence from unsupported claims, and reject stale, duplicate, missing, or fabricated evidence without claiming semantic proof.
+          scenarios:
+            - given: separate confirmation and checkout declarations jointly support the rule
+              when: a supported verdict cites both declarations
+              then: verification accepts both legal citations for the same AC
+            - given: one irrelevant link accompanies otherwise supported behavior
+              when: its link finding is verified
+              then: the finding remains visible and fails explicitly requested strict mode
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/criterion-grade.ts
+                selector: function:verifyCriterionGradeVerdicts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/criterion-grade.ts
+                selector: function:parseCriterionGradeVerdicts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-criterion-grade.ts
+    - key: GRADING-004
+      title: Record semantic review against immutable revisions
+      actor: implementing agent
+      goal: account for every affected accepted rule at the reviewed revision
+      benefit: regenerated fingerprints cannot stand in for review
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-004-AC1
+          criterion: Closeout must derive affected rules from immutable merge-base and head definitions and both revisions' links, including changed claims, implementation-only changes, removed rules, inherited applicability and lifecycle changes, and configuration changes, independently of manifest publication and uncommitted content.
+          scenarios:
+            - given: a changed implementation loses its link or its rule in the PR
+              when: closeout scope is emitted
+              then: the previously linked rule still requires a disposition
+            - given: fingerprints are refreshed without reviewing changed implementation
+              when: closeout scope is emitted against the same target
+              then: the implementation's affected rules remain in scope
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/closeout.ts
+                selector: function:buildCloseoutScope
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-closeout.ts
+        - key: GRADING-004-AC2
+          criterion: Closeout verification must bind dispositions to resolved repository, target, merge-base and head identities, reject stale or invalid reports, require a disposition for every affected rule, and fail readiness for missing or unresolved dispositions without asserting semantic truth or human approval.
+          scenarios:
+            - given: a report names the prior head commit
+              when: verification runs against the current head
+              then: the report is rejected even if the affected rule list is unchanged
+            - given: every affected rule has a disposition but one remains unresolved
+              when: verification runs
+              then: the result is complete but not ready and exits nonzero
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/closeout.ts
+                selector: function:verifyCloseoutReport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/closeout.ts
+                selector: function:runCloseout
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-closeout.ts

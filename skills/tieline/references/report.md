@@ -7,6 +7,10 @@ and the report carries only what the user must act on.
 
 ## Shape, in order
 
+For grading-only or blocked work without a current review page, lead with the
+actual findings or blocker instead. Never fabricate a compiled deliverable or
+silently modify files merely to satisfy the report format.
+
 1. **Deliverable first.** Open with the review page and the command to open
    it, before any findings:
 

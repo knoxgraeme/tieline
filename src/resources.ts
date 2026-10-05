@@ -98,7 +98,7 @@ or append \`--skip-skill-install\` when it is only reconfiguring the runtime.
 
 Coverage describes whether every AC has direct implementation, test, or help
 links. Freshness separately describes whether linked repository content still
-matches its reviewed hash. A linked test is not a test execution receipt; execution
+matches its compiled file-content baseline; this does not record semantic review. A linked test is not a test execution receipt; execution
 receipts are intentionally deferred beyond the MVP.
 `;
 

@@ -16,9 +16,9 @@
             "criterion": "Tieline must derive separate semantic documents for Stories, Acceptance Criteria, Scenarios, Backlog Items, and sanitized Observations.",
             "links": [
               {
+                "compiled_content_hash": "d95a7d4fa16a2bb3c0338f0bf2ef2a488b24a293436f07c33e33eb5500884996",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "d95a7d4fa16a2bb3c0338f0bf2ef2a488b24a293436f07c33e33eb5500884996",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/vector.ts",
@@ -26,9 +26,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1f62e20cec56bd2ec7bb1787239fdd0d90a458716ea72704d63abdd2a79e53aa",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1f62e20cec56bd2ec7bb1787239fdd0d90a458716ea72704d63abdd2a79e53aa",
                 "target": {
                   "kind": "code",
                   "path": "src/derived/embedding-documents.ts",
@@ -36,9 +36,9 @@
                 }
               },
               {
+                "compiled_content_hash": "393351feb35e496c760b7b1b16a953d4d54b4e4c69eb8ad85721857faf6df4a6",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "393351feb35e496c760b7b1b16a953d4d54b4e4c69eb8ad85721857faf6df4a6",
                 "target": {
                   "kind": "code",
                   "path": "src/embeddings.ts",
@@ -46,9 +46,9 @@
                 }
               },
               {
+                "compiled_content_hash": "2fc620a5f8f78da6767d647609acefa2b38fd093b70f073b9a5e16857e18d7f8",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "2fc620a5f8f78da6767d647609acefa2b38fd093b70f073b9a5e16857e18d7f8",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -70,9 +70,9 @@
             "criterion": "Tieline must apply retrieval metadata as narrowing filters before combining always-on full-text and identifier recall with optional vector, alias, artifact-overlap, and three-hop graph signals through reciprocal rank fusion.",
             "links": [
               {
+                "compiled_content_hash": "a8fee643ee68cdb20a6c6920d77e83185e3d660747d6bd9daf252be866e98205",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "a8fee643ee68cdb20a6c6920d77e83185e3d660747d6bd9daf252be866e98205",
                 "target": {
                   "kind": "code",
                   "path": "migrations/0001_baseline.sql",
@@ -80,9 +80,9 @@
                 }
               },
               {
+                "compiled_content_hash": "dd1246f8e00cc09394a94ff0b7ab3e6242ef0b5cee1fb8d9c08a031e3fcb7b34",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "dd1246f8e00cc09394a94ff0b7ab3e6242ef0b5cee1fb8d9c08a031e3fcb7b34",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/search-context.ts",
@@ -90,9 +90,9 @@
                 }
               },
               {
+                "compiled_content_hash": "6e1a2ddf5485724e8228853205a42fbb6ad8fed9a24e677d8cce45e7fba1d57e",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "6e1a2ddf5485724e8228853205a42fbb6ad8fed9a24e677d8cce45e7fba1d57e",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/semantic-repository.ts",
@@ -100,9 +100,9 @@
                 }
               },
               {
+                "compiled_content_hash": "612bdf29e518e7d53d2745c544b59cedc7bc42067d564cacbd2b5d15447d9c6b",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "612bdf29e518e7d53d2745c544b59cedc7bc42067d564cacbd2b5d15447d9c6b",
                 "target": {
                   "kind": "code",
                   "path": "src/domain/semantic-search-store.ts",
@@ -110,9 +110,9 @@
                 }
               },
               {
+                "compiled_content_hash": "3aaf3c0360884eee206f6fe5ac863df18cafa0ee97152806e6914967dbb17ac5",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3aaf3c0360884eee206f6fe5ac863df18cafa0ee97152806e6914967dbb17ac5",
                 "target": {
                   "kind": "code",
                   "path": "src/ranking.ts",
@@ -120,9 +120,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1e4cfe38d33893c8177b7e15757e291b8cd585d150f8c59231134bf84d592f3e",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "1e4cfe38d33893c8177b7e15757e291b8cd585d150f8c59231134bf84d592f3e",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/find-related.ts",
@@ -130,9 +130,9 @@
                 }
               },
               {
+                "compiled_content_hash": "d394d9594716ae9ea0cf0b5559bb2897033bfe1735db8c2418a53d16cc939086",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "d394d9594716ae9ea0cf0b5559bb2897033bfe1735db8c2418a53d16cc939086",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/search-knowledge.ts",
@@ -140,9 +140,9 @@
                 }
               },
               {
+                "compiled_content_hash": "8fd1c99532e4d72f421b103405de1332ba924e329805368f756d464e18ee1a25",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "8fd1c99532e4d72f421b103405de1332ba924e329805368f756d464e18ee1a25",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -151,9 +151,9 @@
                 }
               },
               {
+                "compiled_content_hash": "90ea789f7d3bcba62f33581aa5864a763830df1c2e1b4857f9ba16247f865b46",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "90ea789f7d3bcba62f33581aa5864a763830df1c2e1b4857f9ba16247f865b46",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -162,9 +162,9 @@
                 }
               },
               {
+                "compiled_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -173,9 +173,9 @@
                 }
               },
               {
+                "compiled_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "db2bf136553cb336051e6564e31e28e5ce8a92793fa0bd82a99bc480cc1410a9",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -184,9 +184,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1351138329ee30a40a0df235faa65b392310e5e66c2b79d2c6fc04ed2c2ce254",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1351138329ee30a40a0df235faa65b392310e5e66c2b79d2c6fc04ed2c2ce254",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -223,9 +223,9 @@
             "criterion": "Tieline must keep similarity-only relationships suggested until an explicit decision confirms or dismisses them.",
             "links": [
               {
+                "compiled_content_hash": "ef3f2d7040cc9cae5b674b6e95c99882c90450eea7950c4f36a5f6ffeecf4d6f",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ef3f2d7040cc9cae5b674b6e95c99882c90450eea7950c4f36a5f6ffeecf4d6f",
                 "target": {
                   "kind": "code",
                   "path": "src/backlog-advisor.ts",
@@ -233,9 +233,9 @@
                 }
               },
               {
+                "compiled_content_hash": "7116c0c72ba684e28da12e18970748604584b479508b85cddf5da0500f3887d0",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7116c0c72ba684e28da12e18970748604584b479508b85cddf5da0500f3887d0",
                 "target": {
                   "kind": "code",
                   "path": "src/semantic-matching.ts",
@@ -243,9 +243,9 @@
                 }
               },
               {
+                "compiled_content_hash": "564129570a4011e2fbfbcbdcb23bfa1250bc6a1062d32d89559cc2576da141b7",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "564129570a4011e2fbfbcbdcb23bfa1250bc6a1062d32d89559cc2576da141b7",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/attributions.ts",
@@ -253,9 +253,9 @@
                 }
               },
               {
+                "compiled_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "a09a8d8628029bbe72cd397f947e53755c47c7c54f48f5fdfe69c5718c0723ed",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -285,9 +285,9 @@
             "criterion": "Tieline must use absolute vector, lexical, or exact-alias magnitude to decide whether a semantic candidate is admitted, and must use the blended rank-fusion score only to order admitted candidates.",
             "links": [
               {
+                "compiled_content_hash": "3aaf3c0360884eee206f6fe5ac863df18cafa0ee97152806e6914967dbb17ac5",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "3aaf3c0360884eee206f6fe5ac863df18cafa0ee97152806e6914967dbb17ac5",
                 "target": {
                   "kind": "code",
                   "path": "src/ranking.ts",
@@ -295,9 +295,9 @@
                 }
               },
               {
+                "compiled_content_hash": "7116c0c72ba684e28da12e18970748604584b479508b85cddf5da0500f3887d0",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "7116c0c72ba684e28da12e18970748604584b479508b85cddf5da0500f3887d0",
                 "target": {
                   "kind": "code",
                   "path": "src/semantic-matching.ts",
@@ -305,9 +305,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1351138329ee30a40a0df235faa65b392310e5e66c2b79d2c6fc04ed2c2ce254",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1351138329ee30a40a0df235faa65b392310e5e66c2b79d2c6fc04ed2c2ce254",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

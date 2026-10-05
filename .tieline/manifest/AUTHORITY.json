@@ -16,9 +16,9 @@
             "criterion": "Tieline must allow planning writers to create and revise only backlog Stories and their Acceptance Criteria.",
             "links": [
               {
+                "compiled_content_hash": "8221d8c529fd0230342fb253ef76ef6499319e6e0eeea537d774987e54c05dbf",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "8221d8c529fd0230342fb253ef76ef6499319e6e0eeea537d774987e54c05dbf",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/planning-story-repository.ts",
@@ -26,9 +26,9 @@
                 }
               },
               {
+                "compiled_content_hash": "9d01ce74028da22ff09e5a6f222524bc5e84ad87a405405434ed3b7c500ea138",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "9d01ce74028da22ff09e5a6f222524bc5e84ad87a405405434ed3b7c500ea138",
                 "target": {
                   "kind": "code",
                   "path": "src/domain/planning-contract-write-store.ts",
@@ -36,9 +36,9 @@
                 }
               },
               {
+                "compiled_content_hash": "b912ba058cfe2b622f271a20b8c797d265774b5fa52e1c0b9856f5460a167f5e",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "b912ba058cfe2b622f271a20b8c797d265774b5fa52e1c0b9856f5460a167f5e",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/planning-stories.ts",
@@ -46,9 +46,9 @@
                 }
               },
               {
+                "compiled_content_hash": "1c01f2876e49f5987f31d8a9f454b511f7cd2930127316939969d55c7d1d52cf",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "1c01f2876e49f5987f31d8a9f454b511f7cd2930127316939969d55c7d1d52cf",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -87,9 +87,9 @@
             "criterion": "Tieline must preserve matching planning Story and Acceptance Criterion identities when a repository contract is synchronized.",
             "links": [
               {
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -97,9 +97,9 @@
                 }
               },
               {
+                "compiled_content_hash": "bd211a9aeb20714859f7a88a676cb02ebe2be04e32fd563f59b2dd2c79c9a203",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "bd211a9aeb20714859f7a88a676cb02ebe2be04e32fd563f59b2dd2c79c9a203",
                 "target": {
                   "kind": "code",
                   "path": "src/contract/sync.ts",
@@ -107,9 +107,9 @@
                 }
               },
               {
+                "compiled_content_hash": "59b6fa1a189105670cd04967b87f8ac35a03c2c2ce5a6d7918843dd38d8f8985",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "59b6fa1a189105670cd04967b87f8ac35a03c2c2ce5a6d7918843dd38d8f8985",
                 "target": {
                   "kind": "code",
                   "path": "src/tools/handoff-conflicts.ts",
@@ -117,9 +117,9 @@
                 }
               },
               {
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -149,9 +149,9 @@
             "criterion": "Tieline must keep read, planning-write, repository-sync, and offline-admin database responsibilities separate.",
             "links": [
               {
+                "compiled_content_hash": "eefbcae373227c6b62c198f2daefab4827b02dbf170019e3b9b4361b1e33d9a5",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "eefbcae373227c6b62c198f2daefab4827b02dbf170019e3b9b4361b1e33d9a5",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/connections.ts",
@@ -159,9 +159,9 @@
                 }
               },
               {
+                "compiled_content_hash": "c25034b54f41c86f05b83b8f524e18511367faa4c4d191791f90e835e59f02e6",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "c25034b54f41c86f05b83b8f524e18511367faa4c4d191791f90e835e59f02e6",
                 "target": {
                   "kind": "code",
                   "path": "src/commands/migrate.ts",
@@ -169,9 +169,9 @@
                 }
               },
               {
+                "compiled_content_hash": "e6270e31326283a26918a085b6befabb42db88e59fa7df7f1ffc0654001ab6fc",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "e6270e31326283a26918a085b6befabb42db88e59fa7df7f1ffc0654001ab6fc",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/preflight.ts",
@@ -179,9 +179,9 @@
                 }
               },
               {
+                "compiled_content_hash": "deabc15e0556d48eb55592959d99dbe1fa9c764c12754d8a5794f186354b12b4",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "deabc15e0556d48eb55592959d99dbe1fa9c764c12754d8a5794f186354b12b4",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/profile.ts",
@@ -189,9 +189,9 @@
                 }
               },
               {
+                "compiled_content_hash": "843a1d67962a2e91f24ef54a9a77e0cc2cb5b1cd15f1afaf259ec0b181311a72",
                 "provenance": "authored",
                 "relation": "enforces",
-                "reviewed_content_hash": "843a1d67962a2e91f24ef54a9a77e0cc2cb5b1cd15f1afaf259ec0b181311a72",
                 "target": {
                   "kind": "code",
                   "path": "src/tieline/setup.ts",
@@ -199,9 +199,9 @@
                 }
               },
               {
+                "compiled_content_hash": "90ea789f7d3bcba62f33581aa5864a763830df1c2e1b4857f9ba16247f865b46",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "90ea789f7d3bcba62f33581aa5864a763830df1c2e1b4857f9ba16247f865b46",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -210,9 +210,9 @@
                 }
               },
               {
+                "compiled_content_hash": "b78f049262dcb5059ea3f1c0ff9277392a53c6f9ed9ed703067ab2991673d711",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "b78f049262dcb5059ea3f1c0ff9277392a53c6f9ed9ed703067ab2991673d711",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",
@@ -234,9 +234,9 @@
             "criterion": "Tieline must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.",
             "links": [
               {
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "ab1f196103d808f930d936f9114fdbc0d38ae04d503ea3485999694856aa4db6",
                 "target": {
                   "kind": "code",
                   "path": "src/adapters/postgres/contract-sync-repository.ts",
@@ -244,9 +244,9 @@
                 }
               },
               {
+                "compiled_content_hash": "fd1f8d5969b62c74eff6e4e24e6c4dd0d0cce71237d4324e22d84fc523d16917",
                 "provenance": "authored",
                 "relation": "tests",
-                "reviewed_content_hash": "78f88cb38b10ed6598144ae9e4ad939cfec2c9581f4dfe1921bf1f91a4d7d358",
                 "target": {
                   "framework_hint": "custom-script",
                   "kind": "test",

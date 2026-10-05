@@ -48,7 +48,7 @@
     "dev": "tsx watch src/index.ts",
     "migrate": "node dist/cli.js migrate",
     "import:help": "node dist/cli.js import-help",
-    "test": "npm run test:source-scope && npm run test:contract && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke && npm run test:evidence && npm run test:contract-read && npm run test:baseline && npm run test:topology && npm run test:generated-artifacts && npm run test:integration-entrypoint",
+    "test": "npm run test:source-scope && npm run test:contract && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke && npm run test:evidence && npm run test:contract-read && npm run test:baseline && npm run test:topology && npm run test:generated-artifacts && npm run test:integration-entrypoint && npm run test:grading-evaluation",
     "test:ranking": "tsx tests/unit/retrieval/test-ranking.ts",
     "test:retrieval": "tsx tests/evaluations/evaluate-retrieval.ts",
     "test:embeddings": "tsx tests/unit/retrieval/test-embeddings.ts",
@@ -83,9 +83,8 @@
     "test:smoke": "tsx tests/smoke/smoke.ts",
     "test:integration": "tsx tests/integration/integration.ts",
     "test:integration-entrypoint": "tsx tests/unit/runtime/test-integration-entrypoint.ts",
-    "test:contract": "tsx tests/unit/contract/test-contract.ts && tsx tests/unit/contract/test-manifest.ts && tsx tests/unit/contract/test-contract-command.ts && tsx tests/unit/contract/test-contract-context-command.ts && tsx tests/unit/contract/test-impact.ts && tsx tests/unit/contract/test-artifact-assurance.ts && tsx tests/unit/contract/test-intent-context.ts && tsx tests/unit/contract/test-link-plausibility.ts && tsx tests/unit/contract/test-reconciliation.ts && tsx tests/unit/contract/test-path-criteria.ts && tsx tests/unit/contract/test-grade.ts && tsx tests/unit/contract/test-comparison-base.ts && tsx tests/unit/contract/test-contract-history.ts && npm run test:screens",
+    "test:contract": "tsx tests/unit/contract/test-contract.ts && tsx tests/unit/contract/test-manifest.ts && tsx tests/unit/contract/test-contract-command.ts && tsx tests/unit/contract/test-contract-context-command.ts && tsx tests/unit/contract/test-impact.ts && tsx tests/unit/contract/test-artifact-assurance.ts && tsx tests/unit/contract/test-intent-context.ts && tsx tests/unit/contract/test-link-plausibility.ts && tsx tests/unit/contract/test-reconciliation.ts && tsx tests/unit/contract/test-path-criteria.ts && tsx tests/unit/contract/test-grade.ts && tsx tests/unit/contract/test-comparison-base.ts && tsx tests/unit/contract/test-contract-history.ts && npm run test:criterion-grade && npm run test:manifest-maintenance && npm run test:closeout && npm run test:screens",
     "test:screens:browser": "npm run build && tsx tests/browser/test-screens-browser.ts",
-    "test:review:browser": "tsx tests/browser/test-review-page-browser.ts",
     "test:screens": "tsx tests/unit/contract/test-screens.ts && tsx tests/unit/contract/test-screen-import.ts && tsx tests/unit/contract/test-screen-review.ts && tsx tests/unit/contract/test-review-changes.ts && tsx tests/unit/contract/test-screen-audit.ts && tsx tests/unit/contract/test-screen-capture-selection.ts && tsx tests/unit/contract/test-screen-capture.ts && tsx tests/unit/contract/test-screen-playwright.ts && tsx tests/unit/contract/test-screen-hosting.ts && tsx tests/unit/contract/test-screen-hosted-site.ts && tsx tests/unit/contract/test-screen-generated-scenes.ts",
     "test:contract-command": "tsx tests/unit/contract/test-contract-command.ts",
     "test:contract-context-command": "tsx tests/unit/contract/test-contract-context-command.ts",
@@ -109,7 +108,12 @@
     "test:guardrails": "npm run test:guardrail:fixtures && npm run test:guardrail:unit && npm run test:guardrail:hooks && npm run test:guardrail:rules",
     "typecheck": "tsc --project tsconfig.typecheck.json",
     "check:fast": "npm run typecheck && npm run build && npm test && npm run test:guardrails",
-    "check": "npm run check:fast && npm run test:tieline && npm pack --dry-run --ignore-scripts"
+    "check": "npm run check:fast && npm run test:tieline && npm pack --dry-run --ignore-scripts",
+    "test:criterion-grade": "tsx tests/unit/contract/test-criterion-grade.ts",
+    "test:manifest-maintenance": "tsx tests/unit/contract/test-manifest-maintenance.ts",
+    "test:grading-evaluation": "tsx tests/evaluations/test-grading-evaluation.ts",
+    "eval:grading": "tsx tests/evaluations/evaluate-grading.ts",
+    "test:closeout": "tsx tests/unit/contract/test-closeout.ts"
   },
   "engines": {
     "node": ">=20.12"

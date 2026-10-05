@@ -39,7 +39,9 @@ export interface ContractEvidenceLink {
   provenance: LinkProvenance;
   scope: "direct" | "story_fallback";
   target: ContractCodeTarget | ContractHelpTarget;
-  reviewed_content_hash: string | null;
+  compiled_content_hash: string | null;
+  /** @deprecated Compilation baseline only; use compiled_content_hash. */
+  reviewed_content_hash?: string | null;
   freshness: Freshness;
 }
 
