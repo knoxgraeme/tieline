@@ -404,13 +404,13 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "fe9f7833ed697cf9602f23b5988e13b4c2a272576fbdec2f909305ac0fb7b49a",
-            "criterion": "The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and leave contract YAML unchanged.",
+            "contract_hash": "186130e8a9fd3bfc955218028fdf82f10b7541b349cacbc22c1cc41213e0658a",
+            "criterion": "The Tieline skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and keep independent grading read-only; during implementation the host must investigate findings, record fixed, rejected-with-evidence, or unresolved dispositions, and regrade affected claims after corrections within a bounded loop.",
             "links": [
               {
                 "provenance": "authored",
                 "relation": "implements",
-                "reviewed_content_hash": "cd54443fbd1f4fd40651b9160aa724d9d56ee43e477c0317564aeceb84cb3512",
+                "reviewed_content_hash": "9fda4fd4efe431bac4b1f7fa6bc9939dbb75fab8a9f1581676d329e514a151ed",
                 "target": {
                   "kind": "code",
                   "path": "skills/tieline/references/grading.md",
@@ -444,6 +444,6 @@
   },
   "input": {
     "path": ".tieline/spec/grading.yaml",
-    "sha256": "30f86b752210017c67e404caafda6e615171739951cf8f47032e49ddc72e2ff9"
+    "sha256": "bf4bd677ac6ae6bbc3e78bf65831ee62f92937639481b6f6d5f5740da94048d6"
   }
 }

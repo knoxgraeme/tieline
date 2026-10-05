@@ -96,7 +96,11 @@ Planning-only and grading-only flows keep their earlier stopping points.
      closeout report; do not create an AC merely to eliminate an unmapped file.
    - `update`: an accepted Story, AC, scenario, rationale, or evidence link must
      change to remain truthful.
-   - `add`: distinct observable behavior is not represented by an accepted AC.
+   - `add`: a durable user promise or material business, permission, disclosure,
+     or accessibility rule is not represented by an accepted AC. Incidental
+     layout and copy polish may be `exclude` with a reason even when visible.
+     Ask whether changing it would violate a meaningful user expectation;
+     never create an AC merely because pixels or wording changed.
    - `unresolved`: a material ambiguity prevents an accurate decision. Surface
      the exact ambiguity instead of silently choosing another disposition.
 3. For every `update` or `add`, edit the repository YAML and compile its manifest
@@ -261,7 +265,12 @@ merge-only publisher must own that boundary when hosted publication is enabled.
    You authored these links, so dispatch fresh subagents batched by artifact
    path and give them only the emitted scope entries, never your authoring
    rationale.
-10. Summarize the semantic diff, impacted ACs, grade findings, freshness
+10. For implementation and reconciliation, apply the finding-resolution loop
+    in [grading.md](references/grading.md#resolve-findings-during-implementation).
+    The independent grader reports; the implementing agent owns investigation
+    and correction within the authorized task. A grading-only request still
+    stops after its report.
+11. Summarize the semantic diff, impacted ACs, grade findings, freshness
     warnings, coverage delta, likely duplicates, unresolved conflicts, and
     unmapped source files.
 
