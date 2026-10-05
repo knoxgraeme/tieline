@@ -121,7 +121,7 @@ async function ensureCodeAsset(
   const ownsAsset = link.target.repository === ownerRepositoryKey;
   const currentContentHash = ownsAsset
     ? link.current_content_hash === undefined
-      ? link.reviewed_content_hash
+      ? link.compiled_content_hash
       : link.current_content_hash
     : undefined;
   const existing = await tx<{ id: string }[]>`
@@ -328,7 +328,7 @@ async function replaceStoryLinks(
           story_id, asset_id, relation, provenance, reviewed_content_hash
         ) values (
           ${storyId}, ${assetId}, ${link.relation}, ${link.provenance},
-          ${link.reviewed_content_hash}
+          ${link.compiled_content_hash}
         )
         on conflict (story_id, asset_id, relation) do update
           set provenance = excluded.provenance,
@@ -362,7 +362,7 @@ async function replaceCriterionLinks(
           criterion_id, asset_id, relation, provenance, reviewed_content_hash
         ) values (
           ${criterionId}, ${assetId}, ${link.relation}, ${link.provenance},
-          ${link.reviewed_content_hash}
+          ${link.compiled_content_hash}
         )
         on conflict (criterion_id, asset_id, relation) do update
           set provenance = excluded.provenance,
@@ -973,7 +973,7 @@ export class PostgresContractSyncRepository
       );
       await tx`
         update capabilities
-        set active = false, updated_at = now()
+        set active = false, repository_commit = ${commit}, updated_at = now()
         where repository_id = ${repositoryId}
           and active
           and stable_id <> all(${capabilityStableIds})`;

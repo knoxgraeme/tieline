@@ -800,11 +800,9 @@ export async function runContractCommand(
   const compiled = compileManifest("throw");
   const manifest = compiled.manifest;
 
-  // `manifest` was compiled from the working tree, so its reviewed hashes are
-  // the hashes it just measured. The committed manifest is the only record of
-  // what a reviewer actually accepted, so the `hash_current` tier is compared
-  // against it when one is readable; without it, no drift is observable and the
-  // tier reports the compile-time measurement instead.
+  // `manifest` holds the file hashes just measured by compilation. Compare
+  // freshness against the published compilation baseline when available.
+  // Neither baseline is evidence that a person reviewed semantic correctness.
   const reviewedManifest =
     parsed.action === "coverage"
       ? readReviewedManifest(parsed.outputPath, parsed.repositoryKey)

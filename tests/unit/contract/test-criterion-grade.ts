@@ -80,7 +80,7 @@ try {
   await assert.rejects(build("claims", oversized), /exceeds 1000 criteria/);
   const metadata = structuredClone(manifest);
   metadata.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.aliases.push("Payment confirmation");
-  metadata.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links[0]!.reviewed_content_hash = "a".repeat(64);
+  metadata.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links[0]!.compiled_content_hash = "a".repeat(64);
   assert.equal((await build("claims", metadata)).scoped_criteria, 0, "aliases and fingerprints do not create semantic work");
   const external = structuredClone(manifest);
   for (const link of external.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.links) {

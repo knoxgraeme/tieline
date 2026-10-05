@@ -292,7 +292,7 @@ capability:
                 path: tests/integration/integration-contract-sync.ts
                 framework_hint: custom-script
         - key: CONTRACT-001-AC8
-          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and supply Git commit provenance explicitly only when synchronizing the reviewed manifest to the database.
+          criterion: Tieline must keep the compiled manifest independent of Git revision, identify exact manifest reads with a content-derived digest, and keep Git commit provenance separate from manifest content while supplying it explicitly for database synchronization.
           rationale: A revision in the tracked repository-level index made every branch conflict in one shared generated file and became stale as soon as that generated file was committed. Content identity belongs to the reviewed manifest, while Git revision belongs to the runtime projection checkpoint and audit boundary.
           scenarios:
             - given: accepted specifications and linked artifacts whose content is unchanged across two Git revisions
@@ -365,12 +365,6 @@ capability:
                 kind: code
                 repository: tieline
                 path: src/tieline/status.ts
-            - relation: enforces
-              provenance: authored
-              target:
-                kind: code
-                repository: tieline
-                path: .gitattributes
             - relation: tests
               provenance: authored
               target:
@@ -405,6 +399,26 @@ capability:
                 kind: test
                 repository: tieline
                 path: tests/integration/integration-contract-sync.ts
+                framework_hint: custom-script
+        - key: CONTRACT-001-AC9
+          criterion: Compiled evidence fingerprints must identify file contents at compilation without implying semantic review, and readers must accept legacy fingerprints without losing their baseline.
+          scenarios:
+            - given: a version 2 manifest containing reviewed_content_hash
+              when: the manifest is read by a current client
+              then: the same baseline is available as compiled_content_hash and conflicting aliases are rejected
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/manifest.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-manifest.ts
                 framework_hint: custom-script
     - key: CONTRACT-002
       title: Learn which acceptance criteria apply to a path before editing it

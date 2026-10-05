@@ -360,7 +360,7 @@ await test("does not describe an empty source scope as 100% covered", () => {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const coverage = computeRepositoryMappingCoverage(
       {
-        schema_version: 2,
+        schema_version: 3,
         repository: { key: "tieline" },
         inputs: [],
         capabilities: [],

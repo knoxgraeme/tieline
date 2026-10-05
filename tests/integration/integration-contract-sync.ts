@@ -541,6 +541,30 @@ try {
   const [checkpointAfterCollision] = await sql<{ commit_sha: string }[]>`
     select commit_sha from repository_sync_checkpoints where repository_id = ${repository.id}`;
   assert.equal(checkpointAfterCollision.commit_sha, "commit-two");
+  const readSyncCapability = async () => {
+    const [capability] = await sql<{
+      active: boolean;
+      repository_commit: string;
+    }[]>`
+      select active, repository_commit from capabilities
+      where repository_id = ${repository.id} and stable_id = 'SYNC'`;
+    return capability;
+  };
+  // A collision happens after capability retirement inside the transaction.
+  // Neither the retirement nor its provenance may survive the rollback.
+  assert.deepEqual(await readSyncCapability(), {
+    active: true,
+    repository_commit: "commit-two",
+  });
+
+  const [foreignRepository] = await sql<{ id: string }[]>`
+    insert into repositories (key, display_name)
+    values ('foreign-integration', 'Foreign integration')
+    returning id`;
+  await sql`
+    insert into capabilities (repository_id, stable_id, name, description, repository_commit)
+    values (${foreignRepository.id}, 'FOREIGN', 'Foreign capability',
+      'Retirement is scoped to its repository.', 'foreign-commit')`;
 
   const [conflictStory] = await sql<{ id: string }[]>`
     insert into user_stories (
@@ -595,6 +619,20 @@ try {
     }),
     { commit: "commit-three", expectedPreviousCommit: "commit-two" }
   );
+  assert.deepEqual(await readSyncCapability(), {
+    active: false,
+    repository_commit: "commit-three",
+  });
+  const [foreignCapability] = await sql<{
+    active: boolean;
+    repository_commit: string;
+  }[]>`
+    select active, repository_commit from capabilities
+    where repository_id = ${foreignRepository.id} and stable_id = 'FOREIGN'`;
+  assert.deepEqual(foreignCapability, {
+    active: true,
+    repository_commit: "foreign-commit",
+  });
   assert.deepEqual(conflictResult.conflicts, [
     {
       story_id: conflictStory.id,
@@ -650,6 +688,23 @@ try {
     { commit: "commit-four", expectedPreviousCommit: "commit-three" }
   );
   assert.deepEqual(reconciled.conflicts, []);
+  // Later syncs and replay must preserve the commit that retired this row.
+  assert.deepEqual(await readSyncCapability(), {
+    active: false,
+    repository_commit: "commit-three",
+  });
+  const replayed = await syncAsRepositoryRole(
+    compileContractManifest({
+      repositoryRoot: root,
+      repositoryKey: "sync-integration",
+    }),
+    { commit: "commit-four", expectedPreviousCommit: "commit-three" }
+  );
+  assert.equal(replayed.outcome, "unchanged");
+  assert.deepEqual(await readSyncCapability(), {
+    active: false,
+    repository_commit: "commit-three",
+  });
   await sql.unsafe("set role tieline_reader");
   const unresolvedAfterReconciliation = await reads.listHandoffConflicts({
     story_stable_id: "CONFLICT-001",
@@ -672,16 +727,16 @@ try {
     ),
     ContractSyncCheckpointError
   );
+  assert.deepEqual(await readSyncCapability(), {
+    active: false,
+    repository_commit: "commit-three",
+  });
 
   // Postgres is a projection of the repository manifest, so a code asset the
   // manifest stopped declaring must not survive as an orphan. Seed the rows a
   // careless delete would take with it: another repository's asset sharing the
   // renamed path, and two sync-integration assets that only another
   // repository's Story and Acceptance Criterion still link.
-  const [foreignRepository] = await sql<{ id: string }[]>`
-    insert into repositories (key, display_name)
-    values ('foreign-integration', 'Foreign integration')
-    returning id`;
   const [foreignPathTwin] = await sql<{ id: string }[]>`
     insert into code_assets (repository_id, kind, path)
     values (${foreignRepository.id}, 'code', 'src/before-rename.ts')
