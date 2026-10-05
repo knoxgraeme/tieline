@@ -433,6 +433,16 @@ function buildProgram(
         )
       );
     });
+  contract.command("refresh-manifest")
+    .description("Publish a post-merge manifest refresh to an integration branch")
+    .argument("[repository]", "repository path")
+    .requiredOption("--branch <branch>", "integration branch to fetch and update")
+    .option("--remote <remote>", "configured Git remote", "origin")
+    .option("--json", "emit machine-readable JSON")
+    .action(async (repository: string | undefined, opts) => {
+      const { runManifestRefresh } = await import("./commands/refresh-manifest.js");
+      setExit(await runManifestRefresh({ repository, branch: opts.branch, remote: opts.remote, json: Boolean(opts.json) }, io));
+    });
   contractAction("sync", "Sync the reviewed manifest to the database")
     .option("--commit <sha>", "repository commit recorded by this sync")
     .option(

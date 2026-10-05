@@ -104,7 +104,8 @@ Planning-only and grading-only flows keep their earlier stopping points.
    - `unresolved`: a material ambiguity prevents an accurate decision. Surface
      the exact ambiguity instead of silently choosing another disposition.
 3. For every `update` or `add`, edit the repository YAML and compile its manifest
-   directly. Do not post a comment or request separate approval first. The
+   directly. Do not post a comment or request separate approval first. Use
+   temporary output in post-merge mode. The
    pull-request diff is the review surface and merge is approval.
 4. Complete the validation, coverage, reconciliation, check, and grading steps
    below. Report the disposition of each cluster, including exclusions and any
@@ -249,7 +250,8 @@ merge-only publisher must own that boundary when hosted publication is enabled.
 6. Preserve Backlog Item and Observation IDs only as `motivated_by` pointers;
    never copy their payloads into YAML.
 7. Write strict YAML under `.tieline/spec/`.
-8. Run:
+8. Read [manifest-maintenance.md](references/manifest-maintenance.md) when
+   `manifest_mode` is `post_merge`. In the default committed mode, run:
 
    ```sh
    tieline contract validate .
@@ -281,7 +283,9 @@ branch and let normal PR review accept or reject it.
 
 ## Completion
 
-Leave the branch with valid YAML and a byte-current `.tieline/manifest/`.
+Leave the branch with valid YAML and a byte-current `.tieline/manifest/` in
+committed mode. In post-merge mode, validate current authored content before
+handoff and report pending generated publication explicitly.
 For implementation and repository-contract flows, completion also requires a
 semantic-closeout disposition for every changed behavior cluster against the
 final diff; later implementation changes invalidate the earlier closeout.

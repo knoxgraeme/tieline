@@ -53,6 +53,7 @@ import {
   verifyGradeVerdicts,
 } from "../contract/grade.js";
 import { buildCriterionGradeScope, parseCriterionGradeVerdicts, verifyCriterionGradeVerdicts } from "../contract/criterion-grade.js";
+import { readAuthoredContractAtBase } from "../contract/authored-snapshot.js";
 import { runContractContext } from "./contract-context.js";
 export { renderIntentContextText } from "./contract-context.js";
 import { resolveCommandContext, wrap, type CommandIO } from "./shared.js";
@@ -100,6 +101,7 @@ interface ParsedContractCommand {
   commit?: string;
   outputPath: string;
   manifestPath: string;
+  manifestMode: "committed" | "post_merge";
   specDirectory: string;
   sourceRoots: string[];
   ignore: string[];
@@ -167,6 +169,7 @@ function resolveContractCommand(
     commit: options.commit,
     outputPath: resolvedOutput,
     manifestPath: workspace?.manifestPath ?? resolvedOutput,
+    manifestMode: workspace?.config.manifest_mode ?? "committed",
     specDirectory,
     sourceRoots: workspace?.config.repository.source_roots ?? ["src"],
     ignore: workspace?.config.repository.ignore ?? [],
@@ -206,7 +209,9 @@ async function runGrade(
 
   let manifest: ContractManifest;
   try {
-    manifest = readContractManifest(parsed.manifestPath);
+    manifest = parsed.manifestMode === "post_merge"
+      ? compileContractManifestWithSources({ repositoryRoot: parsed.repositoryRoot, repositoryKey: parsed.repositoryKey, specDirectory: parsed.specDirectory }).manifest
+      : readContractManifest(parsed.manifestPath);
   } catch (error) {
     throw new Error(
       `Cannot derive grading scope because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
@@ -218,11 +223,9 @@ async function runGrade(
     repositoryRoot: parsed.repositoryRoot,
     base: parsed.base,
     manifest,
-    baseManifest: manifestAtBase(
-      parsed.repositoryRoot,
-      parsed.base,
-      parsed.manifestPath
-    ),
+    baseManifest: parsed.manifestMode === "post_merge"
+      ? readAuthoredContractAtBase({ repositoryRoot: parsed.repositoryRoot, repositoryKey: parsed.repositoryKey, specDirectory: parsed.specDirectory, base: parsed.base })
+      : manifestAtBase(parsed.repositoryRoot, parsed.base, parsed.manifestPath),
     changes: changesSince(parsed.repositoryRoot, parsed.base),
     sourceRoots: parsed.sourceRoots,
     ignore: parsed.ignore,

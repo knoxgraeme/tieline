@@ -282,3 +282,21 @@ downgrades missing judgments or fabricated citations. Strict criterion mode fail
 on unsupported, inconclusive, or link findings; partial alone remains advisory.
 Scopes are bounded to 1,000 criteria/5,000 links and verdict input to 16 MiB.
 See the [agent workflow](../skills/tieline/references/criterion-grading.md).
+
+### Publish a post-merge manifest
+
+`manifest_mode: "post_merge"` is an explicit opt-in in `.tieline/config.json`.
+The default remains `committed`. In post-merge mode, `check` and `contract grade`
+validate current YAML in memory and report pending publication; broken evidence
+still fails. Grading compares authored YAML at the base, not a stale generated
+baseline. Existing artifact-first context reads retain published freshness.
+
+```sh
+tieline contract refresh-manifest . --branch env/staging --remote origin --json
+```
+
+This command **writes to the named remote branch**. Run it only in the approved
+post-merge publisher. It uses a temporary worktree, stages only standard manifest
+output, and uses normal pushes with at most three attempts for concurrent merges.
+The working checkout and current branch are left alone. See
+[maintenance setup and recovery](operations.md#post-merge-manifest-maintenance-opt-in).

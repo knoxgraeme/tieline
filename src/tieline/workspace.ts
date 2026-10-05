@@ -71,6 +71,7 @@ export const tielineConfigSchema = z
     // independently by readSelectorConfig; it is declared here only so a
     // repository that declares selector kinds still loads its workspace.
     selectors: selectorConfigSchema.optional(),
+    manifest_mode: z.enum(["committed", "post_merge"]).optional(),
     created_at: z.string().min(1),
     updated_at: z.string().min(1),
   })
