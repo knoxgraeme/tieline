@@ -113,6 +113,25 @@ and topology projections against a disposable database.
 The current baseline is intentionally breaking: pre-release databases from the earlier model must
 be recreated rather than upgraded in place.
 
+## npm releases
+
+The [Publish workflow](../.github/workflows/publish.yml) runs on pushes to `main` and
+publishes the version committed in `package.json`. It does not bump versions: if
+that version is already on npm, the workflow succeeds with the publish step skipped.
+Recent merges alone therefore do not produce a new npm release.
+
+To prepare a release, choose an unused version and update both package files on a
+branch:
+
+```bash
+npm version patch --no-git-tag-version
+npm run check
+```
+
+Commit `package.json` and `package-lock.json` together and merge the reviewed change
+to `main`. Inspect the Publish run to confirm that the publish step ran, then check
+`npm view tieline version` to verify the registry's latest version.
+
 ## Post-merge manifest maintenance (opt in)
 
 The default `committed` workflow is unchanged. To delegate fingerprint maintenance,
