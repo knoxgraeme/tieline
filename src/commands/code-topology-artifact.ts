@@ -459,9 +459,16 @@ function legacyGraphTracked(repositoryRoot: string): boolean {
 function lifecycleNotices(repositoryRoot: string, mode: CodeTopologyMode): string[] {
   try {
     if (mode === "cached") {
-      return legacyGraphTracked(repositoryRoot)
-        ? [`${LEGACY_GRAPH_PATH} is still tracked by Git but is no longer updated in cached mode. Run \`tieline code untrack .\` and commit the result.`]
-        : [];
+      if (!insideGitWorkTree(repositoryRoot)) return [];
+      const cacheDirectory = `${CODE_TOPOLOGY_CACHE_DIRECTORY}/`;
+      return [
+        ...(legacyGraphTracked(repositoryRoot)
+          ? [`${LEGACY_GRAPH_PATH} is still tracked by Git but is no longer updated in cached mode. Run \`tieline code untrack .\` and commit the result.`]
+          : []),
+        ...(existsSync(resolve(repositoryRoot, cacheDirectory)) && !gitPathIgnored(repositoryRoot, cacheDirectory)
+          ? [`${cacheDirectory} is not ignored by Git. Keep derived graphs out of commits, for example with the rule \`*\` and \`!.gitignore\` in .tieline/topology/.gitignore.`]
+          : []),
+      ];
     }
     return insideGitWorkTree(repositoryRoot) && gitPathIgnored(repositoryRoot, LEGACY_GRAPH_PATH)
       ? [`${LEGACY_GRAPH_PATH} is ignored by Git, so committed mode cannot commit it. Remove the ignore rule (for example the cached-mode .tieline/topology/.gitignore).`]

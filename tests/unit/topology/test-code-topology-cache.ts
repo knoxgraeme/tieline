@@ -235,6 +235,12 @@ try {
     try {
       writeFileSync(entry, Buffer.concat([bytes, Buffer.from(" ")]));
       await expectStatus("topology_invalid");
+      const traced = await cli([
+        "code", "trace", "--repository", plain, "--path", "src/consumer.ts",
+        "--direction", "dependencies", "--json",
+      ]);
+      assert.equal(traced.result.status, "topology_invalid");
+      assert.equal(traced.result.selected_input_digest, plainDigest, "trace failures carry the snapshot key");
       writeFileSync(entry, `${JSON.stringify({ ...graph, counts: { ...graph.counts, files: graph.counts.files + 1 } })}\n`);
       await expectStatus("topology_invalid");
       writeFileSync(entry, `${JSON.stringify({ ...graph, producer: { ...graph.producer, version: graph.producer.version + 1 } })}\n`);
@@ -406,7 +412,7 @@ try {
     const revision = await cli(["code", "compile", root, "--revision", "merge-left-right", "--json"]);
     assert.equal(revision.result.status, "current", JSON.stringify(revision.result));
     assert.equal(revision.result.queried_revision, git(root, ["rev-parse", "merge-left-right"]));
-    assert.equal(digestOf(revision.result), merged[0], "an immutable revision and its checkout share one cache key");
+    assert.equal(digestOf(revision.result), merged[0], "with only code files under source roots, a revision and its checkout share one key");
     assert.equal(readFileSync(cacheEntry(root, merged[0]), "utf8"), merged[1]);
   });
 
@@ -422,6 +428,8 @@ try {
 
     const missing = await cli(blastArgs);
     assert.equal(missing.result.status, "topology_missing_at_revision");
+    assert.equal(missing.result.generation_role, "base");
+    assert.match(String(missing.result.selected_input_digest), /^[a-f0-9]{64}$/);
     assert.match(String(missing.result.detail), new RegExp(`tieline code compile \\. --revision ${base}`));
 
     const compiled = await cli(["code", "compile", root, "--revision", "main", "--json"]);
@@ -609,6 +617,15 @@ try {
     assert.equal(removed.result.status, "untracked");
     assert.deepEqual(removed.result.staged, []);
     assert.equal(existsSync(join(plainDirectory, legacyRelative)), false);
+  });
+
+  await test("a user-owned topology ignore rule is kept but an unignored cache is reported", async () => {
+    const root = repository("user-ignore");
+    write(root, ".tieline/topology/.gitignore", "graph.json\n");
+    const compiled = await cli(["code", "compile", root, "--json"]);
+    assert.equal(compiled.result.status, "current");
+    assert.equal(readFileSync(join(root, ".tieline/topology/.gitignore"), "utf8"), "graph.json\n");
+    assert.match(JSON.stringify(compiled.result.notices), /cache\/ is not ignored by Git/);
   });
 
   await test("writers bound the cache and keep the most recent entries", async () => {

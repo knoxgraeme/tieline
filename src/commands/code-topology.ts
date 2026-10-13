@@ -93,6 +93,8 @@ export interface CodeTopologyUnavailableResult {
   repository: string;
   detail: string;
   generation_identity?: string;
+  /** Snapshot key for cached-mode remediation and CI cache lookups. */
+  selected_input_digest?: string;
 }
 
 export type DependencyTracePrimitiveResult =
@@ -118,6 +120,7 @@ export type BlastRadiusPrimitiveResult =
       repository: string;
       detail: string;
       generation_identity?: string;
+      selected_input_digest?: string;
       generation_role?: CodeTopologyGenerationRole;
     };
 
@@ -334,6 +337,9 @@ async function selectedGeneration(
       ...(selected.generation_identity
         ? { generation_identity: selected.generation_identity }
         : {}),
+      ...(selected.selected_input_digest
+        ? { selected_input_digest: selected.selected_input_digest }
+        : {}),
     };
   }
   const snapshot = selected.snapshot;
@@ -422,6 +428,9 @@ export async function executeChangeBlastRadius(
         repository: options.repository,
         generation_role: "current",
         detail: topology.detail,
+        ...(topology.selected_input_digest
+          ? { selected_input_digest: topology.selected_input_digest }
+          : {}),
       };
     }
     const contract = selectWorkspaceManifestRole(workspace, options.repository);
@@ -452,6 +461,9 @@ export async function executeChangeBlastRadius(
           repository: options.repository,
           generation_role: "base",
           detail: topology.detail,
+          ...(topology.selected_input_digest
+            ? { selected_input_digest: topology.selected_input_digest }
+            : {}),
         };
       }
       const commit = topology.snapshot.queried_revision!;

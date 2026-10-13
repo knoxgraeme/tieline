@@ -1557,7 +1557,7 @@
                 }
               },
               {
-                "compiled_content_hash": "1f56ca0728b3d680e70c5f46317d81dc7199a084032ef692d27741427da0f3b5",
+                "compiled_content_hash": "31f5c83eb6adb42bd665625f7f141896ce610b62b5d6a6337e777c3b7ecc5b30",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1741,7 +1741,7 @@
             "criterion": "Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
             "links": [
               {
-                "compiled_content_hash": "27c647e1f9211388b227cba3fff834da820eee9fcf5c6303de89501c54bb069c",
+                "compiled_content_hash": "44f288404a4aadf63178adbf45fa67d4a07736970e2855775a214dd62aca8e9a",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1752,7 +1752,7 @@
                 }
               },
               {
-                "compiled_content_hash": "27c647e1f9211388b227cba3fff834da820eee9fcf5c6303de89501c54bb069c",
+                "compiled_content_hash": "44f288404a4aadf63178adbf45fa67d4a07736970e2855775a214dd62aca8e9a",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2023,7 +2023,7 @@
             "criterion": "When topology_mode is absent or cached, explicit compilation of the workspace or of an immutable Git revision must publish its graph only to an ignored cache entry named by that snapshot's selected-input digest, and workspace and revision readers must select only the entry for the exact snapshot they inspect, without parsing or writing, reporting missing, stale, incompatible, invalid, unsafe, or oversized entries as named failures that include the digest.",
             "links": [
               {
-                "compiled_content_hash": "1f56ca0728b3d680e70c5f46317d81dc7199a084032ef692d27741427da0f3b5",
+                "compiled_content_hash": "31f5c83eb6adb42bd665625f7f141896ce610b62b5d6a6337e777c3b7ecc5b30",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2056,7 +2056,7 @@
                 }
               },
               {
-                "compiled_content_hash": "95388763ede4ba08144ed2a2cb0ae205a2da47eac41a5a32a6ae2009a645b50d",
+                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2101,7 +2101,7 @@
             "criterion": "An explicit committed topology_mode must keep the reviewed graph.json lifecycle without consulting the cache, and in cached mode a legacy committed graph may answer only while it is current for the exact snapshot, must never be updated by compilation, and must be removable by an untrack command that seeds the cache from a current legacy graph, stages only its removal and the topology ignore rule, resolves a modify/delete conflict on that file, and never commits or pushes.",
             "links": [
               {
-                "compiled_content_hash": "1f56ca0728b3d680e70c5f46317d81dc7199a084032ef692d27741427da0f3b5",
+                "compiled_content_hash": "31f5c83eb6adb42bd665625f7f141896ce610b62b5d6a6337e777c3b7ecc5b30",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2123,7 +2123,7 @@
                 }
               },
               {
-                "compiled_content_hash": "95388763ede4ba08144ed2a2cb0ae205a2da47eac41a5a32a6ae2009a645b50d",
+                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {

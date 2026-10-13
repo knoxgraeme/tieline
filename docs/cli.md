@@ -210,9 +210,9 @@ graphs out of Git instead:
 - Readers compute the digest of the snapshot they inspect and select only that entry, then apply
   the same integrity, compatibility, and freshness checks as committed mode. An edited workspace or
   uncompiled commit reports `topology_missing` or `topology_missing_at_revision` naming the
-  selected-input digest and the compile command to run; an older graph is never served.
-  `code compile` and `code validate` also return it as `selected_input_digest`, for example as a
-  CI cache key.
+  compile command to run; an older graph is never served. Cached-mode failures from compile,
+  validate, trace, and blast radius (CLI and MCP) return the snapshot's `selected_input_digest`,
+  which also works as a CI cache key.
 - In CI, compile the checked-out pull-request merge candidate (and its base when using
   `--base`), so dependencies created only by the combination of branches—added or deleted targets,
   import resolution, and resolver configuration changes—are always present.
