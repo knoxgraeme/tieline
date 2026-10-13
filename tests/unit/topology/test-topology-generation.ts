@@ -494,6 +494,7 @@ try {
 
   await test("a working tree and its commit share selected inputs despite non-code files, links, and nested repositories", async () => {
     const parity = mkdtempSync(join(tmpdir(), "tieline-topology-parity-"));
+    const stores: string[] = [];
     const run = (args: string[]): string =>
       execFileSync("git", args, { cwd: parity, encoding: "utf8" }).trim();
     const put = (path: string, source: string): void => {
@@ -520,11 +521,26 @@ try {
       put("src/__pycache__/module.pyc", "\u0000\u0001binary");
       put("src/big.json", `"${"x".repeat(3 * 1024 * 1024)}"\n`);
       put("src/vendored/nested.ts", "export const nested = 1;\n");
+      put("src/vendored/deeper/inside.ts", "export const inside = 1;\n");
       // An empty .git directory is not a repository, so Git tracks its siblings.
       mkdirSync(join(parity, "src/not-a-repo/.git"), { recursive: true });
       put("src/not-a-repo/tracked.ts", "export const tracked = 1;\n");
       put("real/src/linked-root.ts", "export const linkedRoot = 1;\n");
       symlinkSync("real", join(parity, "link"));
+      // A .git directory with an invalid HEAD is not a repository either.
+      put("src/corrupt/.git/HEAD", "not a ref\n");
+      mkdirSync(join(parity, "src/corrupt/.git/objects"), { recursive: true });
+      mkdirSync(join(parity, "src/corrupt/.git/refs"), { recursive: true });
+      put("src/corrupt/kept.ts", "export const kept = 1;\n");
+      // A repository whose .git is a symbolic link is still recorded as a link.
+      put("src/linked-git/inner.ts", "export const inner = 1;\n");
+      execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/linked-git") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/linked-git") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "inner"], { cwd: join(parity, "src/linked-git") });
+      const gitStore = mkdtempSync(join(tmpdir(), "tieline-linked-git-"));
+      stores.push(gitStore);
+      renameSync(join(parity, "src/linked-git/.git"), join(gitStore, "git"));
+      symlinkSync(join(gitStore, "git"), join(parity, "src/linked-git/.git"));
       execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/vendored") });
       execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/vendored") });
       execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "vendored"], { cwd: join(parity, "src/vendored") });
@@ -533,18 +549,22 @@ try {
       // Git records the nested work tree as a link, never its files.
       assert.equal(run(["ls-files", "--", "src/vendored/nested.ts"]), "");
       assert.equal(run(["ls-files", "--", "src/not-a-repo/tracked.ts"]), "src/not-a-repo/tracked.ts");
+      assert.equal(run(["ls-files", "--", "src/corrupt/kept.ts"]), "src/corrupt/kept.ts");
+      assert.equal(run(["ls-files", "--", "src/linked-git/inner.ts"]), "");
       for (const scope of [
         { sourceRoots: ["src"], ignore: ["node_modules/**"] },
         // Roots reached through a symbolic link or inside a nested repository select nothing in Git.
-        { sourceRoots: ["src", "link/src", "src/vendored"], ignore: [] },
+        { sourceRoots: ["src", "link/src", "src/vendored", "src/vendored/deeper"], ignore: [] },
+        // Equivalent root spellings select the same files on both sides.
+        { sourceRoots: ["src/.", "real//src", "real/../real/src/"], ignore: [] },
         // A broad root whose ignore list omits .tieline must not key Tieline's own output.
         { sourceRoots: ["."], ignore: [".git"] },
       ]) {
         const scoped = { repositoryRoot: parity, repository: "fixture/parity", ...scope };
         const working = await buildWorkspaceTopologyGeneration(scoped);
         const commit = await buildCommittedTopologyGeneration({ ...scoped, revision: "HEAD" });
-        assert.equal(working.status, "complete");
-        assert.equal(commit.status, "complete");
+        assert.equal(working.status, "complete", `${JSON.stringify(scope)} ${"detail" in working ? working.detail : ""}`);
+        assert.equal(commit.status, "complete", `${JSON.stringify(scope)} ${"detail" in commit ? commit.detail : ""}`);
         if (working.status !== "complete" || commit.status !== "complete") return;
         assert.equal(working.generation.header.revision, commit.generation.header.revision, JSON.stringify(scope));
         assert.equal(working.generation.header.identity, commit.generation.header.identity);
@@ -573,6 +593,7 @@ try {
       assert.notEqual(changed.selected_input_digest, unchanged.selected_input_digest, "root resolver configuration stays selected");
     } finally {
       rmSync(parity, { recursive: true, force: true });
+      for (const store of stores) rmSync(store, { recursive: true, force: true });
     }
   });
 

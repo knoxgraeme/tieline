@@ -22,6 +22,7 @@ import { readRustResolutionConfiguration } from "./code-resolution/rust.js";
 import { codeTopologySelectedInputDigest } from "../domain/code-topology-store.js";
 import { createGitSourceSnapshotCollection } from "./git-source-snapshot.js";
 import {
+  canonicalSourceRoot,
   createSourceInventory,
   normalizeInventoryPath,
   sourcePathIgnored,
@@ -83,9 +84,10 @@ function canonicalDigest(value: unknown): string {
 }
 
 function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInventory {
+  const sourceRoots = options.sourceRoots.map(canonicalSourceRoot);
   const base = createSourceInventory({
     repositoryRoot: options.repositoryRoot,
-    sourceRoots: options.sourceRoots,
+    sourceRoots,
     ignore: options.ignore,
     gitTreeEntriesOnly: true,
   });
@@ -114,7 +116,6 @@ function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInv
   const files = [...byPath.values()].sort((left, right) =>
     compareCodeTopologyText(left.path, right.path)
   );
-  const sourceRoots = options.sourceRoots.map(normalizeInventoryPath);
   const ignore = (options.ignore ?? []).map(normalizeInventoryPath);
   return Object.freeze({
     schemaVersion: 1 as const,

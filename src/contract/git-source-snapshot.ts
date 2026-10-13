@@ -4,6 +4,7 @@ import { Buffer } from "node:buffer";
 import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath } from "./code-analysis/languages.js";
 import {
+  canonicalSourceRoot,
   isSourceInventoryPathEligible,
   normalizeInventoryPath,
   sourcePathIgnored,
@@ -161,7 +162,7 @@ function metadata(entry: GitTreeEntry): SourceFileMetadata {
 export function createGitSourceSnapshotCollection(
   options: CreateGitSourceSnapshotCollectionOptions
 ): GitSourceSnapshotCollection {
-  const sourceRoots = options.sourceRoots.map(normalizeInventoryPath);
+  const sourceRoots = options.sourceRoots.map(canonicalSourceRoot);
   const ignore = (options.ignore ?? []).map(normalizeInventoryPath);
   const revision = resolveTreeIdentity(options.repositoryRoot, options.revision);
   const entries = listTree(

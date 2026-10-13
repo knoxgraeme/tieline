@@ -248,7 +248,9 @@ branch that still modifies `graph.json` after `main` removed it also resolves th
 modify/delete merge conflict; the file is derived, so nothing is lost.
 
 Releases up to 0.2.0 also keyed working-tree graphs by non-code files, symbolic links, and nested
-repositories under the source roots, so those graphs could never be read at their commit. Such a
+repositories under the source roots, and matched source roots spelled with `.` segments or
+trailing slashes differently in working trees and commits, so those graphs could never be read at
+their commit. Such a
 graph reports `topology_stale` (committed mode) or `topology_missing` (cached mode) until it is
 recompiled with `tieline code compile .`; in committed mode, commit the regenerated `graph.json`.
 Graphs compiled with `--revision` and hosted Postgres generations are unaffected.

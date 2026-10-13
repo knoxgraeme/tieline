@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { basename, join, relative, resolve, sep } from "node:path";
+import { basename, join, posix, relative, resolve, sep } from "node:path";
 import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath, type SupportedCodeLanguage } from "./code-analysis/languages.js";
 import { withinRepository, wildcardPattern } from "./paths.js";
@@ -59,6 +59,15 @@ export interface CreateSourceInventoryOptions {
 /** Normalize a repository-derived path for stable identities and output. */
 export function normalizeInventoryPath(path: string): string {
   return path.split(sep).join("/").normalize("NFC").replace(/^\.\//, "");
+}
+
+/**
+ * One spelling per source root (`src/.`, `src//`, and `src/../src` all mean
+ * `src`), so working-tree walks and Git path matching select the same files.
+ */
+export function canonicalSourceRoot(root: string): string {
+  const normalized = posix.normalize(normalizeInventoryPath(root.trim())).replace(/\/+$/, "");
+  return normalized === "" ? "." : normalized;
 }
 
 function normalizePattern(pattern: string): string {
@@ -129,7 +138,8 @@ function nestedGitWorkTree(directory: string): boolean {
   const marker = join(directory, ".git");
   let stat;
   try {
-    stat = lstatSync(marker);
+    // Follow a linked `.git`: Git still records the directory as a repository.
+    stat = statSync(marker);
   } catch {
     return false;
   }
@@ -137,7 +147,21 @@ function nestedGitWorkTree(directory: string): boolean {
     return stat.size < 4_096 && readFileSync(marker, "utf8").startsWith("gitdir:");
   }
   return stat.isDirectory() &&
-    ["HEAD", "objects", "refs"].every((entry) => existsSync(join(marker, entry)));
+    existsSync(join(marker, "objects")) &&
+    existsSync(join(marker, "refs")) &&
+    validGitHead(join(marker, "HEAD"));
+}
+
+/** Git ignores a `.git` directory whose HEAD is neither a ref nor an object id. */
+function validGitHead(path: string): boolean {
+  try {
+    const stat = statSync(path);
+    if (!stat.isFile() || stat.size > 4_096) return false;
+    const head = readFileSync(path, "utf8").trim();
+    return /^ref: refs\/\S+$/.test(head) || /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(head);
+  } catch {
+    return false;
+  }
 }
 
 /** A Git tree has no entries below a symbolic link or nested repository. */
