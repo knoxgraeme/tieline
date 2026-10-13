@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath, type SupportedCodeLanguage } from "./code-analysis/languages.js";
 import { withinRepository, wildcardPattern } from "./paths.js";
@@ -48,6 +48,12 @@ export interface CreateSourceInventoryOptions {
   repositoryRoot: string;
   sourceRoots: string[];
   ignore?: string[];
+  /**
+   * Select only what a Git tree records as files: skip symbolic links and
+   * nested Git work trees instead of following them. Topology uses this so a
+   * working tree and the commit holding the same bytes select the same paths.
+   */
+  gitTreeEntriesOnly?: boolean;
 }
 
 /** Normalize a repository-derived path for stable identities and output. */
@@ -117,6 +123,7 @@ function stableDigest(value: unknown): string {
 
 interface WalkState {
   repositoryRoot: string;
+  gitTreeEntriesOnly: boolean;
   ignoredPatterns: readonly RegExp[];
   excluded: Set<string>;
   visitedDirectories: Set<string>;
@@ -131,6 +138,17 @@ function walk(path: string, state: WalkState): void {
   ) {
     state.excluded.add(repositoryPath);
     return;
+  }
+  if (state.gitTreeEntriesOnly) {
+    if (basename(path) === ".git") return;
+    let link;
+    try {
+      link = lstatSync(path);
+    } catch (error) {
+      const outcome = errorCode(error) === "ENOENT" ? "missing" : "unreadable";
+      throw inventoryError(outcome, repositoryPath || path, String(error), error);
+    }
+    if (link.isSymbolicLink()) return;
   }
 
   let realPath: string;
@@ -164,6 +182,13 @@ function walk(path: string, state: WalkState): void {
     return;
   }
   if (!stat.isDirectory() || state.visitedDirectories.has(realPath)) return;
+  if (
+    state.gitTreeEntriesOnly &&
+    realPath !== state.repositoryRoot &&
+    existsSync(join(realPath, ".git"))
+  ) {
+    return;
+  }
   state.visitedDirectories.add(realPath);
 
   let entries;
@@ -197,6 +222,7 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
   const patterns = options.ignore ?? [];
   const state: WalkState = {
     repositoryRoot,
+    gitTreeEntriesOnly: options.gitTreeEntriesOnly ?? false,
     ignoredPatterns: patterns
       .map(normalizePattern)
       .filter((pattern) => pattern.length > 0)

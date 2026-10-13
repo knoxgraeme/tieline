@@ -1532,7 +1532,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "3e3a5fa4b22ea0ed0e7cc40bcc7ae58b489ae696120f4ca336cd73dde5f81917",
+            "contract_hash": "ee89ab2180e268d4b0372406144da4af236c2fdfcac420ce49b1d57bf8ccc1fa",
             "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
@@ -1579,7 +1579,18 @@
                 }
               },
               {
-                "compiled_content_hash": "5c147cbb595493f50ea4f85bb1935cceee5c7d46abc7ceaa98c1822880a05940",
+                "compiled_content_hash": "f996d7353b8da2e95c11ae51ab94a514022c68f2c26d03746ba4b85666137503",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/source-inventory.ts",
+                  "repository": "tieline",
+                  "selector": "function:createSourceInventory"
+                }
+              },
+              {
+                "compiled_content_hash": "75165a77fe8405bcf269b57e09a2f4f1bb900f443ec7d399393e5007f338c517",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1623,7 +1634,7 @@
                 }
               },
               {
-                "compiled_content_hash": "9567762f1df32657a2e4f7080baa1f4c1fba68438cd6200ba7ff1cd4989d5908",
+                "compiled_content_hash": "898002302416dcc4b7bb59d68f9b920ee5500e74e884f36b68c130a8bf374af0",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -1659,7 +1670,7 @@
                 "when": "topology identity and artifact bytes are recomputed"
               },
               {
-                "given": "source roots also contain documentation, data, or Tieline output files",
+                "given": "source roots also contain documentation, data, Tieline output, symbolic links, or nested repositories",
                 "position": 3,
                 "stable_id": "CONTRACT-004-AC3-S4",
                 "then": "both must produce one selected-input identity",
@@ -2218,6 +2229,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "cf7cb40749a5fa92181238112e4b65fe10058897ad52cea93dd57609465c8c71"
+    "sha256": "32d24411e623d29c3a953cc5718034a61338e9e20c01a996c86c8ff7c57e7dc7"
   }
 }

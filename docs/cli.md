@@ -202,10 +202,12 @@ change selected inputs conflict on it, and a textual resolution is always stale.
 graphs out of Git instead:
 
 - `code compile` writes the graph to `.tieline/topology/cache/`, named by the snapshot's
-  selected-input digest: the contents of supported source files under the source roots, the root
-  `tsconfig.json`, `jsconfig.json`, `pyproject.toml`, and `Cargo.toml`, and parser compatibility.
-  Other files, such as documentation, data, or Tieline's own `.tieline/` output, do not affect it,
-  so a working tree and the commit holding the same bytes share one key. The
+  selected-input digest: the configured source roots and ignore patterns, the contents of
+  supported source files under those roots, the root `tsconfig.json`, `jsconfig.json`,
+  `pyproject.toml`, and `Cargo.toml`, and parser compatibility. Other files—documentation, data,
+  or Tieline's own `.tieline/` output—do not affect it, and symbolic links and nested Git
+  repositories are not followed, matching what a Git tree records. A working tree and the commit
+  holding the same bytes therefore share one key. The
   first compile adds `.tieline/topology/.gitignore`; commit it so everything else in that
   directory stays untracked. The cache keeps the eight most recently compiled entries.
 - `code compile --revision <ref>` compiles an immutable commit without checking it out. Run it for
@@ -245,9 +247,11 @@ topology `.gitignore`, and deletes the working copy. It never commits or pushes.
 branch that still modifies `graph.json` after `main` removed it also resolves that one
 modify/delete merge conflict; the file is derived, so nothing is lost.
 
-Releases up to 0.2.0 also keyed working-tree graphs by non-code files under the source roots, so
-those graphs could never be read at their commit. If such a graph exists, `code validate` reports
-it stale or missing once after upgrading; run `tieline code compile .` again.
+Releases up to 0.2.0 also keyed working-tree graphs by non-code files, symbolic links, and nested
+repositories under the source roots, so those graphs could never be read at their commit. Such a
+graph reports `topology_stale` (committed mode) or `topology_missing` (cached mode) until it is
+recompiled with `tieline code compile .`; in committed mode, commit the regenerated `graph.json`.
+Graphs compiled with `--revision` and hosted Postgres generations are unaffected.
 
 This release defines the relational schema and repository but does not attach topology
 publication to the existing repository-sync command. Until that merge-only publisher is added,

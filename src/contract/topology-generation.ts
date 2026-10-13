@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -87,22 +87,27 @@ function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInv
     repositoryRoot: options.repositoryRoot,
     sourceRoots: options.sourceRoots,
     ignore: options.ignore,
+    gitTreeEntriesOnly: true,
   });
   // Parsers and resolvers read only supported source files and the root
   // configuration below. Other files under a source root (documentation,
-  // data, or Tieline's own generated output) must not perturb the selected
-  // inputs, or a working tree and the commit holding the same bytes would
-  // disagree; Git snapshots apply the same rule.
+  // data, or Tieline's own generated output), symbolic links, and nested
+  // repositories must not perturb the selected inputs, or a working tree and
+  // the commit holding the same bytes would disagree; Git snapshots apply the
+  // same rule.
   const byPath = new Map(
     base.files
       .filter((file) => file.language !== null)
       .map((file) => [file.path, file])
   );
+  // Exact names only: a case-insensitive filesystem must not admit
+  // `Tsconfig.json` as `tsconfig.json`.
+  const rootEntries = new Set(readdirSync(options.repositoryRoot));
   for (const path of CONFIGURATION_PATHS) {
     if (byPath.has(path) || sourcePathIgnored(path, options.ignore ?? [])) continue;
-    const absolute = resolve(options.repositoryRoot, path);
-    if (!existsSync(absolute)) continue;
-    const metadata = sourceFileMetadataFromStat(statSync(absolute));
+    if (!rootEntries.has(path)) continue;
+    // lstat: a symbolic link is not a regular file in a Git tree either.
+    const metadata = sourceFileMetadataFromStat(lstatSync(resolve(options.repositoryRoot, path)));
     if (metadata.kind !== "file") continue;
     byPath.set(path, { path, language: null, metadata });
   }

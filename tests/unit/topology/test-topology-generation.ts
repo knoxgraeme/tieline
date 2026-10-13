@@ -6,6 +6,7 @@ import {
   mkdirSync,
   renameSync,
   rmSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -491,7 +492,7 @@ try {
     assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, pending: 0 });
   });
 
-  await test("a working tree and its commit share selected inputs despite non-code files", async () => {
+  await test("a working tree and its commit share selected inputs despite non-code files, links, and nested repositories", async () => {
     const parity = mkdtempSync(join(tmpdir(), "tieline-topology-parity-"));
     const run = (args: string[]): string =>
       execFileSync("git", args, { cwd: parity, encoding: "utf8" }).trim();
@@ -510,8 +511,22 @@ try {
       put("src/fixtures/data.json", "{}\n");
       put("src/nested/tsconfig.json", "{}\n");
       put(".tieline/spec/intent.yaml", "version: 1\n");
+      put("lib/linked.ts", "export const linked = 1;\n");
+      symlinkSync("../lib/linked.ts", join(parity, "src/linked.ts"));
+      put("config/js.json", "{}\n");
+      symlinkSync("config/js.json", join(parity, "jsconfig.json"));
+      symlinkSync("/etc/hostname", join(parity, "src/escaping-notes.txt"));
+      symlinkSync("missing-target.md", join(parity, "src/dangling.md"));
+      put("src/__pycache__/module.pyc", "\u0000\u0001binary");
+      put("src/big.json", `"${"x".repeat(3 * 1024 * 1024)}"\n`);
+      put("src/vendored/nested.ts", "export const nested = 1;\n");
+      execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/vendored") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/vendored") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "vendored"], { cwd: join(parity, "src/vendored") });
       run(["add", "."]);
       run(["commit", "-qm", "parity"]);
+      // Git records the nested work tree as a link, never its files.
+      assert.equal(run(["ls-files", "--", "src/vendored/nested.ts"]), "");
       for (const scope of [
         { sourceRoots: ["src"], ignore: ["node_modules/**"] },
         // A broad root whose ignore list omits .tieline must not key Tieline's own output.
@@ -540,17 +555,14 @@ try {
         put(".tieline/spec/intent.yaml", "version: 1\n");
         rmSync(join(parity, ".tieline/topology"), { recursive: true, force: true });
       }
+      const rootScope = { repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [] };
+      const unchanged = readWorkspaceTopologySelectedInput(rootScope);
       put("tsconfig.json", JSON.stringify({ compilerOptions: { baseUrl: "src" } }));
-      const changed = readWorkspaceTopologySelectedInput({
-        repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [],
-      });
-      const committedParity = await buildCommittedTopologyGeneration({
-        repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [], revision: "HEAD",
-      });
+      const changed = readWorkspaceTopologySelectedInput(rootScope);
+      assert.equal(unchanged.status, "complete");
       assert.equal(changed.status, "complete");
-      assert.equal(committedParity.status, "complete");
-      if (changed.status !== "complete" || committedParity.status !== "complete") return;
-      assert.notEqual(changed.selected_input_digest, committedParity.generation.header.revision, "root resolver configuration stays selected");
+      if (unchanged.status !== "complete" || changed.status !== "complete") return;
+      assert.notEqual(changed.selected_input_digest, unchanged.selected_input_digest, "root resolver configuration stays selected");
     } finally {
       rmSync(parity, { recursive: true, force: true });
     }
