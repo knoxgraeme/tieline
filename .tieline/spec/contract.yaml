@@ -850,7 +850,24 @@ capability:
             - given: only generated topology bytes or unrelated authored intent change
               when: topology identity and artifact bytes are recomputed
               then: the selected-input identity must remain unchanged
+            - given: source roots also contain documentation, data, Tieline output, symbolic links, or nested repositories
+              when: a working tree and the commit holding the same bytes are keyed
+              then: both must produce one selected-input identity
           links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/source-inventory.ts
+                selector: function:createSourceInventory
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/git-source-snapshot.ts
+                selector: function:createGitSourceSnapshotCollection
             - relation: implements
               provenance: authored
               target:

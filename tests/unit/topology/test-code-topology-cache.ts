@@ -628,6 +628,39 @@ try {
     assert.match(JSON.stringify(compiled.result.notices), /cache\/ is not ignored by Git/);
   });
 
+  await test("non-code files and broad source roots do not split workspace and revision keys", async () => {
+    const traceHead = async (root: string): Promise<CliResult> => cli([
+      "code", "trace", "--repository", root, "--revision", "HEAD",
+      "--path", "src/consumer.ts", "--direction", "dependencies", "--json",
+    ]);
+    for (const mode of ["committed", "cached"] as const) {
+      const root = repository(`non-code-${mode}`, mode === "committed" ? "committed" : undefined);
+      write(root, "src/README.md", "# Notes\n");
+      write(root, "src/fixtures/data.json", "{}\n");
+      assert.equal((await cli(["code", "compile", root, "--json"])).result.status, "current");
+      commitAll(root, "source with non-code files");
+      const traced = await traceHead(root);
+      assert.equal(traced.result.status, "complete", `${mode}: ${JSON.stringify(traced.result)}`);
+      write(root, "src/README.md", "# Edited notes\n");
+      assert.equal(
+        (await cli(["code", "validate", root, "--json"])).result.status,
+        "current",
+        `${mode}: documentation edits leave topology current`
+      );
+    }
+
+    const broad = repository("broad-root");
+    write(broad, ".tieline/config.json", configJson().replace('"source_roots": [\n      "src"\n    ]', '"source_roots": [\n      "."\n    ]').replace('"ignore": [\n      ".git",\n      ".tieline"\n    ]', '"ignore": [\n      ".git"\n    ]'));
+    assert.deepEqual(workspaceFromConfig(join(broad, ".tieline/config.json")).config.repository, {
+      root: "..", source_roots: ["."], ignore: [".git"],
+    });
+    const compiled = await cli(["code", "compile", broad, "--json"]);
+    assert.equal(compiled.result.status, "current", JSON.stringify(compiled.result));
+    const validated = await cli(["code", "validate", broad, "--json"]);
+    assert.equal(validated.result.status, "current", "Tieline's own cache does not change the key it is stored under");
+    assert.equal(validated.result.selected_input_digest, compiled.result.selected_input_digest);
+  });
+
   await test("writers bound the cache and keep the most recent entries", async () => {
     const root = repository("eviction");
     const digests: string[] = [];

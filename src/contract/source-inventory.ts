@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { basename, join, posix, relative, resolve, sep } from "node:path";
 import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath, type SupportedCodeLanguage } from "./code-analysis/languages.js";
 import { withinRepository, wildcardPattern } from "./paths.js";
@@ -48,11 +48,26 @@ export interface CreateSourceInventoryOptions {
   repositoryRoot: string;
   sourceRoots: string[];
   ignore?: string[];
+  /**
+   * Select only what a Git tree records as files: skip symbolic links and
+   * nested Git work trees instead of following them. Topology uses this so a
+   * working tree and the commit holding the same bytes select the same paths.
+   */
+  gitTreeEntriesOnly?: boolean;
 }
 
 /** Normalize a repository-derived path for stable identities and output. */
 export function normalizeInventoryPath(path: string): string {
   return path.split(sep).join("/").normalize("NFC").replace(/^\.\//, "");
+}
+
+/**
+ * One spelling per source root (`src/.`, `src//`, and `src/../src` all mean
+ * `src`), so working-tree walks and Git path matching select the same files.
+ */
+export function canonicalSourceRoot(root: string): string {
+  const normalized = posix.normalize(normalizeInventoryPath(root.trim())).replace(/\/+$/, "");
+  return normalized === "" ? "." : normalized;
 }
 
 function normalizePattern(pattern: string): string {
@@ -115,8 +130,59 @@ function stableDigest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+/**
+ * Git records a directory as a nested repository (a link, not files) only when
+ * its `.git` is a `gitdir:` file or a directory with the repository layout.
+ */
+function nestedGitWorkTree(directory: string): boolean {
+  const marker = join(directory, ".git");
+  let stat;
+  try {
+    // Follow a linked `.git`: Git still records the directory as a repository.
+    stat = statSync(marker);
+  } catch {
+    return false;
+  }
+  if (stat.isFile()) {
+    if (stat.size >= 4_096) return false;
+    // Git ignores a stale pointer, such as a copied submodule checkout.
+    const pointer = readFileSync(marker, "utf8").match(/^gitdir: *(.+?)\s*$/m);
+    return pointer !== null && validGitHead(join(resolve(directory, pointer[1]!), "HEAD"));
+  }
+  return stat.isDirectory() &&
+    existsSync(join(marker, "objects")) &&
+    existsSync(join(marker, "refs")) &&
+    validGitHead(join(marker, "HEAD"));
+}
+
+/** Git ignores a `.git` directory whose HEAD is neither a ref nor an object id. */
+function validGitHead(path: string): boolean {
+  try {
+    const stat = statSync(path);
+    if (!stat.isFile() || stat.size > 4_096) return false;
+    const head = readFileSync(path, "utf8").trim();
+    return /^ref: refs\/\S+$/.test(head) || /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(head);
+  } catch {
+    return false;
+  }
+}
+
+/** A Git tree has no entries below a symbolic link or nested repository. */
+function gitTreeReachable(repositoryRoot: string, sourceRoot: string): boolean {
+  const parts = relative(repositoryRoot, sourceRoot).split(sep).filter(Boolean);
+  let current = repositoryRoot;
+  for (const part of parts.slice(0, -1)) {
+    current = join(current, part);
+    if (part === ".git" || lstatSync(current).isSymbolicLink() || nestedGitWorkTree(current)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 interface WalkState {
   repositoryRoot: string;
+  gitTreeEntriesOnly: boolean;
   ignoredPatterns: readonly RegExp[];
   excluded: Set<string>;
   visitedDirectories: Set<string>;
@@ -131,6 +197,17 @@ function walk(path: string, state: WalkState): void {
   ) {
     state.excluded.add(repositoryPath);
     return;
+  }
+  if (state.gitTreeEntriesOnly) {
+    if (basename(path) === ".git") return;
+    let link;
+    try {
+      link = lstatSync(path);
+    } catch (error) {
+      const outcome = errorCode(error) === "ENOENT" ? "missing" : "unreadable";
+      throw inventoryError(outcome, repositoryPath || path, String(error), error);
+    }
+    if (link.isSymbolicLink()) return;
   }
 
   let realPath: string;
@@ -164,6 +241,13 @@ function walk(path: string, state: WalkState): void {
     return;
   }
   if (!stat.isDirectory() || state.visitedDirectories.has(realPath)) return;
+  if (
+    state.gitTreeEntriesOnly &&
+    realPath !== state.repositoryRoot &&
+    nestedGitWorkTree(realPath)
+  ) {
+    return;
+  }
   state.visitedDirectories.add(realPath);
 
   let entries;
@@ -197,6 +281,7 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
   const patterns = options.ignore ?? [];
   const state: WalkState = {
     repositoryRoot,
+    gitTreeEntriesOnly: options.gitTreeEntriesOnly ?? false,
     ignoredPatterns: patterns
       .map(normalizePattern)
       .filter((pattern) => pattern.length > 0)
@@ -222,6 +307,7 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
         "the configured source root does not exist"
       );
     }
+    if (state.gitTreeEntriesOnly && !gitTreeReachable(repositoryRoot, sourceRoot)) continue;
     walk(sourceRoot, state);
   }
 

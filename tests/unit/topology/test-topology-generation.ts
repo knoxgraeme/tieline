@@ -6,6 +6,7 @@ import {
   mkdirSync,
   renameSync,
   rmSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -29,6 +30,7 @@ import {
   compareTopologyGenerations,
   loadPersistedTopologyGeneration,
   persistCommittedTopologyGeneration,
+  readWorkspaceTopologySelectedInput,
   type TopologyGenerationComparison,
 } from "../../../src/contract/topology-generation.js";
 import {
@@ -488,6 +490,115 @@ try {
     });
     cache.dispose();
     assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, pending: 0 });
+  });
+
+  await test("a working tree and its commit share selected inputs despite non-code files, links, and nested repositories", async () => {
+    const parity = mkdtempSync(join(tmpdir(), "tieline-topology-parity-"));
+    const stores: string[] = [];
+    const run = (args: string[]): string =>
+      execFileSync("git", args, { cwd: parity, encoding: "utf8" }).trim();
+    const put = (path: string, source: string): void => {
+      mkdirSync(join(parity, path.slice(0, Math.max(0, path.lastIndexOf("/")))), { recursive: true });
+      writeFileSync(join(parity, path), source);
+    };
+    try {
+      run(["init", "-q"]);
+      run(["config", "user.email", "topology@example.test"]);
+      run(["config", "user.name", "Topology Test"]);
+      put("tsconfig.json", JSON.stringify({ compilerOptions: { baseUrl: "." } }));
+      put("src/main.ts", 'import { value } from "./value";\nexport const main = value;\n');
+      put("src/value.ts", "export const value = 1;\n");
+      put("src/README.md", "# Notes\n");
+      put("src/fixtures/data.json", "{}\n");
+      put("src/nested/tsconfig.json", "{}\n");
+      put(".tieline/spec/intent.yaml", "version: 1\n");
+      put("lib/linked.ts", "export const linked = 1;\n");
+      symlinkSync("../lib/linked.ts", join(parity, "src/linked.ts"));
+      put("config/js.json", "{}\n");
+      symlinkSync("config/js.json", join(parity, "jsconfig.json"));
+      symlinkSync("/etc/hostname", join(parity, "src/escaping-notes.txt"));
+      symlinkSync("missing-target.md", join(parity, "src/dangling.md"));
+      put("src/__pycache__/module.pyc", "\u0000\u0001binary");
+      put("src/big.json", `"${"x".repeat(3 * 1024 * 1024)}"\n`);
+      put("src/vendored/nested.ts", "export const nested = 1;\n");
+      put("src/vendored/deeper/inside.ts", "export const inside = 1;\n");
+      // An empty .git directory is not a repository, so Git tracks its siblings.
+      mkdirSync(join(parity, "src/not-a-repo/.git"), { recursive: true });
+      put("src/not-a-repo/tracked.ts", "export const tracked = 1;\n");
+      put("real/src/linked-root.ts", "export const linkedRoot = 1;\n");
+      symlinkSync("real", join(parity, "link"));
+      // A stale gitdir pointer, as in a copied submodule checkout, is ignored by Git.
+      put("src/copied-module/.git", "gitdir: ../../.git/modules/missing\n");
+      put("src/copied-module/lib.ts", "export const copied = 1;\n");
+      // A .git directory with an invalid HEAD is not a repository either.
+      put("src/corrupt/.git/HEAD", "not a ref\n");
+      mkdirSync(join(parity, "src/corrupt/.git/objects"), { recursive: true });
+      mkdirSync(join(parity, "src/corrupt/.git/refs"), { recursive: true });
+      put("src/corrupt/kept.ts", "export const kept = 1;\n");
+      // A repository whose .git is a symbolic link is still recorded as a link.
+      put("src/linked-git/inner.ts", "export const inner = 1;\n");
+      execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/linked-git") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/linked-git") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "inner"], { cwd: join(parity, "src/linked-git") });
+      const gitStore = mkdtempSync(join(tmpdir(), "tieline-linked-git-"));
+      stores.push(gitStore);
+      renameSync(join(parity, "src/linked-git/.git"), join(gitStore, "git"));
+      symlinkSync(join(gitStore, "git"), join(parity, "src/linked-git/.git"));
+      execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/vendored") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/vendored") });
+      execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "vendored"], { cwd: join(parity, "src/vendored") });
+      run(["add", "."]);
+      run(["commit", "-qm", "parity"]);
+      // Git records the nested work tree as a link, never its files.
+      assert.equal(run(["ls-files", "--", "src/vendored/nested.ts"]), "");
+      assert.equal(run(["ls-files", "--", "src/not-a-repo/tracked.ts"]), "src/not-a-repo/tracked.ts");
+      assert.equal(run(["ls-files", "--", "src/corrupt/kept.ts"]), "src/corrupt/kept.ts");
+      assert.equal(run(["ls-files", "--", "src/copied-module/lib.ts"]), "src/copied-module/lib.ts");
+      assert.equal(run(["ls-files", "--", "src/linked-git/inner.ts"]), "");
+      for (const scope of [
+        { sourceRoots: ["src"], ignore: ["node_modules/**"] },
+        // Roots reached through a symbolic link or inside a nested repository select nothing in Git.
+        { sourceRoots: ["src", "link/src", "src/vendored", "src/vendored/deeper"], ignore: [] },
+        // Equivalent root spellings select the same files on both sides.
+        { sourceRoots: ["src/.", "real//src", "real/../real/src/"], ignore: [] },
+        // A broad root whose ignore list omits .tieline must not key Tieline's own output.
+        { sourceRoots: ["."], ignore: [".git"] },
+      ]) {
+        const scoped = { repositoryRoot: parity, repository: "fixture/parity", ...scope };
+        const working = await buildWorkspaceTopologyGeneration(scoped);
+        const commit = await buildCommittedTopologyGeneration({ ...scoped, revision: "HEAD" });
+        assert.equal(working.status, "complete", `${JSON.stringify(scope)} ${"detail" in working ? working.detail : ""}`);
+        assert.equal(commit.status, "complete", `${JSON.stringify(scope)} ${"detail" in commit ? commit.detail : ""}`);
+        if (working.status !== "complete" || commit.status !== "complete") return;
+        assert.equal(working.generation.header.revision, commit.generation.header.revision, JSON.stringify(scope));
+        assert.equal(working.generation.header.identity, commit.generation.header.identity);
+
+        const before = readWorkspaceTopologySelectedInput(scoped);
+        put("src/README.md", "# Edited notes\n");
+        put(".tieline/topology/graph.json", '{"generated":true}\n');
+        put(".tieline/spec/intent.yaml", "version: 1\n# edited intent\n");
+        const after = readWorkspaceTopologySelectedInput(scoped);
+        assert.equal(before.status, "complete");
+        assert.equal(after.status, "complete");
+        if (before.status !== "complete" || after.status !== "complete") return;
+        assert.equal(after.selected_input_digest, before.selected_input_digest, "non-code edits leave the snapshot key unchanged");
+        assert.equal(after.selected_input_digest, commit.generation.header.revision);
+        put("src/README.md", "# Notes\n");
+        put(".tieline/spec/intent.yaml", "version: 1\n");
+        rmSync(join(parity, ".tieline/topology"), { recursive: true, force: true });
+      }
+      const rootScope = { repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [] };
+      const unchanged = readWorkspaceTopologySelectedInput(rootScope);
+      put("tsconfig.json", JSON.stringify({ compilerOptions: { baseUrl: "src" } }));
+      const changed = readWorkspaceTopologySelectedInput(rootScope);
+      assert.equal(unchanged.status, "complete");
+      assert.equal(changed.status, "complete");
+      if (unchanged.status !== "complete" || changed.status !== "complete") return;
+      assert.notEqual(changed.selected_input_digest, unchanged.selected_input_digest, "root resolver configuration stays selected");
+    } finally {
+      rmSync(parity, { recursive: true, force: true });
+      for (const store of stores) rmSync(store, { recursive: true, force: true });
+    }
   });
 
   await test("returns named capacity outcomes", async () => {

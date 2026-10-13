@@ -1532,7 +1532,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b25ff8ca5c03176412ea335b600c17fc5b8c0336fa8ed639e330f3af21ce3207",
+            "contract_hash": "ba7225d773432230f7d970e0676719e2faf87aae9cd04ac166ab0a2b4b5df92a",
             "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
@@ -1579,7 +1579,29 @@
                 }
               },
               {
-                "compiled_content_hash": "414eeb7ba40b1e21d14382cb85a7653e29059906986ac3c3cb62fb9a09e859ba",
+                "compiled_content_hash": "b06b49122099a2800bb1432fd10df6e19abb788cf2deac56bf98f687c666df28",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/git-source-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:createGitSourceSnapshotCollection"
+                }
+              },
+              {
+                "compiled_content_hash": "41eef2d90f973fe2cd7cee282d0b0d2e1aebd43a9dcbae72d92c415816caf192",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/source-inventory.ts",
+                  "repository": "tieline",
+                  "selector": "function:createSourceInventory"
+                }
+              },
+              {
+                "compiled_content_hash": "7738052c20b3d4225df60df1547d9fefd0207d845d0a3b2cb0c32176d05306f1",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1623,7 +1645,7 @@
                 }
               },
               {
-                "compiled_content_hash": "90f634de44bb53e1b22f2fc101956df791f37ab72c7d5dfceee89aa59e764ccd",
+                "compiled_content_hash": "5f31879d88e8aaa84759f08f4b385bfb1a26dfae7a621205e3fb03e236cb4039",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -1657,6 +1679,13 @@
                 "stable_id": "CONTRACT-004-AC3-S3",
                 "then": "the selected-input identity must remain unchanged",
                 "when": "topology identity and artifact bytes are recomputed"
+              },
+              {
+                "given": "source roots also contain documentation, data, Tieline output, symbolic links, or nested repositories",
+                "position": 3,
+                "stable_id": "CONTRACT-004-AC3-S4",
+                "then": "both must produce one selected-input identity",
+                "when": "a working tree and the commit holding the same bytes are keyed"
               }
             ],
             "stable_id": "CONTRACT-004-AC3",
@@ -2056,7 +2085,7 @@
                 }
               },
               {
-                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
+                "compiled_content_hash": "916e4299848e4b0dd745cbcaf54e586dd4aaf6e9bbcf7585a68d2d1f38aebfc4",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2123,7 +2152,7 @@
                 }
               },
               {
-                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
+                "compiled_content_hash": "916e4299848e4b0dd745cbcaf54e586dd4aaf6e9bbcf7585a68d2d1f38aebfc4",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2211,6 +2240,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "56c7607770a20a0e2b0e6ebc418529cbc43189dfc4999448759d2c3e3251fd9b"
+    "sha256": "87468f4a28d465035a7ac29fd347d27aad0af19d7a32342d2105c541e3e4eb27"
   }
 }

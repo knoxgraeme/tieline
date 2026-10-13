@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
+import { lstatSync, readdirSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -22,6 +22,7 @@ import { readRustResolutionConfiguration } from "./code-resolution/rust.js";
 import { codeTopologySelectedInputDigest } from "../domain/code-topology-store.js";
 import { createGitSourceSnapshotCollection } from "./git-source-snapshot.js";
 import {
+  canonicalSourceRoot,
   createSourceInventory,
   normalizeInventoryPath,
   sourcePathIgnored,
@@ -83,24 +84,38 @@ function canonicalDigest(value: unknown): string {
 }
 
 function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInventory {
+  const sourceRoots = options.sourceRoots.map(canonicalSourceRoot);
   const base = createSourceInventory({
     repositoryRoot: options.repositoryRoot,
-    sourceRoots: options.sourceRoots,
+    sourceRoots,
     ignore: options.ignore,
+    gitTreeEntriesOnly: true,
   });
-  const byPath = new Map(base.files.map((file) => [file.path, file]));
+  // Parsers and resolvers read only supported source files and the root
+  // configuration below. Other files under a source root (documentation,
+  // data, or Tieline's own generated output), symbolic links, and nested
+  // repositories must not perturb the selected inputs, or a working tree and
+  // the commit holding the same bytes would disagree; Git snapshots apply the
+  // same rule.
+  const byPath = new Map(
+    base.files
+      .filter((file) => file.language !== null)
+      .map((file) => [file.path, file])
+  );
+  // Exact names only: a case-insensitive filesystem must not admit
+  // `Tsconfig.json` as `tsconfig.json`.
+  const rootEntries = new Set(readdirSync(options.repositoryRoot));
   for (const path of CONFIGURATION_PATHS) {
     if (byPath.has(path) || sourcePathIgnored(path, options.ignore ?? [])) continue;
-    const absolute = resolve(options.repositoryRoot, path);
-    if (!existsSync(absolute)) continue;
-    const metadata = sourceFileMetadataFromStat(statSync(absolute));
+    if (!rootEntries.has(path)) continue;
+    // lstat: a symbolic link is not a regular file in a Git tree either.
+    const metadata = sourceFileMetadataFromStat(lstatSync(resolve(options.repositoryRoot, path)));
     if (metadata.kind !== "file") continue;
     byPath.set(path, { path, language: null, metadata });
   }
   const files = [...byPath.values()].sort((left, right) =>
     compareCodeTopologyText(left.path, right.path)
   );
-  const sourceRoots = options.sourceRoots.map(normalizeInventoryPath);
   const ignore = (options.ignore ?? []).map(normalizeInventoryPath);
   return Object.freeze({
     schemaVersion: 1 as const,
