@@ -144,7 +144,10 @@ function nestedGitWorkTree(directory: string): boolean {
     return false;
   }
   if (stat.isFile()) {
-    return stat.size < 4_096 && readFileSync(marker, "utf8").startsWith("gitdir:");
+    if (stat.size >= 4_096) return false;
+    // Git ignores a stale pointer, such as a copied submodule checkout.
+    const pointer = readFileSync(marker, "utf8").match(/^gitdir: *(.+?)\s*$/m);
+    return pointer !== null && validGitHead(join(resolve(directory, pointer[1]!), "HEAD"));
   }
   return stat.isDirectory() &&
     existsSync(join(marker, "objects")) &&

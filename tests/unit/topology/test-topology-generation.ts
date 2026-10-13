@@ -527,6 +527,9 @@ try {
       put("src/not-a-repo/tracked.ts", "export const tracked = 1;\n");
       put("real/src/linked-root.ts", "export const linkedRoot = 1;\n");
       symlinkSync("real", join(parity, "link"));
+      // A stale gitdir pointer, as in a copied submodule checkout, is ignored by Git.
+      put("src/copied-module/.git", "gitdir: ../../.git/modules/missing\n");
+      put("src/copied-module/lib.ts", "export const copied = 1;\n");
       // A .git directory with an invalid HEAD is not a repository either.
       put("src/corrupt/.git/HEAD", "not a ref\n");
       mkdirSync(join(parity, "src/corrupt/.git/objects"), { recursive: true });
@@ -550,6 +553,7 @@ try {
       assert.equal(run(["ls-files", "--", "src/vendored/nested.ts"]), "");
       assert.equal(run(["ls-files", "--", "src/not-a-repo/tracked.ts"]), "src/not-a-repo/tracked.ts");
       assert.equal(run(["ls-files", "--", "src/corrupt/kept.ts"]), "src/corrupt/kept.ts");
+      assert.equal(run(["ls-files", "--", "src/copied-module/lib.ts"]), "src/copied-module/lib.ts");
       assert.equal(run(["ls-files", "--", "src/linked-git/inner.ts"]), "");
       for (const scope of [
         { sourceRoots: ["src"], ignore: ["node_modules/**"] },
