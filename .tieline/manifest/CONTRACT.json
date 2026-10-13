@@ -1532,7 +1532,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ee89ab2180e268d4b0372406144da4af236c2fdfcac420ce49b1d57bf8ccc1fa",
+            "contract_hash": "ba7225d773432230f7d970e0676719e2faf87aae9cd04ac166ab0a2b4b5df92a",
             "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
@@ -1576,6 +1576,17 @@
                   "path": "src/contract/compact-code-topology-store.ts",
                   "repository": "tieline",
                   "selector": "class:ImmutableCodeTopologySnapshotStore"
+                }
+              },
+              {
+                "compiled_content_hash": "b06b49122099a2800bb1432fd10df6e19abb788cf2deac56bf98f687c666df28",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/git-source-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:createGitSourceSnapshotCollection"
                 }
               },
               {
@@ -2229,6 +2240,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "32d24411e623d29c3a953cc5718034a61338e9e20c01a996c86c8ff7c57e7dc7"
+    "sha256": "87468f4a28d465035a7ac29fd347d27aad0af19d7a32342d2105c541e3e4eb27"
   }
 }
