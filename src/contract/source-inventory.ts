@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { compareCodeTopologyText } from "../domain/code-topology-ordering.js";
 import { languageForPath, type SupportedCodeLanguage } from "./code-analysis/languages.js";
@@ -121,6 +121,38 @@ function stableDigest(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+/**
+ * Git records a directory as a nested repository (a link, not files) only when
+ * its `.git` is a `gitdir:` file or a directory with the repository layout.
+ */
+function nestedGitWorkTree(directory: string): boolean {
+  const marker = join(directory, ".git");
+  let stat;
+  try {
+    stat = lstatSync(marker);
+  } catch {
+    return false;
+  }
+  if (stat.isFile()) {
+    return stat.size < 4_096 && readFileSync(marker, "utf8").startsWith("gitdir:");
+  }
+  return stat.isDirectory() &&
+    ["HEAD", "objects", "refs"].every((entry) => existsSync(join(marker, entry)));
+}
+
+/** A Git tree has no entries below a symbolic link or nested repository. */
+function gitTreeReachable(repositoryRoot: string, sourceRoot: string): boolean {
+  const parts = relative(repositoryRoot, sourceRoot).split(sep).filter(Boolean);
+  let current = repositoryRoot;
+  for (const part of parts.slice(0, -1)) {
+    current = join(current, part);
+    if (part === ".git" || lstatSync(current).isSymbolicLink() || nestedGitWorkTree(current)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 interface WalkState {
   repositoryRoot: string;
   gitTreeEntriesOnly: boolean;
@@ -185,7 +217,7 @@ function walk(path: string, state: WalkState): void {
   if (
     state.gitTreeEntriesOnly &&
     realPath !== state.repositoryRoot &&
-    existsSync(join(realPath, ".git"))
+    nestedGitWorkTree(realPath)
   ) {
     return;
   }
@@ -248,6 +280,7 @@ export function createSourceInventory(options: CreateSourceInventoryOptions): So
         "the configured source root does not exist"
       );
     }
+    if (state.gitTreeEntriesOnly && !gitTreeReachable(repositoryRoot, sourceRoot)) continue;
     walk(sourceRoot, state);
   }
 

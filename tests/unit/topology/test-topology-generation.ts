@@ -520,6 +520,11 @@ try {
       put("src/__pycache__/module.pyc", "\u0000\u0001binary");
       put("src/big.json", `"${"x".repeat(3 * 1024 * 1024)}"\n`);
       put("src/vendored/nested.ts", "export const nested = 1;\n");
+      // An empty .git directory is not a repository, so Git tracks its siblings.
+      mkdirSync(join(parity, "src/not-a-repo/.git"), { recursive: true });
+      put("src/not-a-repo/tracked.ts", "export const tracked = 1;\n");
+      put("real/src/linked-root.ts", "export const linkedRoot = 1;\n");
+      symlinkSync("real", join(parity, "link"));
       execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/vendored") });
       execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/vendored") });
       execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "vendored"], { cwd: join(parity, "src/vendored") });
@@ -527,8 +532,11 @@ try {
       run(["commit", "-qm", "parity"]);
       // Git records the nested work tree as a link, never its files.
       assert.equal(run(["ls-files", "--", "src/vendored/nested.ts"]), "");
+      assert.equal(run(["ls-files", "--", "src/not-a-repo/tracked.ts"]), "src/not-a-repo/tracked.ts");
       for (const scope of [
         { sourceRoots: ["src"], ignore: ["node_modules/**"] },
+        // Roots reached through a symbolic link or inside a nested repository select nothing in Git.
+        { sourceRoots: ["src", "link/src", "src/vendored"], ignore: [] },
         // A broad root whose ignore list omits .tieline must not key Tieline's own output.
         { sourceRoots: ["."], ignore: [".git"] },
       ]) {
