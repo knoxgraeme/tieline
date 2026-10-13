@@ -9,6 +9,7 @@ import { dirname, resolve, sep } from "node:path";
 import { z } from "zod";
 import { selectorConfigSchema } from "../config.js";
 import { withinRepository } from "../contract/paths.js";
+import type { CodeTopologyMode } from "../contract/topology-role-snapshot.js";
 
 export const TIELINE_DIRECTORY = ".tieline";
 export const TIELINE_CONFIG_FILE = "config.json";
@@ -72,6 +73,9 @@ export const tielineConfigSchema = z
     // repository that declares selector kinds still loads its workspace.
     selectors: selectorConfigSchema.optional(),
     manifest_mode: z.enum(["committed", "post_merge"]).optional(),
+    // Optional so existing configurations stay valid; absence selects the
+    // cached lifecycle. See workspaceTopologyMode.
+    topology_mode: z.enum(["committed", "cached"]).optional(),
     created_at: z.string().min(1),
     updated_at: z.string().min(1),
   })
@@ -96,6 +100,17 @@ function resolveWorkspaceFile(directory: string, path: string): string {
     throw new Error(`Tieline file '${path}' escapes ${directory}.`);
   }
   return resolved;
+}
+
+/**
+ * Cached topology is the default: compiled graphs live in an ignored,
+ * content-addressed store instead of every pull request. Committed mode keeps
+ * the reviewed `.tieline/topology/graph.json` lifecycle and must be explicit.
+ */
+export function workspaceTopologyMode(
+  workspace: Pick<TielineWorkspace, "config"> | null | undefined
+): CodeTopologyMode {
+  return workspace?.config.topology_mode ?? "cached";
 }
 
 export function workspaceFromConfig(configPath: string): TielineWorkspace {

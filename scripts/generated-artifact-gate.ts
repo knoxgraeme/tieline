@@ -26,8 +26,16 @@ import {
   readCodeTopologyArtifact,
 } from "../src/contract/code-topology-artifact.js";
 import { selectWorkspaceManifestRole } from "../src/contract/intent-aware-role-snapshot.js";
-import { readWorkspaceCodeTopologyFiles } from "../src/contract/topology-role-snapshot.js";
-import { findTielineWorkspace } from "../src/tieline/workspace.js";
+import {
+  readWorkspaceCodeTopologyFiles,
+  selectWorkspaceTopologyRole,
+} from "../src/contract/topology-role-snapshot.js";
+import type { CodeTopologyReadModelGeneration } from "../src/domain/code-topology-store.js";
+import {
+  findTielineWorkspace,
+  workspaceTopologyMode,
+  type TielineWorkspace,
+} from "../src/tieline/workspace.js";
 import type { TielineCliIO } from "../src/cli.js";
 
 export type GeneratedArtifactName = "manifest" | "topology";
@@ -47,6 +55,8 @@ export type GeneratedArtifactGateResult =
       status: "current";
       artifacts: GeneratedArtifactName[];
       manifest_publication?: "deferred";
+      /** Cached-mode topology is compiled per snapshot, never reviewed in Git. */
+      topology_publication?: "cached";
       trace_status: "complete";
       blast_radius_status: "complete";
       checkout_unchanged: true;
@@ -292,9 +302,27 @@ async function compileAndValidate(repositoryRoot: string): Promise<void> {
   }
 }
 
-async function artifactFirstSmoke(repositoryRoot: string): Promise<void> {
-  const workspace = findTielineWorkspace(repositoryRoot);
-  if (!workspace) throw new Error("The temporary root is not a Tieline workspace.");
+function cachedSmokeReadModel(
+  repositoryRoot: string,
+  workspace: TielineWorkspace
+): CodeTopologyReadModelGeneration {
+  const selected = selectWorkspaceTopologyRole({
+    repositoryRoot,
+    repository: workspace.config.product.repo_name,
+    sourceRoots: workspace.config.repository.source_roots,
+    ignore: workspace.config.repository.ignore,
+  }, "cached");
+  if (selected.status !== "current") {
+    throw new Error(`Temporary cached topology read returned '${selected.status}': ${selected.detail}`);
+  }
+  try {
+    return selected.snapshot.read_model;
+  } finally {
+    selected.snapshot.dispose();
+  }
+}
+
+function committedSmokeReadModel(repositoryRoot: string): CodeTopologyReadModelGeneration {
   const files = readWorkspaceCodeTopologyFiles(repositoryRoot);
   if (files.status !== "complete") {
     throw new Error(`Temporary topology read returned '${files.status}': ${files.detail}`);
@@ -303,8 +331,17 @@ async function artifactFirstSmoke(repositoryRoot: string): Promise<void> {
   if (parsed.status !== "complete") {
     throw new Error(`Temporary topology parse returned '${parsed.status}': ${parsed.detail}`);
   }
-  const symbol = parsed.read_model.symbols[0];
-  const file = parsed.read_model.files[0];
+  return parsed.read_model;
+}
+
+async function artifactFirstSmoke(repositoryRoot: string): Promise<void> {
+  const workspace = findTielineWorkspace(repositoryRoot);
+  if (!workspace) throw new Error("The temporary root is not a Tieline workspace.");
+  const readModel = workspaceTopologyMode(workspace) === "cached"
+    ? cachedSmokeReadModel(repositoryRoot, workspace)
+    : committedSmokeReadModel(repositoryRoot);
+  const symbol = readModel.symbols[0];
+  const file = readModel.files[0];
   if (!symbol && !file) {
     throw new Error("Temporary topology has no locator for artifact-first smoke checks.");
   }
@@ -356,7 +393,9 @@ export async function runGeneratedArtifactGate(
   repositoryRoot = process.cwd()
 ): Promise<GeneratedArtifactGateResult> {
   const reviewedRoot = realpathSync(resolve(repositoryRoot));
-  const postMerge = findTielineWorkspace(reviewedRoot)?.config.manifest_mode === "post_merge";
+  const reviewedWorkspace = findTielineWorkspace(reviewedRoot);
+  const postMerge = reviewedWorkspace?.config.manifest_mode === "post_merge";
+  const topologyCached = workspaceTopologyMode(reviewedWorkspace) === "cached";
   const before = snapshotGitVisibleFiles(reviewedRoot);
   const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tieline-derivation-gate-"));
   try {
@@ -380,6 +419,7 @@ export async function runGeneratedArtifactGate(
       ] as const
     ).flatMap(([artifact, path]) => {
       if (postMerge && artifact === "manifest") return [];
+      if (topologyCached && artifact === "topology") return [];
       const mismatch = compareGeneratedArtifact(
         artifact,
         resolve(reviewedRoot, path),
@@ -423,8 +463,12 @@ export async function runGeneratedArtifactGate(
     }
     return {
       status: "current",
-      artifacts: postMerge ? ["topology"] : ["manifest", "topology"],
+      artifacts: [
+        ...(postMerge ? [] : ["manifest" as const]),
+        ...(topologyCached ? [] : ["topology" as const]),
+      ],
       ...(postMerge ? { manifest_publication: "deferred" as const } : {}),
+      ...(topologyCached ? { topology_publication: "cached" as const } : {}),
       trace_status: "complete",
       blast_radius_status: "complete",
       checkout_unchanged: true,

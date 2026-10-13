@@ -95,6 +95,8 @@ try {
     context: { sources: [] },
     runtime: { default_embedding_provider: "hash", default_database_mode: "offline" },
     files: { spec_directory: "spec", manifest: "manifest" },
+    // This suite covers the explicit committed lifecycle; cached mode has its own suite.
+    topology_mode: "committed",
     created_at: "2026-08-12T00:00:00.000Z",
     updated_at: "2026-08-12T00:00:00.000Z",
   }, null, 2)}\n`);
@@ -143,7 +145,7 @@ try {
       sourceRoots: ["src"],
       ignore: [],
       revision: "HEAD",
-    });
+    }, "committed");
     assert.equal(missing.status, "topology_missing_at_revision");
 
     git(["add", ".tieline/topology"]);
@@ -154,7 +156,7 @@ try {
       sourceRoots: ["src"],
       ignore: [],
       revision: "HEAD",
-    });
+    }, "committed");
     assert.equal(selected.status, "current", selected.status === "current" ? undefined : selected.detail);
     if (selected.status !== "current") return;
     assert.equal(selected.snapshot.queried_revision, git(["rev-parse", "HEAD"]));

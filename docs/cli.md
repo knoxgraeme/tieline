@@ -173,11 +173,11 @@ and the later planning revision is preserved as a handoff conflict for reconcili
 ## Derived code topology and blast radius
 
 Tieline can separately derive a conservative code topology from repository source. This does not
-replace the authored contract and does not use a graph database. Developers explicitly compile
-one thin, reviewable `.tieline/topology/graph.json`; local and historical reads select that file
-without parsing source or writing files. PostgreSQL can hold the richer, queryable projection of
-an accepted `main` generation. Local compilation never writes it. The compiled manifest remains
-the authority for business intent.
+replace the authored contract and does not use a graph database. Developers and CI explicitly
+compile a thin graph for the exact source snapshot they inspect; local and historical reads select
+that graph without parsing source or writing files. PostgreSQL can hold the richer, queryable
+projection of an accepted `main` generation. Local compilation never writes it. The compiled
+manifest remains the authority for business intent.
 
 The repository artifact retains a thin traversal projection: file hashes, locator-bearing
 symbols, adjacency, and unresolved dependency frontiers. Parser diagnostics, source ranges,
@@ -186,21 +186,65 @@ but are not duplicated in the artifact.
 
 | Store | Role | Update boundary |
 | --- | --- | --- |
-| `.tieline/topology/graph.json` | Deterministic, repository-local traversal snapshot for review and Git history | Explicit `tieline code compile`; commit it with the source change |
+| `.tieline/topology/cache/<selected-input-digest>.json` (default `cached` mode) | Ignored, per-clone traversal snapshot for one exact source snapshot | Explicit `tieline code compile [--revision <ref>]`; never committed |
+| `.tieline/topology/graph.json` (`"topology_mode": "committed"`) | Deterministic, repository-local traversal snapshot for review and Git history | Explicit `tieline code compile`; commit it with the source change |
 | PostgreSQL topology tables | Rich shared projection for hosted reads of accepted code | A protected repository publisher after merge to `main` |
 
-They identify the same derived generation but are not competing authorities. `graph.json`
-contains no Story or AC bodies; trace and blast radius join its code locators to the matching
-compiled manifest at read time.
+They identify the same derived generation but are not competing authorities. Graphs contain no
+Story or AC bodies; trace and blast radius join their code locators to the matching compiled
+manifest at read time.
+
+### Topology modes
+
+`cached` is the default when `.tieline/config.json` has no `topology_mode`. A committed graph
+contains digests of the whole merged source tree, so any two concurrent pull requests that both
+change selected inputs conflict on it, and a textual resolution is always stale. Cached mode keeps
+graphs out of Git instead:
+
+- `code compile` writes the graph to `.tieline/topology/cache/`, named by the snapshot's
+  selected-input digest (source contents, resolver configuration, and parser compatibility). The
+  first compile adds `.tieline/topology/.gitignore`; commit it so everything else in that
+  directory stays untracked. The cache keeps the eight most recently compiled entries.
+- `code compile --revision <ref>` compiles an immutable commit without checking it out. Run it for
+  the comparison base before `code blast-radius --base <ref>` or `code trace --revision <ref>`.
+- Readers compute the digest of the snapshot they inspect and select only that entry, then apply
+  the same integrity, compatibility, and freshness checks as committed mode. An edited workspace or
+  uncompiled commit reports `topology_missing` or `topology_missing_at_revision` with the
+  `selected_input_digest` and the compile command to run; an older graph is never served.
+- In CI, compile the checked-out pull-request merge candidate (and its base when using
+  `--base`), so dependencies created only by the combination of branches—added or deleted targets,
+  import resolution, and resolver configuration changes—are always present.
+
+Set `"topology_mode": "committed"` to keep the reviewed `graph.json` lifecycle. In that mode the
+cache is never consulted and `--revision` is rejected. Older Tieline releases reject unknown
+configuration keys, so pin one Tieline version across developers and CI before setting it.
+
+Upgrading a repository that already commits `graph.json` needs no immediate action: in cached
+mode, a legacy graph still answers while it is current for the exact snapshot, and historical
+commits that contain one remain readable. Cached compiles never update it, so it stops conflicting
+once developers upgrade; `code compile` and `code validate` print a notice while it remains
+tracked. Remove it with:
+
+```bash
+tieline code untrack . --json
+```
+
+`untrack` seeds the cache from the legacy graph when it is current, stages its removal and the
+topology `.gitignore`, and deletes the working copy. It never commits or pushes. Running it on a
+branch that still modifies `graph.json` after `main` removed it also resolves that one
+modify/delete merge conflict; the file is derived, so nothing is lost.
 
 This release defines the relational schema and repository but does not attach topology
 publication to the existing repository-sync command. Until that merge-only publisher is added,
-`code compile` writes only `graph.json` and hosted topology is available only when a trusted
-integration explicitly persists a complete generation.
+`code compile` writes only the repository-local graph and hosted topology is available only when
+a trusted integration explicitly persists a complete generation.
 
 ```bash
 # Explicitly derive the artifact after selected source or resolver changes.
 tieline code compile . --json
+
+# Cached mode: also compile the comparison base before base comparisons.
+tieline code compile . --revision origin/main --json
 
 # Verify integrity and freshness without parsing or writing.
 tieline code validate . --json
@@ -217,8 +261,9 @@ tieline code blast-radius --base origin/main --json
 The equivalent read-only MCP tools are `trace_code_dependencies` and
 `analyze_code_blast_radius`. CLI and MCP delegate to the same domain results. Local reads need no
 database and never compile or silently repair topology. Missing, stale, incompatible, invalid,
-over-capacity, and unsafe artifacts are named nonzero outcomes with an explicit compile
-remediation only for mutable workspace state. Historical reads load the topology and, for blast
+over-capacity, and unsafe artifacts are named nonzero outcomes. Committed mode offers a compile
+remediation only for mutable workspace state; cached mode names the workspace or `--revision`
+compile that produces the missing entry. Historical reads load the topology and, for blast
 radius, the manifest from the same resolved commit. A hosted dependency trace can continue to
 select a compatible complete Postgres generation when no checkout is available.
 

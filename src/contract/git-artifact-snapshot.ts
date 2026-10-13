@@ -6,12 +6,18 @@ import {
 import { createGitSourceSnapshotCollection } from "./git-source-snapshot.js";
 import {
   CODE_TOPOLOGY_DIRECTORY,
+  legacyTopologyFallback,
+  readCachedCodeTopologyFiles,
+  topologyArtifactFailureStatus,
   topologyRoleSnapshotFromFiles,
+  withSelectedInputDigest,
+  type CodeTopologyMode,
   type TopologyRoleSnapshotResult,
 } from "./topology-role-snapshot.js";
 import {
   readTopologySourceSelectedInput,
   type BuildCommittedTopologyGenerationOptions,
+  type TopologySelectedInputResult,
 } from "./topology-generation.js";
 
 interface GitArtifactEntry {
@@ -30,7 +36,7 @@ function git(repositoryRoot: string, args: string[], input?: string): Buffer {
   });
 }
 
-function resolveCommit(repositoryRoot: string, revision: string): string {
+export function resolveTopologyCommit(repositoryRoot: string, revision: string): string {
   const commit = git(repositoryRoot, ["rev-parse", "--verify", `${revision}^{commit}`])
     .toString("utf8").trim();
   if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(commit)) {
@@ -85,60 +91,139 @@ function readObjects(
   return values;
 }
 
+type CommittedGraphRead =
+  | { status: "complete"; files: Map<string, Buffer> }
+  | { status: "missing" }
+  | {
+      status: "topology_unsafe_path" | "topology_capacity_exceeded";
+      detail: string;
+    };
+
+function readCommittedGraph(repositoryRoot: string, commit: string): CommittedGraphRead {
+  const graphEntry = readGraphEntry(repositoryRoot, commit);
+  if (!graphEntry) return { status: "missing" };
+  if (graphEntry.mode !== "100644" && graphEntry.mode !== "100755") {
+    return { status: "topology_unsafe_path", detail: "Committed topology graph is not a regular Git file." };
+  }
+  if (graphEntry.size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
+    return { status: "topology_capacity_exceeded", detail: "Committed topology graph exceeds the file byte limit." };
+  }
+  const graphObject = readObjects(repositoryRoot, [graphEntry]).get(graphEntry.object)!;
+  return {
+    status: "complete",
+    files: new Map<string, Buffer>([[CODE_TOPOLOGY_ARTIFACT_FILE, graphObject]]),
+  };
+}
+
+function commitSelectedInput(
+  options: BuildCommittedTopologyGenerationOptions,
+  commit: string
+): TopologySelectedInputResult {
+  const source = createGitSourceSnapshotCollection({
+    repositoryRoot: options.repositoryRoot,
+    revision: commit,
+    sourceRoots: options.sourceRoots,
+    ignore: options.ignore,
+    maxSourceBytes: options.maxSourceBytes,
+    maxTotalSourceBytes: options.maxTotalSourceBytes,
+  });
+  try {
+    return readTopologySourceSelectedInput(options, source);
+  } finally {
+    source.dispose();
+  }
+}
+
+function selectedInputFailure(
+  freshness: Exclude<TopologySelectedInputResult, { status: "complete" }>
+): TopologyRoleSnapshotResult {
+  return {
+    status: freshness.status === "capacity_exceeded"
+      ? "topology_capacity_exceeded"
+      : "topology_invalid",
+    detail: freshness.detail,
+  };
+}
+
+function selectCommittedGitTopologyRole(
+  options: BuildCommittedTopologyGenerationOptions,
+  commit: string
+): TopologyRoleSnapshotResult {
+  const committed = readCommittedGraph(options.repositoryRoot, commit);
+  if (committed.status === "missing") {
+    return {
+      status: "topology_missing_at_revision",
+      detail: `Git commit '${commit}' has no committed topology artifact.`,
+    };
+  }
+  if (committed.status !== "complete") return committed;
+  const freshness = commitSelectedInput(options, commit);
+  if (freshness.status !== "complete") return selectedInputFailure(freshness);
+  return topologyRoleSnapshotFromFiles({
+    source: "git",
+    repository: options.repository,
+    queriedRevision: commit,
+    files: committed.files,
+    selectedInputDigest: freshness.selected_input_digest,
+  });
+}
+
+/**
+ * Prefer the cache entry for the commit's exact selected inputs; a graph
+ * committed at that revision answers only when it is current for them.
+ */
+function selectCachedGitTopologyRole(
+  options: BuildCommittedTopologyGenerationOptions,
+  commit: string
+): TopologyRoleSnapshotResult {
+  const freshness = commitSelectedInput(options, commit);
+  if (freshness.status !== "complete") return selectedInputFailure(freshness);
+  const digest = freshness.selected_input_digest;
+  const fromFiles = (files: ReadonlyMap<string, Buffer>): TopologyRoleSnapshotResult =>
+    withSelectedInputDigest(topologyRoleSnapshotFromFiles({
+      source: "git",
+      repository: options.repository,
+      queriedRevision: commit,
+      files,
+      selectedInputDigest: digest,
+    }), digest);
+  const cached = readCachedCodeTopologyFiles(options.repositoryRoot, digest);
+  if (cached.status === "complete") return fromFiles(cached.files);
+  if (cached.status !== "missing") {
+    return {
+      status: topologyArtifactFailureStatus(cached.status),
+      detail: cached.detail,
+      selected_input_digest: digest,
+    };
+  }
+  const committed = readCommittedGraph(options.repositoryRoot, commit);
+  if (committed.status === "complete") {
+    const selected = legacyTopologyFallback(fromFiles(committed.files));
+    if (selected) return selected;
+  } else if (committed.status !== "missing") {
+    return { ...committed, selected_input_digest: digest };
+  }
+  return {
+    status: "topology_missing_at_revision",
+    detail: `No cached topology exists for Git commit '${commit}' (selected inputs '${digest}'). Run \`tieline code compile . --revision ${commit}\`.`,
+    selected_input_digest: digest,
+  };
+}
+
 export function selectGitTopologyRole(
-  options: BuildCommittedTopologyGenerationOptions
+  options: BuildCommittedTopologyGenerationOptions,
+  mode: CodeTopologyMode
 ): TopologyRoleSnapshotResult {
   let commit: string;
   try {
-    commit = resolveCommit(options.repositoryRoot, options.revision);
+    commit = resolveTopologyCommit(options.repositoryRoot, options.revision);
   } catch (error) {
     return { status: "topology_invalid", detail: error instanceof Error ? error.message : String(error) };
   }
   try {
-    const graphEntry = readGraphEntry(options.repositoryRoot, commit);
-    if (!graphEntry) {
-      return {
-        status: "topology_missing_at_revision",
-        detail: `Git commit '${commit}' has no committed topology artifact.`,
-      };
-    }
-    if (graphEntry.mode !== "100644" && graphEntry.mode !== "100755") {
-      return { status: "topology_unsafe_path", detail: "Committed topology graph is not a regular Git file." };
-    }
-    if (graphEntry.size > CODE_TOPOLOGY_ARTIFACT_MAX_FILE_BYTES) {
-      return { status: "topology_capacity_exceeded", detail: "Committed topology graph exceeds the file byte limit." };
-    }
-    const graphObject = readObjects(options.repositoryRoot, [graphEntry]).get(graphEntry.object)!;
-    const files = new Map<string, Buffer>([[CODE_TOPOLOGY_ARTIFACT_FILE, graphObject]]);
-
-    const source = createGitSourceSnapshotCollection({
-      repositoryRoot: options.repositoryRoot,
-      revision: commit,
-      sourceRoots: options.sourceRoots,
-      ignore: options.ignore,
-      maxSourceBytes: options.maxSourceBytes,
-      maxTotalSourceBytes: options.maxTotalSourceBytes,
-    });
-    try {
-      const freshness = readTopologySourceSelectedInput(options, source);
-      if (freshness.status !== "complete") {
-        return {
-          status: freshness.status === "capacity_exceeded"
-            ? "topology_capacity_exceeded"
-            : "topology_invalid",
-          detail: freshness.detail,
-        };
-      }
-      return topologyRoleSnapshotFromFiles({
-        source: "git",
-        repository: options.repository,
-        queriedRevision: commit,
-        files,
-        selectedInputDigest: freshness.selected_input_digest,
-      });
-    } finally {
-      source.dispose();
-    }
+    return mode === "cached"
+      ? selectCachedGitTopologyRole(options, commit)
+      : selectCommittedGitTopologyRole(options, commit);
   } catch (error) {
     return { status: "topology_invalid", detail: error instanceof Error ? error.message : String(error) };
   }

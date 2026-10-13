@@ -176,6 +176,8 @@ writeFileSync(
     context: { sources: [] },
     runtime: { default_embedding_provider: "hash", default_database_mode: "offline" },
     files: { spec_directory: "spec", manifest: "manifest" },
+    // These parity cases read the explicit committed artifact; cached mode has its own suite.
+    topology_mode: "committed",
     created_at: "2026-08-10T00:00:00.000Z",
     updated_at: "2026-08-10T00:00:00.000Z",
   }, null, 2)}\n`

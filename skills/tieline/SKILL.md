@@ -166,9 +166,19 @@ After reading exact authored intent, use derived topology only when the task
 needs dependency direction or potential change propagation:
 
 - After selected source or resolver changes, explicitly run
-  `tieline code compile . --json`, review and commit
-  `.tieline/topology/graph.json`, then
-  use `tieline code validate . --json` for a parser-free freshness check.
+  `tieline code compile . --json`, then use `tieline code validate . --json`
+  for a parser-free freshness check. By default the graph is cached outside
+  Git: do not commit anything under `.tieline/topology/` except its
+  `.gitignore`. Only when `.tieline/config.json` sets
+  `"topology_mode": "committed"`, review and commit
+  `.tieline/topology/graph.json`.
+- Before `--base <ref>` or `--revision <ref>` reads in the default cached
+  mode, run `tieline code compile . --revision <ref> --json`. A
+  `topology_missing` or `topology_missing_at_revision` result names the
+  compile to run; never treat an older graph as current.
+- If compile or validate reports that a legacy `graph.json` is still tracked,
+  run `tieline code untrack . --json` and include its staged changes in the
+  pending commit.
 - Call `trace_code_dependencies`, or run
   `tieline code trace --path <path> [--selector <selector>] --direction dependencies|dependents --json`,
   for one exact locator.
@@ -196,7 +206,7 @@ only `may_be_impacted`; semantic support stays `not_assessed`. Sharing an AC
 never creates a code edge. Neither parser evidence, a current hash, a resolved
 selector, nor topology proves that implementation satisfies the AC or that a
 test ran. Repository YAML and its compiled manifest remain business-intent
-authority; committed topology is a derived traversal projection, while hosted
+authority; repository topology is a derived traversal projection, while hosted
 Postgres generations preserve the richer relational projection of accepted
 `main`. Local compilation and reads never publish to Postgres; a protected
 merge-only publisher must own that boundary when hosted publication is enabled.

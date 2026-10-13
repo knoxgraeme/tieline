@@ -77,6 +77,7 @@ try {
       name: "Derivation fixture",
       repoName: "derivation-fixture",
       specDirectory: "spec",
+      topologyMode: "committed",
     })
   );
   const sourcePath = resolve(fixture, "src/value.ts");
@@ -173,6 +174,36 @@ capability:
       writeFileSync(configPath, originalConfig);
       writeFileSync(shardPath, originalShard);
       writeFileSync(sourcePath, source);
+      writeFileSync(specPath, spec);
+    }
+  });
+
+  await test("cached topology mode compiles and smokes topology without a reviewed graph", async () => {
+    const configPath = resolve(fixture, ".tieline/config.json");
+    const originalConfig = readFileSync(configPath, "utf8");
+    const graphPath = resolve(fixture, ".tieline/topology", CODE_TOPOLOGY_ARTIFACT_FILE);
+    const graphBytes = readFileSync(graphPath);
+    try {
+      writeFileSync(configPath, originalConfig.replace('  "topology_mode": "committed",\n', ""));
+      writeFileSync(graphPath, "stale legacy graph");
+      assert.deepEqual(await runGeneratedArtifactGate(fixture), {
+        status: "current",
+        artifacts: ["manifest"],
+        topology_publication: "cached",
+        trace_status: "complete",
+        blast_radius_status: "complete",
+        checkout_unchanged: true,
+      });
+      writeFileSync(specPath, spec.replace("reviewed bytes", "cached reviewed bytes"));
+      const drift = await runGeneratedArtifactGate(fixture);
+      assert.deepEqual(
+        drift.status === "generated_artifact_mismatch" ? drift.artifacts.map((entry) => entry.artifact) : [],
+        ["manifest"],
+        "manifest comparison remains enforced in cached topology mode"
+      );
+    } finally {
+      writeFileSync(configPath, originalConfig);
+      writeFileSync(graphPath, graphBytes);
       writeFileSync(specPath, spec);
     }
   });

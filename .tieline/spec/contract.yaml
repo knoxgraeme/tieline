@@ -838,7 +838,7 @@ capability:
                 path: tests/unit/topology/test-code-resolution-python-rust.ts
                 framework_hint: custom-script
         - key: CONTRACT-004-AC3
-          criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.
+          criterion: Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph only through explicit compilation, and must publish hosted relational generations only when complete.
           rationale: Readers must never observe a mixed or partial graph, generated artifact bytes must not make identity self-referential, and reviewed repository topology must remain distinct from richer hosted persistence.
           scenarios:
             - given: topology compilation is interrupted or loses a concurrent publication race
@@ -1069,7 +1069,105 @@ capability:
                 repository: tieline
                 path: tests/unit/contract/test-manifest-maintenance.ts
         - key: CONTRACT-005-AC3
-          criterion: The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining committed topology comparison.
+          criterion: The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining topology comparison whenever topology is committed.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: scripts/generated-artifact-gate.ts
+                selector: function:runGeneratedArtifactGate
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-generated-artifacts.ts
+    - key: CONTRACT-006
+      title: Compile topology per snapshot instead of committing it
+      actor: repository maintainer
+      goal: keep derived topology current for every inspected snapshot without committing it in feature pull requests
+      benefit: independent pull requests stop conflicting on generated topology while stale or forged graphs stay detectable
+      lifecycle: production
+      aliases:
+        - cached topology mode
+        - topology merge conflicts
+      acceptance_criteria:
+        - key: CONTRACT-006-AC1
+          criterion: When topology_mode is absent or cached, explicit compilation of the workspace or of an immutable Git revision must publish its graph only to an ignored cache entry named by that snapshot's selected-input digest, and workspace and revision readers must select only the entry for the exact snapshot they inspect, without parsing or writing, reporting missing, stale, incompatible, invalid, unsafe, or oversized entries as named failures that include the digest.
+          rationale: A committed graph carries digests of the whole selected tree, so any two concurrent changes to selected inputs conflict on it and every textual resolution is stale. Keying the graph by the digest readers already compute keeps freshness exact while removing the file from pull requests.
+          scenarios:
+            - given: two branches change independent source files from one base
+              when: they merge in either order and the merged tree is compiled
+              then: the merge must not conflict on topology and both orders must yield one byte-identical graph that includes dependencies created only by the combination
+            - given: the workspace was edited after its last compile
+              when: validate, trace, or blast radius reads topology
+              then: Tieline must report topology_missing for the new digest rather than serve the earlier graph
+            - given: a blast-radius base commit has not been compiled
+              when: the base comparison runs
+              then: Tieline must report topology_missing_at_revision naming the revision compile to run
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-role-snapshot.ts
+                selector: function:selectWorkspaceTopologyRole
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/git-artifact-snapshot.ts
+                selector: function:selectGitTopologyRole
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology-artifact.ts
+                selector: function:runCodeTopologyArtifactCommand
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/topology/test-code-topology-cache.ts
+        - key: CONTRACT-006-AC2
+          criterion: An explicit committed topology_mode must keep the reviewed graph.json lifecycle without consulting the cache, and in cached mode a legacy committed graph may answer only while it is current for the exact snapshot, must never be updated by compilation, and must be removable by an untrack command that seeds the cache from a current legacy graph, stages only its removal and the topology ignore rule, resolves a modify/delete conflict on that file, and never commits or pushes.
+          rationale: Repositories that already commit topology must keep working on upgrade, and the heal must not touch history or unrelated paths.
+          scenarios:
+            - given: a repository upgrades while its committed graph is current
+              when: topology is read before any recompilation
+              then: the legacy graph must answer and a notice must point to untrack
+            - given: a branch still modifies graph.json after main removed it
+              when: the merge conflicts and untrack runs
+              then: the conflict must resolve by removing the derived file
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/code-topology-artifact.ts
+                selector: function:untrackLegacyTopology
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/topology-role-snapshot.ts
+                selector: function:legacyTopologyFallback
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/topology/test-code-topology-cache.ts
+        - key: CONTRACT-006-AC3
+          criterion: In cached topology mode the generated-artifact gate must still compile, validate, and smoke-test topology through its cached reader while omitting only the reviewed-graph byte comparison, and must keep manifest comparison enforced.
           links:
             - relation: implements
               provenance: authored

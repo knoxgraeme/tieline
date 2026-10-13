@@ -31,7 +31,11 @@ import type {
 } from "../domain/code-topology-store.js";
 import { config } from "../config.js";
 import { getCodeTopologyStore } from "../code-topology-store.js";
-import { findTielineWorkspace, type TielineWorkspace } from "../tieline/workspace.js";
+import {
+  findTielineWorkspace,
+  workspaceTopologyMode,
+  type TielineWorkspace,
+} from "../tieline/workspace.js";
 import { escapeTerminalText, type CommandIO } from "./shared.js";
 
 export interface CodeTopologyLocatorInput {
@@ -315,12 +319,13 @@ async function selectedGeneration(
       dispose() {},
     };
   }
+  const mode = workspaceTopologyMode(workspace);
   const selected = options.revision
     ? selectGitTopologyRole({
         ...sourceOptions(workspace, options.repository),
         revision: options.revision,
-      })
-    : selectWorkspaceTopologyRole(sourceOptions(workspace, options.repository));
+      }, mode)
+    : selectWorkspaceTopologyRole(sourceOptions(workspace, options.repository), mode);
   if (selected.status !== "current") {
     return {
       status: selected.status,
@@ -408,8 +413,9 @@ export async function executeChangeBlastRadius(
     };
   }
   const common = sourceOptions(workspace, options.repository);
+  const mode = workspaceTopologyMode(workspace);
   const selectCurrent = (): IntentAwareRoleSnapshot | BlastRadiusPrimitiveResult => {
-    const topology = selectWorkspaceTopologyRole(common);
+    const topology = selectWorkspaceTopologyRole(common, mode);
     if (topology.status !== "current") {
       return {
         status: topology.status,
@@ -439,7 +445,7 @@ export async function executeChangeBlastRadius(
   let comparisonStore: ImmutableCodeTopologySnapshotStore | undefined;
   try {
     if (options.base) {
-      const topology = selectGitTopologyRole({ ...common, revision: options.base });
+      const topology = selectGitTopologyRole({ ...common, revision: options.base }, mode);
       if (topology.status !== "current") {
         return {
           status: topology.status,
