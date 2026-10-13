@@ -64,7 +64,8 @@ a linked test ran.
 ## Code dependency traversal
 
 `trace_code_dependencies` starts from an exact file plus canonical symbol selector. It reads the
-committed `.tieline/topology/graph.json` snapshot rather than parsing during the request.
+compiled topology graph for the current snapshot—the cache entry by default, or the committed
+`.tieline/topology/graph.json` in committed mode—rather than parsing during the request.
 
 Traversal defaults to dependents, which answers “what may rely on this?” It can instead follow
 dependencies. Results include visited symbols, static edges, cycles, unresolved or ambiguous

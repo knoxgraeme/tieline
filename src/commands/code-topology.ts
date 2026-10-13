@@ -31,7 +31,11 @@ import type {
 } from "../domain/code-topology-store.js";
 import { config } from "../config.js";
 import { getCodeTopologyStore } from "../code-topology-store.js";
-import { findTielineWorkspace, type TielineWorkspace } from "../tieline/workspace.js";
+import {
+  findTielineWorkspace,
+  workspaceTopologyMode,
+  type TielineWorkspace,
+} from "../tieline/workspace.js";
 import { escapeTerminalText, type CommandIO } from "./shared.js";
 
 export interface CodeTopologyLocatorInput {
@@ -89,6 +93,8 @@ export interface CodeTopologyUnavailableResult {
   repository: string;
   detail: string;
   generation_identity?: string;
+  /** Snapshot key for cached-mode remediation and CI cache lookups. */
+  selected_input_digest?: string;
 }
 
 export type DependencyTracePrimitiveResult =
@@ -114,6 +120,7 @@ export type BlastRadiusPrimitiveResult =
       repository: string;
       detail: string;
       generation_identity?: string;
+      selected_input_digest?: string;
       generation_role?: CodeTopologyGenerationRole;
     };
 
@@ -315,12 +322,13 @@ async function selectedGeneration(
       dispose() {},
     };
   }
+  const mode = workspaceTopologyMode(workspace);
   const selected = options.revision
     ? selectGitTopologyRole({
         ...sourceOptions(workspace, options.repository),
         revision: options.revision,
-      })
-    : selectWorkspaceTopologyRole(sourceOptions(workspace, options.repository));
+      }, mode)
+    : selectWorkspaceTopologyRole(sourceOptions(workspace, options.repository), mode);
   if (selected.status !== "current") {
     return {
       status: selected.status,
@@ -328,6 +336,9 @@ async function selectedGeneration(
       detail: selected.detail,
       ...(selected.generation_identity
         ? { generation_identity: selected.generation_identity }
+        : {}),
+      ...(selected.selected_input_digest
+        ? { selected_input_digest: selected.selected_input_digest }
         : {}),
     };
   }
@@ -408,14 +419,18 @@ export async function executeChangeBlastRadius(
     };
   }
   const common = sourceOptions(workspace, options.repository);
+  const mode = workspaceTopologyMode(workspace);
   const selectCurrent = (): IntentAwareRoleSnapshot | BlastRadiusPrimitiveResult => {
-    const topology = selectWorkspaceTopologyRole(common);
+    const topology = selectWorkspaceTopologyRole(common, mode);
     if (topology.status !== "current") {
       return {
         status: topology.status,
         repository: options.repository,
         generation_role: "current",
         detail: topology.detail,
+        ...(topology.selected_input_digest
+          ? { selected_input_digest: topology.selected_input_digest }
+          : {}),
       };
     }
     const contract = selectWorkspaceManifestRole(workspace, options.repository);
@@ -439,13 +454,16 @@ export async function executeChangeBlastRadius(
   let comparisonStore: ImmutableCodeTopologySnapshotStore | undefined;
   try {
     if (options.base) {
-      const topology = selectGitTopologyRole({ ...common, revision: options.base });
+      const topology = selectGitTopologyRole({ ...common, revision: options.base }, mode);
       if (topology.status !== "current") {
         return {
           status: topology.status,
           repository: options.repository,
           generation_role: "base",
           detail: topology.detail,
+          ...(topology.selected_input_digest
+            ? { selected_input_digest: topology.selected_input_digest }
+            : {}),
         };
       }
       const commit = topology.snapshot.queried_revision!;

@@ -4,6 +4,7 @@ export function tielineConfigJson(options: {
   ignore?: string[];
   specDirectory?: string;
   timestamp?: string;
+  topologyMode?: "committed" | "cached";
 }): string {
   const timestamp = options.timestamp ?? "2026-08-01T00:00:00.000Z";
   return `${JSON.stringify(
@@ -24,6 +25,7 @@ export function tielineConfigJson(options: {
         spec_directory: options.specDirectory ?? "contract",
         manifest: "manifest",
       },
+      ...(options.topologyMode ? { topology_mode: options.topologyMode } : {}),
       created_at: timestamp,
       updated_at: timestamp,
     },

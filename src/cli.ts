@@ -559,19 +559,27 @@ function buildProgram(
   for (const [action, description] of [
     ["compile", "Compile the repository topology artifact"],
     ["validate", "Validate topology integrity and freshness without parsing"],
+    ["untrack", "Stop tracking a legacy committed topology graph (cached mode)"],
   ] as const) {
-    code
+    const command = code
       .command(action)
       .description(description)
       .argument("[repository]", "repository path")
-      .option("--json", "emit machine-readable JSON")
-      .action(async (repository: string | undefined, opts) => {
-        const { runCodeTopologyArtifactCommand } = await import("./commands/code-topology-artifact.js");
-        setExit(await runCodeTopologyArtifactCommand(action, {
-          repository,
-          json: Boolean(opts.json),
-        }, io));
-      });
+      .option("--json", "emit machine-readable JSON");
+    if (action === "compile") {
+      command.option(
+        "--revision <git-ref>",
+        "compile an exact local Git revision into the topology cache (cached mode)"
+      );
+    }
+    command.action(async (repository: string | undefined, opts) => {
+      const { runCodeTopologyArtifactCommand } = await import("./commands/code-topology-artifact.js");
+      setExit(await runCodeTopologyArtifactCommand(action, {
+        repository,
+        ...(typeof opts.revision === "string" ? { revision: opts.revision } : {}),
+        json: Boolean(opts.json),
+      }, io));
+    });
   }
   const addTopologyLimits = (command: Command): Command => command
     .option("--depth <n>", "maximum traversal depth (1-8)")

@@ -15,7 +15,7 @@ Tieline keeps accepted product intent in repository-owned YAML and derived artif
 | `src/cli.ts` and `src/tieline/` | Command-line entry points and workspace/setup lifecycle. |
 | `src/derived/` | Derived projections such as embedding documents. |
 
-Callers enter through the CLI or MCP transports. Commands and tools validate untrusted input at their boundary, invoke contract/domain behavior, and use adapters only for infrastructure. The contract compiler writes reviewed derived artifacts; topology reads consume the committed snapshot rather than repairing it at request time.
+Callers enter through the CLI or MCP transports. Commands and tools validate untrusted input at their boundary, invoke contract/domain behavior, and use adapters only for infrastructure. The contract compiler writes reviewed derived artifacts; topology reads consume the compiled snapshot for the requested source state rather than repairing it at request time.
 
 ## Test code is not a production adapter
 

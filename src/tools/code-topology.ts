@@ -24,7 +24,7 @@ const READ_ONLY_ANNOTATIONS = {
 
 const TRACE_DESCRIPTION = `Trace statically derived project-local code dependencies or dependents from one exact path and optional canonical selector. The traversal is bounded, cycle-safe, generation-identified, and retains unresolved or ambiguous frontiers.
 
-This is derived_code_dependency evidence, not contract authority or proof that implementation satisfies an Acceptance Criterion. Repository reads select the existing committed topology artifact and never compile, parse source, repair, or write. Hosted reads preserve complete persisted-generation selection when DATABASE_URL is configured. Lifecycle failures are returned as structured read results.`;
+This is derived_code_dependency evidence, not contract authority or proof that implementation satisfies an Acceptance Criterion. Repository reads select the existing compiled topology artifact for the exact snapshot (the cached entry by default, or the committed graph in committed mode) and never compile, parse source, repair, or write. Hosted reads preserve complete persisted-generation selection when DATABASE_URL is configured. Lifecycle failures are returned as structured read results.`;
 
 const BLAST_DESCRIPTION = `Analyze advisory AC-aware code blast radius from either a Git base or explicit changed locators. Code reachability is computed first, then visited exact locators are joined to authored direct or Story-fallback contract_coupling claims.
 

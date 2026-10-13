@@ -180,7 +180,7 @@
             "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
-                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
+                "compiled_content_hash": "2eeae92d4c2476a26ae312bdbb7aa731fcb2dc74d4fb34e4215247a86d978c27",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {

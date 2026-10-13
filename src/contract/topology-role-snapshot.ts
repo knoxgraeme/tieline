@@ -24,6 +24,24 @@ import type {
 } from "../domain/code-topology-store.js";
 
 export const CODE_TOPOLOGY_DIRECTORY = ".tieline/topology";
+/** Ignored, content-addressed store used by the cached topology lifecycle. */
+export const CODE_TOPOLOGY_CACHE_DIRECTORY = `${CODE_TOPOLOGY_DIRECTORY}/cache`;
+
+/**
+ * `committed` reads the reviewed `.tieline/topology/graph.json`; `cached`
+ * reads the cache entry named by the requested snapshot's selected-input
+ * digest, so branch-specific graphs never enter Git history.
+ */
+export type CodeTopologyMode = "committed" | "cached";
+
+const selectedInputDigestPattern = /^[a-f0-9]{64}$/;
+
+export function codeTopologyCacheEntryName(selectedInputDigest: string): string {
+  if (!selectedInputDigestPattern.test(selectedInputDigest)) {
+    throw new Error("Topology cache keys must be SHA-256 selected-input digests.");
+  }
+  return `${selectedInputDigest}.json`;
+}
 
 export type TopologyLifecycleStatus =
   | "current"
@@ -59,6 +77,7 @@ export type TopologyRoleSnapshotResult =
       artifact_digest?: string;
       projection_digest?: string;
       generation_identity?: string;
+      selected_input_digest?: string;
     };
 
 /** @internal Deterministic seam for artifact-publication interleaving tests. */
@@ -142,6 +161,47 @@ export function readWorkspaceCodeTopologyFiles(
   }
 }
 
+/** Read the cache entry for one exact selected-input digest without writing. */
+export function readCachedCodeTopologyFiles(
+  repositoryRoot: string,
+  selectedInputDigest: string
+): WorkspaceArtifactFilesResult {
+  const repository = realpathSync(resolve(repositoryRoot));
+  const cacheRoot = resolve(repository, CODE_TOPOLOGY_CACHE_DIRECTORY);
+  const entryPath = resolve(cacheRoot, codeTopologyCacheEntryName(selectedInputDigest));
+  try {
+    for (const [path, label] of [
+      [resolve(repository, ".tieline"), "The repository .tieline directory"],
+      [resolve(repository, CODE_TOPOLOGY_DIRECTORY), "The topology authority"],
+      [cacheRoot, "The topology cache"],
+    ] as const) {
+      const stat = lstatSync(path);
+      if (!stat.isDirectory() || stat.isSymbolicLink() || !owned(stat)) {
+        return { status: "unsafe_path", detail: `${label} is not an owned regular directory.` };
+      }
+    }
+    const realCacheRoot = realpathSync(cacheRoot);
+    if (!withinRepository(repository, realCacheRoot)) {
+      return { status: "unsafe_path", detail: "The topology cache resolves outside the repository." };
+    }
+    const graph = readSafeTopologyGraph(realCacheRoot, entryPath);
+    if (graph.status !== "complete") return graph;
+    return {
+      status: "complete",
+      files: new Map([[CODE_TOPOLOGY_ARTIFACT_FILE, graph.bytes]]),
+    };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      return { status: "missing", detail: `No cached topology exists for selected inputs '${selectedInputDigest}'.` };
+    }
+    return {
+      status: "invalid",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 function compatibilityFailure(metadata: CodeTopologyArtifactMetadata): string | null {
   const runtime = codeTopologyRuntimeCompatibility();
   return metadata.compatibility.parser_compatibility_digest !== runtime.parser_compatibility_digest ||
@@ -209,24 +269,99 @@ export function topologyRoleSnapshotFromFiles(input: {
   return { status: "current", snapshot };
 }
 
-export function selectWorkspaceTopologyRole(
+/** Attach the requested snapshot key so callers can compile or cache it. */
+export function withSelectedInputDigest(
+  result: TopologyRoleSnapshotResult,
+  selectedInputDigest: string
+): TopologyRoleSnapshotResult {
+  return result.status === "current"
+    ? result
+    : { ...result, selected_input_digest: selectedInputDigest };
+}
+
+/**
+ * In cached mode a legacy committed graph may still answer, but only when it
+ * is current for the exact requested snapshot. Stale or incompatible legacy
+ * bytes are expected once that file stops being updated, so they are not
+ * served; corrupt, unsafe, or foreign-repository bytes stay visible failures.
+ */
+export function legacyTopologyFallback(
+  result: TopologyRoleSnapshotResult
+): TopologyRoleSnapshotResult | null {
+  return result.status === "topology_stale" || result.status === "topology_incompatible"
+    ? null
+    : result;
+}
+
+function workspaceSelectedInputFailure(
+  freshness: Exclude<ReturnType<typeof readWorkspaceTopologySelectedInput>, { status: "complete" }>
+): TopologyRoleSnapshotResult {
+  return {
+    status: freshness.status === "workspace_changed"
+      ? "workspace_changed"
+      : freshness.status === "capacity_exceeded"
+        ? "topology_capacity_exceeded"
+        : "topology_invalid",
+    detail: freshness.detail,
+  };
+}
+
+function selectCachedWorkspaceTopologyRole(
   options: TopologyGenerationSourceOptions
 ): TopologyRoleSnapshotResult {
+  const freshness = readWorkspaceTopologySelectedInput(options);
+  if (freshness.status !== "complete") return workspaceSelectedInputFailure(freshness);
+  const digest = freshness.selected_input_digest;
+  const fromFiles = (files: ReadonlyMap<string, Buffer>): TopologyRoleSnapshotResult =>
+    withSelectedInputDigest(topologyRoleSnapshotFromFiles({
+      source: "workspace",
+      repository: options.repository,
+      queriedRevision: null,
+      files,
+      selectedInputDigest: digest,
+    }), digest);
+  const cached = readCachedCodeTopologyFiles(options.repositoryRoot, digest);
+  if (cached.status === "complete") return fromFiles(cached.files);
+  if (cached.status !== "missing") {
+    return {
+      status: topologyArtifactFailureStatus(cached.status),
+      detail: cached.detail,
+      selected_input_digest: digest,
+    };
+  }
+  const legacy = readWorkspaceCodeTopologyFiles(options.repositoryRoot);
+  if (legacy.status === "complete") {
+    const selected = legacyTopologyFallback(fromFiles(legacy.files));
+    if (selected) return selected;
+  } else if (legacy.status !== "missing") {
+    return {
+      status: topologyArtifactFailureStatus(legacy.status),
+      detail: legacy.detail,
+      selected_input_digest: digest,
+    };
+  }
+  return {
+    status: "topology_missing",
+    detail: `No cached topology exists for the workspace selected inputs '${digest}'.${
+      legacy.status === "complete"
+        ? " The legacy .tieline/topology/graph.json is not current for these inputs and is no longer updated."
+        : ""
+    } Run \`tieline code compile .\`.`,
+    selected_input_digest: digest,
+  };
+}
+
+export function selectWorkspaceTopologyRole(
+  options: TopologyGenerationSourceOptions,
+  mode: CodeTopologyMode
+): TopologyRoleSnapshotResult {
+  if (mode === "cached") return selectCachedWorkspaceTopologyRole(options);
   const files = readWorkspaceCodeTopologyFiles(options.repositoryRoot);
   if (files.status !== "complete") {
     return { status: topologyArtifactFailureStatus(files.status), detail: files.detail };
   }
   const freshness = readWorkspaceTopologySelectedInput(options);
-  if (freshness.status !== "complete") {
-    return {
-      status: freshness.status === "workspace_changed"
-        ? "workspace_changed"
-        : freshness.status === "capacity_exceeded"
-          ? "topology_capacity_exceeded"
-          : "topology_invalid",
-      detail: freshness.detail,
-    };
-  }
+  if (freshness.status !== "complete") return workspaceSelectedInputFailure(freshness);
   return topologyRoleSnapshotFromFiles({
     source: "workspace",
     repository: options.repository,

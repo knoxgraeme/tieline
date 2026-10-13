@@ -350,7 +350,7 @@
                 }
               },
               {
-                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
+                "compiled_content_hash": "2eeae92d4c2476a26ae312bdbb7aa731fcb2dc74d4fb34e4215247a86d978c27",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -554,7 +554,7 @@
                 }
               },
               {
-                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
+                "compiled_content_hash": "2eeae92d4c2476a26ae312bdbb7aa731fcb2dc74d4fb34e4215247a86d978c27",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -785,7 +785,7 @@
             "criterion": "Tieline must report every acceptance criterion linked to an exact repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must return an explicit has_criteria, no_criteria, or not_found status for every requested path.",
             "links": [
               {
-                "compiled_content_hash": "2adfcb0fb3a67573f2aeea0b7368cc2af4d01edbea790c3fdd2f93ad57267754",
+                "compiled_content_hash": "2eeae92d4c2476a26ae312bdbb7aa731fcb2dc74d4fb34e4215247a86d978c27",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1532,8 +1532,8 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "ae0309a92df1850a5bc704eee6f410fadc1251554b527a8f0a8e9cf75443c953",
-            "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph.json only through explicit compilation, and must publish hosted relational generations only when complete.",
+            "contract_hash": "b25ff8ca5c03176412ea335b600c17fc5b8c0336fa8ed639e330f3af21ce3207",
+            "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
                 "compiled_content_hash": "f4ea34d20f28e8cdb5a5cdaca140bda09958458ece1e61571b4e904d4cbec94c",
@@ -1557,7 +1557,7 @@
                 }
               },
               {
-                "compiled_content_hash": "2b483b3087387c2a1e68ed58d3639fb0f89eac0ff965c62e2d64354693db9c3a",
+                "compiled_content_hash": "31f5c83eb6adb42bd665625f7f141896ce610b62b5d6a6337e777c3b7ecc5b30",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1590,7 +1590,7 @@
                 }
               },
               {
-                "compiled_content_hash": "21a6796a4127ba2a95d3bfdf3cc4ea68228158c637e281b6eb5f0b78c4d93953",
+                "compiled_content_hash": "1f2836ea4cfcebd3105b5b53917ad2d2f3b47740c5e3a5a802c31383f39df66b",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1612,7 +1612,7 @@
                 }
               },
               {
-                "compiled_content_hash": "8d6f2a0005b79045e5e8d75fe26fb776ec24d13ffe17106d0db0bb3ff6097330",
+                "compiled_content_hash": "2b9c1550c61ae52699c0931e0eb7f7b5d51ce4a2a78da86cc40af3d7ecaa5f02",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -1741,7 +1741,7 @@
             "criterion": "Tieline must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
             "links": [
               {
-                "compiled_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
+                "compiled_content_hash": "44f288404a4aadf63178adbf45fa67d4a07736970e2855775a214dd62aca8e9a",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1752,7 +1752,7 @@
                 }
               },
               {
-                "compiled_content_hash": "5aa8a2ccafc8efe940bde6f6441207630110518a8cee8c461ebcb57750a03e56",
+                "compiled_content_hash": "44f288404a4aadf63178adbf45fa67d4a07736970e2855775a214dd62aca8e9a",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1763,7 +1763,7 @@
                 }
               },
               {
-                "compiled_content_hash": "55a823142a5f282f39f1b9ae90854f1ec799e15d35b4e6004042b9ddbbd782e3",
+                "compiled_content_hash": "d0f3df210815407c765ee94b8a68ee3533ca44fd21b1b677070c4f4e82328034",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1774,7 +1774,7 @@
                 }
               },
               {
-                "compiled_content_hash": "68972f412821c280c8586cd6641ee4bfa48b42396c1fa9caaebe35907b45cbf5",
+                "compiled_content_hash": "e66ca43f7402afbb164fd700572edfb11cf08d8c0ce106b1e01ac18148999f91",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -1968,11 +1968,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "5fe6fd49372089108cba03fedf3a04bcd55128c4251a425e120fd2c9b47a85f8",
-            "criterion": "The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining committed topology comparison.",
+            "contract_hash": "bc089cc7fad3d521ede3145bdc555d38a9b4f09e2f3824d511e8bc4caaefa481",
+            "criterion": "The generated-artifact gate must still compile and validate current authored content in post_merge mode while deferring only comparison against the published manifest and retaining topology comparison whenever topology is committed.",
             "links": [
               {
-                "compiled_content_hash": "f165af0b4df44e08fd721d58f5479552d66cadd1f078915ccd76898e1e27945b",
+                "compiled_content_hash": "dae9efe66d2bff93eb3013c8d89ec355aaf2c93561029bb9e2b0fde0bcb3501a",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1983,7 +1983,7 @@
                 }
               },
               {
-                "compiled_content_hash": "c1ee26decf7625eb4a3f322fae800b51ed0cdefe777644711f0b642a64319228",
+                "compiled_content_hash": "3d8345af4be0afc511061fc1d1dec3545c7947269737a2e25dd09f5c1a2b1da1",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2013,12 +2013,204 @@
         "stable_id": "CONTRACT-005",
         "supersedes": null,
         "title": "Maintain generated manifests after integration"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "cfe4422395981d29b127007d1fc47385f06151f7b4889ee83c16a5d21dc26fe5",
+            "criterion": "When topology_mode is absent or cached, explicit compilation of the workspace or of an immutable Git revision must publish its graph only to an ignored cache entry named by that snapshot's selected-input digest, and workspace and revision readers must select only the entry for the exact snapshot they inspect, without parsing or writing, reporting missing, stale, incompatible, invalid, unsafe, or oversized entries as named failures that include the digest.",
+            "links": [
+              {
+                "compiled_content_hash": "31f5c83eb6adb42bd665625f7f141896ce610b62b5d6a6337e777c3b7ecc5b30",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/code-topology-artifact.ts",
+                  "repository": "tieline",
+                  "selector": "function:runCodeTopologyArtifactCommand"
+                }
+              },
+              {
+                "compiled_content_hash": "7cb8f7d1f2f6cdd64f19b61e35f5c9a1c096d2f2ab56a987a59d8bb5e8398edb",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/git-artifact-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectGitTopologyRole"
+                }
+              },
+              {
+                "compiled_content_hash": "1f2836ea4cfcebd3105b5b53917ad2d2f3b47740c5e3a5a802c31383f39df66b",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/topology-role-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:selectWorkspaceTopologyRole"
+                }
+              },
+              {
+                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/topology/test-code-topology-cache.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "A committed graph carries digests of the whole selected tree, so any two concurrent changes to selected inputs conflict on it and every textual resolution is stale. Keying the graph by the digest readers already compute keeps freshness exact while removing the file from pull requests.",
+            "scenarios": [
+              {
+                "given": "two branches change independent source files from one base",
+                "position": 0,
+                "stable_id": "CONTRACT-006-AC1-S1",
+                "then": "the merge must not conflict on topology and both orders must yield one byte-identical graph that includes dependencies created only by the combination",
+                "when": "they merge in either order and the merged tree is compiled"
+              },
+              {
+                "given": "the workspace was edited after its last compile",
+                "position": 1,
+                "stable_id": "CONTRACT-006-AC1-S2",
+                "then": "Tieline must report topology_missing for the new digest rather than serve the earlier graph",
+                "when": "validate, trace, or blast radius reads topology"
+              },
+              {
+                "given": "a blast-radius base commit has not been compiled",
+                "position": 2,
+                "stable_id": "CONTRACT-006-AC1-S3",
+                "then": "Tieline must report topology_missing_at_revision naming the revision compile to run",
+                "when": "the base comparison runs"
+              }
+            ],
+            "stable_id": "CONTRACT-006-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "85db27847ec9b905bba56fdd777dcc4566f1efd241280b3e7fbb730179321ec4",
+            "criterion": "An explicit committed topology_mode must keep the reviewed graph.json lifecycle without consulting the cache, and in cached mode a legacy committed graph may answer only while it is current for the exact snapshot, must never be updated by compilation, and must be removable by an untrack command that seeds the cache from a current legacy graph, stages only its removal and the topology ignore rule, resolves a modify/delete conflict on that file, and never commits or pushes.",
+            "links": [
+              {
+                "compiled_content_hash": "31f5c83eb6adb42bd665625f7f141896ce610b62b5d6a6337e777c3b7ecc5b30",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/code-topology-artifact.ts",
+                  "repository": "tieline",
+                  "selector": "function:untrackLegacyTopology"
+                }
+              },
+              {
+                "compiled_content_hash": "1f2836ea4cfcebd3105b5b53917ad2d2f3b47740c5e3a5a802c31383f39df66b",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/topology-role-snapshot.ts",
+                  "repository": "tieline",
+                  "selector": "function:legacyTopologyFallback"
+                }
+              },
+              {
+                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/topology/test-code-topology-cache.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Repositories that already commit topology must keep working on upgrade, and the heal must not touch history or unrelated paths.",
+            "scenarios": [
+              {
+                "given": "a repository upgrades while its committed graph is current",
+                "position": 0,
+                "stable_id": "CONTRACT-006-AC2-S1",
+                "then": "the legacy graph must answer and a notice must point to untrack",
+                "when": "topology is read before any recompilation"
+              },
+              {
+                "given": "a branch still modifies graph.json after main removed it",
+                "position": 1,
+                "stable_id": "CONTRACT-006-AC2-S2",
+                "then": "the conflict must resolve by removing the derived file",
+                "when": "the merge conflicts and untrack runs"
+              }
+            ],
+            "stable_id": "CONTRACT-006-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "e03112add5d2d9c65d2d65cb7c5dae970cbd36bba7f7b7678b29278a585df6f4",
+            "criterion": "In cached topology mode the generated-artifact gate must still compile, validate, and smoke-test topology through its cached reader while omitting only the reviewed-graph byte comparison, and must keep manifest comparison enforced.",
+            "links": [
+              {
+                "compiled_content_hash": "dae9efe66d2bff93eb3013c8d89ec355aaf2c93561029bb9e2b0fde0bcb3501a",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "scripts/generated-artifact-gate.ts",
+                  "repository": "tieline",
+                  "selector": "function:runGeneratedArtifactGate"
+                }
+              },
+              {
+                "compiled_content_hash": "3d8345af4be0afc511061fc1d1dec3545c7947269737a2e25dd09f5c1a2b1da1",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/runtime/test-generated-artifacts.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "CONTRACT-006-AC3",
+            "supersedes": null
+          }
+        ],
+        "actor": "repository maintainer",
+        "aliases": [
+          "cached topology mode",
+          "topology merge conflicts"
+        ],
+        "applies_to": null,
+        "benefit": "independent pull requests stop conflicting on generated topology while stale or forged graphs stay detectable",
+        "contract_hash": "f45379fcde1a2fcb69f300ead4470c1d96f8f34c217f1075013e69266ea9edc4",
+        "goal": "keep derived topology current for every inspected snapshot without committing it in feature pull requests",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "CONTRACT-006",
+        "supersedes": null,
+        "title": "Compile topology per snapshot instead of committing it"
       }
     ],
     "supersedes": null
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "5fd0ecf01cdb50b2a88fa4a6038a489a03afd0a478d3fd63c6e48debb989f98b"
+    "sha256": "56c7607770a20a0e2b0e6ebc418529cbc43189dfc4999448759d2c3e3251fd9b"
   }
 }

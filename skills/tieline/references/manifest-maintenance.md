@@ -32,4 +32,4 @@ paths. The repository's default mode remains unchanged by this feature.
 Artifact-first context and topology readers continue to expose the published
 snapshot and its freshness; they do not silently compile a newer authority.
 Inspect current YAML when reviewing unpublished edits. Topology compilation and
-its existing validation/commit requirements are unchanged.
+validation are unchanged; whether its graph is committed follows `topology_mode`.

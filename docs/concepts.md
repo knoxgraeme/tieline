@@ -82,7 +82,7 @@ stable `motivated_by` pointers without copying their source payloads.
 
 | Location | Contents |
 | --- | --- |
-| `.tieline/` in the repository | Product context (`config.json`), contract YAML (`spec/`), compiled manifest (`manifest/`), and derived code topology (`topology/graph.json`) |
+| `.tieline/` in the repository | Product context (`config.json`), contract YAML (`spec/`), compiled manifest (`manifest/`), and derived code topology (`topology/`: an ignored per-snapshot cache by default, or a committed `graph.json` in committed mode) |
 | PostgreSQL (optional) | A synced queryable projection of the accepted contract, plus Observations, Backlog Items, planning Stories, revisions, and search data |
 | Private config directory | Database credentials and clone-local setup state; `~/.config/tieline/` by default and never committed |
 
@@ -158,18 +158,26 @@ the manifest is the deterministic, hash-bearing read model used by local tools, 
 
 ## What the code topology contains
 
-`tieline code compile` writes `.tieline/topology/graph.json`. It records source hashes,
+`tieline code compile` writes one graph for one exact source snapshot. It records source hashes,
 locator-bearing symbols, resolved static adjacency edges, and unresolved dependency frontiers for
-supported source languages. Reads query this committed snapshot without starting a parser or
-writing to Postgres.
+supported source languages. Reads query the graph for the snapshot they inspect without starting a
+parser or writing to Postgres.
+
+By default (`cached` mode) graphs live in the ignored `.tieline/topology/cache/`, named by the
+snapshot's selected-input digest. A graph describes the whole selected source tree, so a committed
+graph conflicts between any two pull requests that both change source and must be recompiled after
+every such merge. Keeping it out of Git removes that cycle without weakening freshness: an edited
+or uncompiled snapshot simply has no matching entry until `tieline code compile` runs. Repositories
+that set `"topology_mode": "committed"` keep committing `.tieline/topology/graph.json`.
 
 The topology is not a second source of product truth. It describes code-to-code relationships;
 the contract describes accepted intent-to-code relationships. Exact repository/path/selector
 locators join them for dependency tracing and AC-aware blast-radius analysis.
 
-Repository sync and topology compilation are separate operations. A main-branch workflow should
-compile and commit the reviewed topology with code changes, then sync the accepted contract and
-topology projection after merge when Postgres-backed access is configured.
+Repository sync and topology compilation are separate operations. CI compiles topology for the
+snapshot it checks; in committed mode, pull requests also commit the reviewed graph with code
+changes. Sync the accepted contract and topology projection after merge when Postgres-backed access
+is configured.
 
 ## How coverage and freshness work
 

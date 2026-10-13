@@ -24,8 +24,9 @@ the exact code and tests as evidence. By creating a semantic business intent lay
   normal pull-request review.
 - **Graded evidence:** a fresh grader assesses changed ACs against bounded source evidence and a
   closed citation list, returning `supported`, `partial`, or `unsupported`.
-- **A committed code topology:** `.tieline/topology/graph.json` records parsed symbols and static
-  dependencies, letting agents trace code and connect possible impact back to accepted ACs.
+- **A derived code topology:** `tieline code compile` records parsed symbols and static
+  dependencies for the exact source snapshot, letting agents trace code and connect possible
+  impact back to accepted ACs.
 - **Follow features from idea to production** In addition to production state, track 'Observations' such as feature requests, ideas and bug reports, allowing you to track features through their lifecycle to production. 
 
 The contract creates a manifest in your repository. When synced to optional Postgres, any connected
@@ -40,8 +41,8 @@ state of `main`, and review + update 'Observations'.
    snippets. Conservative resolvers preserve ambiguous and unresolved relationships as diagnostics.
 3. **A fresh agent grades the evidence.** The grader receives one AC, its current evidence, and a
    closed citation list. Deterministic verification rejects stale or invented citations.
-4. **Review establishes acceptance.** The YAML, compiled manifest, topology, and code change travel
-   together. Merge accepts that version of the relationship.
+4. **Review establishes acceptance.** The YAML, compiled manifest, and code change travel together.
+   Merge accepts that version of the relationship.
 5. **Checks make drift visible.** The skill updates intent as behavior changes, while `tieline check`
    flags changed evidence, broken links, invalid contracts, and stale artifacts.
 
@@ -99,9 +100,12 @@ Observations and shape backlog Stories.
 
 ## How the code graph works
 
-`.tieline/topology/graph.json` is a committed, derived snapshot of the repository's source
-structure. `tieline code compile` uses Tree-sitter parsers to build it; later reads query the
-snapshot without starting a parser or writing to Postgres.
+`tieline code compile` uses Tree-sitter parsers to build a derived snapshot of the repository's
+source structure. By default it is kept out of Git in `.tieline/topology/cache/`, keyed by the exact
+source and resolver inputs it describes, so concurrent pull requests never conflict on generated
+topology. Later reads select the graph for the snapshot they inspect without starting a parser or
+writing to Postgres. Set `"topology_mode": "committed"` to commit one reviewed
+`.tieline/topology/graph.json` instead.
 
 | Layer | Role |
 | --- | --- |
@@ -112,10 +116,10 @@ snapshot without starting a parser or writing to Postgres.
 | Query-time AC join (not stored) | Match visited paths and selectors to authored AC links |
 
 Source ranges, source snippets, raw reference and resolution facts, and parser diagnostics are not
-duplicated in `graph.json`.
+duplicated in the graph.
 
 ```text
-source code → Tree-sitter → graph.json → symbols and static dependents
+source code → Tree-sitter → topology graph → symbols and static dependents
                                       + authored AC links
                                       ↓
                               AC-aware blast radius

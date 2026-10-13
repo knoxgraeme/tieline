@@ -145,8 +145,10 @@ size, while avoiding duplicate or speculative definitions.
     tieline code validate . --json
     ```
 
-    Review and include the generated `.tieline/topology/graph.json` in the
-    onboarding pull request.
+    Include the generated `.tieline/topology/.gitignore` in the onboarding pull
+    request; the cached graph itself stays out of Git. Only when the
+    configuration sets `"topology_mode": "committed"`, review and include
+    `.tieline/topology/graph.json` instead.
 12. Read [grading.md](grading.md) and grade the initial contract. With no manifest
    at the comparison base, every authored link enters the grading scope as
    `link_added`. You authored every one of them, so dispatch fresh subagents

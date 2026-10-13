@@ -150,7 +150,8 @@ review artifact without committing fingerprint churn. Claim comparison reads
 base YAML, so a delayed publisher cannot fabricate onboarding scope. The existing
 generated-artifact gate still recompiles and validates everything, but in this
 mode defers the committed-manifest byte comparison only; topology comparison
-continues unchanged.
+continues unchanged in committed topology mode. In the default cached topology mode the gate
+compiles and smoke-tests topology but has no reviewed graph to compare.
 
 The publisher command is an explicit write operation:
 
