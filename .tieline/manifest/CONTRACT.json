@@ -1532,7 +1532,7 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "b25ff8ca5c03176412ea335b600c17fc5b8c0336fa8ed639e330f3af21ce3207",
+            "contract_hash": "3e3a5fa4b22ea0ed0e7cc40bcc7ae58b489ae696120f4ca336cd73dde5f81917",
             "criterion": "Tieline must identify topology generations from selected source and resolver inputs plus parser, resolver, schema, and fact-policy compatibility, must publish one deterministic bounded repository graph only through explicit compilation, and must publish hosted relational generations only when complete.",
             "links": [
               {
@@ -1579,7 +1579,7 @@
                 }
               },
               {
-                "compiled_content_hash": "414eeb7ba40b1e21d14382cb85a7653e29059906986ac3c3cb62fb9a09e859ba",
+                "compiled_content_hash": "5c147cbb595493f50ea4f85bb1935cceee5c7d46abc7ceaa98c1822880a05940",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1623,7 +1623,7 @@
                 }
               },
               {
-                "compiled_content_hash": "90f634de44bb53e1b22f2fc101956df791f37ab72c7d5dfceee89aa59e764ccd",
+                "compiled_content_hash": "9567762f1df32657a2e4f7080baa1f4c1fba68438cd6200ba7ff1cd4989d5908",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -1657,6 +1657,13 @@
                 "stable_id": "CONTRACT-004-AC3-S3",
                 "then": "the selected-input identity must remain unchanged",
                 "when": "topology identity and artifact bytes are recomputed"
+              },
+              {
+                "given": "source roots also contain documentation, data, or Tieline output files",
+                "position": 3,
+                "stable_id": "CONTRACT-004-AC3-S4",
+                "then": "both must produce one selected-input identity",
+                "when": "a working tree and the commit holding the same bytes are keyed"
               }
             ],
             "stable_id": "CONTRACT-004-AC3",
@@ -2056,7 +2063,7 @@
                 }
               },
               {
-                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
+                "compiled_content_hash": "916e4299848e4b0dd745cbcaf54e586dd4aaf6e9bbcf7585a68d2d1f38aebfc4",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2123,7 +2130,7 @@
                 }
               },
               {
-                "compiled_content_hash": "5ae5868857f7020d696f669e2fed4bc41239456acde1f68625d7e01cb401e1e8",
+                "compiled_content_hash": "916e4299848e4b0dd745cbcaf54e586dd4aaf6e9bbcf7585a68d2d1f38aebfc4",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2211,6 +2218,6 @@
   },
   "input": {
     "path": ".tieline/spec/contract.yaml",
-    "sha256": "56c7607770a20a0e2b0e6ebc418529cbc43189dfc4999448759d2c3e3251fd9b"
+    "sha256": "cf7cb40749a5fa92181238112e4b65fe10058897ad52cea93dd57609465c8c71"
   }
 }

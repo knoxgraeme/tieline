@@ -29,6 +29,7 @@ import {
   compareTopologyGenerations,
   loadPersistedTopologyGeneration,
   persistCommittedTopologyGeneration,
+  readWorkspaceTopologySelectedInput,
   type TopologyGenerationComparison,
 } from "../../../src/contract/topology-generation.js";
 import {
@@ -488,6 +489,71 @@ try {
     });
     cache.dispose();
     assert.deepEqual(cache.stats(), { entries: 0, bytes: 0, pending: 0 });
+  });
+
+  await test("a working tree and its commit share selected inputs despite non-code files", async () => {
+    const parity = mkdtempSync(join(tmpdir(), "tieline-topology-parity-"));
+    const run = (args: string[]): string =>
+      execFileSync("git", args, { cwd: parity, encoding: "utf8" }).trim();
+    const put = (path: string, source: string): void => {
+      mkdirSync(join(parity, path.slice(0, Math.max(0, path.lastIndexOf("/")))), { recursive: true });
+      writeFileSync(join(parity, path), source);
+    };
+    try {
+      run(["init", "-q"]);
+      run(["config", "user.email", "topology@example.test"]);
+      run(["config", "user.name", "Topology Test"]);
+      put("tsconfig.json", JSON.stringify({ compilerOptions: { baseUrl: "." } }));
+      put("src/main.ts", 'import { value } from "./value";\nexport const main = value;\n');
+      put("src/value.ts", "export const value = 1;\n");
+      put("src/README.md", "# Notes\n");
+      put("src/fixtures/data.json", "{}\n");
+      put("src/nested/tsconfig.json", "{}\n");
+      put(".tieline/spec/intent.yaml", "version: 1\n");
+      run(["add", "."]);
+      run(["commit", "-qm", "parity"]);
+      for (const scope of [
+        { sourceRoots: ["src"], ignore: ["node_modules/**"] },
+        // A broad root whose ignore list omits .tieline must not key Tieline's own output.
+        { sourceRoots: ["."], ignore: [".git"] },
+      ]) {
+        const scoped = { repositoryRoot: parity, repository: "fixture/parity", ...scope };
+        const working = await buildWorkspaceTopologyGeneration(scoped);
+        const commit = await buildCommittedTopologyGeneration({ ...scoped, revision: "HEAD" });
+        assert.equal(working.status, "complete");
+        assert.equal(commit.status, "complete");
+        if (working.status !== "complete" || commit.status !== "complete") return;
+        assert.equal(working.generation.header.revision, commit.generation.header.revision, JSON.stringify(scope));
+        assert.equal(working.generation.header.identity, commit.generation.header.identity);
+
+        const before = readWorkspaceTopologySelectedInput(scoped);
+        put("src/README.md", "# Edited notes\n");
+        put(".tieline/topology/graph.json", '{"generated":true}\n');
+        put(".tieline/spec/intent.yaml", "version: 1\n# edited intent\n");
+        const after = readWorkspaceTopologySelectedInput(scoped);
+        assert.equal(before.status, "complete");
+        assert.equal(after.status, "complete");
+        if (before.status !== "complete" || after.status !== "complete") return;
+        assert.equal(after.selected_input_digest, before.selected_input_digest, "non-code edits leave the snapshot key unchanged");
+        assert.equal(after.selected_input_digest, commit.generation.header.revision);
+        put("src/README.md", "# Notes\n");
+        put(".tieline/spec/intent.yaml", "version: 1\n");
+        rmSync(join(parity, ".tieline/topology"), { recursive: true, force: true });
+      }
+      put("tsconfig.json", JSON.stringify({ compilerOptions: { baseUrl: "src" } }));
+      const changed = readWorkspaceTopologySelectedInput({
+        repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [],
+      });
+      const committedParity = await buildCommittedTopologyGeneration({
+        repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [], revision: "HEAD",
+      });
+      assert.equal(changed.status, "complete");
+      assert.equal(committedParity.status, "complete");
+      if (changed.status !== "complete" || committedParity.status !== "complete") return;
+      assert.notEqual(changed.selected_input_digest, committedParity.generation.header.revision, "root resolver configuration stays selected");
+    } finally {
+      rmSync(parity, { recursive: true, force: true });
+    }
   });
 
   await test("returns named capacity outcomes", async () => {

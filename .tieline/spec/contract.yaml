@@ -850,6 +850,9 @@ capability:
             - given: only generated topology bytes or unrelated authored intent change
               when: topology identity and artifact bytes are recomputed
               then: the selected-input identity must remain unchanged
+            - given: source roots also contain documentation, data, or Tieline output files
+              when: a working tree and the commit holding the same bytes are keyed
+              then: both must produce one selected-input identity
           links:
             - relation: implements
               provenance: authored

@@ -202,7 +202,10 @@ change selected inputs conflict on it, and a textual resolution is always stale.
 graphs out of Git instead:
 
 - `code compile` writes the graph to `.tieline/topology/cache/`, named by the snapshot's
-  selected-input digest (source contents, resolver configuration, and parser compatibility). The
+  selected-input digest: the contents of supported source files under the source roots, the root
+  `tsconfig.json`, `jsconfig.json`, `pyproject.toml`, and `Cargo.toml`, and parser compatibility.
+  Other files, such as documentation, data, or Tieline's own `.tieline/` output, do not affect it,
+  so a working tree and the commit holding the same bytes share one key. The
   first compile adds `.tieline/topology/.gitignore`; commit it so everything else in that
   directory stays untracked. The cache keeps the eight most recently compiled entries.
 - `code compile --revision <ref>` compiles an immutable commit without checking it out. Run it for
@@ -241,6 +244,10 @@ tieline code untrack . --json
 topology `.gitignore`, and deletes the working copy. It never commits or pushes. Running it on a
 branch that still modifies `graph.json` after `main` removed it also resolves that one
 modify/delete merge conflict; the file is derived, so nothing is lost.
+
+Releases up to 0.2.0 also keyed working-tree graphs by non-code files under the source roots, so
+those graphs could never be read at their commit. If such a graph exists, `code validate` reports
+it stale or missing once after upgrading; run `tieline code compile .` again.
 
 This release defines the relational schema and repository but does not attach topology
 publication to the existing repository-sync command. Until that merge-only publisher is added,

@@ -88,7 +88,16 @@ function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInv
     sourceRoots: options.sourceRoots,
     ignore: options.ignore,
   });
-  const byPath = new Map(base.files.map((file) => [file.path, file]));
+  // Parsers and resolvers read only supported source files and the root
+  // configuration below. Other files under a source root (documentation,
+  // data, or Tieline's own generated output) must not perturb the selected
+  // inputs, or a working tree and the commit holding the same bytes would
+  // disagree; Git snapshots apply the same rule.
+  const byPath = new Map(
+    base.files
+      .filter((file) => file.language !== null)
+      .map((file) => [file.path, file])
+  );
   for (const path of CONFIGURATION_PATHS) {
     if (byPath.has(path) || sourcePathIgnored(path, options.ignore ?? [])) continue;
     const absolute = resolve(options.repositoryRoot, path);
