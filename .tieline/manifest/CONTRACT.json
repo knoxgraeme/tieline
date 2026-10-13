@@ -1557,7 +1557,7 @@
                 }
               },
               {
-                "compiled_content_hash": "063041df34138fa97c2e817f984e09c8d3d5e8bb4bcdf3bd9cfe873154680cf7",
+                "compiled_content_hash": "1f56ca0728b3d680e70c5f46317d81dc7199a084032ef692d27741427da0f3b5",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2023,7 +2023,7 @@
             "criterion": "When topology_mode is absent or cached, explicit compilation of the workspace or of an immutable Git revision must publish its graph only to an ignored cache entry named by that snapshot's selected-input digest, and workspace and revision readers must select only the entry for the exact snapshot they inspect, without parsing or writing, reporting missing, stale, incompatible, invalid, unsafe, or oversized entries as named failures that include the digest.",
             "links": [
               {
-                "compiled_content_hash": "063041df34138fa97c2e817f984e09c8d3d5e8bb4bcdf3bd9cfe873154680cf7",
+                "compiled_content_hash": "1f56ca0728b3d680e70c5f46317d81dc7199a084032ef692d27741427da0f3b5",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2034,7 +2034,7 @@
                 }
               },
               {
-                "compiled_content_hash": "08b3feb3def68009360a6388a2338d26c2c75b4ab2d9f372697d40c0c773d7e6",
+                "compiled_content_hash": "7cb8f7d1f2f6cdd64f19b61e35f5c9a1c096d2f2ab56a987a59d8bb5e8398edb",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2056,7 +2056,7 @@
                 }
               },
               {
-                "compiled_content_hash": "9177feefa2ad725f903ab6f2ac3e4ca680aff53d939228c971ba9a629e797c5f",
+                "compiled_content_hash": "95388763ede4ba08144ed2a2cb0ae205a2da47eac41a5a32a6ae2009a645b50d",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -2101,7 +2101,7 @@
             "criterion": "An explicit committed topology_mode must keep the reviewed graph.json lifecycle without consulting the cache, and in cached mode a legacy committed graph may answer only while it is current for the exact snapshot, must never be updated by compilation, and must be removable by an untrack command that seeds the cache from a current legacy graph, stages only its removal and the topology ignore rule, resolves a modify/delete conflict on that file, and never commits or pushes.",
             "links": [
               {
-                "compiled_content_hash": "063041df34138fa97c2e817f984e09c8d3d5e8bb4bcdf3bd9cfe873154680cf7",
+                "compiled_content_hash": "1f56ca0728b3d680e70c5f46317d81dc7199a084032ef692d27741427da0f3b5",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -2123,7 +2123,7 @@
                 }
               },
               {
-                "compiled_content_hash": "9177feefa2ad725f903ab6f2ac3e4ca680aff53d939228c971ba9a629e797c5f",
+                "compiled_content_hash": "95388763ede4ba08144ed2a2cb0ae205a2da47eac41a5a32a6ae2009a645b50d",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {

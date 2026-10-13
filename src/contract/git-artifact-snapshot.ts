@@ -115,7 +115,8 @@ function readCommittedGraph(repositoryRoot: string, commit: string): CommittedGr
   };
 }
 
-function commitSelectedInput(
+/** Parser-free selected-input key for one resolved commit, as revision readers compute it. */
+export function readCommitTopologySelectedInput(
   options: BuildCommittedTopologyGenerationOptions,
   commit: string
 ): TopologySelectedInputResult {
@@ -157,7 +158,7 @@ function selectCommittedGitTopologyRole(
     };
   }
   if (committed.status !== "complete") return committed;
-  const freshness = commitSelectedInput(options, commit);
+  const freshness = readCommitTopologySelectedInput(options, commit);
   if (freshness.status !== "complete") return selectedInputFailure(freshness);
   return topologyRoleSnapshotFromFiles({
     source: "git",
@@ -176,7 +177,7 @@ function selectCachedGitTopologyRole(
   options: BuildCommittedTopologyGenerationOptions,
   commit: string
 ): TopologyRoleSnapshotResult {
-  const freshness = commitSelectedInput(options, commit);
+  const freshness = readCommitTopologySelectedInput(options, commit);
   if (freshness.status !== "complete") return selectedInputFailure(freshness);
   const digest = freshness.selected_input_digest;
   const fromFiles = (files: ReadonlyMap<string, Buffer>): TopologyRoleSnapshotResult =>

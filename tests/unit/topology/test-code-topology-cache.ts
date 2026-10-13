@@ -292,7 +292,7 @@ try {
     }
   });
 
-  await test("concurrent cached compiles serialize onto one entry", async () => {
+  await test("concurrent cached compiles both complete onto one entry", async () => {
     const compile = async (): Promise<CliResult> => {
       let message = "";
       const commandIo: TielineCliIO = { ...io, write(value) { message += value; } };
@@ -451,8 +451,14 @@ try {
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
     write(root, ".tieline/config.json", configJson("committed"));
     write(root, "src/consumer.ts", consumer);
-    assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
+    const switched = await cli(["code", "compile", root, "--json"]);
+    assert.equal(switched.exit, 0);
     assert.ok(existsSync(join(root, legacyRelative)), "committed mode publishes graph.json");
+    assert.match(
+      JSON.stringify(switched.result.notices),
+      /is ignored by Git/,
+      "switching back to committed mode warns while the cached ignore rule hides graph.json"
+    );
     write(root, "src/consumer.ts", `${consumer}// cached snapshot\n`);
     const stale = await cli(["code", "validate", root, "--json"]);
     assert.equal(stale.result.status, "topology_stale", "a matching cache entry does not hide a stale committed graph");
@@ -537,6 +543,74 @@ try {
     assert.equal(git(root, ["ls-tree", "-r", "--name-only", "HEAD", "--", ".tieline/topology"]), ".tieline/topology/.gitignore");
   });
 
+  await test("legacy fallback surfaces damaged graphs and ignores stale ones at a revision", async () => {
+    const root = repository("legacy-states", "committed");
+    assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
+    write(root, ".tieline/config.json", configJson());
+    commitAll(root, "legacy graph");
+    const graphPath = join(root, legacyRelative);
+    const bytes = readFileSync(graphPath);
+    writeFileSync(graphPath, Buffer.concat([bytes, Buffer.from(" ")]));
+    const damaged = await cli(["code", "validate", root, "--json"]);
+    assert.equal(damaged.result.status, "topology_invalid", "a corrupt legacy graph is not silently skipped");
+    writeFileSync(graphPath, bytes);
+
+    write(root, "src/target.ts", "export function target() { return 9; }\n");
+    commitAll(root, "source change without recompiling the legacy graph");
+    const traceAt = async (revision: string): Promise<CliResult> => cli([
+      "code", "trace", "--repository", root, "--revision", revision,
+      "--path", "src/consumer.ts", "--direction", "dependencies", "--json",
+    ]);
+    assert.equal((await traceAt("HEAD")).result.status, "topology_missing_at_revision");
+    assert.equal((await traceAt("HEAD~1")).result.status, "complete");
+
+    const outside = mkdtempSync(join(tmpdir(), "tieline-legacy-outside-"));
+    roots.push(outside);
+    writeFileSync(join(outside, "graph.json"), bytes);
+    rmSync(graphPath);
+    symlinkSync(join(outside, "graph.json"), graphPath);
+    const unsafe = await cli(["code", "untrack", root, "--json"]);
+    assert.equal(unsafe.exit, 1);
+    assert.equal(unsafe.result.status, "topology_unsafe_path");
+    assert.equal(git(root, ["diff", "--cached", "--name-only"]), "", "a refused untrack stages nothing");
+    assert.equal(existsSync(join(root, ".tieline/topology/.gitignore")), false);
+    rmSync(graphPath);
+    writeFileSync(graphPath, bytes);
+  });
+
+  await test("untrack tolerates repository ignore rules, staged derived edits, and non-Git directories", async () => {
+    const root = repository("untrack-paths", "committed");
+    assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
+    commitAll(root, "legacy graph");
+    write(root, "src/target.ts", "export function target() { return 4; }\n");
+    assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
+    git(root, ["add", legacyRelative]);
+    write(root, "src/target.ts", "export function target() { return 5; }\n");
+    assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
+    write(root, ".tieline/config.json", configJson());
+    write(root, ".gitignore", ".tieline/topology/\n");
+    const untracked = await cli(["code", "untrack", root, "--json"]);
+    assert.equal(untracked.exit, 0, JSON.stringify(untracked.result));
+    assert.equal(untracked.result.status, "untracked");
+    assert.deepEqual(untracked.result.staged, [legacyRelative]);
+    assert.match(JSON.stringify(untracked.result.notices), /already ignore/);
+    assert.equal(git(root, ["diff", "--cached", "--name-status", "--", ".tieline"]), `D\t${legacyRelative}`);
+
+    const plainDirectory = mkdtempSync(join(tmpdir(), "tieline-untrack-non-git-"));
+    roots.push(plainDirectory);
+    write(plainDirectory, ".tieline/config.json", configJson());
+    write(plainDirectory, "src/target.ts", "export function target() { return 1; }\n");
+    const compiled = await cli(["code", "compile", plainDirectory, "--json"]);
+    assert.equal(compiled.result.status, "current");
+    assert.equal(compiled.result.notices, undefined, "non-Git directories produce no Git notices");
+    writeFileSync(join(plainDirectory, legacyRelative), readFileSync(cacheEntry(plainDirectory, compiled.result.selected_input_digest)));
+    const removed = await cli(["code", "untrack", plainDirectory, "--json"]);
+    assert.equal(removed.exit, 0, JSON.stringify(removed.result));
+    assert.equal(removed.result.status, "untracked");
+    assert.deepEqual(removed.result.staged, []);
+    assert.equal(existsSync(join(plainDirectory, legacyRelative)), false);
+  });
+
   await test("writers bound the cache and keep the most recent entries", async () => {
     const root = repository("eviction");
     const digests: string[] = [];
@@ -552,6 +626,13 @@ try {
     assert.equal(cacheEntries(root).length, CODE_TOPOLOGY_CACHE_MAX_ENTRIES);
     assert.equal(existsSync(cacheEntry(root, digests[0])), false, "the oldest entry is evicted");
     assert.equal(existsSync(cacheEntry(root, digests.at(-1))), true);
+    const old = new Date(Date.UTC(2000, 0, 1));
+    utimesSync(cacheEntry(root, digests.at(-1)), old, old);
+    assert.equal((await cli(["code", "compile", root, "--json"])).result.status, "current");
+    assert.ok(
+      lstatSync(cacheEntry(root, digests.at(-1))).mtimeMs > old.getTime(),
+      "recompiling an unchanged snapshot refreshes its recency"
+    );
   });
 
   await test("the configuration accepts only known topology modes", () => {

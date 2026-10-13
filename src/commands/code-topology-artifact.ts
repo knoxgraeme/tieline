@@ -36,6 +36,7 @@ import {
   type TopologyRoleSnapshotResult,
 } from "../contract/topology-role-snapshot.js";
 import {
+  readCommitTopologySelectedInput,
   resolveTopologyCommit,
   selectGitTopologyRole,
 } from "../contract/git-artifact-snapshot.js";
@@ -420,10 +421,23 @@ function git(repositoryRoot: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd: repositoryRoot,
     encoding: "utf8",
+    // Stable messages: non-Git detection must not depend on the user's locale.
+    env: { ...process.env, LC_ALL: "C" },
     timeout: GIT_TIMEOUT_MS,
     maxBuffer: 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
   });
+}
+
+/** `git check-ignore` exits 1 for paths that are not ignored, including tracked paths. */
+function gitPathIgnored(repositoryRoot: string, path: string): boolean {
+  try {
+    git(repositoryRoot, ["check-ignore", "-q", "--", path]);
+    return true;
+  } catch (error) {
+    if ((error as { status?: unknown } | null)?.status === 1) return false;
+    throw error;
+  }
 }
 
 /** Distinguish a non-Git directory from a Git failure that must stay visible. */
@@ -442,13 +456,18 @@ function legacyGraphTracked(repositoryRoot: string): boolean {
     git(repositoryRoot, ["ls-files", "-z", "--", LEGACY_GRAPH_PATH]).length > 0;
 }
 
-function legacyNotices(repositoryRoot: string): string[] {
+function lifecycleNotices(repositoryRoot: string, mode: CodeTopologyMode): string[] {
   try {
-    return legacyGraphTracked(repositoryRoot)
-      ? [`${LEGACY_GRAPH_PATH} is still tracked by Git but is no longer updated in cached mode. Run \`tieline code untrack .\` and commit the result.`]
+    if (mode === "cached") {
+      return legacyGraphTracked(repositoryRoot)
+        ? [`${LEGACY_GRAPH_PATH} is still tracked by Git but is no longer updated in cached mode. Run \`tieline code untrack .\` and commit the result.`]
+        : [];
+    }
+    return insideGitWorkTree(repositoryRoot) && gitPathIgnored(repositoryRoot, LEGACY_GRAPH_PATH)
+      ? [`${LEGACY_GRAPH_PATH} is ignored by Git, so committed mode cannot commit it. Remove the ignore rule (for example the cached-mode .tieline/topology/.gitignore).`]
       : [];
   } catch (error) {
-    return [`Could not inspect the Git index for ${LEGACY_GRAPH_PATH}: ${error instanceof Error ? error.message : String(error)}`];
+    return [`Could not inspect Git for ${LEGACY_GRAPH_PATH}: ${error instanceof Error ? error.message : String(error)}`];
   }
 }
 
@@ -514,6 +533,17 @@ async function compileRevision(
   const built = await buildCommittedTopologyReadModel({ ...sourceOptions, revision: commit });
   if (built.status !== "complete") return buildFailure(built);
   try {
+    // Key the entry exactly as revision readers will look it up.
+    const expected = readCommitTopologySelectedInput({ ...sourceOptions, revision: commit }, commit);
+    if (expected.status !== "complete" ||
+        expected.selected_input_digest !== built.read_model.summary.header.revision) {
+      return {
+        status: "topology_invalid",
+        detail: expected.status === "complete"
+          ? `Compiled selected inputs for '${commit}' do not match the revision reader's key.`
+          : expected.detail,
+      };
+    }
     const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(built.read_model));
     await publishCachedCodeTopologyArtifact({
       repositoryRoot,
@@ -542,8 +572,14 @@ async function untrackLegacyTopology(
       "`code untrack` applies only to topology_mode \"cached\"; this workspace explicitly selects committed topology."
     );
   }
+  // Hash selected inputs before locking so concurrent compiles are not starved.
+  const freshness = readWorkspaceTopologySelectedInput(sourceOptions);
   const lock = await acquireLock(repositoryRoot);
   try {
+    const topologyRoot = resolve(repositoryRoot, CODE_TOPOLOGY_DIRECTORY);
+    const ignorePath = `${CODE_TOPOLOGY_DIRECTORY}/${TOPOLOGY_IGNORE_FILE}`;
+    // Inspect everything before the first mutation so a failed precondition
+    // leaves the checkout unchanged.
     const repositoryGit = insideGitWorkTree(repositoryRoot);
     const tracked = repositoryGit &&
       git(repositoryRoot, ["ls-files", "-z", "--", LEGACY_GRAPH_PATH]).length > 0;
@@ -551,37 +587,35 @@ async function untrackLegacyTopology(
     if (legacy.status !== "complete" && legacy.status !== "missing") {
       return { status: topologyArtifactFailureStatus(legacy.status), detail: legacy.detail };
     }
+    const ignoreExcluded = repositoryGit && gitPathIgnored(repositoryRoot, ignorePath);
     let seededCache = false;
-    if (legacy.status === "complete") {
-      const freshness = readWorkspaceTopologySelectedInput(sourceOptions);
-      if (freshness.status === "complete") {
-        const selected = topologyRoleSnapshotFromFiles({
-          source: "workspace",
-          repository: sourceOptions.repository,
-          queriedRevision: null,
-          files: legacy.files,
+    if (legacy.status === "complete" && freshness.status === "complete") {
+      const selected = topologyRoleSnapshotFromFiles({
+        source: "workspace",
+        repository: sourceOptions.repository,
+        queriedRevision: null,
+        files: legacy.files,
+        selectedInputDigest: freshness.selected_input_digest,
+      });
+      if (selected.status === "current") {
+        selected.snapshot.dispose();
+        await writeCacheEntry({
+          repositoryRoot,
+          graphBytes: legacy.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!,
           selectedInputDigest: freshness.selected_input_digest,
         });
-        if (selected.status === "current") {
-          selected.snapshot.dispose();
-          await writeCacheEntry({
-            repositoryRoot,
-            graphBytes: legacy.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!,
-            selectedInputDigest: freshness.selected_input_digest,
-          });
-          seededCache = true;
-        }
+        seededCache = true;
       }
     }
-    const topologyRoot = resolve(repositoryRoot, CODE_TOPOLOGY_DIRECTORY);
     ensureOwnedDirectory(topologyRoot, "The topology authority");
-    const ignorePath = `${CODE_TOPOLOGY_DIRECTORY}/${TOPOLOGY_IGNORE_FILE}`;
     const ignoreCreated = !existsSync(resolve(repositoryRoot, ignorePath));
     ensureTopologyIgnore(topologyRoot);
-    if (tracked) git(repositoryRoot, ["rm", "--cached", "--quiet", "--", LEGACY_GRAPH_PATH]);
+    // The file is derived, so a staged version differing from HEAD and the
+    // working copy carries nothing worth preserving.
+    if (tracked) git(repositoryRoot, ["rm", "--cached", "-f", "--quiet", "--", LEGACY_GRAPH_PATH]);
     const removedFile = legacy.status === "complete";
     if (removedFile) unlinkSync(resolve(topologyRoot, CODE_TOPOLOGY_ARTIFACT_FILE));
-    const ignorePending = repositoryGit && (
+    const ignorePending = repositoryGit && !ignoreExcluded && (
       git(repositoryRoot, ["ls-files", "-z", "--", ignorePath]).length === 0 ||
       git(repositoryRoot, ["diff", "--name-only", "-z", "--", ignorePath]).length > 0
     );
@@ -592,7 +626,12 @@ async function untrackLegacyTopology(
       removed_file: removedFile,
       seeded_cache: seededCache,
       staged: [...(tracked ? [LEGACY_GRAPH_PATH] : []), ...(ignorePending ? [ignorePath] : [])],
+      ...(ignoreExcluded
+        ? { notices: [`${ignorePath} was not staged because repository Git rules already ignore it, which keeps topology untracked.`] }
+        : {}),
     };
+  } catch (error) {
+    return publicationFailure(error);
   } finally {
     releaseLock(lock);
   }
@@ -608,8 +647,8 @@ function render(result: Record<string, unknown>): string {
   }
   if (status === "untracked" || status === "unchanged") {
     return status === "untracked"
-      ? `Legacy code topology untracked; staged ${((result.staged as unknown[]) ?? []).join(", ") || "nothing"}. Commit the result.\n`
-      : "No legacy committed code topology to untrack.\n";
+      ? `Legacy code topology untracked; staged ${((result.staged as unknown[]) ?? []).join(", ") || "nothing"}. Commit the result.\n${notices}`
+      : `No legacy committed code topology to untrack.\n${notices}`;
   }
   return `Code topology ${status}: ${String(result.detail ?? "unavailable")}\n${notices}`;
 }
@@ -641,8 +680,8 @@ export async function runCodeTopologyArtifactCommand(
   } else {
     result = await untrackLegacyTopology(context.root, sourceOptions, mode);
   }
-  if (mode === "cached" && action !== "untrack") {
-    const notices = legacyNotices(context.root);
+  if (action !== "untrack") {
+    const notices = lifecycleNotices(context.root, mode);
     if (notices.length > 0) result = { ...result, notices };
   }
   io.write(options.json ? `${JSON.stringify(result, null, 2)}\n` : render(result));
