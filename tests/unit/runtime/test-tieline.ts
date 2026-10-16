@@ -1747,6 +1747,22 @@ capability:
     resolve(process.cwd(), "skills/tieline/SKILL.md"),
     "utf8"
   );
+  const manifestMaintenance = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/manifest-maintenance.md"),
+    "utf8"
+  );
+  assert.ok(
+    tielineSkill.includes("`tieline contract grade . --base <base-ref> --unit criterion --scope claims`"),
+    "the routine grading command must include its executable"
+  );
+  assert.ok(
+    manifestMaintenance.includes("`tieline contract compile . --output <temporary-directory>`"),
+    "the temporary manifest command must include its executable"
+  );
+  assert.ok(
+    manifestMaintenance.includes("`tieline contract refresh-manifest . --branch <integration-branch>`"),
+    "the publication command must include its executable"
+  );
   const onboardingReference = readFileSync(
     resolve(
       process.cwd(),
