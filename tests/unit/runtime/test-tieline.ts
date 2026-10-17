@@ -1747,6 +1747,45 @@ capability:
     resolve(process.cwd(), "skills/tieline/SKILL.md"),
     "utf8"
   );
+  const manifestMaintenance = readFileSync(
+    resolve(process.cwd(), "skills/tieline/references/manifest-maintenance.md"),
+    "utf8"
+  );
+  const documentedGrade = tielineSkill.match(/closeout uses `(tieline contract grade [^`]+)`/);
+  assert.ok(documentedGrade, "the routine grading command must include its executable");
+  assert.equal(
+    await runCli(["contract", "compile", target], io().adapter, {}),
+    0
+  );
+  for (const args of [
+    ["init", "-q"],
+    ["add", "."],
+    ["-c", "core.hooksPath=/dev/null", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "grading fixture"],
+  ]) {
+    const result = spawnSync("git", args, { cwd: target, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const documentedGradeResult = spawnSync(
+    process.execPath,
+    [
+      resolve(process.cwd(), "dist/cli.js"),
+      ...documentedGrade[1]!.replace("<base-ref>", "HEAD").split(/\s+/).slice(1),
+      "--json",
+    ],
+    { cwd: target, encoding: "utf8", timeout: 30_000 }
+  );
+  assert.equal(documentedGradeResult.status, 0, documentedGradeResult.stderr);
+  const documentedGradeScope = JSON.parse(documentedGradeResult.stdout);
+  assert.equal(documentedGradeScope.scoped_criteria, 0);
+  assert.deepEqual(documentedGradeScope.entries, []);
+  assert.ok(
+    manifestMaintenance.includes("`tieline contract compile . --output <temporary-directory>`"),
+    "the temporary manifest command must include its executable"
+  );
+  assert.ok(
+    manifestMaintenance.includes("`tieline contract refresh-manifest . --branch <integration-branch>`"),
+    "the publication command must include its executable"
+  );
   const onboardingReference = readFileSync(
     resolve(
       process.cwd(),

@@ -275,7 +275,7 @@ merge-only publisher must own that boundary when hosted publication is enabled.
    ```
 
 9. Read [criterion-grading.md](references/criterion-grading.md). Routine
-   closeout uses `contract grade . --base <base-ref> --unit criterion --scope claims`.
+   closeout uses `tieline contract grade . --base <base-ref> --unit criterion --scope claims --emit-scope`.
    Grade changed rules, scenarios, applicability, and links across their full
    evidence neighborhoods. Reconcile implementation-only ACs and removed rules
    explicitly; an empty grading scope does not mean behavior was reviewed.

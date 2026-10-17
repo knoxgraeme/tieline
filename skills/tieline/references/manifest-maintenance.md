@@ -12,7 +12,7 @@ In explicitly configured `post_merge` mode:
   Check and grade compile current YAML in memory; grading reads the base's
   authored YAML even if its generated publication is delayed. Missing/broken
   evidence still fails validation. A pending publication is reported explicitly.
-- For the review page, use `contract compile . --output <temporary-directory>`
+- For the review page, use `tieline contract compile . --output <temporary-directory>`
   with a fresh disposable directory and remove that directory afterward. The
   review page is still generated. Do not stage fingerprint-only manifest changes
   from another branch or run a blanket restore over the user's existing work.
@@ -21,7 +21,7 @@ In explicitly configured `post_merge` mode:
   support nor resolves any grading finding.
 
 The repository must actually install and monitor a publisher before adopting
-this mode. `contract refresh-manifest . --branch <integration-branch>` is an
+this mode. `tieline contract refresh-manifest . --branch <integration-branch>` is an
 explicit Git write command for that trusted job; do not run it as PR closeout.
 It fetches the current branch, compiles in a disposable worktree, validates,
 commits only manifest files, and pushes normally. At most three attempts handle
