@@ -27,10 +27,10 @@ would make the outcome easier to review; it is not required for the AC to be val
 
 ## How evidence becomes accepted
 
-From proposed intent to accepted evidence, Tieline combines agent judgment with deterministic
+From proposed intent to accepted evidence, Tiepoint combines agent judgment with deterministic
 checks. Each layer has a narrower job:
 
-1. The Tieline skill reads configured product context, repository documentation, source entry
+1. The Tiepoint skill reads configured product context, repository documentation, source entry
    points, schemas, migrations, and tests, then proposes Capabilities, Stories, ACs, and links.
 2. Repository links identify a path and optionally a canonical code selector. Tree-sitter
    parsers provide exact symbols, ranges, and bounded snippets when the language is supported.
@@ -44,7 +44,7 @@ checks. Each layer has a narrower job:
 6. A separate code topology can follow static dependents and join visited locators back to the
    accepted AC links, producing an AC-aware possible blast radius.
 
-The [README assurance table](../README.md#what-tieline-can-prove) summarizes what each signal
+The [README assurance table](../README.md#what-tiepoint-can-prove) summarizes what each signal
 establishes and where its claims stop.
 
 ## Who can change each record
@@ -55,9 +55,9 @@ determines which system may change it:
 | Lifecycle | Authority | Writable from |
 | --- | --- | --- |
 | `backlog` | `planning` | Postgres planning tools |
-| `in_progress` | `repository` | `.tieline/spec/**/*.yaml` in a code change |
-| `production` | `repository` | `.tieline/spec/**/*.yaml` in a code change |
-| `retired` | `repository` | `.tieline/spec/**/*.yaml` in a code change |
+| `in_progress` | `repository` | `.tiepoint/spec/**/*.yaml` in a code change |
+| `production` | `repository` | `.tiepoint/spec/**/*.yaml` in a code change |
+| `retired` | `repository` | `.tiepoint/spec/**/*.yaml` in a code change |
 
 Materialization preserves planning Story and AC stable IDs. Once a code change containing those
 IDs merges, repository sync claims the matching rows and Postgres becomes a searchable projection
@@ -82,11 +82,11 @@ stable `motivated_by` pointers without copying their source payloads.
 
 | Location | Contents |
 | --- | --- |
-| `.tieline/` in the repository | Product context (`config.json`), contract YAML (`spec/`), compiled manifest (`manifest/`), and derived code topology (`topology/`: an ignored per-snapshot cache by default, or a committed `graph.json` in committed mode) |
+| `.tiepoint/` in the repository | Product context (`config.json`), contract YAML (`spec/`), compiled manifest (`manifest/`), and derived code topology (`topology/`: an ignored per-snapshot cache by default, or a committed `graph.json` in committed mode) |
 | PostgreSQL (optional) | A synced queryable projection of the accepted contract, plus Observations, Backlog Items, planning Stories, revisions, and search data |
-| Private config directory | Database credentials and clone-local setup state; `~/.config/tieline/` by default and never committed |
+| Private config directory | Database credentials and clone-local setup state; `~/.config/tiepoint/` by default and never committed |
 
-The private config location can be changed through `TIELINE_CONFIG_HOME`, `XDG_CONFIG_HOME`, or
+The private config location can be changed through `TIEPOINT_CONFIG_HOME`, `XDG_CONFIG_HOME`, or
 the platform-specific application-data directory.
 
 ## What contract YAML contains
@@ -106,20 +106,20 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: CONTRACT-001-AC1
-          criterion: Tieline must reject contract documents that violate the accepted schema.
+          criterion: Tiepoint must reject contract documents that violate the accepted schema.
           rationale: Structural failures make impact analysis and synchronization untrustworthy.
           links:
             - relation: implements
               provenance: authored
               target:
                 kind: code
-                repository: tieline
+                repository: tiepoint
                 path: src/contract/schema.ts
             - relation: tests
               provenance: authored
               target:
                 kind: test
-                repository: tieline
+                repository: tiepoint
                 path: tests/unit/contract/test-contract.ts
                 framework_hint: custom-script
 ```
@@ -139,10 +139,10 @@ deleting history.
 
 ## What the compiled manifest contains
 
-Compilation writes `.tieline/manifest/`, one file per capability plus a small index:
+Compilation writes `.tiepoint/manifest/`, one file per capability plus a small index:
 
 ```text
-.tieline/manifest/
+.tiepoint/manifest/
   index.json        schema version and stable repository key
   CONTRACT.json     one capability plus its source file and compiled hashes
   RETRIEVAL.json
@@ -158,17 +158,17 @@ the manifest is the deterministic, hash-bearing read model used by local tools, 
 
 ## What the code topology contains
 
-`tieline code compile` writes one graph for one exact source snapshot. It records source hashes,
+`tiepoint code compile` writes one graph for one exact source snapshot. It records source hashes,
 locator-bearing symbols, resolved static adjacency edges, and unresolved dependency frontiers for
 supported source languages. Reads query the graph for the snapshot they inspect without starting a
 parser or writing to Postgres.
 
-By default (`cached` mode) graphs live in the ignored `.tieline/topology/cache/`, named by the
+By default (`cached` mode) graphs live in the ignored `.tiepoint/topology/cache/`, named by the
 snapshot's selected-input digest. A graph describes the whole selected source tree, so a committed
 graph conflicts between any two pull requests that both change source and must be recompiled after
 every such merge. Keeping it out of Git removes that cycle without weakening freshness: an edited
-or uncompiled snapshot simply has no matching entry until `tieline code compile` runs. Repositories
-that set `"topology_mode": "committed"` keep committing `.tieline/topology/graph.json`.
+or uncompiled snapshot simply has no matching entry until `tiepoint code compile` runs. Repositories
+that set `"topology_mode": "committed"` keep committing `.tiepoint/topology/graph.json`.
 
 The topology is not a second source of product truth. It describes code-to-code relationships;
 the contract describes accepted intent-to-code relationships. Exact repository/path/selector

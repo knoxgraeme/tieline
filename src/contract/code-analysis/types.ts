@@ -37,7 +37,7 @@ export interface CodeSymbolFact {
   name: string | null;
   nativeKind: string;
   kind: NormalizedSymbolKind;
-  /** Canonical Tieline locator when the source name can be represented honestly. */
+  /** Canonical Tiepoint locator when the source name can be represented honestly. */
   selector: string | null;
   ownerChain: readonly CodeSymbolOwner[];
   nameRange: SourceRange | null;

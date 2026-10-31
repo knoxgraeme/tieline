@@ -114,7 +114,7 @@ async function main(): Promise<void> {
   console.log("hierarchical canonical documents");
   const story: ContractStoryRecord = {
     id: "00000000-0000-4000-8000-000000000001",
-    repository: "tieline",
+    repository: "tiepoint",
     repository_commit: "secret-commit",
     capability: {
       stable_id: "CAP-SEARCH",

@@ -15,22 +15,22 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import {
   CODE_TOPOLOGY_CACHE_MAX_ENTRIES,
   CODE_TOPOLOGY_IGNORE_CONTENT,
   runCodeTopologyArtifactCommand,
 } from "../../../src/commands/code-topology-artifact.js";
-import { workspaceFromConfig } from "../../../src/tieline/workspace.js";
+import { workspaceFromConfig } from "../../../src/tiepoint/workspace.js";
 import { report, test } from "../../support/harness.js";
 
 console.log("Cached code topology lifecycle");
 
 const roots: string[] = [];
-const cacheRelative = ".tieline/topology/cache";
-const legacyRelative = ".tieline/topology/graph.json";
+const cacheRelative = ".tiepoint/topology/cache";
+const legacyRelative = ".tiepoint/topology/graph.json";
 let output = "";
-const io: TielineCliIO = {
+const io: TiepointCliIO = {
   write(message) { output += message; },
   error(message) { throw new Error(message); },
   async question() { throw new Error("topology cache commands must not prompt"); },
@@ -57,7 +57,7 @@ function configJson(topologyMode?: "committed" | "cached"): string {
   return `${JSON.stringify({
     version: 1,
     product: { name: "Cache fixture", repo_name: "cache-fixture" },
-    repository: { root: "..", source_roots: ["src"], ignore: [".git", ".tieline"] },
+    repository: { root: "..", source_roots: ["src"], ignore: [".git", ".tiepoint"] },
     context: { sources: [] },
     runtime: { default_embedding_provider: "hash", default_database_mode: "offline" },
     files: { spec_directory: "spec", manifest: "manifest" },
@@ -93,10 +93,10 @@ capability:
 `;
 
 function repository(prefix: string, topologyMode?: "committed" | "cached"): string {
-  const root = mkdtempSync(join(tmpdir(), `tieline-topology-cache-${prefix}-`));
+  const root = mkdtempSync(join(tmpdir(), `tiepoint-topology-cache-${prefix}-`));
   roots.push(root);
-  write(root, ".tieline/config.json", configJson(topologyMode));
-  write(root, ".tieline/spec/cache.yaml", spec);
+  write(root, ".tiepoint/config.json", configJson(topologyMode));
+  write(root, ".tiepoint/spec/cache.yaml", spec);
   write(root, "src/target.ts", "export function target() { return 1; }\n");
   write(root, "src/consumer.ts", 'import { target } from "./target";\nexport function consumer() { return target(); }\n');
   git(root, ["init", "-q", "-b", "main"]);
@@ -172,12 +172,12 @@ try {
     assert.deepEqual(cacheEntries(plain), [`${plainDigest}.json`]);
     assert.equal(existsSync(join(plain, legacyRelative)), false);
     assert.equal(
-      readFileSync(join(plain, ".tieline/topology/.gitignore"), "utf8"),
+      readFileSync(join(plain, ".tiepoint/topology/.gitignore"), "utf8"),
       CODE_TOPOLOGY_IGNORE_CONTENT
     );
     assert.equal(
-      git(plain, ["status", "--porcelain", "--untracked-files=all", "--", ".tieline/topology"]),
-      "?? .tieline/topology/.gitignore",
+      git(plain, ["status", "--porcelain", "--untracked-files=all", "--", ".tiepoint/topology"]),
+      "?? .tiepoint/topology/.gitignore",
       "only the shared ignore rule is visible to Git"
     );
     const validated = await cli(["code", "validate", plain, "--json"]);
@@ -195,7 +195,7 @@ try {
       assert.equal(missing.exit, 1);
       assert.equal(missing.result.status, "topology_missing");
       assert.notEqual(digestOf(missing.result), plainDigest);
-      assert.match(String(missing.result.detail), /tieline code compile \./);
+      assert.match(String(missing.result.detail), /tiepoint code compile \./);
     } finally {
       write(plain, "src/consumer.ts", source);
     }
@@ -246,7 +246,7 @@ try {
       writeFileSync(entry, `${JSON.stringify({ ...graph, producer: { ...graph.producer, version: graph.producer.version + 1 } })}\n`);
       await expectStatus("topology_incompatible");
       rmSync(entry);
-      const outside = join(mkdtempSync(join(tmpdir(), "tieline-cache-outside-")), "graph.json");
+      const outside = join(mkdtempSync(join(tmpdir(), "tiepoint-cache-outside-")), "graph.json");
       roots.push(dirname(outside));
       writeFileSync(outside, bytes);
       symlinkSync(outside, entry);
@@ -282,7 +282,7 @@ try {
   await test("a symlinked cache directory fails closed", async () => {
     const cacheRoot = join(plain, cacheRelative);
     const saved = `${cacheRoot}.saved`;
-    const outside = mkdtempSync(join(tmpdir(), "tieline-cache-dir-outside-"));
+    const outside = mkdtempSync(join(tmpdir(), "tiepoint-cache-dir-outside-"));
     roots.push(outside);
     execFileSync("mv", [cacheRoot, saved]);
     symlinkSync(outside, cacheRoot, "dir");
@@ -301,7 +301,7 @@ try {
   await test("concurrent cached compiles both complete onto one entry", async () => {
     const compile = async (): Promise<CliResult> => {
       let message = "";
-      const commandIo: TielineCliIO = { ...io, write(value) { message += value; } };
+      const commandIo: TiepointCliIO = { ...io, write(value) { message += value; } };
       const exit = await runCodeTopologyArtifactCommand("compile", { repository: plain, json: true }, commandIo);
       return { exit, result: JSON.parse(message) as Record<string, unknown> };
     };
@@ -315,9 +315,9 @@ try {
     const first = await cli(["code", "untrack", plain, "--json"]);
     assert.equal(first.exit, 0, JSON.stringify(first.result));
     assert.equal(first.result.status, "untracked");
-    assert.deepEqual(first.result.staged, [".tieline/topology/.gitignore"]);
+    assert.deepEqual(first.result.staged, [".tiepoint/topology/.gitignore"]);
     assert.equal(first.result.removed_from_index, false);
-    assert.equal(git(plain, ["diff", "--cached", "--name-only", "--", ".tieline/topology"]), ".tieline/topology/.gitignore");
+    assert.equal(git(plain, ["diff", "--cached", "--name-only", "--", ".tiepoint/topology"]), ".tiepoint/topology/.gitignore");
     const second = await cli(["code", "untrack", plain, "--json"]);
     assert.equal(second.result.status, "unchanged");
     assert.deepEqual(second.result.staged, []);
@@ -359,8 +359,8 @@ try {
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
     commitAll(root, "base");
     assert.equal(
-      git(root, ["ls-files", "--", ".tieline/topology"]),
-      ".tieline/topology/.gitignore",
+      git(root, ["ls-files", "--", ".tiepoint/topology"]),
+      ".tiepoint/topology/.gitignore",
       "only the ignore rule is committed"
     );
 
@@ -430,7 +430,7 @@ try {
     assert.equal(missing.result.status, "topology_missing_at_revision");
     assert.equal(missing.result.generation_role, "base");
     assert.match(String(missing.result.selected_input_digest), /^[a-f0-9]{64}$/);
-    assert.match(String(missing.result.detail), new RegExp(`tieline code compile \\. --revision ${base}`));
+    assert.match(String(missing.result.detail), new RegExp(`tiepoint code compile \\. --revision ${base}`));
 
     const compiled = await cli(["code", "compile", root, "--revision", "main", "--json"]);
     assert.equal(compiled.exit, 0, JSON.stringify(compiled.result));
@@ -457,7 +457,7 @@ try {
     const consumer = readFileSync(join(root, "src/consumer.ts"), "utf8");
     write(root, "src/consumer.ts", `${consumer}// cached snapshot\n`);
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
-    write(root, ".tieline/config.json", configJson("committed"));
+    write(root, ".tiepoint/config.json", configJson("committed"));
     write(root, "src/consumer.ts", consumer);
     const switched = await cli(["code", "compile", root, "--json"]);
     assert.equal(switched.exit, 0);
@@ -479,10 +479,10 @@ try {
 
   await test("a legacy committed graph answers only while current, then untrack moves it to the cache", async () => {
     const root = repository("legacy");
-    write(root, ".tieline/config.json", configJson("committed"));
+    write(root, ".tiepoint/config.json", configJson("committed"));
     assert.equal((await cli(["contract", "compile", root, "--json"])).exit, 0);
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
-    write(root, ".tieline/config.json", configJson());
+    write(root, ".tiepoint/config.json", configJson());
     commitAll(root, "legacy repository on the new default");
     const legacyBytes = readFileSync(join(root, legacyRelative));
     const head = git(root, ["rev-parse", "HEAD"]);
@@ -490,7 +490,7 @@ try {
     const current = await cli(["code", "validate", root, "--json"]);
     assert.equal(current.result.status, "current", "upgrading breaks no read while the legacy graph is current");
     assert.deepEqual(cacheEntries(root), []);
-    assert.match(JSON.stringify(current.result.notices), /tieline code untrack/);
+    assert.match(JSON.stringify(current.result.notices), /tiepoint code untrack/);
     const traced = await cli([
       "code", "trace", "--repository", root, "--revision", "HEAD",
       "--path", "src/consumer.ts", "--direction", "dependencies", "--json",
@@ -507,11 +507,11 @@ try {
     write(root, "src/consumer.ts", consumer);
     rmSync(join(root, cacheRelative), { recursive: true, force: true });
 
-    git(root, ["checkout", "-q", "-b", "older-tieline"]);
-    write(root, ".tieline/config.json", configJson("committed"));
+    git(root, ["checkout", "-q", "-b", "older-tiepoint"]);
+    write(root, ".tiepoint/config.json", configJson("committed"));
     write(root, "src/target.ts", "export function target() { return 3; }\n");
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
-    write(root, ".tieline/config.json", configJson());
+    write(root, ".tiepoint/config.json", configJson());
     commitAll(root, "branch from a developer still committing topology");
     git(root, ["checkout", "-q", "main"]);
 
@@ -524,7 +524,7 @@ try {
     assert.equal(git(root, ["rev-parse", "HEAD"]), head, "untrack never commits");
     assert.equal(
       git(root, ["diff", "--cached", "--name-status"]),
-      "A\t.tieline/topology/.gitignore\nD\t.tieline/topology/graph.json"
+      "A\t.tiepoint/topology/.gitignore\nD\t.tiepoint/topology/graph.json"
     );
     const seeded = await cli(["code", "validate", root, "--json"]);
     assert.equal(seeded.result.status, "current");
@@ -540,7 +540,7 @@ try {
     assert.equal(git(root, ["status", "--porcelain"]), "", "an older compiler's graph.json cannot be added by accident");
     rmSync(join(root, legacyRelative));
 
-    git(root, ["checkout", "-q", "older-tieline"]);
+    git(root, ["checkout", "-q", "older-tiepoint"]);
     const merge = spawnSync("git", ["merge", "--no-edit", "-q", "main"], { cwd: root, encoding: "utf8" });
     assert.notEqual(merge.status, 0, "a branch that kept modifying graph.json conflicts once");
     assert.equal(git(root, ["diff", "--name-only", "--diff-filter=U"]), legacyRelative);
@@ -548,13 +548,13 @@ try {
     assert.equal(healed.exit, 0, JSON.stringify(healed.result));
     assert.equal(git(root, ["diff", "--name-only", "--diff-filter=U"]), "");
     git(root, ["commit", "-qm", "merge main", "--no-edit"]);
-    assert.equal(git(root, ["ls-tree", "-r", "--name-only", "HEAD", "--", ".tieline/topology"]), ".tieline/topology/.gitignore");
+    assert.equal(git(root, ["ls-tree", "-r", "--name-only", "HEAD", "--", ".tiepoint/topology"]), ".tiepoint/topology/.gitignore");
   });
 
   await test("legacy fallback surfaces damaged graphs and ignores stale ones at a revision", async () => {
     const root = repository("legacy-states", "committed");
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
-    write(root, ".tieline/config.json", configJson());
+    write(root, ".tiepoint/config.json", configJson());
     commitAll(root, "legacy graph");
     const graphPath = join(root, legacyRelative);
     const bytes = readFileSync(graphPath);
@@ -572,7 +572,7 @@ try {
     assert.equal((await traceAt("HEAD")).result.status, "topology_missing_at_revision");
     assert.equal((await traceAt("HEAD~1")).result.status, "complete");
 
-    const outside = mkdtempSync(join(tmpdir(), "tieline-legacy-outside-"));
+    const outside = mkdtempSync(join(tmpdir(), "tiepoint-legacy-outside-"));
     roots.push(outside);
     writeFileSync(join(outside, "graph.json"), bytes);
     rmSync(graphPath);
@@ -581,7 +581,7 @@ try {
     assert.equal(unsafe.exit, 1);
     assert.equal(unsafe.result.status, "topology_unsafe_path");
     assert.equal(git(root, ["diff", "--cached", "--name-only"]), "", "a refused untrack stages nothing");
-    assert.equal(existsSync(join(root, ".tieline/topology/.gitignore")), false);
+    assert.equal(existsSync(join(root, ".tiepoint/topology/.gitignore")), false);
     rmSync(graphPath);
     writeFileSync(graphPath, bytes);
   });
@@ -595,18 +595,18 @@ try {
     git(root, ["add", legacyRelative]);
     write(root, "src/target.ts", "export function target() { return 5; }\n");
     assert.equal((await cli(["code", "compile", root, "--json"])).exit, 0);
-    write(root, ".tieline/config.json", configJson());
-    write(root, ".gitignore", ".tieline/topology/\n");
+    write(root, ".tiepoint/config.json", configJson());
+    write(root, ".gitignore", ".tiepoint/topology/\n");
     const untracked = await cli(["code", "untrack", root, "--json"]);
     assert.equal(untracked.exit, 0, JSON.stringify(untracked.result));
     assert.equal(untracked.result.status, "untracked");
     assert.deepEqual(untracked.result.staged, [legacyRelative]);
     assert.match(JSON.stringify(untracked.result.notices), /already ignore/);
-    assert.equal(git(root, ["diff", "--cached", "--name-status", "--", ".tieline"]), `D\t${legacyRelative}`);
+    assert.equal(git(root, ["diff", "--cached", "--name-status", "--", ".tiepoint"]), `D\t${legacyRelative}`);
 
-    const plainDirectory = mkdtempSync(join(tmpdir(), "tieline-untrack-non-git-"));
+    const plainDirectory = mkdtempSync(join(tmpdir(), "tiepoint-untrack-non-git-"));
     roots.push(plainDirectory);
-    write(plainDirectory, ".tieline/config.json", configJson());
+    write(plainDirectory, ".tiepoint/config.json", configJson());
     write(plainDirectory, "src/target.ts", "export function target() { return 1; }\n");
     const compiled = await cli(["code", "compile", plainDirectory, "--json"]);
     assert.equal(compiled.result.status, "current");
@@ -621,10 +621,10 @@ try {
 
   await test("a user-owned topology ignore rule is kept but an unignored cache is reported", async () => {
     const root = repository("user-ignore");
-    write(root, ".tieline/topology/.gitignore", "graph.json\n");
+    write(root, ".tiepoint/topology/.gitignore", "graph.json\n");
     const compiled = await cli(["code", "compile", root, "--json"]);
     assert.equal(compiled.result.status, "current");
-    assert.equal(readFileSync(join(root, ".tieline/topology/.gitignore"), "utf8"), "graph.json\n");
+    assert.equal(readFileSync(join(root, ".tiepoint/topology/.gitignore"), "utf8"), "graph.json\n");
     assert.match(JSON.stringify(compiled.result.notices), /cache\/ is not ignored by Git/);
   });
 
@@ -650,14 +650,14 @@ try {
     }
 
     const broad = repository("broad-root");
-    write(broad, ".tieline/config.json", configJson().replace('"source_roots": [\n      "src"\n    ]', '"source_roots": [\n      "."\n    ]').replace('"ignore": [\n      ".git",\n      ".tieline"\n    ]', '"ignore": [\n      ".git"\n    ]'));
-    assert.deepEqual(workspaceFromConfig(join(broad, ".tieline/config.json")).config.repository, {
+    write(broad, ".tiepoint/config.json", configJson().replace('"source_roots": [\n      "src"\n    ]', '"source_roots": [\n      "."\n    ]').replace('"ignore": [\n      ".git",\n      ".tiepoint"\n    ]', '"ignore": [\n      ".git"\n    ]'));
+    assert.deepEqual(workspaceFromConfig(join(broad, ".tiepoint/config.json")).config.repository, {
       root: "..", source_roots: ["."], ignore: [".git"],
     });
     const compiled = await cli(["code", "compile", broad, "--json"]);
     assert.equal(compiled.result.status, "current", JSON.stringify(compiled.result));
     const validated = await cli(["code", "validate", broad, "--json"]);
-    assert.equal(validated.result.status, "current", "Tieline's own cache does not change the key it is stored under");
+    assert.equal(validated.result.status, "current", "Tiepoint's own cache does not change the key it is stored under");
     assert.equal(validated.result.selected_input_digest, compiled.result.selected_input_digest);
   });
 
@@ -686,12 +686,12 @@ try {
   });
 
   await test("the configuration accepts only known topology modes", () => {
-    const root = mkdtempSync(join(tmpdir(), "tieline-topology-mode-"));
+    const root = mkdtempSync(join(tmpdir(), "tiepoint-topology-mode-"));
     roots.push(root);
-    write(root, ".tieline/config.json", configJson().replace('"files"', '"topology_mode": "remote",\n  "files"'));
-    assert.throws(() => workspaceFromConfig(join(root, ".tieline/config.json")), /topology_mode|invalid/i);
-    write(root, ".tieline/config.json", configJson("cached"));
-    assert.equal(workspaceFromConfig(join(root, ".tieline/config.json")).config.topology_mode, "cached");
+    write(root, ".tiepoint/config.json", configJson().replace('"files"', '"topology_mode": "remote",\n  "files"'));
+    assert.throws(() => workspaceFromConfig(join(root, ".tiepoint/config.json")), /topology_mode|invalid/i);
+    write(root, ".tiepoint/config.json", configJson("cached"));
+    assert.equal(workspaceFromConfig(join(root, ".tiepoint/config.json")).config.topology_mode, "cached");
   });
 } finally {
   for (const root of roots) rmSync(root, { recursive: true, force: true });

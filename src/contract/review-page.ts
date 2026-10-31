@@ -285,14 +285,14 @@ export function renderContractReviewPage(
         <h1>No capabilities yet</h1>
         <p>This page lists the product's capabilities, user stories, and
         acceptance criteria once semantic onboarding authors them under
-        <code>.tieline/spec/</code>.</p>
+        <code>.tiepoint/spec/</code>.</p>
         ${
           options.onboardingInstruction
             ? `<p>Invoke the installed skill in your coding agent to begin:</p>
               <pre class="prompt">${escapeHtml(options.onboardingInstruction)}</pre>`
             : ""
         }
-        <p><code>tieline contract compile .</code> refreshes this page
+        <p><code>tiepoint contract compile .</code> refreshes this page
         whenever the contract changes.</p>
       </div>`;
 
@@ -312,7 +312,7 @@ export function renderContractReviewPage(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>${escapeHtml(options.repositoryKey)} · Tieline spec review</title>
+  <title>${escapeHtml(options.repositoryKey)} · Tiepoint spec review</title>
   <style>
     :root {
       --paper: #ffffff;
@@ -754,7 +754,7 @@ export function renderContractReviewPage(
           history.pushState(null, "", "#" + link.dataset.storyKey);
         }
         document.title =
-          link.querySelector("span").textContent + " · Tieline spec review";
+          link.querySelector("span").textContent + " · Tiepoint spec review";
         if (window.innerWidth <= 760) {
           content.scrollIntoView({ behavior: "smooth", block: "start" });
         }

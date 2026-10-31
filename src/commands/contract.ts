@@ -20,9 +20,9 @@ import {
 } from "../contract/manifest.js";
 import { loadAcceptedContract } from "../contract/load.js";
 import {
-  TIELINE_REVIEW_PAGE,
+  TIEPOINT_REVIEW_PAGE,
   writeWorkspaceReviewPage,
-} from "../tieline/review.js";
+} from "../tiepoint/review.js";
 import { contractEmbeddingDocuments } from "../derived/embedding-documents.js";
 import { getEmbedder, mapWithConcurrency } from "../embeddings.js";
 import {
@@ -149,7 +149,7 @@ function resolveContractCommand(
         root,
         // `review` writes one HTML page; everything else reads or writes the
         // manifest, which is a directory of per-capability files.
-        action === "review" ? TIELINE_REVIEW_PAGE : ".tieline/manifest"
+        action === "review" ? TIEPOINT_REVIEW_PAGE : ".tiepoint/manifest"
       );
   if (options.unit !== undefined && options.unit !== "link" && options.unit !== "criterion") {
     throw new Error("Grading unit must be link or criterion.");
@@ -216,7 +216,7 @@ async function runGrade(
     throw new Error(
       `Cannot derive grading scope because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
         error instanceof Error ? error.message : String(error)
-      } Run \`tieline contract compile .\` and commit the manifest.`
+      } Run \`tiepoint contract compile .\` and commit the manifest.`
     );
   }
   const scopeInput = {
@@ -630,7 +630,7 @@ export async function runContractCommand(
       throw new Error(
         `Cannot report acceptance criteria for paths because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
           error instanceof Error ? error.message : String(error)
-        } Run \`tieline contract compile .\` and commit the manifest.`
+        } Run \`tiepoint contract compile .\` and commit the manifest.`
       );
     }
     const report = lookupPathCriteria({
@@ -720,7 +720,7 @@ export async function runContractCommand(
    * deleted or renamed a linked file is precisely the drift they exist to
    * describe — so they tolerate an unhashable artifact instead of aborting.
    * Neither of them writes the manifest, so a tolerant compilation cannot
-   * reach `.tieline/manifest/`.
+   * reach `.tiepoint/manifest/`.
    */
   const compileManifest = (
     onUnhashableArtifact: "throw" | "omit_hash"
@@ -829,7 +829,7 @@ export async function runContractCommand(
       // by reading the output.
       removed_files: written.removed,
       bytes: written.bytes,
-      review_page: TIELINE_REVIEW_PAGE,
+      review_page: TIEPOINT_REVIEW_PAGE,
       repository: manifest.repository,
       ...coverage(manifest),
       mapping_coverage: mappingCoverage,
@@ -841,7 +841,7 @@ export async function runContractCommand(
             written.removed.length
               ? `; removed ${written.removed.length} file(s) for capabilities the contract no longer declares: ${written.removed.join(", ")}`
               : ""
-          }. Review page: ${TIELINE_REVIEW_PAGE}.\n`
+          }. Review page: ${TIEPOINT_REVIEW_PAGE}.\n`
     );
     return 0;
   }

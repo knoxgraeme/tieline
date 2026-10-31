@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { prepareGradingEvaluation, evaluationScope, scoreGradingEvaluation } from "./evaluate-grading.js";
 import { gradingCases } from "./grading-cases.js";
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-eval-harness-test-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-eval-harness-test-"));
 const experiment = resolve(root, "experiment");
 try {
   await prepareGradingEvaluation(experiment);
@@ -43,7 +43,7 @@ try {
   writeFileSync(receiptPath, JSON.stringify({ ...JSON.parse(receipt), rubric_sha256: "0".repeat(64) }));
   await assert.rejects(scoreGradingEvaluation(experiment), /Evaluation rubric changed/);
   writeFileSync(receiptPath, receipt);
-  const extra = resolve(experiment, first.id, ".tieline/spec/extra.yaml");
+  const extra = resolve(experiment, first.id, ".tiepoint/spec/extra.yaml");
   writeFileSync(extra, "version: 1\n");
   await assert.rejects(scoreGradingEvaluation(experiment), /Unexpected evaluation fixture entry/);
   rmSync(extra);

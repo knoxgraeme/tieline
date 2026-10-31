@@ -206,7 +206,7 @@ function selectCachedGitTopologyRole(
   }
   return {
     status: "topology_missing_at_revision",
-    detail: `No cached topology exists for Git commit '${commit}' (selected inputs '${digest}'). Run \`tieline code compile . --revision ${commit}\`.`,
+    detail: `No cached topology exists for Git commit '${commit}' (selected inputs '${digest}'). Run \`tiepoint code compile . --revision ${commit}\`.`,
     selected_input_digest: digest,
   };
 }

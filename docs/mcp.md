@@ -37,7 +37,7 @@ their own checkout.
 | `list_handoff_conflicts` | Read planning-to-repository conflicts preserved during sync | No |
 
 All evidence and planning tools require PostgreSQL. Repository-owned Stories and ACs cannot be
-modified through these tools; they change in `.tieline/spec/**/*.yaml` and are accepted through
+modified through these tools; they change in `.tiepoint/spec/**/*.yaml` and are accepted through
 normal code review.
 
 ## Choosing a read
@@ -65,7 +65,7 @@ a linked test ran.
 
 `trace_code_dependencies` starts from an exact file plus canonical symbol selector. It reads the
 compiled topology graph for the current snapshot—the cache entry by default, or the committed
-`.tieline/topology/graph.json` in committed mode—rather than parsing during the request.
+`.tiepoint/topology/graph.json` in committed mode—rather than parsing during the request.
 
 Traversal defaults to dependents, which answers “what may rely on this?” It can instead follow
 dependencies. Results include visited symbols, static edges, cycles, unresolved or ambiguous
@@ -90,8 +90,8 @@ conservative review aid rather than a claim about runtime execution or behaviora
 
 ## Connecting an agent
 
-`npx -y tieline@latest init` registers the MCP server for selected coding agents. Repository-local
-hosts launch the exact pinned Tieline package with `TIELINE_WORKSPACE` set to the repository.
+`npx -y tiepoint@latest init` registers the MCP server for selected coding agents. Repository-local
+hosts launch the exact pinned Tiepoint package with `TIEPOINT_WORKSPACE` set to the repository.
 
 For a remotely hosted MCP service backed by Postgres, follow [Operations](operations.md). Keep
 repository-sync and administrative credentials out of ordinary agent environments; the MCP

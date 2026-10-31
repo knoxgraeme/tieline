@@ -10,15 +10,15 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import { computeRepositoryMappingCoverage } from "../../../src/contract/coverage.js";
 import {
   compileContractManifest,
   readContractManifest,
 } from "../../../src/contract/manifest.js";
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-command-"));
-mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-contract-command-"));
+mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
 mkdirSync(resolve(root, "src"), { recursive: true });
 writeFileSync(resolve(root, "src/behavior.ts"), "export const behavior = true;\n");
 writeFileSync(
@@ -61,11 +61,11 @@ ${Array.from(
 ).join("\n")}
       acceptance_criteria:
         - key: BEHAVIOR-001-AC1
-          criterion: Tieline must validate accepted YAML without a database.
+          criterion: Tiepoint must validate accepted YAML without a database.
           rationale: Reviewers should be able to understand accepted behavior without reading YAML syntax.
           scenarios:
             - name: Offline contract review
-              given: a repository contains valid Tieline specifications
+              given: a repository contains valid Tiepoint specifications
               when: a maintainer generates the review page
               then: the accepted stories and criteria must be readable in a browser
           links:
@@ -90,7 +90,7 @@ ${Array.from(
                 external_id: review-guide
                 url: "javascript:alert(1)"
 `;
-writeFileSync(resolve(root, ".tieline/spec/behavior.yaml"), behaviorYaml);
+writeFileSync(resolve(root, ".tiepoint/spec/behavior.yaml"), behaviorYaml);
 
 // A second capability so link review has enough scored links to rank one
 // against the others. Its criteria describe billing behaviour and link files
@@ -123,7 +123,7 @@ const reviewCriteria = [
   },
 ];
 writeFileSync(
-  resolve(root, ".tieline/spec/review.yaml"),
+  resolve(root, ".tiepoint/spec/review.yaml"),
   `version: 1
 capability:
   key: REVIEW
@@ -158,7 +158,7 @@ ${entry.paths
 );
 
 let output = "";
-const io: TielineCliIO = {
+const io: TiepointCliIO = {
   write(message) {
     output += message;
   },
@@ -190,7 +190,7 @@ try {
   const reviewResult = JSON.parse(output);
   assert.equal(reviewResult.stories, 2);
   assert.equal(reviewResult.acceptance_criteria, 5);
-  assert.equal(reviewResult.output, resolve(root, ".tieline/review.html"));
+  assert.equal(reviewResult.output, resolve(root, ".tiepoint/review.html"));
   const reviewPage = readFileSync(reviewResult.output, "utf8");
   assert.match(reviewPage, /Accepted behavior/);
   assert.match(reviewPage, /Validate and compile accepted behavior/);
@@ -209,12 +209,12 @@ try {
   assert.match(reviewPage, /window\.print/);
   assert.doesNotMatch(reviewPage, /href="javascript:/);
 
-  const manifestPath = resolve(root, ".tieline/manifest");
+  const manifestPath = resolve(root, ".tiepoint/manifest");
   const manifestFiles = (): Array<[string, string]> =>
     readdirSync(manifestPath)
       .sort()
       .map((name) => [name, readFileSync(resolve(manifestPath, name), "utf8")]);
-  rmSync(resolve(root, ".tieline/review.html"));
+  rmSync(resolve(root, ".tiepoint/review.html"));
   output = "";
   const compileExit = await runCli(
     [
@@ -246,14 +246,14 @@ try {
     "REVIEW.json",
   ]);
   assert.deepEqual(compileResult.removed_files, []);
-  assert.equal(compileResult.review_page, ".tieline/review.html");
+  assert.equal(compileResult.review_page, ".tiepoint/review.html");
   assert.match(
-    readFileSync(resolve(root, ".tieline/review.html"), "utf8"),
+    readFileSync(resolve(root, ".tiepoint/review.html"), "utf8"),
     /BEHAVIOR/,
     "compile must regenerate the review page"
   );
   assert.equal(
-    readFileSync(resolve(root, ".tieline/.gitignore"), "utf8"),
+    readFileSync(resolve(root, ".tiepoint/.gitignore"), "utf8"),
     "review.html\n"
   );
   // The index carries only what belongs to the repository as a whole; each
@@ -270,7 +270,7 @@ try {
     readFileSync(resolve(manifestPath, "BEHAVIOR.json"), "utf8")
   );
   assert.equal(behaviorShard.capability.stable_id, "BEHAVIOR");
-  assert.equal(behaviorShard.input.path, ".tieline/spec/behavior.yaml");
+  assert.equal(behaviorShard.input.path, ".tiepoint/spec/behavior.yaml");
   const firstManifest = manifestFiles();
 
   output = "";
@@ -515,7 +515,7 @@ try {
   execFileSync("git", ["config", "user.email", "test@example.test"], {
     cwd: root,
   });
-  execFileSync("git", ["config", "user.name", "Tieline Test"], { cwd: root });
+  execFileSync("git", ["config", "user.name", "Tiepoint Test"], { cwd: root });
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync("git", ["commit", "-m", "baseline"], {
     cwd: root,
@@ -530,7 +530,7 @@ try {
     "export const unmapped1 = false;\n"
   );
   writeFileSync(
-    resolve(root, ".tieline/spec/behavior.yaml"),
+    resolve(root, ".tiepoint/spec/behavior.yaml"),
     `${behaviorYaml}# reconciled\n`
   );
 
@@ -576,7 +576,7 @@ try {
     reconcile.excluded_changes.map(
       (change: { path: string; reason: string }) => [change.path, change.reason]
     ),
-    [[".tieline/spec/behavior.yaml", "contract_definition"]]
+    [[".tiepoint/spec/behavior.yaml", "contract_definition"]]
   );
   assert.deepEqual(reconcile.summary, {
     changed_paths: 3,

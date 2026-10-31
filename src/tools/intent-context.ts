@@ -21,7 +21,7 @@ import {
   type GetAcceptanceCriterionContextInput,
   type GetAssetIntentContextInput,
 } from "./schemas/intent-context.js";
-import { findTielineWorkspace } from "../tieline/workspace.js";
+import { findTiepointWorkspace } from "../tiepoint/workspace.js";
 import {
   errorResult,
   formatError,
@@ -56,11 +56,11 @@ export type ManifestIntentContextResolution =
 export function resolveManifestIntentContext(
   cwd: string
 ): ManifestIntentContextResolution {
-  const workspace = findTielineWorkspace(cwd);
+  const workspace = findTiepointWorkspace(cwd);
   if (!workspace) {
     return {
       status: "no_workspace",
-      message: `No Tieline workspace was found at or above '${cwd}', so exact intent context cannot be read. Start the MCP server inside a repository containing .tieline/config.json, set TIELINE_WORKSPACE to that repository, or run \`tieline init\` there.`,
+      message: `No Tiepoint workspace was found at or above '${cwd}', so exact intent context cannot be read. Start the MCP server inside a repository containing .tiepoint/config.json, set TIEPOINT_WORKSPACE to that repository, or run \`tiepoint init\` there.`,
     };
   }
   try {
@@ -72,14 +72,14 @@ export function resolveManifestIntentContext(
   } catch (error) {
     return {
       status: "no_manifest",
-      message: `The contract manifest '${workspace.manifestPath}' is missing or unreadable, so exact intent context cannot be read: ${formatError(error)} Run \`tieline contract compile .\` in ${workspace.root} and commit the manifest.`,
+      message: `The contract manifest '${workspace.manifestPath}' is missing or unreadable, so exact intent context cannot be read: ${formatError(error)} Run \`tiepoint contract compile .\` in ${workspace.root} and commit the manifest.`,
     };
   }
 }
 
 function resolveForHandler(): ManifestIntentContextResolution {
   return resolveManifestIntentContext(
-    process.env.TIELINE_WORKSPACE ?? process.cwd()
+    process.env.TIEPOINT_WORKSPACE ?? process.cwd()
   );
 }
 

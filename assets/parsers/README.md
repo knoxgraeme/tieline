@@ -1,12 +1,12 @@
 # Parser assets
 
-Tieline ships a pinned WebAssembly parser compatibility set so installed
+Tiepoint ships a pinned WebAssembly parser compatibility set so installed
 packages can analyze JavaScript, TypeScript, TSX, Python, Rust, and SQL without
 a native compiler, a network connection, or separately installed grammar
 packages. SQL is shipped from a pinned upstream release and build toolchain.
 The runtime and grammar packages have different native Tree-sitter peer ranges,
 so they are staged only as sources for the compatible Wasm files; they are not
-Tieline runtime dependencies.
+Tiepoint runtime dependencies.
 
 Each compatibility-set directory contains:
 
@@ -15,7 +15,7 @@ Each compatibility-set directory contains:
   and records versions, origins, integrity values, ABI versions, and SHA-256
   digests;
 - the upstream license texts and `THIRD_PARTY_NOTICES.md`; and
-- Tieline-authored structure queries used with that set.
+- Tiepoint-authored structure queries used with that set.
 
 ## Refresh the current compatibility set
 

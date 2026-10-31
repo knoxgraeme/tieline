@@ -3,6 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
-.tieline/review.html
+.tiepoint/review.html
 # Transformers.js model cache
 .cache/

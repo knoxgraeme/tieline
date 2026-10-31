@@ -16,7 +16,7 @@ export const CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION = 1;
 export const CODE_TOPOLOGY_ARTIFACT_ENCODING = "json-v1";
 export const CODE_TOPOLOGY_ARTIFACT_PRODUCER = "tieline_tree_sitter";
 export const CODE_TOPOLOGY_ARTIFACT_PRODUCER_VERSION = 1;
-export const CODE_TOPOLOGY_ARTIFACT_PROVIDER = "tieline";
+export const CODE_TOPOLOGY_ARTIFACT_PROVIDER = "tiepoint";
 export const CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS = 250_000;
 
 export interface CodeTopologyArtifactProducer {

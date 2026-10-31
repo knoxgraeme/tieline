@@ -1,5 +1,5 @@
 {
-  "name": "tieline",
+  "name": "tiepoint",
   "version": "0.2.2",
   "description": "Living Story/AC contract and semantic graph grounded in code, tests, help content, and organizational evidence.",
   "license": "MIT",
@@ -14,7 +14,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "tieline": "dist/cli.js"
+    "tiepoint": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -29,19 +29,20 @@
     "build": "npm run clean && tsc",
     "clean": "rm -rf dist",
     "prepare:parser-assets": "tsx scripts/prepare-parser-assets.ts",
-    "tieline": "node dist/cli.js",
+    "tiepoint": "node dist/cli.js",
     "start": "node dist/cli.js serve",
     "start:http": "node dist/cli.js serve --http",
     "dev": "tsx watch src/index.ts",
     "migrate": "node dist/cli.js migrate",
     "import:help": "node dist/cli.js import-help",
-    "test": "npm run test:source-scope && npm run test:contract && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke && npm run test:evidence && npm run test:contract-read && npm run test:baseline && npm run test:topology && npm run test:generated-artifacts && npm run test:integration-entrypoint && npm run test:grading-evaluation",
+    "test": "npm run test:source-scope && npm run test:contract && npm run test:ranking && npm run test:retrieval && npm run test:embeddings && npm run test:http && npm run test:smoke && npm run test:evidence && npm run test:contract-read && npm run test:baseline && npm run test:topology && npm run test:generated-artifacts && npm run test:integration-entrypoint && npm run test:grading-evaluation && npm run test:legacy-migration",
     "test:ranking": "tsx tests/unit/retrieval/test-ranking.ts",
     "test:retrieval": "tsx tests/evaluations/evaluate-retrieval.ts",
     "test:embeddings": "tsx tests/unit/retrieval/test-embeddings.ts",
     "test:http": "tsx tests/unit/runtime/test-http.ts",
     "test:tieline": "npm run build && npm run test:skill-install && node --import tsx tests/unit/runtime/test-tieline.ts",
     "test:skill-install": "tsx tests/unit/runtime/test-skill-install.ts",
+    "test:legacy-migration": "tsx tests/unit/runtime/test-legacy-migration.ts",
     "test:parser-package": "npm run build && tsx tests/unit/topology/test-parser-package.ts",
     "test:source-snapshot": "tsx tests/unit/topology/test-source-snapshot.ts",
     "test:source-scope": "tsx tests/unit/topology/test-source-scope.ts",

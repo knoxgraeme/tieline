@@ -1,4 +1,4 @@
-; Tieline JavaScript/JSX syntax facts. Keep every declaration name field-qualified.
+; Tiepoint JavaScript/JSX syntax facts. Keep every declaration name field-qualified.
 (function_declaration
   name: (identifier) @symbol.name) @symbol.declaration
 

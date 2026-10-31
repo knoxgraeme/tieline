@@ -13,7 +13,7 @@ import {
   type ContractManifestSnapshotFile,
 } from "./manifest.js";
 import type { TopologyRoleSnapshot } from "./topology-role-snapshot.js";
-import type { TielineWorkspace } from "../tieline/workspace.js";
+import type { TiepointWorkspace } from "../tiepoint/workspace.js";
 
 export type ManifestLifecycleStatus =
   | "manifest_missing"
@@ -49,7 +49,7 @@ function missing(error: unknown): boolean {
 }
 
 export function selectWorkspaceManifestRole(
-  workspace: TielineWorkspace,
+  workspace: TiepointWorkspace,
   repository: string
 ): ManifestRoleSnapshotResult {
   if (!existsSync(resolve(workspace.manifestPath, CONTRACT_MANIFEST_INDEX_FILE))) {
@@ -85,7 +85,7 @@ export function selectWorkspaceManifestRole(
       return {
         status: "manifest_stale",
         manifest_digest: digest,
-        detail: "The contract manifest does not match the current authored YAML or linked content. Run 'tieline contract compile .' and commit the result.",
+        detail: "The contract manifest does not match the current authored YAML or linked content. Run 'tiepoint contract compile .' and commit the result.",
       };
     }
   } catch (error) {

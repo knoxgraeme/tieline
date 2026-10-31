@@ -93,7 +93,7 @@ function workspaceInventory(options: TopologyGenerationSourceOptions): SourceInv
   });
   // Parsers and resolvers read only supported source files and the root
   // configuration below. Other files under a source root (documentation,
-  // data, or Tieline's own generated output), symbolic links, and nested
+  // data, or Tiepoint's own generated output), symbolic links, and nested
   // repositories must not perturb the selected inputs, or a working tree and
   // the commit holding the same bytes would disagree; Git snapshots apply the
   // same rule.

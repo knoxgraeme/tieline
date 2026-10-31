@@ -23,12 +23,12 @@ import type {
   CodeTopologyReadStore,
 } from "../domain/code-topology-store.js";
 
-export const CODE_TOPOLOGY_DIRECTORY = ".tieline/topology";
+export const CODE_TOPOLOGY_DIRECTORY = ".tiepoint/topology";
 /** Ignored, content-addressed store used by the cached topology lifecycle. */
 export const CODE_TOPOLOGY_CACHE_DIRECTORY = `${CODE_TOPOLOGY_DIRECTORY}/cache`;
 
 /**
- * `committed` reads the reviewed `.tieline/topology/graph.json`; `cached`
+ * `committed` reads the reviewed `.tiepoint/topology/graph.json`; `cached`
  * reads the cache entry named by the requested snapshot's selected-input
  * digest, so branch-specific graphs never enter Git history.
  */
@@ -129,10 +129,10 @@ export function readWorkspaceCodeTopologyFiles(
   const root = resolve(repository, CODE_TOPOLOGY_DIRECTORY);
   const graphPath = resolve(root, CODE_TOPOLOGY_ARTIFACT_FILE);
   try {
-    const tielineRoot = resolve(repository, ".tieline");
-    const tielineStat = lstatSync(tielineRoot);
-    if (!tielineStat.isDirectory() || tielineStat.isSymbolicLink() || !owned(tielineStat)) {
-      return { status: "unsafe_path", detail: "The repository .tieline directory is not an owned regular directory." };
+    const tiepointRoot = resolve(repository, ".tiepoint");
+    const tiepointStat = lstatSync(tiepointRoot);
+    if (!tiepointStat.isDirectory() || tiepointStat.isSymbolicLink() || !owned(tiepointStat)) {
+      return { status: "unsafe_path", detail: "The repository .tiepoint directory is not an owned regular directory." };
     }
     const rootStat = lstatSync(root);
     if (!rootStat.isDirectory() || rootStat.isSymbolicLink() || !owned(rootStat)) {
@@ -171,7 +171,7 @@ export function readCachedCodeTopologyFiles(
   const entryPath = resolve(cacheRoot, codeTopologyCacheEntryName(selectedInputDigest));
   try {
     for (const [path, label] of [
-      [resolve(repository, ".tieline"), "The repository .tieline directory"],
+      [resolve(repository, ".tiepoint"), "The repository .tiepoint directory"],
       [resolve(repository, CODE_TOPOLOGY_DIRECTORY), "The topology authority"],
       [cacheRoot, "The topology cache"],
     ] as const) {
@@ -344,9 +344,9 @@ function selectCachedWorkspaceTopologyRole(
     status: "topology_missing",
     detail: `No cached topology exists for the workspace selected inputs '${digest}'.${
       legacy.status === "complete"
-        ? " The legacy .tieline/topology/graph.json is not current for these inputs and is no longer updated."
+        ? " The legacy .tiepoint/topology/graph.json is not current for these inputs and is no longer updated."
         : ""
-    } Run \`tieline code compile .\`.`,
+    } Run \`tiepoint code compile .\`.`,
     selected_input_digest: digest,
   };
 }

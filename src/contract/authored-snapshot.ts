@@ -21,11 +21,11 @@ export function readAuthoredContractAtBase(input: {
     cwd: input.repositoryRoot, encoding: "utf8", timeout: 30_000, maxBuffer: 16 * 1024 * 1024,
   });
   const commit = git(["rev-parse", "--verify", "--end-of-options", `${input.base}^{commit}`]).trim();
-  const names = git(["ls-tree", "-r", "-z", "--name-only", commit, "--", spec, ".tieline/config.json"])
-    .split("\0").filter((name) => name === ".tieline/config.json" || /\.ya?ml$/i.test(name));
+  const names = git(["ls-tree", "-r", "-z", "--name-only", commit, "--", spec, ".tiepoint/config.json"])
+    .split("\0").filter((name) => name === ".tiepoint/config.json" || /\.ya?ml$/i.test(name));
   if (!names.some((name) => /\.ya?ml$/i.test(name))) return null;
   if (names.length > 1001) throw new Error("Authored baseline exceeds 1,000 spec files.");
-  const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tieline-authored-base-"));
+  const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-authored-base-"));
   try {
     let bytes = 0;
     for (const name of names) {

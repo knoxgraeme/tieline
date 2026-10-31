@@ -1,0 +1,294 @@
+{
+  "capability": {
+    "aliases": [],
+    "applies_to": null,
+    "contract_hash": "e39a3ff62ab6817b37f5ace90c5bf16c14f27cff14cd720d6e75c6ef89149fc1",
+    "description": "One Story and Acceptance Criterion identity moves from planning authority to repository authority.",
+    "name": "Lifecycle-aware authority",
+    "stable_id": "AUTHORITY",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "c93866d31db823b88aaa477275e8909412dc9c71c612d74a1ac5604410a0cc06",
+            "criterion": "Tiepoint must allow planning writers to create and revise only backlog Stories and their Acceptance Criteria.",
+            "links": [
+              {
+                "compiled_content_hash": "8221d8c529fd0230342fb253ef76ef6499319e6e0eeea537d774987e54c05dbf",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/planning-story-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "9d01ce74028da22ff09e5a6f222524bc5e84ad87a405405434ed3b7c500ea138",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/domain/planning-contract-write-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "b912ba058cfe2b622f271a20b8c797d265774b5fa52e1c0b9856f5460a167f5e",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/planning-stories.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "1c01f2876e49f5987f31d8a9f454b511f7cd2930127316939969d55c7d1d52cf",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-planning.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "AUTHORITY-001-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "product teammate",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "intent can mature without pretending it is accepted behavior",
+        "contract_hash": "266bb7a2a71ac832f5d54c75cee79dd2b0aabd6964e84636466084a04b7ecf0e",
+        "goal": "refine Stories and Acceptance Criteria while they remain in the backlog",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "AUTHORITY-001",
+        "supersedes": null,
+        "title": "Shape behavior before implementation"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "08f0175ccf1ef0e783cd097a0bb8bf8e43fcaeb91cf69307b13aaa6a3aada5ed",
+            "criterion": "Tiepoint must preserve matching planning Story and Acceptance Criterion identities when a repository contract is synchronized.",
+            "links": [
+              {
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-sync-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "bd211a9aeb20714859f7a88a676cb02ebe2be04e32fd563f59b2dd2c79c9a203",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/sync.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "59b6fa1a189105670cd04967b87f8ac35a03c2c2ce5a6d7918843dd38d8f8985",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/handoff-conflicts.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "682f414c1a90179f9b0e74c2fc2e430036d5d5a3e178e73aa9e058de38d89ff1",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-contract-sync.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "planning changes after a materializing branch was created",
+                "position": 0,
+                "stable_id": "AUTHORITY-002-AC1-S1",
+                "then": "Tiepoint must project the merged definition and preserve the later planning revision as a handoff conflict",
+                "when": "the reviewed repository definition is synchronized"
+              }
+            ],
+            "stable_id": "AUTHORITY-002-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "a698002d0148c50e572f25946343b0207ba26de0f16e613ca4bfa87f48f67d4d",
+            "criterion": "Tiepoint must keep read, planning-write, repository-sync, and offline-admin database responsibilities separate.",
+            "links": [
+              {
+                "compiled_content_hash": "4abf6bbf188298016dfa55ed799f6f2c315ad72b766aed6a26ba8f96cf848d57",
+                "provenance": "authored",
+                "relation": "enforces",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/connections.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "4ff107616e22b32ec1637506108655607db03a4ea9dfed0b66135a6b75468129",
+                "provenance": "authored",
+                "relation": "enforces",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/migrate.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "fc19192b9fe038d82fc852b9c607d30e687d0692b07ec1a7736ad91e05e2e9f6",
+                "provenance": "authored",
+                "relation": "enforces",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tiepoint/preflight.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "26b2e478e1b2409e32755c30b5b9e9b56107d3849370fc01faa12a3faa8adb96",
+                "provenance": "authored",
+                "relation": "enforces",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tiepoint/profile.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "79aaeb7f1a83853835c69eff11ca4ec970e3eb2beba315279daf412de0d6835a",
+                "provenance": "authored",
+                "relation": "enforces",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tiepoint/setup.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "d9470202c6012692bc6ce3e92e04f6bf488b85d85a38d4a20b4aaeddde084e8d",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-baseline.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "9c492c012a1494f776fefe193126dd1d8c5895f81a59ee528d6c233fc46b92eb",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/retrieval/test-baseline.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "AUTHORITY-002-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "3d67af0e2bfc35515e632e203cc1d98465e302e471cf6ecbba9172d065c5258f",
+            "criterion": "Tiepoint must remove projected code assets that the synchronized repository contract no longer declares and that no contract record still links.",
+            "links": [
+              {
+                "compiled_content_hash": "ec1158d292a0c1fede64e71aca76f301c19a0fe49d413e0ef538b007892a27ad",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-sync-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "682f414c1a90179f9b0e74c2fc2e430036d5d5a3e178e73aa9e058de38d89ff1",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-contract-sync.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Postgres is a projection of the repository manifest, so a renamed path or a reworded selector otherwise strands a code asset that holds a frozen content hash and still answers the artifact overlap lookup, and the projection drifts further with every rename until it is rebuilt from scratch.",
+            "scenarios": [
+              {
+                "given": "a synchronized repository contract whose linked implementation path was renamed",
+                "position": 0,
+                "stable_id": "AUTHORITY-002-AC3-S1",
+                "then": "the code asset for the former path must be removed, while an asset owned by another repository or still linked by another contract record must be retained",
+                "when": "the repository contract is synchronized again"
+              }
+            ],
+            "stable_id": "AUTHORITY-002-AC3",
+            "supersedes": null
+          }
+        ],
+        "actor": "maintainer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "stable identity survives delivery without two writers",
+        "contract_hash": "1359261bd54c2872733cb406193eafb27c05fb87084c06caf04ad37bc8894104",
+        "goal": "materialize planning definitions with the implementation",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "AUTHORITY-002",
+        "supersedes": null,
+        "title": "Transfer accepted behavior to repository authority"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tiepoint/spec/authority.yaml",
+    "sha256": "0e044adcb4dfeff44d136e893eebb62193efc45e8100140f84d334376374754f"
+  }
+}

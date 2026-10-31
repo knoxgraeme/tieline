@@ -56,7 +56,7 @@ function document(overrides: Partial<AcceptedContractDocument> = {}): AcceptedCo
           acceptance_criteria: [
             {
               key: "AUTH-001-AC1",
-              criterion: "Tieline must reject repository paths that escape the checkout.",
+              criterion: "Tiepoint must reject repository paths that escape the checkout.",
               aliases: [],
               scenarios: [],
               links: [
@@ -65,7 +65,7 @@ function document(overrides: Partial<AcceptedContractDocument> = {}): AcceptedCo
                   provenance: "authored",
                   target: {
                     kind: "test",
-                    repository: "tieline",
+                    repository: "tiepoint",
                     path: "tests/unit/contract/test-contract.ts",
                     framework_hint: "custom-script",
                   },
@@ -106,7 +106,7 @@ await test("accepts an incomplete backlog Story through the planning schema", ()
 await test("requires explicit provenance and accepts every stable claim origin", () => {
   const target = {
     kind: "code" as const,
-    repository: "tieline",
+    repository: "tiepoint",
     path: "src/contract/schema.ts",
   };
   assert.equal(
@@ -127,11 +127,11 @@ await test("requires explicit provenance and accepts every stable claim origin",
 console.log("accepted YAML loading and validation");
 
 await test("loads strict YAML and preserves locator arrays and scalar values", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-contract-"));
   try {
-    mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+    mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
     writeFileSync(
-      resolve(root, ".tieline/spec/authoring.yaml"),
+      resolve(root, ".tiepoint/spec/authoring.yaml"),
       `version: 1
 capability:
   key: AUTH
@@ -148,13 +148,13 @@ capability:
         regions: [ca, us]
       acceptance_criteria:
         - key: AUTH-001-AC1
-          criterion: Tieline must accept framework-agnostic test locators.
+          criterion: Tiepoint must accept framework-agnostic test locators.
           links:
             - relation: tests
               provenance: authored
               target:
                 kind: test
-                repository: tieline
+                repository: tiepoint
                 path: tests/unit/contract/test-contract.ts
                 selector: "function:  test "
                 framework_hint: custom-script
@@ -197,7 +197,7 @@ await test("rejects duplicate IDs, broken supersession, and escaping paths", () 
     {
       relation: "implements",
       provenance: "authored",
-      target: { kind: "code", repository: "tieline", path: "../outside.ts" },
+      target: { kind: "code", repository: "tiepoint", path: "../outside.ts" },
     },
   ];
   const second = document({
@@ -237,7 +237,7 @@ await test("warns without failing when AC text normalizes to an existing criteri
           acceptance_criteria: [
             {
               key: "SEARCH-001-AC1",
-              criterion: "  TIELINE must reject repository paths that escape the checkout! ",
+              criterion: "  TIEPOINT must reject repository paths that escape the checkout! ",
               aliases: [],
               scenarios: [],
               links: [],
@@ -277,10 +277,10 @@ await test("rejects duplicate link identity even when provenance conflicts", () 
 });
 
 await test("prunes ignored directories before resolving their contents", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-coverage-"));
-  const outside = mkdtempSync(resolve(tmpdir(), "tieline-outside-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-coverage-"));
+  const outside = mkdtempSync(resolve(tmpdir(), "tiepoint-outside-"));
   try {
-    mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+    mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
     mkdirSync(resolve(root, "src"), { recursive: true });
     writeFileSync(resolve(root, "src/covered.ts"), "export const covered = true;\n");
     writeFileSync(resolve(outside, "external.ts"), "export const external = true;\n");
@@ -290,7 +290,7 @@ await test("prunes ignored directories before resolving their contents", () => {
       process.platform === "win32" ? "junction" : "dir"
     );
     writeFileSync(
-      resolve(root, ".tieline/spec/coverage.yaml"),
+      resolve(root, ".tiepoint/spec/coverage.yaml"),
       `version: 1
 capability:
   key: COVERAGE
@@ -305,20 +305,20 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: COVERAGE-001-AC1
-          criterion: Tieline must prune ignored paths before resolving symlinks.
+          criterion: Tiepoint must prune ignored paths before resolving symlinks.
           links:
             - relation: implements
               provenance: authored
               target:
                 kind: code
-                repository: tieline
+                repository: tiepoint
                 path: src/covered.ts
 `
     );
     const coverage = computeRepositoryMappingCoverage(
       compileContractManifest({
         repositoryRoot: root,
-        repositoryKey: "tieline",
+        repositoryKey: "tiepoint",
       }),
       {
         repositoryRoot: root,
@@ -354,14 +354,14 @@ capability:
 });
 
 await test("does not describe an empty source scope as 100% covered", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-empty-coverage-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-empty-coverage-"));
   try {
-    mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+    mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
     mkdirSync(resolve(root, "src"), { recursive: true });
     const coverage = computeRepositoryMappingCoverage(
       {
         schema_version: 3,
-        repository: { key: "tieline" },
+        repository: { key: "tiepoint" },
         inputs: [],
         capabilities: [],
       },
@@ -407,7 +407,7 @@ function documentWithSelector(selector: string): AcceptedContractDocument {
       provenance: "authored",
       target: {
         kind: "code",
-        repository: "tieline",
+        repository: "tiepoint",
         path: "src/contract/selector.ts",
         selector,
       },
@@ -503,12 +503,12 @@ await test("rejects an unknown kind so a typo cannot fork an asset identity", ()
   );
 });
 
-await test("accepts a kind the repository declares in .tieline/config.json", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-selector-config-"));
+await test("accepts a kind the repository declares in .tiepoint/config.json", () => {
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-selector-config-"));
   try {
-    mkdirSync(resolve(root, ".tieline"), { recursive: true });
+    mkdirSync(resolve(root, ".tiepoint"), { recursive: true });
     writeFileSync(
-      resolve(root, ".tieline/config.json"),
+      resolve(root, ".tiepoint/config.json"),
       `${JSON.stringify({
         version: 1,
         selectors: {
@@ -606,7 +606,7 @@ const banner = "renameMe";
 `;
 
 function fixtureRoot(): string {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-selector-resolve-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-selector-resolve-"));
   mkdirSync(resolve(root, "src"), { recursive: true });
   writeFileSync(resolve(root, "src/fixture.ts"), SELECTOR_FIXTURE);
   writeFileSync(resolve(root, "src/fixture.rb"), "class PostgresStore\nend\n");
@@ -740,7 +740,7 @@ await test("never reports not_checked as unresolved", async () => {
     }
 
     // A file with no recognizable declaration teaches nothing either.
-    const empty = mkdtempSync(resolve(tmpdir(), "tieline-selector-empty-"));
+    const empty = mkdtempSync(resolve(tmpdir(), "tiepoint-selector-empty-"));
     try {
       writeFileSync(resolve(empty, "blank.ts"), "// nothing but a comment\n");
       const resolution = await resolveSelector({

@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import {
   IntentContextError,
   lookupAcceptanceCriterionIntentContext,
@@ -27,25 +27,25 @@ import {
   registerIntentContextTools,
   resolveManifestIntentContext,
 } from "../../../src/tools/intent-context.js";
-import { workspaceFromConfig } from "../../../src/tieline/workspace.js";
+import { workspaceFromConfig } from "../../../src/tiepoint/workspace.js";
 import type { ToolResult } from "../../../src/tools/shared.js";
-import { tielineConfigJson } from "../../support/fixtures.js";
+import { tiepointConfigJson } from "../../support/fixtures.js";
 import { report, test } from "../../support/harness.js";
 
 const REPOSITORY = "intent-context-fixture";
 
 await test("keeps configured repository roots inside the workspace owner", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-workspace-root-"));
-  const outside = mkdtempSync(resolve(tmpdir(), "tieline-workspace-outside-"));
-  const configPath = resolve(root, ".tieline/config.json");
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-workspace-root-"));
+  const outside = mkdtempSync(resolve(tmpdir(), "tiepoint-workspace-outside-"));
+  const configPath = resolve(root, ".tiepoint/config.json");
   try {
-    mkdirSync(resolve(root, ".tieline"), { recursive: true });
+    mkdirSync(resolve(root, ".tiepoint"), { recursive: true });
     mkdirSync(resolve(root, "package"), { recursive: true });
     symlinkSync(outside, resolve(root, "external"));
 
     const writeConfig = (repositoryRoot: string): void => {
       const config = JSON.parse(
-        tielineConfigJson({
+        tiepointConfigJson({
           name: "Workspace root fixture",
           repoName: "workspace-root-fixture",
         })
@@ -99,7 +99,7 @@ capability:
             selector: function:storyFeature
       acceptance_criteria:
         - key: INTENT-001-AC1
-          criterion: Tieline must return exact and file-level claims for one selector.
+          criterion: Tiepoint must return exact and file-level claims for one selector.
           rationale: A symbol query must not inherit claims for another symbol.
           applies_to:
             roles: [maintainer]
@@ -159,7 +159,7 @@ capability:
                 path: src/external.ts
                 selector: function:externalFeature
         - key: INTENT-001-AC2
-          criterion: Tieline must preserve every selector in a path-only result.
+          criterion: Tiepoint must preserve every selector in a path-only result.
           links:
             - relation: implements
               provenance: authored
@@ -186,11 +186,11 @@ capability:
 `;
 
 function createFixture() {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-intent-context-"));
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-intent-context-"));
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   mkdirSync(resolve(root, "test"), { recursive: true });
-  writeFileSync(resolve(root, ".tieline/spec/intent.yaml"), SPEC);
+  writeFileSync(resolve(root, ".tiepoint/spec/intent.yaml"), SPEC);
   writeFileSync(
     resolve(root, "src/shared.ts"),
     "export function first() {}\nexport function second() {}\n"
@@ -212,7 +212,7 @@ function createFixture() {
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: REPOSITORY,
-    specDirectory: ".tieline/spec",
+    specDirectory: ".tiepoint/spec",
     onUnhashableArtifact: "omit_hash",
   });
   const links =
@@ -227,15 +227,15 @@ function createFixture() {
   assert.ok(duplicate);
   links.push(structuredClone(duplicate));
   writeFileSync(
-    resolve(root, ".tieline/config.json"),
-    tielineConfigJson({
+    resolve(root, ".tiepoint/config.json"),
+    tiepointConfigJson({
       name: "Intent context fixture",
       repoName: REPOSITORY,
-      ignore: [".git", ".tieline"],
+      ignore: [".git", ".tiepoint"],
       specDirectory: "spec",
     })
   );
-  writeContractManifest(resolve(root, ".tieline/manifest"), {
+  writeContractManifest(resolve(root, ".tiepoint/manifest"), {
     manifest,
     sources: new Map([
       [manifest.capabilities[0]!.stable_id, manifest.inputs[0]!],
@@ -252,7 +252,7 @@ function createFixture() {
 await test("rejects duplicate stable IDs before exact context reads", () => {
   const fixture = createFixture();
   try {
-    const manifestDirectory = resolve(fixture.root, ".tieline/manifest");
+    const manifestDirectory = resolve(fixture.root, ".tiepoint/manifest");
     const original = JSON.parse(
       readFileSync(resolve(manifestDirectory, "INTENT.json"), "utf8")
     ) as {
@@ -263,7 +263,7 @@ await test("rejects duplicate stable IDs before exact context reads", () => {
       };
     };
     const duplicate = structuredClone(original);
-    duplicate.input.path = ".tieline/spec/duplicate.yaml";
+    duplicate.input.path = ".tiepoint/spec/duplicate.yaml";
     duplicate.capability.stable_id = "DUPLICATE";
     duplicate.capability.stories[0]!.stable_id = "DUPLICATE-001";
     writeFileSync(
@@ -560,7 +560,7 @@ await test("validates selector kinds against the repository vocabulary", async (
         /unknown selector kind 'func'/i.test(error.message)
     );
 
-    const configPath = resolve(fixture.root, ".tieline/config.json");
+    const configPath = resolve(fixture.root, ".tiepoint/config.json");
     const config = JSON.parse(readFileSync(configPath, "utf8")) as Record<
       string,
       unknown
@@ -631,7 +631,7 @@ await test("keeps missing claimed assets as not-found broken context", async () 
 await test("enforces one stable-ID contract in the library and CLI", async () => {
   const fixture = createFixture();
   let output = "";
-  const io: TielineCliIO = {
+  const io: TiepointCliIO = {
     write(message) {
       output += message;
     },
@@ -757,7 +757,7 @@ await test("deduplicates and orders byte-equivalent bounded results", async () =
 
 await test("registers primitive offline MCP context reads with strict parity", async () => {
   const fixture = createFixture();
-  const originalWorkspace = process.env.TIELINE_WORKSPACE;
+  const originalWorkspace = process.env.TIEPOINT_WORKSPACE;
   try {
     const toolSource = readFileSync(
       resolve(process.cwd(), "src/tools/intent-context.ts"),
@@ -845,7 +845,7 @@ await test("registers primitive offline MCP context reads with strict parity", a
     );
     assert.equal(acSchema.safeParse({}).success, false);
 
-    process.env.TIELINE_WORKSPACE = fixture.root;
+    process.env.TIEPOINT_WORKSPACE = fixture.root;
     const assetResult = await assetTool.handler({
       path: "src/shared.ts",
       kind: "code",
@@ -890,14 +890,14 @@ await test("registers primitive offline MCP context reads with strict parity", a
       .strict()
       .parse(acResult.structuredContent);
 
-    const stray = mkdtempSync(resolve(tmpdir(), "tieline-intent-no-workspace-"));
+    const stray = mkdtempSync(resolve(tmpdir(), "tiepoint-intent-no-workspace-"));
     try {
-      process.env.TIELINE_WORKSPACE = stray;
+      process.env.TIEPOINT_WORKSPACE = stray;
       const missingWorkspace = await assetTool.handler({ path: "src/shared.ts" });
       assert.equal(missingWorkspace.isError, true);
       assert.match(
         missingWorkspace.content[0]?.text ?? "",
-        /No Tieline workspace[\s\S]*tieline init/
+        /No Tiepoint workspace[\s\S]*tiepoint init/
       );
       const resolution = resolveManifestIntentContext(stray);
       assert.equal(resolution.status, "no_workspace");
@@ -906,20 +906,20 @@ await test("registers primitive offline MCP context reads with strict parity", a
     }
 
     const noManifest = mkdtempSync(
-      resolve(tmpdir(), "tieline-intent-no-manifest-")
+      resolve(tmpdir(), "tiepoint-intent-no-manifest-")
     );
     try {
-      mkdirSync(resolve(noManifest, ".tieline/spec"), { recursive: true });
+      mkdirSync(resolve(noManifest, ".tiepoint/spec"), { recursive: true });
       writeFileSync(
-        resolve(noManifest, ".tieline/config.json"),
-        tielineConfigJson({
+        resolve(noManifest, ".tiepoint/config.json"),
+        tiepointConfigJson({
           name: "No manifest",
           repoName: "no-manifest",
-          ignore: [".git", ".tieline"],
+          ignore: [".git", ".tiepoint"],
           specDirectory: "spec",
         })
       );
-      process.env.TIELINE_WORKSPACE = noManifest;
+      process.env.TIEPOINT_WORKSPACE = noManifest;
       const unreadableManifest = await acTool.handler({
         stable_id: "INTENT-001-AC1",
       });
@@ -932,8 +932,8 @@ await test("registers primitive offline MCP context reads with strict parity", a
       rmSync(noManifest, { recursive: true, force: true });
     }
   } finally {
-    if (originalWorkspace === undefined) delete process.env.TIELINE_WORKSPACE;
-    else process.env.TIELINE_WORKSPACE = originalWorkspace;
+    if (originalWorkspace === undefined) delete process.env.TIEPOINT_WORKSPACE;
+    else process.env.TIEPOINT_WORKSPACE = originalWorkspace;
     rmSync(fixture.root, { recursive: true, force: true });
   }
 });

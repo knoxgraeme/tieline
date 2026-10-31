@@ -1,7 +1,7 @@
 import pc from "picocolors";
 import type {
-  TielineCliIO,
-  TielineCliPromptOption,
+  TiepointCliIO,
+  TiepointCliPromptOption,
 } from "./cli.js";
 
 export type Palette = ReturnType<typeof pc.createColors>;
@@ -10,12 +10,12 @@ export function createPalette(enabled: boolean): Palette {
   return pc.createColors(enabled);
 }
 
-export function paletteFor(io: TielineCliIO): Palette {
+export function paletteFor(io: TiepointCliIO): Palette {
   return createPalette(io.interactive === true && pc.isColorSupported);
 }
 
-// Diamond mark echoing the Tieline logo: stacked diamonds pierced by a
-// vertical tieline of three nodes, with the dotted band through the middle.
+// Diamond mark echoing the Tiepoint logo: stacked diamonds pierced by a
+// vertical tiepoint of three nodes, with the dotted band through the middle.
 const MARK = [
   "      .",
   "     / \\",
@@ -26,7 +26,7 @@ const MARK = [
   "      '",
 ];
 
-// figlet "Tieline" (Standard font), wordmark rows pair with MARK rows 1-5.
+// figlet "Tiepoint" (Standard font), wordmark rows pair with MARK rows 1-5.
 const WORDMARK = [
   " _____ _      _ _",
   "|_   _(_) ___| (_)_ __   ___",
@@ -58,7 +58,7 @@ export function renderCopyCallout(ui: Palette, value: string): string[] {
 }
 
 export async function confirmChoice(
-  io: TielineCliIO,
+  io: TiepointCliIO,
   message: string,
   initialValue: boolean
 ): Promise<boolean> {
@@ -78,9 +78,9 @@ export async function confirmChoice(
 }
 
 export async function multiselectChoice<T extends string>(
-  io: TielineCliIO,
+  io: TiepointCliIO,
   message: string,
-  options: readonly TielineCliPromptOption[],
+  options: readonly TiepointCliPromptOption[],
   initialValues: readonly T[] = []
 ): Promise<T[]> {
   if (!io.interactive) return [];
@@ -108,7 +108,7 @@ export async function multiselectChoice<T extends string>(
 }
 
 export async function showNote(
-  io: TielineCliIO,
+  io: TiepointCliIO,
   title: string,
   message: string
 ): Promise<void> {
@@ -122,7 +122,7 @@ export async function showNote(
 }
 
 export async function intro(
-  io: TielineCliIO,
+  io: TiepointCliIO,
   title: string
 ): Promise<void> {
   if (!io.interactive) return;
@@ -132,7 +132,7 @@ export async function intro(
 }
 
 export async function outro(
-  io: TielineCliIO,
+  io: TiepointCliIO,
   message: string
 ): Promise<void> {
   if (!io.interactive) return;

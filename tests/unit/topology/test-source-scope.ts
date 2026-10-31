@@ -10,15 +10,15 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import {
   discoverRepositorySourceScope,
   sourceScopeAdvisoryCandidates,
   sourceScopeFromPaths,
-} from "../../../src/tieline/source-scope.js";
-import { findTielineWorkspace } from "../../../src/tieline/workspace.js";
+} from "../../../src/tiepoint/source-scope.js";
+import { findTiepointWorkspace } from "../../../src/tiepoint/workspace.js";
 
-function io(): { adapter: TielineCliIO; output: string[] } {
+function io(): { adapter: TiepointCliIO; output: string[] } {
   const output: string[] = [];
   return {
     output,
@@ -92,7 +92,7 @@ assert.deepEqual(
   "explicit roots must remain authoritative while omitted roots are advisory"
 );
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-source-scope-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-source-scope-"));
 try {
   const gitRepository = resolve(root, "git-repository");
   mkdirSync(resolve(gitRepository, "visible"), { recursive: true });
@@ -198,7 +198,7 @@ try {
         "--skip-skill-install",
       ],
       first.adapter,
-      { TIELINE_CONFIG_HOME: configHome }
+      { TIEPOINT_CONFIG_HOME: configHome }
     ),
     0
   );
@@ -206,7 +206,7 @@ try {
     first.output.join(""),
     /Source scope: recognized code outside configured roots: worker\./
   );
-  const workspace = findTielineWorkspace(initRepository);
+  const workspace = findTiepointWorkspace(initRepository);
   assert.ok(workspace);
   assert.deepEqual(workspace.config.repository.source_roots, ["api"]);
   const configBeforeRerun = readFileSync(workspace.configPath, "utf8");
@@ -216,7 +216,7 @@ try {
     await runCli(
       ["init", initRepository, "--yes", "--skip-skill-install"],
       second.adapter,
-      { TIELINE_CONFIG_HOME: configHome }
+      { TIEPOINT_CONFIG_HOME: configHome }
     ),
     0
   );
@@ -248,13 +248,13 @@ try {
         "--skip-skill-install",
       ],
       automatic.adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "automatic-config-home") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "automatic-config-home") }
     ),
     0
   );
   assert.doesNotMatch(automatic.output.join(""), /Source scope:/);
   assert.deepEqual(
-    findTielineWorkspace(automaticRepository)?.config.repository.source_roots,
+    findTiepointWorkspace(automaticRepository)?.config.repository.source_roots,
     ["blue", "green"]
   );
 } finally {

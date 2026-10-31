@@ -14,7 +14,7 @@ import {
   getPathCriteriaShape,
   type GetPathCriteriaInput,
 } from "./schemas/path-criteria.js";
-import { findTielineWorkspace } from "../tieline/workspace.js";
+import { findTiepointWorkspace } from "../tiepoint/workspace.js";
 import {
   errorResult,
   formatError,
@@ -37,11 +37,11 @@ export function resolvePathCriteria(input: {
   paths: string[];
   cwd: string;
 }): PathCriteriaResolution {
-  const workspace = findTielineWorkspace(input.cwd);
+  const workspace = findTiepointWorkspace(input.cwd);
   if (!workspace) {
     return {
       status: "no_workspace",
-      message: `No Tieline workspace was found at or above '${input.cwd}', so no acceptance criterion can be looked up. Start the MCP server inside a repository containing .tieline/config.json, or run \`tieline init\` there.`,
+      message: `No Tiepoint workspace was found at or above '${input.cwd}', so no acceptance criterion can be looked up. Start the MCP server inside a repository containing .tiepoint/config.json, or run \`tiepoint init\` there.`,
     };
   }
   try {
@@ -57,7 +57,7 @@ export function resolvePathCriteria(input: {
   } catch (error) {
     return {
       status: "no_manifest",
-      message: `The contract manifest '${workspace.manifestPath}' is missing or unreadable, so no acceptance criterion can be looked up: ${formatError(error)} Run \`tieline contract compile .\` in ${workspace.root} and commit the manifest.`,
+      message: `The contract manifest '${workspace.manifestPath}' is missing or unreadable, so no acceptance criterion can be looked up: ${formatError(error)} Run \`tiepoint contract compile .\` in ${workspace.root} and commit the manifest.`,
     };
   }
 }
@@ -100,7 +100,7 @@ export function registerGetPathCriteria(server: McpServer): void {
       try {
         const resolved = resolvePathCriteria({
           paths: input.paths,
-          cwd: process.env.TIELINE_WORKSPACE ?? process.cwd(),
+          cwd: process.env.TIEPOINT_WORKSPACE ?? process.cwd(),
         });
         if (resolved.status !== "resolved") {
           return errorResult(resolved.message);

@@ -20,7 +20,7 @@ assert.equal(
 );
 assert.equal(hasLinkedHelpFilters({ authorities: ["repository"] }), true);
 assert.equal(hasLinkedHelpFilters({ lifecycles: ["production"] }), true);
-assert.equal(hasLinkedHelpFilters({ repositories: ["tieline"] }), true);
+assert.equal(hasLinkedHelpFilters({ repositories: ["tiepoint"] }), true);
 
 const migrations = readdirSync(resolve("migrations"))
   .filter((file) => file.endsWith(".sql"))

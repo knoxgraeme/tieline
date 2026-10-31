@@ -1,4 +1,4 @@
-export function tielineConfigJson(options: {
+export function tiepointConfigJson(options: {
   name: string;
   repoName: string;
   ignore?: string[];
@@ -14,7 +14,7 @@ export function tielineConfigJson(options: {
       repository: {
         root: "..",
         source_roots: ["src"],
-        ignore: options.ignore ?? [".git", ".tieline", "src/generated"],
+        ignore: options.ignore ?? [".git", ".tiepoint", "src/generated"],
       },
       context: { sources: [] },
       runtime: {

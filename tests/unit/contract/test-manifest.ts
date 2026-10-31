@@ -25,14 +25,14 @@ import {
 import { report, test } from "../../support/harness.js";
 
 function fixture(): string {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-manifest-"));
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-manifest-"));
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   mkdirSync(resolve(root, "scripts"), { recursive: true });
   writeFileSync(resolve(root, "src/contract.ts"), "export const contract = true;\n");
   writeFileSync(resolve(root, "scripts/contract.test.ts"), "assert(contract);\n");
   writeFileSync(
-    resolve(root, ".tieline/spec/contract.yaml"),
+    resolve(root, ".tiepoint/spec/contract.yaml"),
     `version: 1
 capability:
   key: CONTRACT
@@ -53,11 +53,11 @@ capability:
           provenance: authored
           target:
             kind: code
-            repository: tieline
+            repository: tiepoint
             path: src/contract.ts
       acceptance_criteria:
         - key: CONTRACT-001-AC1
-          criterion: Tieline must compile the same manifest bytes for unchanged inputs.
+          criterion: Tiepoint must compile the same manifest bytes for unchanged inputs.
           scenarios:
             - given: accepted YAML and unchanged repository content
               when: the contract is compiled twice
@@ -67,7 +67,7 @@ capability:
               provenance: authored
               target:
                 kind: test
-                repository: tieline
+                repository: tiepoint
                 path: scripts/contract.test.ts
                 framework_hint: custom
             - relation: documents
@@ -87,9 +87,9 @@ capability:
  * more than one.
  */
 function addSearchCapability(root: string): void {
-  const original = readFileSync(resolve(root, ".tieline/spec/contract.yaml"), "utf8");
+  const original = readFileSync(resolve(root, ".tiepoint/spec/contract.yaml"), "utf8");
   writeFileSync(
-    resolve(root, ".tieline/spec/another.yaml"),
+    resolve(root, ".tiepoint/spec/another.yaml"),
     original
       .replace("key: CONTRACT\n", "key: SEARCH\n")
       .replace("key: CONTRACT-001\n", "key: SEARCH-001\n")
@@ -107,12 +107,12 @@ function addSearchCapability(root: string): void {
 function compile(root: string): CompiledContractManifest {
   return compileContractManifestWithSources({
     repositoryRoot: root,
-    repositoryKey: "tieline",
+    repositoryKey: "tiepoint",
   });
 }
 
 function manifestDirectory(root: string): string {
-  return resolve(root, ".tieline/manifest");
+  return resolve(root, ".tiepoint/manifest");
 }
 
 console.log("deterministic contract manifest");
@@ -122,7 +122,7 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
   try {
     const options = {
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
     };
     const first = compileContractManifest(options);
     const second = compileContractManifest(options);
@@ -156,11 +156,11 @@ await test("compiles byte-identical JSON with source, origin, relation, and arti
 await test("keeps the shared manifest index free of runtime revisions", () => {
   const root = fixture();
   try {
-    const directory = resolve(root, ".tieline/manifest");
+    const directory = resolve(root, ".tiepoint/manifest");
     writeContractManifest(directory, compile(root));
     assert.deepEqual(
       JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
-      { schema_version: 3, repository: { key: "tieline" } }
+      { schema_version: 3, repository: { key: "tiepoint" } }
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -176,7 +176,7 @@ await test("normalizes legacy v2 hashes without implying review and rejects conf
     const shardPath = resolve(directory, "CONTRACT.json");
     const canonical = readFileSync(shardPath, "utf8");
     assert.ok(!canonical.includes("reviewed_content_hash"));
-    writeFileSync(resolve(directory, "index.json"), JSON.stringify({ schema_version: 2, repository: { key: "tieline" } }));
+    writeFileSync(resolve(directory, "index.json"), JSON.stringify({ schema_version: 2, repository: { key: "tiepoint" } }));
     writeFileSync(shardPath, canonical.replaceAll("compiled_content_hash", "reviewed_content_hash"));
     const legacy = readContractManifest(directory);
     assert.deepEqual(legacy, compiled.manifest);
@@ -197,9 +197,9 @@ await test("changes contract semantics when only link provenance changes", () =>
   try {
     const before = compileContractManifest({
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
     });
-    const specPath = resolve(root, ".tieline/spec/contract.yaml");
+    const specPath = resolve(root, ".tiepoint/spec/contract.yaml");
     const authored = readFileSync(specPath, "utf8");
     writeFileSync(
       specPath,
@@ -210,7 +210,7 @@ await test("changes contract semantics when only link provenance changes", () =>
     );
     const after = compileContractManifest({
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
     });
     const beforeStory = before.capabilities[0]!.stories[0]!;
     const afterStory = after.capabilities[0]!.stories[0]!;
@@ -233,7 +233,7 @@ await test("changes only the linked artifact basis when repository content chang
   try {
     const options = {
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
     };
     const before = compileContractManifest(options);
     writeFileSync(resolve(root, "scripts/contract.test.ts"), "assert(contract && current);\n");
@@ -270,7 +270,7 @@ await test("keeps reviewed hashes while measuring current artifact content for s
   try {
     const reviewed = compileContractManifest({
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
     });
     const criterion =
       reviewed.capabilities[0]!.stories[0]!.acceptance_criteria[0]!;
@@ -389,7 +389,7 @@ await test("round-trips a compiled manifest through the directory it writes", ()
       JSON.parse(readFileSync(resolve(directory, "index.json"), "utf8")),
       {
         schema_version: 3,
-        repository: { key: "tieline" },
+        repository: { key: "tiepoint" },
       }
     );
 
@@ -398,12 +398,12 @@ await test("round-trips a compiled manifest through the directory it writes", ()
       readFileSync(resolve(directory, "SEARCH.json"), "utf8")
     );
     assert.deepEqual(Object.keys(shard).sort(), ["capability", "input"]);
-    assert.equal(shard.input.path, ".tieline/spec/another.yaml");
+    assert.equal(shard.input.path, ".tiepoint/spec/another.yaml");
     assert.match(shard.input.sha256, /^[a-f0-9]{64}$/);
     assert.equal(shard.capability.stable_id, "SEARCH");
     assert.deepEqual(
       read.inputs.map((input) => input.path),
-      [".tieline/spec/another.yaml", ".tieline/spec/contract.yaml"],
+      [".tiepoint/spec/another.yaml", ".tiepoint/spec/contract.yaml"],
       "inputs are reassembled from the shards in a stable order"
     );
 
@@ -438,7 +438,7 @@ await test("removes the file of a capability the contract no longer declares", (
     mkdirSync(resolve(directory, "nested"), { recursive: true });
     writeFileSync(resolve(directory, "nested/SEARCH.json"), "{}\n");
 
-    rmSync(resolve(root, ".tieline/spec/another.yaml"));
+    rmSync(resolve(root, ".tiepoint/spec/another.yaml"));
     const rewritten = writeContractManifest(directory, compile(root));
 
     assert.deepEqual(rewritten.removed, ["SEARCH.json"]);
@@ -514,7 +514,7 @@ await test("rejects the legacy manifest index shape", () => {
       `${JSON.stringify(
         {
           schema_version: 1,
-          repository: { key: "tieline", commit: "legacy-commit" },
+          repository: { key: "tiepoint", commit: "legacy-commit" },
         },
         null,
         2
@@ -657,11 +657,11 @@ await test("rejects authored stable IDs that collide with generated scenario IDs
   const root = fixture();
   try {
     const original = readFileSync(
-      resolve(root, ".tieline/spec/contract.yaml"),
+      resolve(root, ".tiepoint/spec/contract.yaml"),
       "utf8"
     );
     writeFileSync(
-      resolve(root, ".tieline/spec/scenario-collision.yaml"),
+      resolve(root, ".tiepoint/spec/scenario-collision.yaml"),
       original
         .replace("key: CONTRACT\n", "key: CONTRACT-001-AC1-S1\n")
         .replace("key: CONTRACT-001\n", "key: COLLISION-STORY\n")
@@ -722,7 +722,7 @@ await test("refuses to build a manifest file name that escapes the manifest dire
         return true;
       }
     );
-    assert.equal(existsSync(resolve(root, ".tieline/escaped.json")), false);
+    assert.equal(existsSync(resolve(root, ".tiepoint/escaped.json")), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -736,7 +736,7 @@ await test("rejects a missing artifact in the repository being compiled", () => 
       () =>
         compileContractManifest({
           repositoryRoot: root,
-          repositoryKey: "tieline",
+          repositoryKey: "tiepoint",
         }),
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
@@ -755,7 +755,7 @@ await test("omits the reviewed hash of an unhashable artifact when asked to tole
     rmSync(resolve(root, "src/contract.ts"));
     const manifest = compileContractManifest({
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
       onUnhashableArtifact: "omit_hash",
     });
 
@@ -767,7 +767,7 @@ await test("omits the reviewed hash of an unhashable artifact when asked to tole
     );
     assert.deepEqual(
       story.links[0]!.target,
-      { kind: "code", repository: "tieline", path: "src/contract.ts" },
+      { kind: "code", repository: "tiepoint", path: "src/contract.ts" },
       "tolerating an unhashable artifact drops the hash, never the link"
     );
 
@@ -791,7 +791,7 @@ await test("tolerates an artifact that is a directory rather than a file", () =>
     mkdirSync(resolve(root, "src/contract.ts"), { recursive: true });
     const manifest = compileContractManifest({
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
       onUnhashableArtifact: "omit_hash",
     });
     assert.equal(
@@ -802,7 +802,7 @@ await test("tolerates an artifact that is a directory rather than a file", () =>
       () =>
         compileContractManifest({
           repositoryRoot: root,
-          repositoryKey: "tieline",
+          repositoryKey: "tiepoint",
         }),
       (error: unknown) => {
         assert.ok(error instanceof ContractManifestError);
@@ -821,7 +821,7 @@ await test("emits stable ordering independent of YAML file discovery order", () 
     addSearchCapability(root);
     const manifest = compileContractManifest({
       repositoryRoot: root,
-      repositoryKey: "tieline",
+      repositoryKey: "tiepoint",
     });
     assert.deepEqual(
       manifest.capabilities.map((capability) => capability.stable_id),

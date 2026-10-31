@@ -34,7 +34,7 @@ function yamlFiles(directory: string): string[] {
 /** True when the spec directory holds at least one YAML document. */
 export function hasAcceptedContractSources(
   repositoryRoot: string,
-  specDirectory = ".tieline/spec"
+  specDirectory = ".tiepoint/spec"
 ): boolean {
   const directory = resolve(resolve(repositoryRoot), specDirectory);
   if (!existsSync(directory) || !statSync(directory).isDirectory()) {
@@ -45,7 +45,7 @@ export function hasAcceptedContractSources(
 
 export function loadAcceptedContractWithSources(
   repositoryRoot: string,
-  specDirectory = ".tieline/spec"
+  specDirectory = ".tiepoint/spec"
 ): LoadedAcceptedContract {
   const root = resolve(repositoryRoot);
   const directory = resolve(root, specDirectory);
@@ -87,7 +87,7 @@ export function loadAcceptedContractWithSources(
 
 export function loadAcceptedContract(
   repositoryRoot: string,
-  specDirectory = ".tieline/spec"
+  specDirectory = ".tiepoint/spec"
 ): ValidatedContract {
   const { documents, warnings } = loadAcceptedContractWithSources(
     repositoryRoot,

@@ -359,7 +359,7 @@ export function validateSelector(
       ok: false,
       error:
         `unknown selector kind '${segment.kind}'. Known kinds: ${vocabulary.names.join(", ")}. ` +
-        `Declare additional kinds under 'selectors.kinds' in .tieline/config.json.`,
+        `Declare additional kinds under 'selectors.kinds' in .tiepoint/config.json.`,
     };
   }
   return { ok: true, selector: parsed.selector };

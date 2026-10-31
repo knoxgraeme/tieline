@@ -21,7 +21,7 @@ function codeLink(
     scope,
     target: {
       kind: relation === "tests" ? "test" : "code",
-      repository: "tieline",
+      repository: "tiepoint",
       path,
       selector: null,
       framework_hint: null,
@@ -138,7 +138,7 @@ console.log("fake AC graph traversal");
 
 const story: ContractStoryRecord = {
   id: "story-id",
-  repository: "tieline",
+  repository: "tiepoint",
   repository_commit: "abc123",
   capability: {
     stable_id: "CONTRACT",
@@ -190,7 +190,7 @@ const graph = buildContractGraph([story]);
 assert.ok(
   graph.edges.some(
     (edge) =>
-      edge.source === "ac:tieline:STORY-001-AC1" &&
+      edge.source === "ac:tiepoint:STORY-001-AC1" &&
       edge.relation === "tests" &&
       edge.provenance === "authored"
   )
@@ -198,7 +198,7 @@ assert.ok(
 assert.ok(
   graph.edges.some(
     (edge) =>
-      edge.source === "ac:tieline:STORY-001-AC1" &&
+      edge.source === "ac:tiepoint:STORY-001-AC1" &&
       edge.relation === "documents" &&
       edge.provenance === "materialized"
   )
@@ -206,8 +206,8 @@ assert.ok(
 assert.ok(
   graph.edges.some(
     (edge) =>
-      edge.source === "ac:tieline:STORY-001-AC1" &&
-      edge.target === "ac:tieline:STORY-001-AC2" &&
+      edge.source === "ac:tiepoint:STORY-001-AC1" &&
+      edge.target === "ac:tiepoint:STORY-001-AC2" &&
       edge.relation === "superseded_by" &&
       edge.provenance === undefined
   )
@@ -215,12 +215,12 @@ assert.ok(
 
 const fake = new FakeKnowledgeStore({ contractStories: [story] });
 const fetched = await fake.getAcceptanceCriterion({
-  repository: "tieline",
+  repository: "tiepoint",
   stableId: "STORY-001-AC1",
 });
 assert.equal(fetched?.story.stable_id, "STORY-001");
 assert.equal(fetched?.criterion.direct_links[0]?.scope, "direct");
-const fakeGraph = await fake.contractGraph({ repositories: ["tieline"] });
+const fakeGraph = await fake.contractGraph({ repositories: ["tiepoint"] });
 assert.deepEqual(fakeGraph, graph);
 
 console.log("contract read tests passed");

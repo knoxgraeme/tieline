@@ -40,7 +40,7 @@ import {
 } from "../../../src/domain/code-topology-store.js";
 import { report, test } from "../../support/harness.js";
 
-const root = mkdtempSync(join(tmpdir(), "tieline-topology-"));
+const root = mkdtempSync(join(tmpdir(), "tiepoint-topology-"));
 
 function git(args: string[]): string {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -182,8 +182,8 @@ try {
 
   await test("excludes generated topology bytes and enclosing trees from logical identity", async () => {
     const beforeTree = git(["rev-parse", "HEAD^{tree}"]);
-    write(".tieline/topology/graph.json", '{"generated":true}\n');
-    git(["add", ".tieline/topology/graph.json"]);
+    write(".tiepoint/topology/graph.json", '{"generated":true}\n');
+    git(["add", ".tiepoint/topology/graph.json"]);
     git(["commit", "-qm", "generated topology only"]);
     assert.notEqual(git(["rev-parse", "HEAD^{tree}"]), beforeTree);
     const after = await committed();
@@ -493,7 +493,7 @@ try {
   });
 
   await test("a working tree and its commit share selected inputs despite non-code files, links, and nested repositories", async () => {
-    const parity = mkdtempSync(join(tmpdir(), "tieline-topology-parity-"));
+    const parity = mkdtempSync(join(tmpdir(), "tiepoint-topology-parity-"));
     const stores: string[] = [];
     const run = (args: string[]): string =>
       execFileSync("git", args, { cwd: parity, encoding: "utf8" }).trim();
@@ -511,7 +511,7 @@ try {
       put("src/README.md", "# Notes\n");
       put("src/fixtures/data.json", "{}\n");
       put("src/nested/tsconfig.json", "{}\n");
-      put(".tieline/spec/intent.yaml", "version: 1\n");
+      put(".tiepoint/spec/intent.yaml", "version: 1\n");
       put("lib/linked.ts", "export const linked = 1;\n");
       symlinkSync("../lib/linked.ts", join(parity, "src/linked.ts"));
       put("config/js.json", "{}\n");
@@ -540,7 +540,7 @@ try {
       execFileSync("git", ["init", "-q"], { cwd: join(parity, "src/linked-git") });
       execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "add", "."], { cwd: join(parity, "src/linked-git") });
       execFileSync("git", ["-c", "user.email=v@example.test", "-c", "user.name=V", "commit", "-qm", "inner"], { cwd: join(parity, "src/linked-git") });
-      const gitStore = mkdtempSync(join(tmpdir(), "tieline-linked-git-"));
+      const gitStore = mkdtempSync(join(tmpdir(), "tiepoint-linked-git-"));
       stores.push(gitStore);
       renameSync(join(parity, "src/linked-git/.git"), join(gitStore, "git"));
       symlinkSync(join(gitStore, "git"), join(parity, "src/linked-git/.git"));
@@ -561,7 +561,7 @@ try {
         { sourceRoots: ["src", "link/src", "src/vendored", "src/vendored/deeper"], ignore: [] },
         // Equivalent root spellings select the same files on both sides.
         { sourceRoots: ["src/.", "real//src", "real/../real/src/"], ignore: [] },
-        // A broad root whose ignore list omits .tieline must not key Tieline's own output.
+        // A broad root whose ignore list omits .tiepoint must not key Tiepoint's own output.
         { sourceRoots: ["."], ignore: [".git"] },
       ]) {
         const scoped = { repositoryRoot: parity, repository: "fixture/parity", ...scope };
@@ -575,8 +575,8 @@ try {
 
         const before = readWorkspaceTopologySelectedInput(scoped);
         put("src/README.md", "# Edited notes\n");
-        put(".tieline/topology/graph.json", '{"generated":true}\n');
-        put(".tieline/spec/intent.yaml", "version: 1\n# edited intent\n");
+        put(".tiepoint/topology/graph.json", '{"generated":true}\n');
+        put(".tiepoint/spec/intent.yaml", "version: 1\n# edited intent\n");
         const after = readWorkspaceTopologySelectedInput(scoped);
         assert.equal(before.status, "complete");
         assert.equal(after.status, "complete");
@@ -584,8 +584,8 @@ try {
         assert.equal(after.selected_input_digest, before.selected_input_digest, "non-code edits leave the snapshot key unchanged");
         assert.equal(after.selected_input_digest, commit.generation.header.revision);
         put("src/README.md", "# Notes\n");
-        put(".tieline/spec/intent.yaml", "version: 1\n");
-        rmSync(join(parity, ".tieline/topology"), { recursive: true, force: true });
+        put(".tiepoint/spec/intent.yaml", "version: 1\n");
+        rmSync(join(parity, ".tiepoint/topology"), { recursive: true, force: true });
       }
       const rootScope = { repositoryRoot: parity, repository: "fixture/parity", sourceRoots: ["src"], ignore: [] };
       const unchanged = readWorkspaceTopologySelectedInput(rootScope);

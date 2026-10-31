@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import {
   buildPathCriteriaIndex,
   lookupPathCriteria,
@@ -29,7 +29,7 @@ import {
   resolvePathCriteria,
 } from "../../../src/tools/path-criteria.js";
 import type { ToolResult } from "../../../src/tools/shared.js";
-import { tielineConfigJson } from "../../support/fixtures.js";
+import { tiepointConfigJson } from "../../support/fixtures.js";
 
 for (const key of [
   "DATABASE_URL",
@@ -39,16 +39,16 @@ for (const key of [
 ]) {
   delete process.env[key];
 }
-const originalTielineWorkspace = process.env.TIELINE_WORKSPACE;
-delete process.env.TIELINE_WORKSPACE;
+const originalTiepointWorkspace = process.env.TIEPOINT_WORKSPACE;
+delete process.env.TIEPOINT_WORKSPACE;
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function workspaceConfig(): string {
-  return tielineConfigJson({
+  return tiepointConfigJson({
     name: "Path criteria fixture",
     repoName: "path-criteria-fixture",
-    ignore: [".git", ".tieline"],
+    ignore: [".git", ".tiepoint"],
     specDirectory: "spec",
   });
 }
@@ -80,7 +80,7 @@ capability:
             path: src/shared.ts
       acceptance_criteria:
         - key: PATH-CRITERIA-001-AC1
-          criterion: Tieline must return the acceptance criterion that links a path.
+          criterion: Tiepoint must return the acceptance criterion that links a path.
           links:
             - relation: implements
               provenance: authored
@@ -121,7 +121,7 @@ capability:
                 source: docs
                 external_id: path-criteria-guide
         - key: PATH-CRITERIA-001-AC2
-          criterion: Tieline must return every acceptance criterion that links a path.
+          criterion: Tiepoint must return every acceptance criterion that links a path.
           links:
             - relation: implements
               provenance: authored
@@ -153,19 +153,19 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: OTHER-CAPABILITY-001-AC1
-          criterion: Tieline must include the first unqueried contract statement in manifest identity.
+          criterion: Tiepoint must include the first unqueried contract statement in manifest identity.
 `;
 
 function createFixture(withManifest: boolean): {
   root: string;
   manifest: ContractManifest;
 } {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-path-criteria-"));
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-path-criteria-"));
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
-  writeFileSync(resolve(root, ".tieline/config.json"), workspaceConfig());
-  writeFileSync(resolve(root, ".tieline/spec/path-criteria.yaml"), SPEC);
-  writeFileSync(resolve(root, ".tieline/spec/other.yaml"), OTHER_SPEC);
+  writeFileSync(resolve(root, ".tiepoint/config.json"), workspaceConfig());
+  writeFileSync(resolve(root, ".tiepoint/spec/path-criteria.yaml"), SPEC);
+  writeFileSync(resolve(root, ".tiepoint/spec/other.yaml"), OTHER_SPEC);
   writeFileSync(resolve(root, "src/direct.ts"), "export const direct = 1;\n");
   writeFileSync(
     resolve(root, "src/direct.test.ts"),
@@ -183,10 +183,10 @@ function createFixture(withManifest: boolean): {
   const compiled = compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "path-criteria-fixture",
-    specDirectory: ".tieline/spec",
+    specDirectory: ".tiepoint/spec",
   });
   if (withManifest) {
-    writeContractManifest(resolve(root, ".tieline/manifest"), compiled);
+    writeContractManifest(resolve(root, ".tiepoint/manifest"), compiled);
   }
   return { root, manifest: compiled.manifest };
 }
@@ -313,7 +313,7 @@ try {
     story_stable_id: "PATH-CRITERIA-001",
     story_title: "Look up path criteria",
     acceptance_criterion_stable_id: "PATH-CRITERIA-001-AC2",
-    criterion: "Tieline must return every acceptance criterion that links a path.",
+    criterion: "Tiepoint must return every acceptance criterion that links a path.",
     relation: "tests",
     provenance: "authored",
     link_scope: "direct",
@@ -358,13 +358,13 @@ try {
   assert.equal(report.results[4]?.exists, false);
 
   writeFileSync(
-    resolve(root, ".tieline/spec/other.yaml"),
+    resolve(root, ".tiepoint/spec/other.yaml"),
     OTHER_SPEC.replace("first unqueried", "changed unqueried")
   );
   const changedManifest = compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "path-criteria-fixture",
-    specDirectory: ".tieline/spec",
+    specDirectory: ".tiepoint/spec",
   }).manifest;
   const changedReport = lookupPathCriteria({
     manifest: changedManifest,
@@ -387,7 +387,7 @@ try {
   );
 
   let output = "";
-  const io: TielineCliIO = {
+  const io: TiepointCliIO = {
     write(message) {
       output += message;
     },
@@ -515,7 +515,7 @@ try {
   });
   assert.equal(resolved.status, "resolved");
 
-  const stray = mkdtempSync(resolve(tmpdir(), "tieline-path-criteria-nowork-"));
+  const stray = mkdtempSync(resolve(tmpdir(), "tiepoint-path-criteria-nowork-"));
   cleanup.push(stray);
   const withoutWorkspace = resolvePathCriteria({
     paths: ["src/direct.ts"],
@@ -526,7 +526,7 @@ try {
     withoutWorkspace.status === "no_workspace"
       ? withoutWorkspace.message
       : "",
-    /No Tieline workspace was found[\s\S]*tieline init/
+    /No Tiepoint workspace was found[\s\S]*tiepoint init/
   );
 
   const { root: withoutManifest } = createFixture(false);
@@ -549,10 +549,10 @@ try {
     process.chdir(previousCwd);
   }
   assert.equal(strayResult.isError, true);
-  assert.match(strayResult.content[0]?.text ?? "", /No Tieline workspace/);
+  assert.match(strayResult.content[0]?.text ?? "", /No Tiepoint workspace/);
 
   let configuredWorkspaceResult: ToolResult;
-  process.env.TIELINE_WORKSPACE = root;
+  process.env.TIEPOINT_WORKSPACE = root;
   try {
     process.chdir(stray);
     configuredWorkspaceResult = await tool!.handler({
@@ -569,10 +569,10 @@ try {
     manifestDigest(manifest)
   );
 } finally {
-  if (originalTielineWorkspace === undefined) {
-    delete process.env.TIELINE_WORKSPACE;
+  if (originalTiepointWorkspace === undefined) {
+    delete process.env.TIEPOINT_WORKSPACE;
   } else {
-    process.env.TIELINE_WORKSPACE = originalTielineWorkspace;
+    process.env.TIEPOINT_WORKSPACE = originalTiepointWorkspace;
   }
   for (const path of cleanup) {
     rmSync(path, { recursive: true, force: true });

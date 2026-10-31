@@ -481,7 +481,7 @@ function readManifestFile(
   } catch (error) {
     if (errorCode(error) === "ENOENT") {
       throw new ContractManifestError(
-        `The contract manifest is incomplete: ${manifestFileDescription(name)} '${path}' does not exist. Run 'tieline contract compile .' to regenerate it.`
+        `The contract manifest is incomplete: ${manifestFileDescription(name)} '${path}' does not exist. Run 'tiepoint contract compile .' to regenerate it.`
       );
     }
     throw new ContractManifestError(
@@ -555,12 +555,12 @@ function manifestDirectoryEntries(directory: string): string[] {
     const code = errorCode(error);
     if (code === "ENOENT") {
       throw new ContractManifestError(
-        `No compiled contract manifest at '${directory}': the manifest directory does not exist. Run 'tieline contract compile .' to generate it.`
+        `No compiled contract manifest at '${directory}': the manifest directory does not exist. Run 'tiepoint contract compile .' to generate it.`
       );
     }
     if (code === "ENOTDIR") {
       throw new ContractManifestError(
-        `Contract manifest path '${directory}' is a file. Tieline stores the manifest as a directory holding '${CONTRACT_MANIFEST_INDEX_FILE}' and one file per capability. Remove the file and run 'tieline contract compile .'.`
+        `Contract manifest path '${directory}' is a file. Tiepoint stores the manifest as a directory holding '${CONTRACT_MANIFEST_INDEX_FILE}' and one file per capability. Remove the file and run 'tiepoint contract compile .'.`
       );
     }
     throw new ContractManifestError(
@@ -754,17 +754,17 @@ export function readContractManifest(directory: string): ContractManifest {
   return assembleContractManifest(files, {
     fileLabel: (name) => resolve(root, name),
     parseFailure: (name, cause) =>
-      `Cannot parse ${manifestFileDescription(name)} '${resolve(root, name)}': ${cause}. Run 'tieline contract compile .' to regenerate it.`,
+      `Cannot parse ${manifestFileDescription(name)} '${resolve(root, name)}': ${cause}. Run 'tiepoint contract compile .' to regenerate it.`,
     missingIndex: () =>
-      `The contract manifest is incomplete: the contract manifest index '${resolve(root, CONTRACT_MANIFEST_INDEX_FILE)}' does not exist. Run 'tieline contract compile .' to regenerate it.`,
+      `The contract manifest is incomplete: the contract manifest index '${resolve(root, CONTRACT_MANIFEST_INDEX_FILE)}' does not exist. Run 'tiepoint contract compile .' to regenerate it.`,
     shardNameMismatch: (name, stableId, expected) =>
-      `Contract manifest file '${resolve(root, name)}' holds capability '${stableId}', which belongs in '${expected}'. Run 'tieline contract compile .' to regenerate the manifest.`,
+      `Contract manifest file '${resolve(root, name)}' holds capability '${stableId}', which belongs in '${expected}'. Run 'tiepoint contract compile .' to regenerate the manifest.`,
     duplicateInput: (path, claimedBy, stableId) =>
-      `Contract manifest capabilities '${claimedBy}' and '${stableId}' both record spec file '${path}'. Each spec file declares exactly one capability. Run 'tieline contract compile .' to regenerate the manifest.`,
+      `Contract manifest capabilities '${claimedBy}' and '${stableId}' both record spec file '${path}'. Each spec file declares exactly one capability. Run 'tiepoint contract compile .' to regenerate the manifest.`,
     duplicateStableId: (stableId, first, duplicate) =>
-      `Contract manifest duplicate stable ID '${stableId}' is used by ${first.kind} in '${resolve(root, first.shard)}' and ${duplicate.kind} in '${resolve(root, duplicate.shard)}'. Run 'tieline contract compile .' to regenerate the manifest.`,
+      `Contract manifest duplicate stable ID '${stableId}' is used by ${first.kind} in '${resolve(root, first.shard)}' and ${duplicate.kind} in '${resolve(root, duplicate.shard)}'. Run 'tiepoint contract compile .' to regenerate the manifest.`,
     noCapabilities: () =>
-      `The contract manifest at '${root}' has an index but no capabilities. Run 'tieline contract compile .' to regenerate it.`,
+      `The contract manifest at '${root}' has an index but no capabilities. Run 'tiepoint contract compile .' to regenerate it.`,
   });
 }
 

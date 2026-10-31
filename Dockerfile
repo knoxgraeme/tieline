@@ -8,12 +8,12 @@
 # tools, or native ONNX runtime.
 # Final image is ~150MB (base node:slim) and boots in well under a second.
 #
-# Build:   docker build -t tieline .
+# Build:   docker build -t tiepoint .
 # Run behind an authenticated TLS gateway:
 #   docker run --rm -p 3000:3000 \
 #     -e HTTP_HOST=0.0.0.0 -e HTTP_TRUST_PROXY=true \
 #     -e HTTP_ALLOWED_ORIGINS=https://mcp.example.com \
-#     -e DATABASE_URL=... -e DATABASE_URL_WRITE=... tieline
+#     -e DATABASE_URL=... -e DATABASE_URL_WRITE=... tiepoint
 # Health:  GET http://localhost:3000/health   MCP: POST http://localhost:3000/mcp
 # ----------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Optional in-process `local` gte-small embedder. OFF by default to keep the
 # image lean (it pulls ~400MB of native ONNX runtime). Turn on at build time:
-#   docker build --build-arg WITH_LOCAL_EMBEDDER=true -t tieline .
+#   docker build --build-arg WITH_LOCAL_EMBEDDER=true -t tiepoint .
 # Otherwise set EMBEDDING_PROVIDER=openai|supabase-edge at runtime.
 ARG WITH_LOCAL_EMBEDDER=false
 RUN if [ "$WITH_LOCAL_EMBEDDER" = "true" ]; then \

@@ -23,7 +23,7 @@ export const EMBEDDING_DIMENSION = 384;
  * the source-scanning regexes cannot see, and claiming otherwise would
  * manufacture "symbol is missing" findings out of a heuristic's blind spot.
  *
- * This block lives in `.tieline/config.json` alongside the repository's other
+ * This block lives in `.tiepoint/config.json` alongside the repository's other
  * settings and is read leniently: unrelated keys are ignored, and a config with
  * no `selectors` block yields an empty declaration list, so every existing
  * config stays valid.
@@ -57,7 +57,7 @@ export type SelectorConfig = z.infer<typeof selectorConfigSchema>;
 const EMPTY_SELECTOR_CONFIG: SelectorConfig = { kinds: [] };
 
 /**
- * Reads the `selectors` block out of an already-parsed `.tieline/config.json`
+ * Reads the `selectors` block out of an already-parsed `.tiepoint/config.json`
  * value. Takes `unknown` on purpose so it does not couple to the workspace
  * config schema: the declared-kind vocabulary is additive, and a checkout whose
  * config predates it must keep loading.
@@ -71,7 +71,7 @@ export function readSelectorConfig(configValue: unknown): SelectorConfig {
   const parsed = selectorConfigSchema.safeParse(block);
   if (!parsed.success) {
     throw new Error(
-      `Invalid 'selectors' block in Tieline configuration: ${parsed.error.issues
+      `Invalid 'selectors' block in Tiepoint configuration: ${parsed.error.issues
         .map(
           (issue) =>
             `${["selectors", ...issue.path].join(".")}: ${issue.message}`
@@ -198,7 +198,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       env.EMBEDDING_REQUEST_DIMENSIONS !== "0",
     supabaseUrl: env.SUPABASE_URL,
     supabaseAnonKey: env.SUPABASE_ANON_KEY,
-    localEmbedderRoot: env.TIELINE_LOCAL_EMBEDDER_ROOT,
+    localEmbedderRoot: env.TIEPOINT_LOCAL_EMBEDDER_ROOT,
     characterLimit: boundedNumber(
       "CHARACTER_LIMIT",
       env.CHARACTER_LIMIT,

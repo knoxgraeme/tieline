@@ -27,17 +27,17 @@ const FULL_BYTES = 50 * MIB;
 const SYMBOLS_PER_FILE = 20; // 19 declarations plus the synthetic file module.
 const EDGES_PER_FILE = 50;
 const PERSISTENCE_BUDGET_MS = 150_000;
-const enforce = process.env.TIELINE_ENFORCE_RELEASE_BUDGETS === "1";
+const enforce = process.env.TIEPOINT_ENFORCE_RELEASE_BUDGETS === "1";
 const pinnedEnvironment =
   process.platform === "linux" && process.arch === "x64" && process.versions.node.startsWith("20.");
-const requestedScale = Number(process.env.TIELINE_TOPOLOGY_BENCHMARK_SCALE ?? (enforce ? "1" : "0.02"));
+const requestedScale = Number(process.env.TIEPOINT_TOPOLOGY_BENCHMARK_SCALE ?? (enforce ? "1" : "0.02"));
 assert.equal(
   typeof global.gc,
   "function",
   "topology benchmark requires Node --expose-gc so scaling samples cannot contaminate RSS gates"
 );
 if (!Number.isFinite(requestedScale) || requestedScale <= 0 || requestedScale > 1) {
-  throw new Error("TIELINE_TOPOLOGY_BENCHMARK_SCALE must be greater than zero and at most one.");
+  throw new Error("TIEPOINT_TOPOLOGY_BENCHMARK_SCALE must be greater than zero and at most one.");
 }
 if (enforce) {
   assert.ok(pinnedEnvironment, "topology release budget enforcement requires Ubuntu x64 Node 20");
@@ -194,7 +194,7 @@ async function populateWorkspaceCache(
   }));
 }
 
-const repositoryRoot = mkdtempSync(join(tmpdir(), "tieline-topology-benchmark-"));
+const repositoryRoot = mkdtempSync(join(tmpdir(), "tiepoint-topology-benchmark-"));
 const repository = "topology-release-fixture";
 const levelDefinitions: ReadonlyArray<Omit<Level, "files" | "bytes">> = [
   { name: "1x", fraction: 0.25, root: "scale-1/src" },
@@ -210,10 +210,10 @@ const levels: Level[] = levelDefinitions.map((level): Level => ({
 let sql: ReturnType<typeof postgres> | null = null;
 try {
   for (const level of levels) writeLevel(repositoryRoot, level);
-  mkdirSync(join(repositoryRoot, ".tieline/spec"), { recursive: true });
+  mkdirSync(join(repositoryRoot, ".tiepoint/spec"), { recursive: true });
   const full = levels[2]!;
   const densePath = `${full.root}/module-00000.ts`;
-  writeFileSync(join(repositoryRoot, ".tieline/spec/topology.yaml"), `version: 1
+  writeFileSync(join(repositoryRoot, ".tiepoint/spec/topology.yaml"), `version: 1
 capability:
   key: BENCHMARK
   name: Topology benchmark
@@ -227,7 +227,7 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: BENCHMARK-001-AC1
-          criterion: Tieline must return a bounded advisory traversal for the benchmark locator.
+          criterion: Tiepoint must return a bounded advisory traversal for the benchmark locator.
           links:
             - relation: implements
               provenance: authored
@@ -252,10 +252,10 @@ capability:
         encoding: "utf8",
         env: {
           ...process.env,
-          TIELINE_SCALE_REPOSITORY_ROOT: repositoryRoot,
-          TIELINE_SCALE_REPOSITORY: repository,
-          TIELINE_SCALE_SOURCE_ROOT: level.root,
-          TIELINE_SCALE_REVISION: "HEAD",
+          TIEPOINT_SCALE_REPOSITORY_ROOT: repositoryRoot,
+          TIEPOINT_SCALE_REPOSITORY: repository,
+          TIEPOINT_SCALE_SOURCE_ROOT: level.root,
+          TIEPOINT_SCALE_REVISION: "HEAD",
         },
       }
     )) as { files: number; symbols: number; edges: number; elapsed_ms: number; rss_growth_bytes: number };
@@ -329,7 +329,7 @@ capability:
   const manifest = compileContractManifest({
     repositoryRoot,
     repositoryKey: repository,
-    specDirectory: ".tieline/spec",
+    specDirectory: ".tiepoint/spec",
   });
   const denseLocator: CodeTopologyLocator = {
     repository,

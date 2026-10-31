@@ -66,8 +66,8 @@ function artifact(
 }
 
 await test("reports the complete local freshness and locator status matrix", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-"));
-  const outsideRoot = mkdtempSync(resolve(tmpdir(), "tieline-assurance-outside-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-"));
+  const outsideRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-outside-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const source = "export function currentFeature(): void {}\n";
@@ -246,7 +246,7 @@ await test("reports the complete local freshness and locator status matrix", asy
 });
 
 await test("emits owner-aware multi-language evidence and conservative ambiguity", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-structural-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-structural-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const typescript = [
@@ -380,7 +380,7 @@ await test("emits owner-aware multi-language evidence and conservative ambiguity
 });
 
 await test("keeps const function aliases and localizes diagnostics half-open", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-selector-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-selector-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     writeFileSync(
@@ -431,7 +431,7 @@ await test("keeps const function aliases and localizes diagnostics half-open", a
 });
 
 await test("uses exact path spelling for freshness and selector assurance", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-case-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-case-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const source = "export function currentFeature(): void {}\n";
@@ -574,7 +574,7 @@ await test("defers local filesystem initialization for remote-only reads", async
 });
 
 await test("caches file measurement and locator inspection for one request", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-cache-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-cache-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const source = [
@@ -628,7 +628,7 @@ await test("caches file measurement and locator inspection for one request", asy
 });
 
 await test("shares one immutable source read between freshness and locator assurance", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-snapshot-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-snapshot-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const source = "export function sharedSnapshot(): void {}\n";
@@ -665,7 +665,7 @@ await test("shares one immutable source read between freshness and locator assur
 });
 
 await test("disposes only internally owned source snapshot readers", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-disposal-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-disposal-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const firstSource = "export function first(): void {}\n";
@@ -718,7 +718,7 @@ await test("disposes only internally owned source snapshot readers", async () =>
 
 await test("isolates a local inspection failure from readable sibling claims", async () => {
   const source = "export function readable(): void {}\n";
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-assurance-isolation-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-assurance-isolation-"));
   mkdirSync(resolve(root, "src"), { recursive: true });
   writeFileSync(resolve(root, "src/readable.ts"), source);
   const inspector = createArtifactAssuranceInspector({

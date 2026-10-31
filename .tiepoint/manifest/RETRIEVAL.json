@@ -1,0 +1,198 @@
+{
+  "capability": {
+    "aliases": [],
+    "applies_to": null,
+    "contract_hash": "d56b9f1f52c5ccf71ba8021560e4ec006d2fdbb6457f03cbc14a4975618d7d9e",
+    "description": "Callers retrieve exact or semantic business context without confusing production truth and planning material.",
+    "name": "Intent-aware organization search",
+    "stable_id": "RETRIEVAL",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "6b4e090aee8e04600d797347e4d1ad9bd1375b1ab7b5c62a7e28d50584edee51",
+            "criterion": "Tiepoint must return structured Stories with ordered Acceptance Criteria, direct and fallback links, coverage, freshness, lifecycle, and authority.",
+            "links": [
+              {
+                "compiled_content_hash": "b4fb85553cabc8ce7b215216da7ed51396ce2a36a816c63e3d13e1fb240e6be4",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/contract-read-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "064008fbc25df528d469a03551c717b654b1428ad9f3f98e8c0655537426e0fa",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/domain/contract-read-store.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "99cabb02992ae9286949161c41c26b82131472a56593d214c4c3989eb7dc03f6",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/query-stories.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "247a8d08d4b53c005a350c4ac1da2f0fc7274bcf3255582f98dee3fe84e03c64",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/tools/schemas/query-stories.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "9588c406d2b7c9658e540a3aa449612d9e8f0ea83029bdef8b1a5d8276a3099f",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/types.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "d068071754df7ef38d9ef180874dea2a763a6dbf9b2d64aa1550ff4c6f89c8f6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/retrieval/test-contract-read.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [],
+            "stable_id": "RETRIEVAL-001-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "business or engineering teammate",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "answers stay grounded in the most specific known contract",
+        "contract_hash": "ef7e810f3a2f2974d71558f462f290fb2b7cbe5d663bc9bb3a5718bc9192f0b3",
+        "goal": "inspect behavior with its evidence and state",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "RETRIEVAL-001",
+        "supersedes": null,
+        "title": "Retrieve Stories through their Acceptance Criteria"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0faa1535805ae4a2f52758d91b162755b7654599b0c3f7b04ad4537dd9421de8",
+            "criterion": "Tiepoint must resolve a versioned retrieval profile before cross-type search and allow caller filters only to narrow it.",
+            "links": [
+              {
+                "compiled_content_hash": "2cbc4f84eddb2efc8a06c143e5279ae85304799b74b0b5074779a4c326600c34",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/adapters/postgres/profile-repository.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "17710e74ff29c6d3501b4f4074b0f3ebe7819f34fa020ddfe3330c344d64350c",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/profile.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "0db770e5df0e5168cf325f1b87ddb870cfd1eaef39745fd588b99572d06dce78",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/resources.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "6954dd4a2e8618d2ae1abe1aa6ca6e69b19cc3d0910ca248a29f49d029cca003",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/integration/integration-evidence.ts",
+                  "repository": "tieline"
+                }
+              },
+              {
+                "compiled_content_hash": "74fca1a34acf1535c8f5bc565b2b3bc4abe32898cb24a503226f50a3186cfcb8",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/smoke/smoke.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "the support profile excludes planning authority",
+                "position": 0,
+                "stable_id": "RETRIEVAL-002-AC1-S1",
+                "then": "Tiepoint must search only the repository intersection",
+                "when": "a caller requests both planning and repository authority"
+              }
+            ],
+            "stable_id": "RETRIEVAL-002-AC1",
+            "supersedes": null
+          }
+        ],
+        "actor": "MCP consumer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "the result state is clear without permanently hiding useful records",
+        "contract_hash": "3cb1eb10c904159262f034ea5af44f4fac0819f4881399d542a7e87722353e75",
+        "goal": "choose production, engineering, discovery, or full authorized context",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "RETRIEVAL-002",
+        "supersedes": null,
+        "title": "Select an explicit retrieval intent"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tiepoint/spec/retrieval.yaml",
+    "sha256": "ae3f69f0eb62a177fd3552b22f72549e4f40ab7945b837e56fb28edee3294ffa"
+  }
+}

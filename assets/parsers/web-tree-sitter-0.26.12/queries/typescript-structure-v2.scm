@@ -1,4 +1,4 @@
-; Tieline TypeScript/TSX syntax facts. Keep every declaration name field-qualified.
+; Tiepoint TypeScript/TSX syntax facts. Keep every declaration name field-qualified.
 (function_declaration
   name: (identifier) @symbol.name) @symbol.declaration
 

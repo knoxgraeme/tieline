@@ -1,0 +1,30 @@
+# For a consumer repository with Tiepoint pinned in its npm lockfile.
+# Pair with manifest_mode: post_merge and the pre-merge checks documented below.
+name: Refresh Tiepoint manifest
+on:
+  push:
+    branches: [main] # Set this to the integration branch, e.g. env/staging.
+    paths-ignore:
+      - '.tiepoint/manifest/**'
+permissions:
+  contents: write
+concurrency:
+  group: tiepoint-manifest-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Publish generated manifest for the current integration tip
+        env:
+          TIEPOINT_BRANCH: ${{ github.ref_name }}
+        run: npx --no-install tiepoint contract refresh-manifest . --branch "$TIEPOINT_BRANCH" --json

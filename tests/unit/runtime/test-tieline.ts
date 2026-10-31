@@ -16,38 +16,38 @@ import {
   renderStatus,
   runCli,
   workspaceStartForCommand,
-  type TielineCliIO,
+  type TiepointCliIO,
 } from "../../../src/cli.js";
 import { createPalette } from "../../../src/cli-ui.js";
 import {
   detectRepositoryName,
   normalizeContextLocations,
-} from "../../../src/tieline/init.js";
+} from "../../../src/tiepoint/init.js";
 import {
   loadWorkspaceProfileForCommand,
   loadWorkspaceProfile,
   readWorkspaceProfile,
-} from "../../../src/tieline/profile.js";
-import { configureWorkspaceRuntime } from "../../../src/tieline/setup.js";
+} from "../../../src/tiepoint/profile.js";
+import { configureWorkspaceRuntime } from "../../../src/tiepoint/setup.js";
 import {
   detectRepositoryAgents,
   type SkillfishInvocation,
   type SkillfishProcessResult,
-} from "../../../src/tieline/skill-install.js";
-import type { TielineStatus } from "../../../src/tieline/status.js";
+} from "../../../src/tiepoint/skill-install.js";
+import type { TiepointStatus } from "../../../src/tiepoint/status.js";
 import {
-  findTielineWorkspace,
-  type TielineWorkspace,
-} from "../../../src/tieline/workspace.js";
+  findTiepointWorkspace,
+  type TiepointWorkspace,
+} from "../../../src/tiepoint/workspace.js";
 
 const runningPackageVersion = (
   JSON.parse(
     readFileSync(resolve(process.cwd(), "package.json"), "utf8")
   ) as { version: string }
 ).version;
-const runningPackageSpec = `tieline@${runningPackageVersion}`;
+const runningPackageSpec = `tiepoint@${runningPackageVersion}`;
 
-function io(): { adapter: TielineCliIO; output: string[] } {
+function io(): { adapter: TiepointCliIO; output: string[] } {
   const output: string[] = [];
   return {
     output,
@@ -69,7 +69,7 @@ interface InteractiveResponses {
 }
 
 function interactiveIo(responses: InteractiveResponses): {
-  adapter: TielineCliIO;
+  adapter: TiepointCliIO;
   output: string[];
   prompts: string[];
   choices: Record<string, readonly { value: string; label: string }[]>;
@@ -114,7 +114,7 @@ function interactiveIo(responses: InteractiveResponses): {
           prompts.push(`${title}: ${message}`);
         },
       },
-    } as TielineCliIO,
+    } as TiepointCliIO,
   };
 }
 
@@ -140,7 +140,7 @@ function successfulSkillfish(
       exit_code: 0,
       errors: [],
       installed: selectors.map((agent) => ({
-        skill: "tieline",
+        skill: "tiepoint",
         agent,
         path: `/test/${agent}`,
       })),
@@ -189,7 +189,7 @@ assert.equal(
   "/tmp/example-repo"
 );
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-workspace-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-workspace-"));
 try {
   const remoteTarget = resolve(root, "Remote Checkout");
   mkdirSync(remoteTarget, { recursive: true });
@@ -237,16 +237,16 @@ try {
     runCli(
       ["init", validationTarget, "--yes", "--provision-roles"],
       io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "validation-config") }
     ),
     /--provision-roles requires --database existing/
   );
-  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+  assert.equal(existsSync(resolve(validationTarget, ".tiepoint")), false);
   await assert.rejects(
     runCli(
       ["init", validationTarget, "--yes", "--skill-scope", "project"],
       io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "validation-config") }
     ),
     /requires.*--agent/i
   );
@@ -262,11 +262,11 @@ try {
         "project",
       ],
       io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "validation-config") }
     ),
     /unsupported agent/i
   );
-  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+  assert.equal(existsSync(resolve(validationTarget, ".tiepoint")), false);
 
   await assert.rejects(
     runCli(
@@ -281,11 +281,11 @@ try {
         "--skip-skill-install",
       ],
       io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "validation-config") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "validation-config") }
     ),
     /skip-skill-install.*cannot be combined/i
   );
-  assert.equal(existsSync(resolve(validationTarget, ".tieline")), false);
+  assert.equal(existsSync(resolve(validationTarget, ".tiepoint")), false);
 
   const invalidContextTarget = resolve(root, "Invalid Context Checkout");
   mkdirSync(resolve(invalidContextTarget, "src"), { recursive: true });
@@ -293,11 +293,11 @@ try {
     runCli(
       ["init", invalidContextTarget, "--yes", "--context", "product.md"],
       io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "invalid-context-config") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "invalid-context-config") }
     ),
     /existing repository path or explicit HTTP\(S\) URL: product\.md/
   );
-  assert.equal(existsSync(resolve(invalidContextTarget, ".tieline")), false);
+  assert.equal(existsSync(resolve(invalidContextTarget, ".tiepoint")), false);
   assert.throws(
     () =>
       normalizeContextLocations(invalidContextTarget, ["mcpmarket.com/hub"]),
@@ -331,11 +331,11 @@ try {
         "--skip-skill-install",
       ],
       io().adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "repository-context-config") }
+      { TIEPOINT_CONFIG_HOME: resolve(root, "repository-context-config") }
     ),
     0
   );
-  const repositoryContextWorkspace = findTielineWorkspace(
+  const repositoryContextWorkspace = findTiepointWorkspace(
     repositoryContextTarget
   );
   assert.ok(repositoryContextWorkspace);
@@ -373,15 +373,15 @@ try {
         "https://mcpmarket.com/hub",
       ],
       interactive.adapter,
-      { TIELINE_CONFIG_HOME: interactiveConfigHome },
+      { TIEPOINT_CONFIG_HOME: interactiveConfigHome },
       {
         skillfishRunner: async (invocation) => {
           interactiveInvocations.push(invocation);
-          const currentWorkspace = findTielineWorkspace(interactiveTarget);
+          const currentWorkspace = findTiepointWorkspace(interactiveTarget);
           assert.ok(currentWorkspace, "workspace must exist before Skillfish runs");
           assert.ok(
             readWorkspaceProfile(currentWorkspace, {
-              TIELINE_CONFIG_HOME: interactiveConfigHome,
+              TIEPOINT_CONFIG_HOME: interactiveConfigHome,
             }),
             "runtime profile must exist before Skillfish runs"
           );
@@ -401,7 +401,7 @@ try {
     0
   );
   assert.equal(interactiveInvocations.length, 1);
-  const interactiveWorkspace = findTielineWorkspace(interactiveTarget);
+  const interactiveWorkspace = findTiepointWorkspace(interactiveTarget);
   assert.ok(interactiveWorkspace);
   assert.equal(
     interactiveWorkspace.config.product.name,
@@ -424,7 +424,7 @@ try {
   );
   assert.equal(
     interactive.prompts[0],
-    "Where should Tieline install its onboarding and authoring skill?",
+    "Where should Tiepoint install its onboarding and authoring skill?",
     "the agent selector must be the only interactive question"
   );
   assert.equal(
@@ -452,7 +452,7 @@ try {
   );
   assert.match(
     interactiveOutput,
-    /Skill: tieline installed for Codex and Claude Code/
+    /Skill: tiepoint installed for Codex and Claude Code/
   );
   assert.doesNotMatch(
     interactiveOutput,
@@ -461,7 +461,7 @@ try {
   );
   assert.match(
     interactiveOutput,
-    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
+    /Next steps\n {2}1\. Restart or reload your agent\.\n {2}2\. Ask your agent to use the installed tiepoint skill to onboard this repository\. In Claude Code, run \/tiepoint; in Codex, run \$tiepoint\./
   );
 
   const cancelledTarget = resolve(root, "Cancelled Checkout");
@@ -474,11 +474,11 @@ try {
   });
   await assert.rejects(
     runCli(["init", cancelledTarget], cancelled.adapter, {
-      TIELINE_CONFIG_HOME: resolve(root, "cancelled-config"),
+      TIEPOINT_CONFIG_HOME: resolve(root, "cancelled-config"),
     }),
     /Cancelled/
   );
-  assert.equal(existsSync(resolve(cancelledTarget, ".tieline")), false);
+  assert.equal(existsSync(resolve(cancelledTarget, ".tiepoint")), false);
 
   const noAgentTarget = resolve(root, "No Agent Checkout");
   mkdirSync(resolve(noAgentTarget, "src"), { recursive: true });
@@ -490,12 +490,12 @@ try {
   });
   await assert.rejects(
     runCli(["init", noAgentTarget], noAgent.adapter, {
-      TIELINE_CONFIG_HOME: resolve(root, "no-agent-config"),
+      TIEPOINT_CONFIG_HOME: resolve(root, "no-agent-config"),
     }),
     /select at least one agent/i
   );
   assert.equal(
-    existsSync(resolve(noAgentTarget, ".tieline")),
+    existsSync(resolve(noAgentTarget, ".tiepoint")),
     false,
     "an empty agent choice must stop before workspace mutation"
   );
@@ -519,15 +519,15 @@ try {
         "global",
       ],
       automated.adapter,
-      { TIELINE_CONFIG_HOME: automatedConfigHome },
+      { TIEPOINT_CONFIG_HOME: automatedConfigHome },
       {
         skillfishRunner: async (invocation) => {
           automatedCalls++;
-          const currentWorkspace = findTielineWorkspace(automatedTarget);
+          const currentWorkspace = findTiepointWorkspace(automatedTarget);
           assert.ok(currentWorkspace);
           assert.ok(
             readWorkspaceProfile(currentWorkspace, {
-              TIELINE_CONFIG_HOME: automatedConfigHome,
+              TIEPOINT_CONFIG_HOME: automatedConfigHome,
             })
           );
           return successfulSkillfish(invocation);
@@ -540,9 +540,9 @@ try {
   assert.equal(automatedCalls, 1);
   assert.match(
     automated.output.join(""),
-    /Skill: tieline installed for Codex/
+    /Skill: tiepoint installed for Codex/
   );
-  const automatedWorkspace = findTielineWorkspace(automatedTarget);
+  const automatedWorkspace = findTiepointWorkspace(automatedTarget);
   assert.ok(automatedWorkspace);
   const automatedConfig = readFileSync(automatedWorkspace.configPath, "utf8");
   const alreadyPresent = io();
@@ -558,7 +558,7 @@ try {
         "global",
       ],
       alreadyPresent.adapter,
-      { TIELINE_CONFIG_HOME: automatedConfigHome },
+      { TIEPOINT_CONFIG_HOME: automatedConfigHome },
       {
         skillfishRunner: async () => ({
           code: 0,
@@ -569,7 +569,7 @@ try {
             installed: [],
             skipped: [
               {
-                skill: "tieline",
+                skill: "tiepoint",
                 agent: "Codex",
                 reason: "Already exists",
               },
@@ -585,7 +585,7 @@ try {
   );
   assert.match(
     alreadyPresent.output.join(""),
-    /Skill: tieline already present for Codex/
+    /Skill: tiepoint already present for Codex/
   );
   assert.equal(
     readFileSync(automatedWorkspace.configPath, "utf8"),
@@ -611,7 +611,7 @@ try {
         "project",
       ],
       failed.adapter,
-      { TIELINE_CONFIG_HOME: failedConfigHome },
+      { TIEPOINT_CONFIG_HOME: failedConfigHome },
       {
         skillfishRunner: async () => ({
           code: 7,
@@ -629,11 +629,11 @@ try {
     ),
     1
   );
-  const failedWorkspace = findTielineWorkspace(failedTarget);
+  const failedWorkspace = findTiepointWorkspace(failedTarget);
   assert.ok(failedWorkspace);
   assert.ok(
     readWorkspaceProfile(failedWorkspace, {
-      TIELINE_CONFIG_HOME: failedConfigHome,
+      TIEPOINT_CONFIG_HOME: failedConfigHome,
     })
   );
   const failedOutput = failed.output.join("");
@@ -641,11 +641,11 @@ try {
   assert.match(failedOutput, /installation incomplete/i);
   assert.match(
     failedOutput,
-    /Codex registration failed \(codex mcp add exited with code 3\); run: codex mcp add tieline --env/
+    /Codex registration failed \(codex mcp add exited with code 3\); run: codex mcp add tiepoint --env/
   );
   assert.match(
     failedOutput,
-    /Retry the install by running:\n\n─+\nnpx -y tieline@latest init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
+    /Retry the install by running:\n\n─+\nnpx -y tiepoint@latest init .*Failed Install Checkout.*--yes --agent codex --skill-scope project\n─+/
   );
   assert.doesNotMatch(failedOutput, /private nested output|Agent handoff prompt/);
 
@@ -684,7 +684,7 @@ try {
         "windsurf",
       ],
       mcpMerge.adapter,
-      { TIELINE_CONFIG_HOME: mcpMergeConfigHome },
+      { TIEPOINT_CONFIG_HOME: mcpMergeConfigHome },
       {
         skillfishRunner: successfulSkillfish,
         mcpCliRunner: async (invocation) => {
@@ -700,26 +700,26 @@ try {
   assert.deepEqual(codexInvocations[0]!.args, [
     "mcp",
     "add",
-    "tieline",
+    "tiepoint",
     "--env",
-    `TIELINE_WORKSPACE=${mcpMergeTarget}`,
+    `TIEPOINT_WORKSPACE=${mcpMergeTarget}`,
     "--",
     "npx",
     "-y",
     runningPackageSpec,
     "serve",
   ]);
-  const tielineServerEntry = {
+  const tiepointServerEntry = {
     command: "npx",
     args: ["-y", runningPackageSpec, "serve"],
-    env: { TIELINE_WORKSPACE: "." },
+    env: { TIEPOINT_WORKSPACE: "." },
   };
   assert.deepEqual(
     JSON.parse(readFileSync(resolve(mcpMergeTarget, ".mcp.json"), "utf8")),
     {
       mcpServers: {
         other: { command: "other-server" },
-        tieline: tielineServerEntry,
+        tiepoint: tiepointServerEntry,
       },
     },
     "registration must preserve unrelated MCP servers"
@@ -728,7 +728,7 @@ try {
     JSON.parse(
       readFileSync(resolve(mcpMergeTarget, ".cursor/mcp.json"), "utf8")
     ),
-    { mcpServers: { tieline: tielineServerEntry } }
+    { mcpServers: { tiepoint: tiepointServerEntry } }
   );
   assert.deepEqual(
     JSON.parse(
@@ -736,7 +736,7 @@ try {
     ),
     {
       servers: {
-        tieline: { ...tielineServerEntry, type: "stdio" },
+        tiepoint: { ...tiepointServerEntry, type: "stdio" },
       },
     }
   );
@@ -744,7 +744,7 @@ try {
     JSON.parse(
       readFileSync(resolve(mcpMergeTarget, ".gemini/settings.json"), "utf8")
     ),
-    { mcpServers: { tieline: tielineServerEntry } }
+    { mcpServers: { tiepoint: tiepointServerEntry } }
   );
   assert.deepEqual(
     JSON.parse(
@@ -752,11 +752,11 @@ try {
     ),
     {
       mcp: {
-        tieline: {
+        tiepoint: {
           type: "local",
           command: ["npx", "-y", runningPackageSpec, "serve"],
           enabled: true,
-          environment: { TIELINE_WORKSPACE: "." },
+          environment: { TIEPOINT_WORKSPACE: "." },
         },
       },
     }
@@ -764,7 +764,7 @@ try {
   const mcpMergeOutput = mcpMerge.output.join("");
   assert.match(
     mcpMergeOutput,
-    /Skill: tieline installed for Cursor, Codex, GitHub Copilot, Gemini CLI, OpenCode, and Windsurf/,
+    /Skill: tiepoint installed for Cursor, Codex, GitHub Copilot, Gemini CLI, OpenCode, and Windsurf/,
     "--agent without --skill-scope must default to the project scope"
   );
   assert.match(mcpMergeOutput, /MCP: configured/);
@@ -784,7 +784,7 @@ try {
       ["init", mcpMergeTarget, "--yes", "--skip-skill-install"],
       mcpRepeat.adapter,
       {
-        TIELINE_CONFIG_HOME: mcpMergeConfigHome,
+        TIEPOINT_CONFIG_HOME: mcpMergeConfigHome,
       }
     ),
     0
@@ -800,9 +800,9 @@ try {
     resolve(mcpMergeTarget, ".cursor/mcp.json"),
     JSON.stringify({
       mcpServers: {
-        tieline: {
-          ...tielineServerEntry,
-          args: ["-y", "tieline@0.0.0", "serve"],
+        tiepoint: {
+          ...tiepointServerEntry,
+          args: ["-y", "tiepoint@0.0.0", "serve"],
         },
       },
     })
@@ -811,11 +811,11 @@ try {
     resolve(mcpMergeTarget, "opencode.json"),
     JSON.stringify({
       mcp: {
-        tieline: {
+        tiepoint: {
           type: "local",
-          command: ["npx", "-y", "tieline@0.0.0", "serve"],
+          command: ["npx", "-y", "tiepoint@0.0.0", "serve"],
           enabled: true,
-          environment: { TIELINE_WORKSPACE: "." },
+          environment: { TIEPOINT_WORKSPACE: "." },
         },
       },
     })
@@ -824,7 +824,7 @@ try {
     await runCli(
       ["init", mcpMergeTarget, "--yes", "--skip-skill-install"],
       io().adapter,
-      { TIELINE_CONFIG_HOME: mcpMergeConfigHome }
+      { TIEPOINT_CONFIG_HOME: mcpMergeConfigHome }
     ),
     0
   );
@@ -832,18 +832,18 @@ try {
     JSON.parse(
       readFileSync(resolve(mcpMergeTarget, ".cursor/mcp.json"), "utf8")
     ),
-    { mcpServers: { tieline: tielineServerEntry } },
+    { mcpServers: { tiepoint: tiepointServerEntry } },
     "re-running init refreshes an existing repository-local client pin"
   );
   assert.deepEqual(
     JSON.parse(readFileSync(resolve(mcpMergeTarget, "opencode.json"), "utf8")),
     {
       mcp: {
-        tieline: {
+        tiepoint: {
           type: "local",
           command: ["npx", "-y", runningPackageSpec, "serve"],
           enabled: true,
-          environment: { TIELINE_WORKSPACE: "." },
+          environment: { TIEPOINT_WORKSPACE: "." },
         },
       },
     },
@@ -873,7 +873,7 @@ try {
         "--skip-skill-install",
       ],
       mcpInvalid.adapter,
-      { TIELINE_CONFIG_HOME: resolve(root, "mcp-invalid-config") },
+      { TIEPOINT_CONFIG_HOME: resolve(root, "mcp-invalid-config") },
       {
         skillfishRunner: async () => {
           throw new Error("--yes without agents must not invoke Skillfish");
@@ -890,7 +890,7 @@ try {
   assert.equal(
     readFileSync(resolve(mcpInvalidTarget, ".vscode/mcp.json"), "utf8"),
     unrelatedVsCodeConfig,
-    "init must not register Tieline with an unselected client"
+    "init must not register Tiepoint with an unselected client"
   );
   assert.match(
     mcpInvalid.output.join(""),
@@ -923,7 +923,7 @@ try {
       ],
       first.adapter,
       {
-        TIELINE_CONFIG_HOME: configHome,
+        TIEPOINT_CONFIG_HOME: configHome,
         EMBEDDING_PROVIDER: "hash",
       },
       {
@@ -934,19 +934,19 @@ try {
     ),
     0
   );
-  const workspace = findTielineWorkspace(target);
+  const workspace = findTiepointWorkspace(target);
   assert.ok(workspace);
   assert.equal(workspace.config.product.repo_name, "example-repository");
   assert.equal(workspace.config.context.sources[0]?.type, "description");
   assert.ok(statSync(workspace.specDirectoryPath).isDirectory());
   assert.ok(existsSync(resolve(target, ".mcp.json")));
-  assert.equal(existsSync(resolve(target, ".tieline/mcp.json")), false);
+  assert.equal(existsSync(resolve(target, ".tiepoint/mcp.json")), false);
 
   for (const obsolete of [
-    ".tieline/drafts",
-    ".tieline/stories.draft.json",
-    ".tieline/coverage.json",
-    ".tieline/AGENT_HANDOFF.md",
+    ".tiepoint/drafts",
+    ".tiepoint/stories.draft.json",
+    ".tiepoint/coverage.json",
+    ".tiepoint/AGENT_HANDOFF.md",
   ]) {
     assert.equal(existsSync(resolve(target, obsolete)), false, obsolete);
   }
@@ -962,30 +962,30 @@ try {
     JSON.parse(readFileSync(resolve(target, ".mcp.json"), "utf8")),
     {
       mcpServers: {
-        tieline: {
+        tiepoint: {
           command: "npx",
           args: ["-y", runningPackageSpec, "serve"],
-          env: { TIELINE_WORKSPACE: "." },
+          env: { TIEPOINT_WORKSPACE: "." },
         },
       },
     }
   );
   const reviewPage = readFileSync(
-    resolve(target, ".tieline/review.html"),
+    resolve(target, ".tiepoint/review.html"),
     "utf8"
   );
   assert.match(reviewPage, /No capabilities yet/);
   assert.match(
     reviewPage,
-    /Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
+    /Ask your agent to use the installed tiepoint skill to onboard this repository\. In Claude Code, run \/tiepoint; in Codex, run \$tiepoint\./
   );
   assert.equal(
-    readFileSync(resolve(target, ".tieline/.gitignore"), "utf8"),
+    readFileSync(resolve(target, ".tiepoint/.gitignore"), "utf8"),
     "review.html\n"
   );
   const firstOutput = first.output.join("");
   assert.match(firstOutput, /MCP: configured/);
-  assert.match(firstOutput, /Workspace: ready at \.tieline\//);
+  assert.match(firstOutput, /Workspace: ready at \.tiepoint\//);
   assert.doesNotMatch(
     firstOutput,
     new RegExp(target.replaceAll("\\", "\\\\")),
@@ -999,14 +999,14 @@ try {
   assert.match(firstOutput, /skill: not installed/i);
   assert.match(
     firstOutput,
-    /Install the tieline skill by running:\n\n─+\nnpx -y tieline@latest init \.\n─+/
+    /Install the tiepoint skill by running:\n\n─+\nnpx -y tiepoint@latest init \.\n─+/
   );
   assert.doesNotMatch(firstOutput, /Warning \[/);
   assert.doesNotMatch(firstOutput, /Agent handoff prompt:/);
   assert.doesNotMatch(firstOutput, /otherwise continue directly from this brief/i);
 
   const stored = readWorkspaceProfile(workspace, {
-    TIELINE_CONFIG_HOME: configHome,
+    TIEPOINT_CONFIG_HOME: configHome,
   });
   assert.ok(stored);
   assert.equal(stored.profile.env.EMBEDDING_PROVIDER, "hash");
@@ -1021,7 +1021,7 @@ try {
   }
 
   const explicitEnv: NodeJS.ProcessEnv = {
-    TIELINE_CONFIG_HOME: configHome,
+    TIEPOINT_CONFIG_HOME: configHome,
     EMBEDDING_PROVIDER: "openai",
   };
   const loaded = loadWorkspaceProfile(target, explicitEnv);
@@ -1034,7 +1034,7 @@ try {
     await runCli(
       ["init", target, "--yes", "--skip-skill-install"],
       second.adapter,
-      { TIELINE_CONFIG_HOME: configHome }
+      { TIEPOINT_CONFIG_HOME: configHome }
     ),
     0
   );
@@ -1051,7 +1051,7 @@ try {
     await runCli(
       ["init", target],
       existingInteractive.adapter,
-      { TIELINE_CONFIG_HOME: configHome },
+      { TIEPOINT_CONFIG_HOME: configHome },
       {
         skillfishRunner: async (invocation) => {
           existingInstallCalls++;
@@ -1083,7 +1083,7 @@ try {
   const unconfiguredStatus = io();
   assert.equal(
     await runCli(["status", target, "--json"], unconfiguredStatus.adapter, {
-      TIELINE_CONFIG_HOME: freshConfigHome,
+      TIEPOINT_CONFIG_HOME: freshConfigHome,
       DATABASE_URL: " ",
       DATABASE_URL_WRITE: " ",
     }),
@@ -1112,13 +1112,13 @@ try {
   const pendingOnboardingInit = io();
   await assert.rejects(
     runCli(["init", target, "--yes"], pendingOnboardingInit.adapter, {
-      TIELINE_CONFIG_HOME: freshConfigHome,
+      TIEPOINT_CONFIG_HOME: freshConfigHome,
     }),
     /non-interactive init requires.*--agent.*--skip-skill-install/i
   );
   assert.equal(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: freshConfigHome,
+      TIEPOINT_CONFIG_HOME: freshConfigHome,
     }),
     null,
     "an existing onboarding workspace must reject before writing a local profile"
@@ -1130,7 +1130,7 @@ try {
       ["init", target, "--yes", "--skip-skill-install"],
       resumed.adapter,
       {
-        TIELINE_CONFIG_HOME: freshConfigHome,
+        TIEPOINT_CONFIG_HOME: freshConfigHome,
       }
     ),
     0
@@ -1138,20 +1138,20 @@ try {
   assert.doesNotMatch(resumed.output.join(""), /Mode:|Runtime:|Code scope:/);
   assert.ok(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: freshConfigHome,
+      TIEPOINT_CONFIG_HOME: freshConfigHome,
     })?.profile.runtime.setup_completed_at
   );
 
   const status = io();
   assert.equal(
     await runCli(["status", target, "--json"], status.adapter, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     }),
     0
   );
   const parsedStatus = JSON.parse(
     status.output.join("")
-  ) as TielineStatus;
+  ) as TiepointStatus;
   assert.equal(parsedStatus.runtime.profile_present, true);
   assert.equal(parsedStatus.runtime.setup_complete, true);
   assert.equal(parsedStatus.runtime.cli_version, runningPackageVersion);
@@ -1172,14 +1172,14 @@ try {
   assert.equal(parsedStatus.contract.acceptance_criteria, 0);
   assert.equal(
     parsedStatus.next_action,
-    "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline."
+    "Ask your agent to use the installed tiepoint skill to onboard this repository. In Claude Code, run /tiepoint; in Codex, run $tiepoint."
   );
   assert.deepEqual(parsedStatus.onboarding, {
     required: true,
-    skill: "tieline",
+    skill: "tiepoint",
     instruction:
-      "Ask your agent to use the installed tieline skill to onboard this repository. In Claude Code, run /tieline; in Codex, run $tieline.",
-    install_command: "npx -y tieline@latest init .",
+      "Ask your agent to use the installed tiepoint skill to onboard this repository. In Claude Code, run /tiepoint; in Codex, run $tiepoint.",
+    install_command: "npx -y tiepoint@latest init .",
   });
   assert.equal("agent_onboarding_prompt" in parsedStatus, false);
 
@@ -1187,52 +1187,52 @@ try {
     resolve(target, ".mcp.json"),
     "utf8"
   );
-  const readJsonStatus = async (): Promise<TielineStatus> => {
+  const readJsonStatus = async (): Promise<TiepointStatus> => {
     const statusIo = io();
     assert.equal(
       await runCli(["status", target, "--json"], statusIo.adapter, {
-        TIELINE_CONFIG_HOME: configHome,
+        TIEPOINT_CONFIG_HOME: configHome,
       }),
       0
     );
-    return JSON.parse(statusIo.output.join("")) as TielineStatus;
+    return JSON.parse(statusIo.output.join("")) as TiepointStatus;
   };
   const diagnosticCases = [
     {
       name: "mismatched exact version",
-      args: ["-y", "tieline@0.0.0", "serve"],
+      args: ["-y", "tiepoint@0.0.0", "serve"],
       expected: {
         path: ".mcp.json",
-        package_spec: "tieline@0.0.0",
+        package_spec: "tiepoint@0.0.0",
         package_version: "0.0.0",
         version_status: "mismatch",
       },
-      rendered: /mcp=tieline@0\.0\.0 \(mismatch\)/,
+      rendered: /mcp=tiepoint@0\.0\.0 \(mismatch\)/,
     },
     {
       name: "legacy bare package",
-      args: ["-y", "tieline", "serve"],
+      args: ["-y", "tiepoint", "serve"],
       expected: {
         path: ".mcp.json",
-        package_spec: "tieline",
+        package_spec: "tiepoint",
         package_version: null,
         version_status: "unpinned",
       },
-      rendered: /mcp=tieline \(unpinned\)/,
+      rendered: /mcp=tiepoint \(unpinned\)/,
     },
     {
       name: "npm tag",
-      args: ["-y", "tieline@latest", "serve"],
+      args: ["-y", "tiepoint@latest", "serve"],
       expected: {
         path: ".mcp.json",
-        package_spec: "tieline@latest",
+        package_spec: "tiepoint@latest",
         package_version: null,
         version_status: "unpinned",
       },
-      rendered: /mcp=tieline@latest \(unpinned\)/,
+      rendered: /mcp=tiepoint@latest \(unpinned\)/,
     },
     {
-      name: "Tieline argument to another npx package",
+      name: "Tiepoint argument to another npx package",
       args: ["-y", "some-wrapper", runningPackageSpec],
       expected: {
         path: ".mcp.json",
@@ -1244,18 +1244,18 @@ try {
     },
     {
       name: "explicit long package option",
-      args: ["--package=tieline@0.0.0", "tieline", "serve"],
+      args: ["--package=tiepoint@0.0.0", "tiepoint", "serve"],
       expected: {
         path: ".mcp.json",
-        package_spec: "tieline@0.0.0",
+        package_spec: "tiepoint@0.0.0",
         package_version: "0.0.0",
         version_status: "mismatch",
       },
-      rendered: /mcp=tieline@0\.0\.0 \(mismatch\)/,
+      rendered: /mcp=tiepoint@0\.0\.0 \(mismatch\)/,
     },
     {
       name: "explicit short package option",
-      args: ["-p", runningPackageSpec, "tieline", "serve"],
+      args: ["-p", runningPackageSpec, "tiepoint", "serve"],
       expected: {
         path: ".mcp.json",
         package_spec: runningPackageSpec,
@@ -1272,7 +1272,7 @@ try {
       resolve(target, ".mcp.json"),
       JSON.stringify({
         mcpServers: {
-          tieline: { command: "npx", args: diagnosticCase.args },
+          tiepoint: { command: "npx", args: diagnosticCase.args },
         },
       })
     );
@@ -1295,7 +1295,7 @@ try {
     openCodeConfigPath,
     JSON.stringify({
       mcp: {
-        tieline: {
+        tiepoint: {
           type: "local",
           command: ["npx", "-y", runningPackageSpec, "serve"],
         },
@@ -1321,7 +1321,7 @@ try {
     openCodeConfigPath,
     JSON.stringify({
       mcp: {
-        tieline: {
+        tiepoint: {
           type: "local",
           command: ["npx", "-y", "some-wrapper", runningPackageSpec],
         },
@@ -1338,18 +1338,18 @@ try {
   const humanStatus = io();
   assert.equal(
     await runCli(["status", target], humanStatus.adapter, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     }),
     0
   );
   assert.match(
     humanStatus.output.join(""),
-    /Next: Ask your agent to use the installed tieline skill to onboard this repository\. In Claude Code, run \/tieline; in Codex, run \$tieline\./
+    /Next: Ask your agent to use the installed tiepoint skill to onboard this repository\. In Claude Code, run \/tiepoint; in Codex, run \$tiepoint\./
   );
   assert.doesNotMatch(humanStatus.output.join(""), /Copy the prompt/);
   assert.match(
     humanStatus.output.join(""),
-    /Install skill: npx -y tieline@latest init \./
+    /Install skill: npx -y tiepoint@latest init \./
   );
   assert.match(
     humanStatus.output.join(""),
@@ -1368,9 +1368,9 @@ try {
   );
   assert.match(
     missingMcpStatus,
-    /not registered \(rerun `npx -y tieline@latest init \.`\)/
+    /not registered \(rerun `npx -y tiepoint@latest init \.`\)/
   );
-  assert.doesNotMatch(missingMcpStatus, /rerun `tieline init \.`/);
+  assert.doesNotMatch(missingMcpStatus, /rerun `tiepoint init \.`/);
 
   writeFileSync(
     resolve(workspace.specDirectoryPath, "status.yaml"),
@@ -1388,7 +1388,7 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: STATUS-001-AC1
-          criterion: Tieline must direct maintainers to compile an unreadable manifest.
+          criterion: Tiepoint must direct maintainers to compile an unreadable manifest.
 `
   );
 
@@ -1398,13 +1398,13 @@ capability:
   );
   await assert.rejects(
     runCli(["init", target, "--yes"], io().adapter, {
-      TIELINE_CONFIG_HOME: onboardedCloneConfigHome,
+      TIEPOINT_CONFIG_HOME: onboardedCloneConfigHome,
     }),
     /non-interactive init requires.*--agent.*--skip-skill-install/i
   );
   assert.equal(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: onboardedCloneConfigHome,
+      TIEPOINT_CONFIG_HOME: onboardedCloneConfigHome,
     }),
     null,
     "a configured repository clone must require an agent or explicit skip before local setup"
@@ -1413,7 +1413,7 @@ capability:
     await runCli(
       ["init", target, "--yes", "--skip-skill-install"],
       io().adapter,
-      { TIELINE_CONFIG_HOME: onboardedCloneConfigHome }
+      { TIEPOINT_CONFIG_HOME: onboardedCloneConfigHome }
     ),
     0
   );
@@ -1434,25 +1434,25 @@ capability:
     await runCli(
       ["status", target, "--json"],
       legacyManifestStatus.adapter,
-      { TIELINE_CONFIG_HOME: configHome }
+      { TIEPOINT_CONFIG_HOME: configHome }
     ),
     0
   );
   const parsedLegacyManifestStatus = JSON.parse(
     legacyManifestStatus.output.join("")
-  ) as TielineStatus;
+  ) as TiepointStatus;
   assert.equal(parsedLegacyManifestStatus.contract.manifest_exists, false);
   assert.equal(parsedLegacyManifestStatus.onboarding, null);
   assert.match(
     parsedLegacyManifestStatus.next_action,
-    /tieline contract compile \./
+    /tiepoint contract compile \./
   );
   assert.equal(readFileSync(legacyIndexPath, "utf8"), legacyIndex);
 
   const onboardedHumanStatus = io();
   assert.equal(
     await runCli(["status", target], onboardedHumanStatus.adapter, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     }),
     0
   );
@@ -1469,7 +1469,7 @@ capability:
   });
   assert.equal(
     await runCli(["init", target], onboardedInit.adapter, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     }),
     0
   );
@@ -1483,7 +1483,7 @@ capability:
   const environmentStatus = io();
   assert.equal(
     await runCli(["status", target, "--json"], environmentStatus.adapter, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
       DATABASE_URL: "postgresql://reader:private@example.test/tieline",
       DATABASE_URL_WRITE:
         "postgresql://writer:private@example.test/tieline",
@@ -1509,19 +1509,19 @@ capability:
 
   await assert.rejects(
     runCli(["init", target, "--yes", "--force"], io().adapter, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     }),
     /unknown option '--force'/
   );
 
   await assert.rejects(
     configureWorkspaceRuntime({
-      workspace: workspace as TielineWorkspace,
+      workspace: workspace as TiepointWorkspace,
       databaseMode: "existing",
       embeddingProvider: "hash",
       installLocalEmbedder: false,
       skipMigrate: true,
-      env: { TIELINE_CONFIG_HOME: configHome },
+      env: { TIEPOINT_CONFIG_HOME: configHome },
       io: { write: () => undefined },
     }),
     /Postgres 16 \+ pgvector.*DATABASE_URL_ADMIN.*local Postgres.*Neon.*Supabase/s
@@ -1534,7 +1534,7 @@ capability:
       return {
         ownerUrl:
           "postgresql://owner:private@127.0.0.1:5432/tieline",
-        container: "tieline-test",
+        container: "tiepoint-test",
         waitUntilReady: async () => undefined,
       };
     },
@@ -1556,13 +1556,13 @@ capability:
     },
   };
   await configureWorkspaceRuntime({
-    workspace: workspace as TielineWorkspace,
+    workspace: workspace as TiepointWorkspace,
     databaseMode: "local",
     embeddingProvider: "hash",
     installLocalEmbedder: false,
     skipMigrate: true,
     env: {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
       DATABASE_URL:
         "postgresql://stale-reader@example.test/tieline",
       DATABASE_URL_WRITE:
@@ -1581,18 +1581,18 @@ capability:
   );
   assert.equal(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     })?.profile.runtime.setup_completed_at,
     null
   );
   assert.equal(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     })?.profile.env.DATABASE_URL_ADMIN,
     "postgresql://owner:private@127.0.0.1:5432/tieline"
   );
   const pendingLocalProfile = readWorkspaceProfile(workspace, {
-    TIELINE_CONFIG_HOME: configHome,
+    TIEPOINT_CONFIG_HOME: configHome,
   });
   assert.equal(pendingLocalProfile?.profile.env.DATABASE_URL, undefined);
   assert.equal(
@@ -1609,13 +1609,13 @@ capability:
     "postgresql://owner:pending@127.0.0.1:5433/tieline";
   await assert.rejects(
     configureWorkspaceRuntime({
-      workspace: workspace as TielineWorkspace,
+      workspace: workspace as TiepointWorkspace,
       databaseMode: "local",
       embeddingProvider: "hash",
       installLocalEmbedder: false,
       skipMigrate: false,
       env: {
-        TIELINE_CONFIG_HOME: interruptedConfigHome,
+        TIEPOINT_CONFIG_HOME: interruptedConfigHome,
         DATABASE_URL:
           "postgresql://stale-reader@example.test/tieline",
         DATABASE_URL_WRITE:
@@ -1627,11 +1627,11 @@ capability:
       dependencies: {
         startLocalDatabase: async () => ({
           ownerUrl: interruptedOwnerUrl,
-          container: "tieline-interrupted-test",
+          container: "tiepoint-interrupted-test",
           waitUntilReady: async () => {
             assert.equal(
               readWorkspaceProfile(workspace, {
-                TIELINE_CONFIG_HOME: interruptedConfigHome,
+                TIEPOINT_CONFIG_HOME: interruptedConfigHome,
               })?.profile.env.DATABASE_URL_ADMIN,
               interruptedOwnerUrl,
               "container ownership must be durable before readiness checks"
@@ -1645,12 +1645,12 @@ capability:
   );
   assert.equal(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: interruptedConfigHome,
+      TIEPOINT_CONFIG_HOME: interruptedConfigHome,
     })?.profile.runtime.setup_completed_at,
     null
   );
   const interruptedProfile = readWorkspaceProfile(workspace, {
-    TIELINE_CONFIG_HOME: interruptedConfigHome,
+    TIEPOINT_CONFIG_HOME: interruptedConfigHome,
   });
   assert.equal(
     interruptedProfile?.profile.env.DATABASE_URL_ADMIN,
@@ -1662,33 +1662,33 @@ capability:
 
   calls.length = 0;
   await configureWorkspaceRuntime({
-    workspace: workspace as TielineWorkspace,
+    workspace: workspace as TiepointWorkspace,
     databaseMode: "local",
     embeddingProvider: "hash",
     installLocalEmbedder: false,
     skipMigrate: false,
-    env: { TIELINE_CONFIG_HOME: configHome },
+    env: { TIEPOINT_CONFIG_HOME: configHome },
     io: { write: () => undefined },
     dependencies: localDependencies,
   });
   assert.deepEqual(calls, ["start", "migrate", "roles"]);
   assert.ok(
     readWorkspaceProfile(workspace, {
-      TIELINE_CONFIG_HOME: configHome,
+      TIEPOINT_CONFIG_HOME: configHome,
     })?.profile.runtime.setup_completed_at
   );
 
   const provisionCalls: string[] = [];
   const provisionConfigHome = resolve(root, "provision-config-home");
   await configureWorkspaceRuntime({
-    workspace: workspace as TielineWorkspace,
+    workspace: workspace as TiepointWorkspace,
     databaseMode: "existing",
     embeddingProvider: "hash",
     installLocalEmbedder: false,
     skipMigrate: false,
     provisionRoles: true,
     env: {
-      TIELINE_CONFIG_HOME: provisionConfigHome,
+      TIEPOINT_CONFIG_HOME: provisionConfigHome,
       DATABASE_URL_ADMIN:
         "postgresql://neon-owner:private@example.neon.tech/neondb",
     },
@@ -1717,7 +1717,7 @@ capability:
     "existing mode with --provision-roles must provision after migrating"
   );
   const provisionedProfile = readWorkspaceProfile(workspace, {
-    TIELINE_CONFIG_HOME: provisionConfigHome,
+    TIEPOINT_CONFIG_HOME: provisionConfigHome,
   });
   assert.ok(provisionedProfile?.profile.runtime.setup_completed_at);
   assert.match(provisionedProfile?.profile.env.DATABASE_URL ?? "", /reader/);
@@ -1726,7 +1726,7 @@ capability:
     /writer/
   );
   const serveEnv: NodeJS.ProcessEnv = {
-    TIELINE_CONFIG_HOME: configHome,
+    TIEPOINT_CONFIG_HOME: configHome,
     DATABASE_URL_SYNC: "postgresql://explicit-sync@example.test/tieline",
     DATABASE_URL_ADMIN: "postgresql://explicit-admin@example.test/tieline",
   };
@@ -1743,15 +1743,15 @@ capability:
   assert.ok(!serveProfile.loaded.includes("DATABASE_URL_SYNC"));
   assert.ok(!serveProfile.loaded.includes("DATABASE_URL_ADMIN"));
 
-  const tielineSkill = readFileSync(
-    resolve(process.cwd(), "skills/tieline/SKILL.md"),
+  const tiepointSkill = readFileSync(
+    resolve(process.cwd(), "skills/tiepoint/SKILL.md"),
     "utf8"
   );
   const manifestMaintenance = readFileSync(
-    resolve(process.cwd(), "skills/tieline/references/manifest-maintenance.md"),
+    resolve(process.cwd(), "skills/tiepoint/references/manifest-maintenance.md"),
     "utf8"
   );
-  const documentedGrade = tielineSkill.match(/closeout uses `(tieline contract grade [^`]+)`/);
+  const documentedGrade = tiepointSkill.match(/closeout uses `(tiepoint contract grade [^`]+)`/);
   assert.ok(documentedGrade, "the routine grading command must include its executable");
   assert.equal(
     await runCli(["contract", "compile", target], io().adapter, {}),
@@ -1779,74 +1779,74 @@ capability:
   assert.equal(documentedGradeScope.scoped_criteria, 0);
   assert.deepEqual(documentedGradeScope.entries, []);
   assert.ok(
-    manifestMaintenance.includes("`tieline contract compile . --output <temporary-directory>`"),
+    manifestMaintenance.includes("`tiepoint contract compile . --output <temporary-directory>`"),
     "the temporary manifest command must include its executable"
   );
   assert.ok(
-    manifestMaintenance.includes("`tieline contract refresh-manifest . --branch <integration-branch>`"),
+    manifestMaintenance.includes("`tiepoint contract refresh-manifest . --branch <integration-branch>`"),
     "the publication command must include its executable"
   );
   const onboardingReference = readFileSync(
     resolve(
       process.cwd(),
-      "skills/tieline/references/onboarding.md"
+      "skills/tiepoint/references/onboarding.md"
     ),
     "utf8"
   );
-  assert.match(tielineSkill, /\.tieline\/config\.json/);
-  assert.match(tielineSkill, /allow_external_fetch/);
-  assert.match(tielineSkill, /local YAML.*manifest/i);
-  assert.match(tielineSkill, /semantic matching.*unavailable/i);
-  assert.match(tielineSkill, /after `tieline init`/i);
-  assert.match(tielineSkill, /installed skill or MCP prompt/i);
-  assert.match(tielineSkill, /semantic onboarding/i);
-  assert.match(tielineSkill, /references\/onboarding\.md/);
-  assert.match(tielineSkill, /get_asset_intent_context/);
-  assert.match(tielineSkill, /get_acceptance_criterion_context/);
-  assert.match(tielineSkill, /tieline contract context --path/);
-  assert.match(tielineSkill, /tieline contract context --ac/);
-  assert.match(tielineSkill, /Only use `search_knowledge`[\s\S]*exact path, selector, or AC[\s\S]*unknown/i);
-  assert.match(tielineSkill, /intent neighborhood[\s\S]*contract coupling/i);
-  assert.match(tielineSkill, /not a runtime dependency graph or comprehensive blast radius/i);
-  assert.match(tielineSkill, /not_assessed[\s\S]*not semantic proof/i);
-  assert.match(tielineSkill, /linked test[\s\S]*not a claim that it ran or passed/i);
+  assert.match(tiepointSkill, /\.tiepoint\/config\.json/);
+  assert.match(tiepointSkill, /allow_external_fetch/);
+  assert.match(tiepointSkill, /local YAML.*manifest/i);
+  assert.match(tiepointSkill, /semantic matching.*unavailable/i);
+  assert.match(tiepointSkill, /after `tiepoint init`/i);
+  assert.match(tiepointSkill, /installed skill or MCP prompt/i);
+  assert.match(tiepointSkill, /semantic onboarding/i);
+  assert.match(tiepointSkill, /references\/onboarding\.md/);
+  assert.match(tiepointSkill, /get_asset_intent_context/);
+  assert.match(tiepointSkill, /get_acceptance_criterion_context/);
+  assert.match(tiepointSkill, /tiepoint contract context --path/);
+  assert.match(tiepointSkill, /tiepoint contract context --ac/);
+  assert.match(tiepointSkill, /Only use `search_knowledge`[\s\S]*exact path, selector, or AC[\s\S]*unknown/i);
+  assert.match(tiepointSkill, /intent neighborhood[\s\S]*contract coupling/i);
+  assert.match(tiepointSkill, /not a runtime dependency graph or comprehensive blast radius/i);
+  assert.match(tiepointSkill, /not_assessed[\s\S]*not semantic proof/i);
+  assert.match(tiepointSkill, /linked test[\s\S]*not a claim that it ran or passed/i);
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /before handing off implementation, committing, pushing, or opening or updating a pull request/i,
     "the installed skill must trigger semantic closeout before implementation leaves the agent"
   );
   assert.match(
-    tielineSkill,
-    /project installation of this skill, or explicit invocation through the\s+equivalent MCP prompt, is the trigger[\s\S]*do not add a separate\s+`\.tieline\/config\.json` existence check/i,
+    tiepointSkill,
+    /project installation of this skill, or explicit invocation through the\s+equivalent MCP prompt, is the trigger[\s\S]*do not add a separate\s+`\.tiepoint\/config\.json` existence check/i,
     "the installed skill and equivalent MCP prompt must trigger closeout without a redundant config guard"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /covered[\s\S]*exclude[\s\S]*update[\s\S]*add[\s\S]*unresolved/i,
     "semantic closeout must classify every changed behavior cluster"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /edit the repository YAML and compile its manifest\s+directly[\s\S]*do not post a comment or request separate approval first/i,
     "justified contract changes must be reviewable branch changes rather than comment-only proposals"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /git ls-files --others --exclude-standard[\s\S]*relevant untracked file[\s\S]*behavior cluster[\s\S]*exclusion reason/i,
     "semantic closeout must classify behavior in new untracked files"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /push that follow-up without asking again only when[\s\S]*explicitly includes push or opening or updating a pull request[\s\S]*pull request for the branch is already open and the active request is not[\s\S]*commit-only/i,
     "already-authorized push and PR flows must carry follow-up closeout changes without another approval round"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /commit-only request always overrides the open-pull-request[\s\S]*exception:[\s\S]*stop after the local follow-up commit and do not push/i,
     "commit-only closeout must preserve the local-only authorization ceiling"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /implementation diff changes after closeout[\s\S]*run closeout again/i,
     "later implementation changes must invalidate an earlier semantic closeout"
   );
@@ -1896,7 +1896,7 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /tieline contract validate \.\s*[\s\S]*tieline contract compile \.\s*[\s\S]*tieline code compile \. --json[\s\S]*tieline code validate \. --json/i,
+    /tiepoint contract validate \.\s*[\s\S]*tiepoint contract compile \.\s*[\s\S]*tiepoint code compile \. --json[\s\S]*tiepoint code validate \. --json/i,
     "semantic onboarding must compile and validate the topology graph after the initial contract"
   );
   assert.match(onboardingReference, /Ask focused questions only/);
@@ -1926,13 +1926,13 @@ capability:
     "setup must end with a handoff into the autonomous phase"
   );
   assert.match(
-    tielineSkill,
+    tiepointSkill,
     /routing\s+check is silent[\s\S]*first visible action must be its verbatim orientation[\s\S]*do not read the authoring contract or inspect repository sources until[\s\S]*autonomous handoff/i,
     "the skill dispatch must complete the onboarding conversation before normal repository work"
   );
   assert.ok(
-    tielineSkill.indexOf("## Route before acting") <
-      tielineSkill.indexOf("Read [contract.md]"),
+    tiepointSkill.indexOf("## Route before acting") <
+      tiepointSkill.indexOf("Read [contract.md]"),
     "the skill must route first-run onboarding before normal contract authoring"
   );
   assert.match(onboardingReference, /merge\s+is the approval/);
@@ -1943,7 +1943,7 @@ capability:
   );
   assert.match(
     onboardingReference,
-    /Great — let's get you set up with Tieline\./,
+    /Great — let's get you set up with Tiepoint\./,
     "the orientation script is locked verbatim"
   );
   assert.match(
@@ -1953,13 +1953,13 @@ capability:
   );
   assert.ok(
     onboardingReference.indexOf(
-      "Great — let's get you set up with Tieline."
+      "Great — let's get you set up with Tiepoint."
     ) <
       onboardingReference.indexOf(
-        "Where should Tieline keep your Observations?"
+        "Where should Tiepoint keep your Observations?"
       ) &&
       onboardingReference.includes(
-        "Where should Tieline keep your Observations?"
+        "Where should Tiepoint keep your Observations?"
       ),
     "orientation must come before the database question"
   );
@@ -1995,28 +1995,28 @@ capability:
   );
   assert.doesNotMatch(
     onboardingReference,
-    /pin the CLI|npm install --save-dev tieline/i,
+    /pin the CLI|npm install --save-dev tiepoint/i,
     "semantic onboarding must not ask to modify the repository's dependencies"
   );
   assert.match(
-    tielineSkill,
-    /npx -y tieline@latest init/,
-    "skill-driven bootstrap must explicitly resolve the latest Tieline release"
+    tiepointSkill,
+    /npx -y tiepoint@latest init/,
+    "skill-driven bootstrap must explicitly resolve the latest Tiepoint release"
   );
   assert.match(
     onboardingReference,
-    /npx -y tieline@latest init/,
-    "semantic setup commands must explicitly resolve the latest Tieline release"
+    /npx -y tiepoint@latest init/,
+    "semantic setup commands must explicitly resolve the latest Tiepoint release"
   );
   assert.match(
-    tielineSkill,
-    /pointing at `\.tieline\/review\.html`/,
+    tiepointSkill,
+    /pointing at `\.tiepoint\/review\.html`/,
     "the skill must present contract content through the review page"
   );
   const reportReference = readFileSync(
     resolve(
       process.cwd(),
-      "skills/tieline/references/report.md"
+      "skills/tiepoint/references/report.md"
     ),
     "utf8"
   );
@@ -2028,12 +2028,12 @@ capability:
     "compile keeps the page current; the report must not claim otherwise"
   );
   assert.match(reportReference, /pull-request body/);
-  assert.match(tielineSkill, /references\/report\.md/);
+  assert.match(tiepointSkill, /references\/report\.md/);
   assert.match(onboardingReference, /references\/report\.md/);
   const provisioningReference = readFileSync(
     resolve(
       process.cwd(),
-      "skills/tieline/references/provisioning.md"
+      "skills/tiepoint/references/provisioning.md"
     ),
     "utf8"
   );
@@ -2065,7 +2065,7 @@ capability:
   );
   assert.match(
     provisioningReference,
-    /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tieline@latest init[^\n]*--skip-skill-install[^\n]*--database existing[^\n]*--provision-roles/,
+    /DATABASE_URL_ADMIN=<uri>[^\n]*npx -y tiepoint@latest init[^\n]*--skip-skill-install[^\n]*--database existing[^\n]*--provision-roles/,
     "hosted provisioning must pass the captured URI through the explicit existing-database role-provisioning command"
   );
   assert.match(
@@ -2080,14 +2080,14 @@ capability:
   );
   assert.match(onboardingReference, /provisioning\.md/);
   const gradingReference = readFileSync(
-    resolve(process.cwd(), "skills/tieline/references/grading.md"),
+    resolve(process.cwd(), "skills/tiepoint/references/grading.md"),
     "utf8"
   );
-  assert.match(tielineSkill, /references\/grading\.md/);
-  assert.match(tielineSkill, /For grading an existing contract change/);
-  assert.match(tielineSkill, /grading-only flow returns after its report/);
+  assert.match(tiepointSkill, /references\/grading\.md/);
+  assert.match(tiepointSkill, /For grading an existing contract change/);
+  assert.match(tiepointSkill, /grading-only flow returns after its report/);
   assert.match(gradingReference, /Dispatch fresh subagents/);
-  assert.match(gradingReference, /tieline contract grade/);
+  assert.match(gradingReference, /tiepoint contract grade/);
   assert.match(gradingReference, /code_evidence/);
   assert.match(
     gradingReference,
@@ -2104,7 +2104,7 @@ capability:
     /not\s+semantic satisfaction of the Acceptance\s+Criterion/,
     "grading guidance must leave semantic satisfaction to the host agent"
   );
-  assert.doesNotMatch(tielineSkill, /agent handoff printed/i);
+  assert.doesNotMatch(tiepointSkill, /agent handoff printed/i);
 
   // Public documentation structure is under test: keep the README concise while ensuring the
   // linked guides retain setup and assurance details.
@@ -2147,22 +2147,22 @@ capability:
   );
   assert.match(
     readme,
-    /npx -y tieline@latest init/,
-    "README bootstrap must explicitly resolve the latest Tieline release"
+    /npx -y tiepoint@latest init/,
+    "README bootstrap must explicitly resolve the latest Tiepoint release"
   );
   assert.doesNotMatch(
     `${readme}\n${setupGuide}`,
-    /npx -y tieline init/,
+    /npx -y tiepoint init/,
     "public setup docs must not leave a first-time init command on implicit package resolution"
   );
   assert.doesNotMatch(
     `${readme}\n${setupGuide}`,
-    /^tieline init /m,
-    "public setup docs must not require a global Tieline install"
+    /^tiepoint init /m,
+    "public setup docs must not require a global Tiepoint install"
   );
   assert.doesNotMatch(
     `${readme}\n${setupGuide}`,
-    /npm install --save-dev tieline|pin the CLI as a dev dependency/i,
+    /npm install --save-dev tiepoint|pin the CLI as a dev dependency/i,
     "public setup docs must not make dependency pinning part of onboarding"
   );
   assert.match(
@@ -2174,7 +2174,7 @@ capability:
   assert.match(setupGuide, /--skill-scope project/);
   assert.match(
     setupGuide,
-    /## Post-merge contract sync[\s\S]*protected post-merge job[\s\S]*tieline@latest contract sync[\s\S]*--expected-previous-commit/,
+    /## Post-merge contract sync[\s\S]*protected post-merge job[\s\S]*tiepoint@latest contract sync[\s\S]*--expected-previous-commit/,
     "Setup must require a protected post-merge projection sync"
   );
   assert.match(
@@ -2184,8 +2184,8 @@ capability:
   );
   assert.match(readme, /get_asset_intent_context/);
   assert.match(readme, /get_acceptance_criterion_context/);
-  assert.match(cliGuide, /tieline contract context --path/);
-  assert.match(cliGuide, /tieline contract context --ac/);
+  assert.match(cliGuide, /tiepoint contract context --path/);
+  assert.match(cliGuide, /tiepoint contract context --ac/);
   assert.match(cliGuide, /Use semantic discovery only when the exact path, selector, or AC ID is unknown/i);
   assert.match(cliGuide, /intent neighborhood[\s\S]*contract coupling/i);
   assert.match(cliGuide, /not a runtime dependency graph or a[\s\S]*comprehensive blast radius/i);
@@ -2249,19 +2249,19 @@ capability:
     databaseJob,
     /DATABASE_URL_ADMIN: postgres:\/\/postgres:postgres@localhost:5432\/tieline_test/
   );
-  assert.match(databaseJob, /TIELINE_INTEGRATION_TEST_DATABASE: "1"/);
+  assert.match(databaseJob, /TIEPOINT_INTEGRATION_TEST_DATABASE: "1"/);
   assert.doesNotMatch(
     databaseJob,
-    /\btieline\b/,
-    "the database integration job must not retain the general tieline database target"
+    /\btiepoint\b/,
+    "the database integration job must not retain the general tiepoint database target"
   );
   const derivationGate = readFileSync(
     resolve(process.cwd(), "scripts/generated-artifact-gate.ts"),
     "utf8"
   );
   assert.match(derivationGate, /mkdtempSync/);
-  assert.match(derivationGate, /\.tieline\/manifest/);
-  assert.match(derivationGate, /\.tieline\/topology/);
+  assert.match(derivationGate, /\.tiepoint\/manifest/);
+  assert.match(derivationGate, /\.tiepoint\/topology/);
   assert.match(derivationGate, /generated_artifact_mismatch/);
   assert.doesNotMatch(
     derivationGate,
@@ -2272,7 +2272,7 @@ capability:
   for (const removed of ["merge", "review", "import", "context"]) {
     await assert.rejects(
       runCli([removed], io().adapter, {
-        TIELINE_CONFIG_HOME: configHome,
+        TIEPOINT_CONFIG_HOME: configHome,
       }),
       /unknown command/i
     );
@@ -2294,11 +2294,11 @@ capability:
     ],
     {
       encoding: "utf8",
-      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+      env: { ...process.env, TIEPOINT_CONFIG_HOME: configHome },
     }
   );
   assert.equal(packagedCompile.status, 0, packagedCompile.stderr);
-  const topologyLockPath = resolve(target, ".tieline/topology.lock");
+  const topologyLockPath = resolve(target, ".tiepoint/topology.lock");
   writeFileSync(
     topologyLockPath,
     `${JSON.stringify({
@@ -2315,7 +2315,7 @@ capability:
         [cliBin, "code", "compile", target, "--json"],
         {
           encoding: "utf8",
-          env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+          env: { ...process.env, TIEPOINT_CONFIG_HOME: configHome },
         }
       );
     } finally {
@@ -2342,7 +2342,7 @@ capability:
     ],
     {
       encoding: "utf8",
-      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+      env: { ...process.env, TIEPOINT_CONFIG_HOME: configHome },
     }
   );
   assert.equal(packagedContext.status, 0, packagedContext.stderr);
@@ -2364,7 +2364,7 @@ capability:
     {
       input: "",
       encoding: "utf8",
-      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+      env: { ...process.env, TIEPOINT_CONFIG_HOME: configHome },
     }
   );
   assert.notEqual(piped.status, 0, piped.stdout);
@@ -2373,7 +2373,7 @@ capability:
     /non-interactive init requires.*--agent.*--skip-skill-install/i
   );
   assert.equal(
-    existsSync(resolve(pipedTarget, ".tieline")),
+    existsSync(resolve(pipedTarget, ".tiepoint")),
     false,
     "headless init without an explicit agent or skip must not leave a partial workspace"
   );
@@ -2391,11 +2391,11 @@ capability:
     {
       input: "",
       encoding: "utf8",
-      env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+      env: { ...process.env, TIEPOINT_CONFIG_HOME: configHome },
     }
   );
   assert.equal(explicitlySkipped.status, 0, explicitlySkipped.stderr);
-  const pipedWorkspace = findTielineWorkspace(pipedTarget);
+  const pipedWorkspace = findTiepointWorkspace(pipedTarget);
   assert.ok(pipedWorkspace);
   assert.equal(
     pipedWorkspace.config.product.name,
@@ -2404,16 +2404,16 @@ capability:
   );
   assert.equal(pipedWorkspace.config.product.repo_name, "piped-init");
 
-  // Bare group commands print clean help on stderr, not a "Tieline error:".
+  // Bare group commands print clean help on stderr, not a "Tiepoint error:".
   const bareContract = spawnSync("node", [cliBin, "contract"], {
     encoding: "utf8",
-    env: { ...process.env, TIELINE_CONFIG_HOME: configHome },
+    env: { ...process.env, TIEPOINT_CONFIG_HOME: configHome },
   });
   assert.equal(bareContract.status, 1);
-  assert.match(bareContract.stderr, /Usage: tieline contract/);
-  assert.doesNotMatch(bareContract.stderr, /Tieline error:/);
+  assert.match(bareContract.stderr, /Usage: tiepoint contract/);
+  assert.doesNotMatch(bareContract.stderr, /Tiepoint error:/);
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
 
-console.log("tieline workspace tests passed");
+console.log("tiepoint workspace tests passed");

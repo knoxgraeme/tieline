@@ -32,10 +32,11 @@ import type {
 import { config } from "../config.js";
 import { getCodeTopologyStore } from "../code-topology-store.js";
 import {
-  findTielineWorkspace,
+  findTiepointWorkspace,
   workspaceTopologyMode,
-  type TielineWorkspace,
-} from "../tieline/workspace.js";
+  type TiepointWorkspace,
+} from "../tiepoint/workspace.js";
+import { rejectLegacyWorkspace } from "../tiepoint/legacy-tieline.js";
 import { escapeTerminalText, type CommandIO } from "./shared.js";
 
 export interface CodeTopologyLocatorInput {
@@ -154,10 +155,11 @@ function persistedCompatibilityDetail(
     : null;
 }
 
-function workspaceAt(path: string | undefined): TielineWorkspace | null {
-  return findTielineWorkspace(
-    path ?? process.env.TIELINE_WORKSPACE ?? process.cwd()
-  );
+function workspaceAt(path: string | undefined): TiepointWorkspace | null {
+  const start = path ?? process.env.TIEPOINT_WORKSPACE ?? process.cwd();
+  const workspace = findTiepointWorkspace(start);
+  if (!workspace) rejectLegacyWorkspace(start);
+  return workspace;
 }
 
 function locator(
@@ -184,7 +186,7 @@ function locator(
   };
 }
 
-function sourceOptions(workspace: TielineWorkspace, repository: string) {
+function sourceOptions(workspace: TiepointWorkspace, repository: string) {
   return {
     repositoryRoot: workspace.root,
     repository,
@@ -207,7 +209,7 @@ function artifactProvenance(snapshot: TopologyRoleSnapshot): TopologyRoleProvena
 
 async function selectedGeneration(
   options: SharedCodeTopologyOptions,
-  workspace: TielineWorkspace | null
+  workspace: TiepointWorkspace | null
 ): Promise<
   | {
       status: "complete";
@@ -274,7 +276,7 @@ async function selectedGeneration(
       return {
         status: "no_workspace",
         repository: options.repository,
-        detail: "No Tieline workspace was found and DATABASE_URL is not configured for a hosted persisted read.",
+        detail: "No Tiepoint workspace was found and DATABASE_URL is not configured for a hosted persisted read.",
       };
     }
     const identity = await getCodeTopologyStore().getCurrentGenerationIdentity(
@@ -408,7 +410,7 @@ export async function executeChangeBlastRadius(
     return {
       status: "contract_unavailable",
       repository: options.repository,
-      detail: "AC-aware blast radius requires a Tieline workspace so an authored manifest snapshot can be joined; hosted topology alone cannot supply contract authority.",
+      detail: "AC-aware blast radius requires a Tiepoint workspace so an authored manifest snapshot can be joined; hosted topology alone cannot supply contract authority.",
     };
   }
   if (workspace.config.product.repo_name !== options.repository) {

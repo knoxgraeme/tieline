@@ -247,7 +247,7 @@ export async function analyzeContractImpact(input: {
       repositoryKey: input.manifest.repository.key,
     });
   try {
-    const specPrefix = `${(input.specDirectory ?? ".tieline/spec").replace(/\/+$/, "")}/`;
+    const specPrefix = `${(input.specDirectory ?? ".tiepoint/spec").replace(/\/+$/, "")}/`;
     const contractChanged = input.changes.some((change) => {
       const paths =
         change.status === "renamed"
@@ -270,7 +270,7 @@ export async function analyzeContractImpact(input: {
               relation: "defines",
               provenance: null,
               link_scope: "contract",
-              path: input.specDirectory ?? ".tieline/spec",
+              path: input.specDirectory ?? ".tiepoint/spec",
               selector: null,
               framework_hint: null,
               reason: "contract_definition_changed",

@@ -1,0 +1,346 @@
+version: 1
+capability:
+  key: GRADING
+  name: Agent-graded contract evidence
+  description: A host agent can judge changed contract links while Tiepoint deterministically fixes the scope and rejects unsupported evidence claims.
+  aliases:
+    - evidence grading
+    - link claim verification
+  stories:
+    - key: GRADING-001
+      title: Judge every contract link touched by a change
+      actor: reviewing agent
+      goal: receive the complete changed-link work list and its legal citations
+      benefit: semantic evidence claims can be checked without silently omitting difficult links
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-001-AC1
+          criterion: Tiepoint must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.
+          rationale: Relevance is useful for ranking review work but cannot decide which accepted evidence claims are allowed to escape judgment.
+          scenarios:
+            - given: a changed path is linked directly by an Acceptance Criterion and by its owning Story
+              when: grading scope is emitted against the branch base
+              then: Tiepoint must emit both the direct and story_fallback entries
+            - given: a changed linked artifact shares no lexical vocabulary with its Acceptance Criterion
+              when: grading scope is emitted
+              then: Tiepoint must retain the entry for judgment
+            - given: one Acceptance Criterion links both the old and new paths of a renamed artifact
+              when: grading scope is emitted
+              then: Tiepoint must emit distinct entries whose linked_path values preserve both contract targets
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/reconciliation.ts
+                selector: function:buildContractClaimIndex
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:buildGradeScope
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-001-AC2
+          criterion: Tiepoint must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.
+          rationale: Parser facts can establish which current declaration a host agent may cite, but only the host can judge whether that declaration semantically satisfies the Acceptance Criterion.
+          scenarios:
+            - given: a source artifact declares a top-level or owner-aware function and names other identifiers only in comments or local variables
+              when: its grading entry is built
+              then: Tiepoint must offer only unique canonical declaration selectors and must not offer comment-only or local identifiers
+            - given: a contract link carries an exact canonical selector that resolves uniquely
+              when: its grading entry is built
+              then: Tiepoint must isolate its allow-list and bounded evidence to that declaration
+            - given: a linked artifact is missing, unreadable, oversized, unsupported, unsafe to interpret after parser recovery, or named by an invalid, unresolved, or ambiguous explicit selector
+              when: its grading entry is built
+              then: Tiepoint must emit unavailable evidence and an empty citation allow-list without failing the scope
+            - given: a clean exact selected declaration has an unrelated parser diagnostic or only import and reference facts were truncated
+              when: its grading entry is built with complete symbol and diagnostic facts
+              then: Tiepoint must retain the selected declaration as citable
+            - given: either the exact Acceptance Criterion text or same-symbol source content changes
+              when: the grading scope is emitted again
+              then: Tiepoint must issue a different entry identity so the earlier verdict cannot be reused
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/code-analysis/selector-resolution.ts
+                selector: function:resolveExactStructuralSelectorFromAnalysis
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:evidenceForClaim
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:scopeId
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-001-AC3
+          criterion: Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.
+          rationale: The semantic judgment belongs to the host agent, while both Tiepoint phases remain deterministic and usable in the same offline pull-request loop as contract validation.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+                selector: function:buildProgram
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-grade.ts
+                framework_hint: custom-script
+    - key: GRADING-002
+      title: Refuse grading claims that cannot be checked
+      actor: reviewing maintainer
+      goal: see every negative, missing, malformed, and downgraded judgment
+      benefit: an agent cannot turn weak or absent evidence into a silent confirmation
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-002-AC1
+          criterion: Tiepoint must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.
+          scenarios:
+            - given: an agent submits a supported verdict with a citation Tiepoint did not emit for that entry
+              when: the verdict document is verified
+              then: Tiepoint must report unsupported with fabricated_citation
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:parseGradeVerdicts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:verifyGradeVerdicts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC2
+          criterion: Tiepoint must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.
+          rationale: Omission is the refusal path rather than a way to skip hard work, while an identity outside the current scope signals stale or substituted input.
+          scenarios:
+            - given: the emitted scope contains an entry that no verdict names
+              when: the verdict document is verified
+              then: Tiepoint must report that entry unsupported with missing_verdict
+            - given: a verdict identity is duplicated or absent from the rederived scope
+              when: the verdict document is verified
+              then: Tiepoint must reject the submission instead of choosing or ignoring a verdict
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:verifyGradeVerdicts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC3
+          criterion: Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.
+          rationale: Agent judgment stays advisory until its operating quality is known; callers that knowingly want a gate can opt into one without hiding its findings.
+          scenarios:
+            - given: verification leaves an unsupported result and strict mode is not requested
+              when: contract grade finishes
+              then: Tiepoint must print the unsupported result and exit zero
+            - given: verification leaves an unsupported result and strict mode is requested
+              when: contract grade finishes
+              then: Tiepoint must print the unsupported result and exit non-zero
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/grade.ts
+                selector: function:verifyGradeVerdicts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/contract.ts
+                selector: function:runGrade
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-grade.ts
+                framework_hint: custom-script
+        - key: GRADING-002-AC4
+          criterion: The Tiepoint skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and keep independent grading read-only; during implementation the host must investigate findings, record fixed, rejected-with-evidence, or unresolved dispositions, and regrade affected claims after corrections within a bounded loop.
+          rationale: The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/references/grading.md
+    - key: GRADING-003
+      title: Review complete acceptance criteria with selective scope
+      actor: implementing agent
+      goal: review changed claims with all their supporting evidence
+      benefit: multi-file behavior can be assessed without repeating review for every cosmetic source edit
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-003-AC1
+          criterion: Criterion grading must select changed rules, scenarios, AC, Story or capability applicability, Story lifecycle, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.
+          scenarios:
+            - given: an unchanged AC has two links and only one source file changes
+              when: claims scope is requested
+              then: the AC is reported as implementation-only without being graded
+            - given: only a scenario changes or all evidence links are removed
+              when: claims scope is requested
+              then: the AC remains in scope for judgment
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/criterion-grade.ts
+                selector: function:buildCriterionGradeScope
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-criterion-grade.ts
+        - key: GRADING-003-AC2
+          criterion: Criterion verification must accept multiple exact citations from an AC's evidence, preserve irrelevant-link findings separately from overall support, distinguish inconclusive evidence from unsupported claims, and reject stale, duplicate, missing, or fabricated evidence without claiming semantic proof.
+          scenarios:
+            - given: separate confirmation and checkout declarations jointly support the rule
+              when: a supported verdict cites both declarations
+              then: verification accepts both legal citations for the same AC
+            - given: one irrelevant link accompanies otherwise supported behavior
+              when: its link finding is verified
+              then: the finding remains visible and fails explicitly requested strict mode
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/criterion-grade.ts
+                selector: function:verifyCriterionGradeVerdicts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/criterion-grade.ts
+                selector: function:parseCriterionGradeVerdicts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-criterion-grade.ts
+    - key: GRADING-004
+      title: Record semantic review against immutable revisions
+      actor: implementing agent
+      goal: account for every affected accepted rule at the reviewed revision
+      benefit: regenerated fingerprints cannot stand in for review
+      lifecycle: production
+      acceptance_criteria:
+        - key: GRADING-004-AC1
+          criterion: Closeout must derive affected rules from immutable merge-base and head definitions and both revisions' links, including changed claims, implementation-only changes, removed rules, inherited applicability and lifecycle changes, and configuration changes, independently of manifest publication and uncommitted content.
+          scenarios:
+            - given: a changed implementation loses its link or its rule in the PR
+              when: closeout scope is emitted
+              then: the previously linked rule still requires a disposition
+            - given: fingerprints are refreshed without reviewing changed implementation
+              when: closeout scope is emitted against the same target
+              then: the implementation's affected rules remain in scope
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/closeout.ts
+                selector: function:buildCloseoutScope
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-closeout.ts
+        - key: GRADING-004-AC2
+          criterion: Closeout verification must bind dispositions to resolved repository, target, merge-base and head identities, reject stale or invalid reports, require a disposition for every affected rule, and fail readiness for missing or unresolved dispositions without asserting semantic truth or human approval.
+          scenarios:
+            - given: a report names the prior head commit
+              when: verification runs against the current head
+              then: the report is rejected even if the affected rule list is unchanged
+            - given: every affected rule has a disposition but one remains unresolved
+              when: verification runs
+              then: the result is complete but not ready and exits nonzero
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/contract/closeout.ts
+                selector: function:verifyCloseoutReport
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/closeout.ts
+                selector: function:runCloseout
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/contract/test-closeout.ts
