@@ -180,7 +180,7 @@
             "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -574,7 +574,7 @@
             "criterion": "Closeout must derive affected rules from immutable merge-base and head definitions and both revisions' links, including changed claims, implementation-only changes, removed rules, inherited applicability and lifecycle changes, and configuration changes, independently of manifest publication and uncommitted content.",
             "links": [
               {
-                "compiled_content_hash": "3a0b114645625bbe42cf8ccc7f040733a126bd6ad4d1336f9b5c4dadcee87291",
+                "compiled_content_hash": "25c617377e66d6b91ee5716d1022140e5bd914f1002281a5e80b4b8d3f93e3b3",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -585,7 +585,7 @@
                 }
               },
               {
-                "compiled_content_hash": "568df2d902107560de62abf2845c5632fe6b3179d744e9923f1083240bf95c08",
+                "compiled_content_hash": "f1352e84ea0b645d7f846cec52d199fce0c8ff3167f4f85256d33020c5244b3e",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -634,7 +634,7 @@
                 }
               },
               {
-                "compiled_content_hash": "3a0b114645625bbe42cf8ccc7f040733a126bd6ad4d1336f9b5c4dadcee87291",
+                "compiled_content_hash": "25c617377e66d6b91ee5716d1022140e5bd914f1002281a5e80b4b8d3f93e3b3",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -645,7 +645,7 @@
                 }
               },
               {
-                "compiled_content_hash": "568df2d902107560de62abf2845c5632fe6b3179d744e9923f1083240bf95c08",
+                "compiled_content_hash": "f1352e84ea0b645d7f846cec52d199fce0c8ff3167f4f85256d33020c5244b3e",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {

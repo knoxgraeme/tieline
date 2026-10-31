@@ -1,9 +1,6 @@
 import { basename, relative, resolve, sep } from "node:path";
-import {
-  findTiepointWorkspace,
-  type TiepointWorkspace,
-} from "../tiepoint/workspace.js";
-import { rejectLegacyWorkspace } from "../tiepoint/legacy-tieline.js";
+import type { TiepointWorkspace } from "../tiepoint/workspace.js";
+import { findWorkspaceRejectingLegacy } from "../tiepoint/legacy-tieline.js";
 
 export interface CommandIO {
   write(message: string): void;
@@ -57,8 +54,7 @@ export function resolveCommandContext(
   options: CommandContextOptions
 ): CommandContext {
   const requestedRoot = resolve(options.repository ?? process.cwd());
-  const workspace = findTiepointWorkspace(requestedRoot);
-  if (!workspace) rejectLegacyWorkspace(requestedRoot);
+  const workspace = findWorkspaceRejectingLegacy(requestedRoot);
   const root = workspace?.root ?? requestedRoot;
   return {
     root,

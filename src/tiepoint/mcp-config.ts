@@ -356,7 +356,7 @@ export function inspectMcpClientConfigs(
 export interface RenamedMcpServerOutcome {
   /** Client files whose earlier entry was replaced by the tiepoint entry. */
   replaced: string[];
-  /** Client files whose earlier entry does not launch the earlier package. */
+  /** Client files with an earlier entry this function could not safely rewrite. */
   unrecognized: string[];
 }
 
@@ -374,11 +374,16 @@ export function replaceRenamedMcpServer(
   for (const target of MCP_CLIENT_TARGETS) {
     const filePath = resolve(root, target.path);
     if (!existsSync(filePath)) continue;
+    const raw = readFileSync(filePath, "utf8");
     let parsed: unknown;
     try {
-      parsed = JSON.parse(readFileSync(filePath, "utf8"));
+      parsed = JSON.parse(raw);
     } catch {
-      // An unreadable client config cannot register the earlier server.
+      // A file this parser cannot read (JSON with comments, say) may still
+      // register the earlier server; report it rather than rewrite it.
+      if (raw.includes(`"${previous.serverName}"`)) {
+        outcome.unrecognized.push(target.path);
+      }
       continue;
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {

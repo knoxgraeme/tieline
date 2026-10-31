@@ -158,6 +158,13 @@ await test("mixed-case record keys use one locale-independent canonical order", 
   assert.equal(parsed.status, "complete", "detail" in parsed ? parsed.detail : undefined);
 });
 
+await test("graph envelope identities stay readable for graphs written before the tiepoint rename", () => {
+  const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(logical));
+  const graph = parseJsonObject(serialized.files.get(CODE_TOPOLOGY_ARTIFACT_FILE)!.toString("utf8"));
+  assert.equal(objectField(graph, "provider").identity, "tieline");
+  assert.equal(objectField(graph, "producer").identity, "tieline_tree_sitter");
+});
+
 await test("graph reader rejects incompatible, corrupt, and unexpected physical inputs", () => {
   const serialized = serializeCodeTopologyArtifact(topologyArtifactFromReadModel(logical));
   assert.equal(parseCodeTopologyArtifact(mutateGraph(serialized, (graph) => { graph.schema_version = 999; })).status, "incompatible");

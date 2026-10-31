@@ -290,6 +290,9 @@ capability:
             - given: a repository with a .tieline workspace, a tieline profile, a tieline MCP entry, and a project tieline skill
               when: a maintainer runs tiepoint init
               then: the workspace and profile move to tiepoint locations, the MCP entry and skill are replaced, and remaining manual steps are listed
+            - given: a clone that pulled an already-upgraded workspace still has its profile under the tieline configuration home
+              when: a maintainer runs tiepoint init in that clone
+              then: the profile moves to the tiepoint configuration home
             - given: the tiepoint skill installation fails
               when: tiepoint init upgrades the repository
               then: the earlier tieline skill must remain installed

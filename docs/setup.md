@@ -248,12 +248,20 @@ Tiepoint was previously published as `tieline`. In a repository set up by `tieli
 npx -y tiepoint@latest init .
 ```
 
+In a non-interactive shell, add `--yes --agent <id>`, or `--skip-skill-install` to upgrade only
+the workspace.
+
 Init moves `.tieline/` to `.tiepoint/`, moves the clone-local profile to the Tiepoint
 configuration directory, replaces `tieline` entries in repository MCP files, and replaces
-project-installed `tieline` skills with the `tiepoint` skill. It then lists what it cannot
-change for you: recompiling the manifest, workflows and other files that still invoke
+project-installed `tieline` skills with the `tiepoint` skill. It prints what it did and what it
+cannot change for you: recompiling the manifest, workflows and other files that still invoke
 `tieline`, `TIELINE_*` environment variables, and registrations outside the repository such as
 Codex. Other commands refuse to run against a `.tieline/` workspace until it is upgraded.
+
+Commit the move once. Every other clone or worktree runs `init` once after pulling it, which moves
+that clone's own profile. A profile under a custom `TIELINE_CONFIG_HOME` stays in that directory;
+rename the variable to `TIEPOINT_CONFIG_HOME` as init advises. Branches created before the upgrade
+should merge or rebase onto the upgraded branch rather than repeat it.
 
 ## Start onboarding
 

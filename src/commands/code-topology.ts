@@ -32,11 +32,10 @@ import type {
 import { config } from "../config.js";
 import { getCodeTopologyStore } from "../code-topology-store.js";
 import {
-  findTiepointWorkspace,
   workspaceTopologyMode,
   type TiepointWorkspace,
 } from "../tiepoint/workspace.js";
-import { rejectLegacyWorkspace } from "../tiepoint/legacy-tieline.js";
+import { findWorkspaceRejectingLegacy } from "../tiepoint/legacy-tieline.js";
 import { escapeTerminalText, type CommandIO } from "./shared.js";
 
 export interface CodeTopologyLocatorInput {
@@ -156,10 +155,9 @@ function persistedCompatibilityDetail(
 }
 
 function workspaceAt(path: string | undefined): TiepointWorkspace | null {
-  const start = path ?? process.env.TIEPOINT_WORKSPACE ?? process.cwd();
-  const workspace = findTiepointWorkspace(start);
-  if (!workspace) rejectLegacyWorkspace(start);
-  return workspace;
+  return findWorkspaceRejectingLegacy(
+    path ?? process.env.TIEPOINT_WORKSPACE ?? process.cwd()
+  );
 }
 
 function locator(

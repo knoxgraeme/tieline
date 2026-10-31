@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { relative, resolve } from "node:path";
 import { z } from "zod";
-import { tiepointConfigSchema } from "../tiepoint/workspace.js";
+import { LEGACY_DIRECTORY } from "../tiepoint/legacy-tieline.js";
+import { TIEPOINT_DIRECTORY, tiepointConfigSchema } from "../tiepoint/workspace.js";
 import { readAuthoredContractAtBase } from "./authored-snapshot.js";
 import { criterionReviewBasis } from "./criterion-grade.js";
 import { buildContractIntentIndex, type IntentAcceptanceCriterionRecord } from "./reconciliation.js";
@@ -60,24 +61,29 @@ export function buildCloseoutScope(input: { repositoryRoot: string; base: string
   const base = commit(input.base);
   const head = commit(input.head);
   const mergeBase = git(["merge-base", base, head]).trim();
-  const snapshot = (revision: string) => {
-    const configPath = ".tiepoint/config.json";
+  const snapshotIn = (revision: string, directory: string) => {
+    const configPath = `${directory}/config.json`;
     const entry = git(["ls-tree", "-z", revision, "--", configPath]);
     if (!entry) return null;
-    if (!/^100(?:644|755) blob [a-f0-9]+\t\.tiepoint\/config\.json\0$/.test(entry)) {
+    if (!/^100(?:644|755) blob [a-f0-9]+\t/.test(entry) || !entry.endsWith(`\t${configPath}\0`)) {
       throw new Error("Closeout requires a regular committed Tiepoint config.");
     }
     const config = tiepointConfigSchema.parse(JSON.parse(git(["show", `${revision}:${configPath}`])));
-    if (resolve(root, ".tiepoint", config.repository.root) !== root) {
+    if (resolve(root, directory, config.repository.root) !== root) {
       throw new Error("Closeout requires the Tiepoint repository root to be the Git root.");
     }
-    const specPath = relative(resolve(root, ".tiepoint"), resolve(root, ".tiepoint", config.files.spec_directory));
+    const specPath = relative(resolve(root, directory), resolve(root, directory, config.files.spec_directory));
     if (!canonicalRepositoryRelativePath(specPath)) throw new Error("Invalid committed spec directory.");
     const manifest = readAuthoredContractAtBase({ repositoryRoot: root, repositoryKey: config.product.repo_name,
-      specDirectory: `.tiepoint/${specPath}`, base: revision });
+      specDirectory: `${directory}/${specPath}`, base: revision, configPath });
     if (!manifest) throw new Error("Committed Tiepoint config has no authored contract; restore it or remove the config with the contract.");
     return { key: config.product.repo_name, manifest };
   };
+  // A merge base from before the tieline -> tiepoint rename keeps its contract
+  // under the earlier workspace directory; without it every surviving rule
+  // would read as added and removed rules would drop out of scope.
+  const snapshot = (revision: string) =>
+    snapshotIn(revision, TIEPOINT_DIRECTORY) ?? snapshotIn(revision, LEGACY_DIRECTORY);
   const previous = snapshot(mergeBase);
   const current = snapshot(head);
   if (!previous && !current) throw new Error("No committed Tiepoint contract at either revision.");

@@ -350,7 +350,7 @@
                 }
               },
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -554,7 +554,7 @@
                 }
               },
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -604,7 +604,7 @@
                 }
               },
               {
-                "compiled_content_hash": "d81171ca88d21a11ee5a42e7236a37e253453e0977cbe64159483bfe57268a00",
+                "compiled_content_hash": "45ed398ca6a0226c8991567fd5ebf208bdcc4f25f72335654b7723b08923d106",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -785,7 +785,7 @@
             "criterion": "Tiepoint must report every acceptance criterion linked to an exact repository-relative path, must distinguish a link carried by the acceptance criterion itself from one carried only by its Story, and must return an explicit has_criteria, no_criteria, or not_found status for every requested path.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1770,7 +1770,7 @@
             "criterion": "Tiepoint must expose equivalent read-only CLI and MCP artifact-backed dependency-trace and AC-aware blast-radius results, must join base and current code to their matching authored manifest roles, must label code edges as derived_code_dependency and authored joins as contract_coupling with may_be_impacted and semantic_support not_assessed, and must never infer implementation satisfaction or a code dependency from a shared Acceptance Criterion.",
             "links": [
               {
-                "compiled_content_hash": "33e8b4221b745574f3d09fd615e201a66f512ada804cd7a4980874b22171efc5",
+                "compiled_content_hash": "c05ac4720262847c08c15332e7fe9905bb2791c1160631e42a37691eaf02bb07",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1781,7 +1781,7 @@
                 }
               },
               {
-                "compiled_content_hash": "33e8b4221b745574f3d09fd615e201a66f512ada804cd7a4980874b22171efc5",
+                "compiled_content_hash": "c05ac4720262847c08c15332e7fe9905bb2791c1160631e42a37691eaf02bb07",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1892,7 +1892,7 @@
                 }
               },
               {
-                "compiled_content_hash": "921bf6f75c0530aeadeb4d7467fecc591cc9083381157b8c67cb3fc7bad82427",
+                "compiled_content_hash": "ca2b04494b1457e021471324d104d984e793b7d4410f9e1a2d2d86d1533a98c1",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {

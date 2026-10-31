@@ -140,5 +140,21 @@ try {
   assert.ok(deleted.criteria.every((criterion) => criterion.reasons.includes("removed")));
   assert.throws(() => buildCloseoutScope({ repositoryRoot: root, base: "--all", head: "HEAD" }));
   assert.ok(readFileSync(reportPath, "utf8").includes(scope.binding.head_commit));
+  // A merge base from before the tieline -> tiepoint rename still supplies the prior contract.
+  const legacyDefinition = structuredClone(definition);
+  legacyDefinition.capability.stories[0]!.acceptance_criteria = [
+    { key: "AC-KEPT", criterion: "Kept rules must survive the rename.", links: [] },
+    { key: "AC-DROPPED", criterion: "Dropped rules must stay in scope.", links: [] },
+  ];
+  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  writeFileSync(resolve(root, ".tieline/config.json"), tiepointConfigJson({ name: "Fixture", repoName: "fixture", specDirectory: "spec" }));
+  writeFileSync(resolve(root, ".tieline/spec/fixture.yaml"), stringify(legacyDefinition));
+  const legacyBase = commit("tieline workspace");
+  git(["mv", ".tieline", ".tiepoint"]);
+  legacyDefinition.capability.stories[0]!.acceptance_criteria.pop();
+  writeFileSync(resolve(root, ".tiepoint/spec/fixture.yaml"), stringify(legacyDefinition));
+  const upgraded = buildCloseoutScope({ repositoryRoot: root, base: legacyBase, head: commit("upgrade to tiepoint") });
+  assert.ok(upgraded.criteria.find((criterion) => criterion.id === "AC-DROPPED")?.reasons.includes("removed"));
+  assert.ok(!upgraded.criteria.find((criterion) => criterion.id === "AC-KEPT")?.reasons.includes("added"));
   console.log("commit-bound closeout tests passed");
 } finally { rmSync(root, { recursive: true, force: true }); }

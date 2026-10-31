@@ -16,7 +16,7 @@
             "criterion": "Tiepoint must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -36,7 +36,7 @@
                 }
               },
               {
-                "compiled_content_hash": "d81171ca88d21a11ee5a42e7236a37e253453e0977cbe64159483bfe57268a00",
+                "compiled_content_hash": "45ed398ca6a0226c8991567fd5ebf208bdcc4f25f72335654b7723b08923d106",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -120,11 +120,11 @@
           {
             "aliases": [],
             "applies_to": null,
-            "contract_hash": "8f533e0033de1b2d184557133ddef10420a0624d3b5c73997835141ce12e1563",
+            "contract_hash": "b829ce06c45672f918dca14cd98cb51c4f43b91dd6e98d67ddcf7cc324588ff5",
             "criterion": "Tiepoint initialization must upgrade a workspace created under the earlier tieline name by moving its workspace directory and private profile, replacing recognized tieline MCP entries and project skills, and listing the steps it cannot perform, while other commands must refuse an un-upgraded workspace.",
             "links": [
               {
-                "compiled_content_hash": "839e15abeacecddfa9e65c88141f1e0d518209e46d13593306dcb7ed80374e62",
+                "compiled_content_hash": "70f288a720550accdb236049c5c182e2c0c2ca22a2d6ac3843f5302163ddba6f",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -134,7 +134,7 @@
                 }
               },
               {
-                "compiled_content_hash": "8098a9762ba75856c81f2655fbc4bf75b670f365dfea8ca695624a75d3f051b0",
+                "compiled_content_hash": "5e86ab13d748c01e7fb384c80287b7f6b2839954dd6f3e2b663c33dc2f61d7fc",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -144,7 +144,7 @@
                 }
               },
               {
-                "compiled_content_hash": "dfe735de6385c208a3da94adbc1e68524afe86945611947e3097a2704fd5f2cb",
+                "compiled_content_hash": "be55a1100b053926be50b06f73078bb1444eb3f0fe35d6603f58563255789f76",
                 "provenance": "authored",
                 "relation": "tests",
                 "target": {
@@ -166,16 +166,23 @@
                 "when": "a maintainer runs tiepoint init"
               },
               {
-                "given": "the tiepoint skill installation fails",
+                "given": "a clone that pulled an already-upgraded workspace still has its profile under the tieline configuration home",
                 "position": 1,
                 "stable_id": "RUNTIME-001-AC11-S2",
+                "then": "the profile moves to the tiepoint configuration home",
+                "when": "a maintainer runs tiepoint init in that clone"
+              },
+              {
+                "given": "the tiepoint skill installation fails",
+                "position": 2,
+                "stable_id": "RUNTIME-001-AC11-S3",
                 "then": "the earlier tieline skill must remain installed",
                 "when": "tiepoint init upgrades the repository"
               },
               {
                 "given": "an un-upgraded .tieline workspace",
-                "position": 2,
-                "stable_id": "RUNTIME-001-AC11-S3",
+                "position": 3,
+                "stable_id": "RUNTIME-001-AC11-S4",
                 "then": "the command must fail and name the upgrade command",
                 "when": "a maintainer runs a contract, check, code, or status command"
               }
@@ -210,7 +217,7 @@
                 }
               },
               {
-                "compiled_content_hash": "d81171ca88d21a11ee5a42e7236a37e253453e0977cbe64159483bfe57268a00",
+                "compiled_content_hash": "45ed398ca6a0226c8991567fd5ebf208bdcc4f25f72335654b7723b08923d106",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -244,7 +251,7 @@
             "criterion": "Tiepoint initialization must persist deterministic repository and runtime inputs from explicit flags and auto-detection without generating semantic contract content.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -288,7 +295,7 @@
             "criterion": "Tiepoint initialization must prepare explicitly selected project-agent targets and install the tiepoint skill through Skillfish only for those supported agents and scope.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -298,7 +305,7 @@
                 }
               },
               {
-                "compiled_content_hash": "839e15abeacecddfa9e65c88141f1e0d518209e46d13593306dcb7ed80374e62",
+                "compiled_content_hash": "70f288a720550accdb236049c5c182e2c0c2ca22a2d6ac3843f5302163ddba6f",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -353,7 +360,7 @@
             "criterion": "Tiepoint must preserve a ready workspace and report a structured installer error when requested skill installation fails.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -397,7 +404,7 @@
             "criterion": "Tiepoint status must expose concise structured onboarding state without duplicating the authoring workflow.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -407,7 +414,7 @@
                 }
               },
               {
-                "compiled_content_hash": "d81171ca88d21a11ee5a42e7236a37e253453e0977cbe64159483bfe57268a00",
+                "compiled_content_hash": "45ed398ca6a0226c8991567fd5ebf208bdcc4f25f72335654b7723b08923d106",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -441,7 +448,7 @@
             "criterion": "Tiepoint initialization must print an exact Tiepoint retry command when requested skill installation is incomplete.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -496,7 +503,7 @@
             "criterion": "Tiepoint initialization must accept context sources only through repeatable --context flags and validate each as an existing repository path or explicit HTTP(S) URL before mutation.",
             "links": [
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -550,7 +557,7 @@
                 }
               },
               {
-                "compiled_content_hash": "4f65dbfa6d0df7eeecd9e08ed9b3743c85aca77d4ce20ba9f6b748413b2e5348",
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -560,7 +567,7 @@
                 }
               },
               {
-                "compiled_content_hash": "839e15abeacecddfa9e65c88141f1e0d518209e46d13593306dcb7ed80374e62",
+                "compiled_content_hash": "70f288a720550accdb236049c5c182e2c0c2ca22a2d6ac3843f5302163ddba6f",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -843,7 +850,7 @@
                 }
               },
               {
-                "compiled_content_hash": "2f29c309b4585f83cb5f2d0332d6846a6cd7338581e21a3b6f4f4a0b570ad53b",
+                "compiled_content_hash": "7d2f8f0466e51a49380a587637397ed4bbd2bfb61e0f7dfd56678cb2dd757939",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -918,7 +925,7 @@
                 }
               },
               {
-                "compiled_content_hash": "2f29c309b4585f83cb5f2d0332d6846a6cd7338581e21a3b6f4f4a0b570ad53b",
+                "compiled_content_hash": "7d2f8f0466e51a49380a587637397ed4bbd2bfb61e0f7dfd56678cb2dd757939",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -952,7 +959,7 @@
             "criterion": "Tiepoint's project-installed skill and equivalent MCP prompt must make semantic closeout discoverable before handoff or branch publication, classify every changed behavior cluster including relevant untracked files, directly apply and validate justified contract changes within the authorized commit or publication boundary, and rerun after later implementation changes.",
             "links": [
               {
-                "compiled_content_hash": "2f29c309b4585f83cb5f2d0332d6846a6cd7338581e21a3b6f4f4a0b570ad53b",
+                "compiled_content_hash": "7d2f8f0466e51a49380a587637397ed4bbd2bfb61e0f7dfd56678cb2dd757939",
                 "provenance": "authored",
                 "relation": "implements",
                 "target": {
@@ -1072,6 +1079,6 @@
   },
   "input": {
     "path": ".tiepoint/spec/runtime.yaml",
-    "sha256": "84979b3d10a7809d7d3c0f3d90723404fb727b8dca75a643f2b44de46a7d5c03"
+    "sha256": "983d5ffaf11217a637d0bd9074e2b80713ed4c8a09a0552d9ac6d39f51f26047"
   }
 }

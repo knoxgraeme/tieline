@@ -9,7 +9,9 @@ description: Semantically onboard an initialized Tiepoint repository, or author,
 
 If `.tiepoint/config.json` does not exist, bootstrap deterministic setup first:
 run `npx -y tiepoint@latest init . --yes --agent <this-agent-id>` and continue
-once it succeeds. Never wait for tiepoint MCP tools mid-session — registered
+once it succeeds. When init upgrades a repository set up under the earlier
+`tieline` name, complete or relay every step it lists under "To finish the
+rename" before continuing. Never wait for tiepoint MCP tools mid-session — registered
 servers load when the client starts its next session, and every workflow here
 also works through the CLI (`npx -y tiepoint <command>`).
 

@@ -38,9 +38,11 @@ import {
   filesMentioningLegacyName,
   findLegacySkillInstalls,
   legacyEnvironmentKeys,
+  migrateLegacyProfile,
   removeReplacedLegacySkills,
   replaceLegacyMcpServers,
   upgradeLegacyWorkspace,
+  type LegacyProfileMigration,
   type LegacyWorkspaceUpgrade,
 } from "../tiepoint/legacy-tieline.js";
 import {
@@ -205,39 +207,44 @@ async function registerMcpClients(
 interface LegacyUpgrade {
   root: string;
   workspace: LegacyWorkspaceUpgrade | null;
+  profile: LegacyProfileMigration;
   mcp: RenamedMcpServerOutcome;
   skills: ProjectSkillInstall[];
 }
 
 /**
- * Upgrades a repository set up under the earlier tieline name. Each step is
- * idempotent, so a later init finishes what an earlier one left behind, such
- * as a skill that was not reinstalled.
+ * Upgrades a repository set up under the earlier tieline name. The workspace
+ * move happens once, in the clone that commits it; the profile, MCP, and skill
+ * steps run on every init, so other clones and worktrees, and a later init
+ * after a partial run, finish what is left.
  */
 function upgradeLegacySetup(
   target: string,
   env: NodeJS.ProcessEnv
 ): LegacyUpgrade | null {
-  const workspace = upgradeLegacyWorkspace(target, env);
-  if (workspace?.movedProfile) {
+  const moved = upgradeLegacyWorkspace(target);
+  const workspace = findTiepointWorkspace(target);
+  if (!workspace) return null;
+  const profile = migrateLegacyProfile(workspace, env);
+  if (profile.movedProfile) {
     // The CLI loads profiles before dispatching init, when this one was
     // still under the earlier configuration home.
     loadWorkspaceProfileForCommand("init", target, env);
     reloadConfig(env);
   }
-  const root = findTiepointWorkspace(target)?.root;
-  if (!root) return null;
-  const mcp = replaceLegacyMcpServers(root);
-  const skills = findLegacySkillInstalls(root);
+  const mcp = replaceLegacyMcpServers(workspace.root);
+  const skills = findLegacySkillInstalls(workspace.root);
   if (
-    !workspace &&
+    !moved &&
+    !profile.movedProfile &&
+    !profile.retainedProfile &&
     mcp.replaced.length === 0 &&
     mcp.unrecognized.length === 0 &&
     skills.length === 0
   ) {
     return null;
   }
-  return { root, workspace, mcp, skills };
+  return { root: workspace.root, workspace: moved, profile, mcp, skills };
 }
 
 /** Reinstalls the skill for agents that had the earlier one unless told otherwise. */
@@ -266,27 +273,23 @@ function removeLegacySkills(
   ]);
 }
 
+/**
+ * Reports the upgrade as soon as it happens, before anything later in init
+ * can fail: a rerun no longer sees the moved workspace, so this is the only
+ * chance to list its follow-ups.
+ */
 function renderLegacyUpgrade(
   upgrade: LegacyUpgrade | null,
-  removedSkills: readonly string[],
   env: NodeJS.ProcessEnv,
   ui: Palette
 ): string[] {
   const done: string[] = [];
   const followUps: string[] = [];
   if (upgrade?.workspace) {
-    const { movedProfile, retainedProfile, topologyCommitted } =
-      upgrade.workspace;
     done.push(`  Workspace: moved .tieline/ to ${TIEPOINT_DIRECTORY}/`);
-    if (movedProfile) done.push(`  Profile: moved to ${movedProfile.to}`);
-    if (retainedProfile) {
-      followUps.push(
-        `The tieline profile at ${retainedProfile.path} was not moved because ${retainedProfile.reason}.`
-      );
-    }
     const compile = [
       `\`npx -y ${TIEPOINT_PACKAGE_SPEC} contract compile .\``,
-      ...(topologyCommitted
+      ...(upgrade.workspace.topologyCommitted
         ? [`\`npx -y ${TIEPOINT_PACKAGE_SPEC} code compile .\``]
         : []),
     ].join(" and ");
@@ -294,23 +297,25 @@ function renderLegacyUpgrade(
       `Run ${compile}, then commit the move to ${TIEPOINT_DIRECTORY}/.`
     );
   }
+  const { movedProfile, retainedProfile } = upgrade?.profile ?? {};
+  if (movedProfile) {
+    done.push(
+      movedProfile.from === movedProfile.to
+        ? `  Profile: updated at ${movedProfile.to}`
+        : `  Profile: moved to ${movedProfile.to}`
+    );
+  }
+  if (retainedProfile) {
+    followUps.push(
+      `The tieline profile at ${retainedProfile.path} was not moved because ${retainedProfile.reason}.`
+    );
+  }
   if (upgrade && upgrade.mcp.replaced.length > 0) {
     done.push(`  MCP: replaced the tieline server in ${upgrade.mcp.replaced.join(", ")}`);
   }
   if (upgrade && upgrade.mcp.unrecognized.length > 0) {
     followUps.push(
-      `Point the custom tieline MCP entry in ${upgrade.mcp.unrecognized.join(", ")} at tiepoint.`
-    );
-  }
-  if (removedSkills.length > 0) {
-    done.push(`  Skill: replaced tieline at ${removedSkills.join(", ")}`);
-  }
-  const remainingSkills = (upgrade?.skills ?? []).filter(
-    (skill) => !removedSkills.includes(skill.path)
-  );
-  if (remainingSkills.length > 0) {
-    followUps.push(
-      `The tieline skill remains at ${remainingSkills.map((skill) => skill.path).join(", ")}; rerun init with --agent to replace it.`
+      `Update the tieline MCP entry in ${upgrade.mcp.unrecognized.join(", ")} to run tiepoint; it was not rewritten automatically.`
     );
   }
   const legacyKeys = legacyEnvironmentKeys(env);
@@ -329,7 +334,7 @@ function renderLegacyUpgrade(
   }
   if (upgrade?.workspace) {
     followUps.push(
-      "Registrations outside the repository are unchanged: run `codex mcp remove tieline` if Codex has one, and remove any global tieline skill."
+      "Registrations outside the repository are unchanged: run `codex mcp remove tieline` if Codex has one, point any MCP entry you added by hand (Claude Desktop or Windsurf, for example) at tiepoint, and remove any global tieline skill."
     );
   }
   if (done.length === 0 && followUps.length === 0) return [];
@@ -339,6 +344,29 @@ function renderLegacyUpgrade(
       ? [ui.yellow("To finish the rename:"), ...followUps.map((line) => `  - ${line}`)]
       : []),
     "",
+  ];
+}
+
+/** Skill lines belong in the summary: they depend on the install outcome. */
+function renderLegacySkills(
+  upgrade: LegacyUpgrade | null,
+  removedSkills: readonly string[],
+  ui: Palette
+): string[] {
+  const remaining = (upgrade?.skills ?? []).filter(
+    (skill) => !removedSkills.includes(skill.path)
+  );
+  return [
+    ...(removedSkills.length > 0
+      ? [`Skill: replaced tieline at ${removedSkills.join(", ")}`]
+      : []),
+    ...(remaining.length > 0
+      ? [
+          ui.yellow(
+            `Skill: tieline remains at ${remaining.map((skill) => skill.path).join(", ")}; rerun init with --agent <id> to replace it.`
+          ),
+        ]
+      : []),
   ];
 }
 
@@ -443,6 +471,8 @@ export async function runInit(
   if (parsed.agents.length > 0) normalizeSkillAgentIds(parsed.agents);
 
   const upgrade = upgradeLegacySetup(parsed.target, env);
+  const upgradeLines = renderLegacyUpgrade(upgrade, env, paletteFor(io));
+  if (upgradeLines.length > 0) io.write(`${upgradeLines.join("\n")}\n`);
   const existing = findTiepointWorkspace(parsed.target);
   let skillSelection: SkillInstallSelection | null = null;
 
@@ -501,9 +531,9 @@ export async function runInit(
       );
       const mcpLines = renderMcpSummary(mcp, null, ui);
       io.write(`${[
-        ...renderLegacyUpgrade(upgrade, [], env, ui),
         `Tiepoint is already initialized at ${existing.directory}.`,
         ...mcpLines,
+        ...renderLegacySkills(upgrade, [], ui),
         ...renderSourceScopeAdvisory(sourceScopeAdvisoryRoots, ui),
         renderStatus(getTiepointStatus(existing, env), ui),
       ].join("\n")}\n`);
@@ -532,13 +562,12 @@ export async function runInit(
     );
     const preflightEnv =
       databaseMode === "offline" ? withoutDatabaseEnvironment(env) : env;
-    const legacyLines = renderLegacyUpgrade(
+    const skillLines = renderLegacySkills(
       upgrade,
       removedLegacySkills,
-      env,
       paletteFor(io)
     );
-    if (legacyLines.length > 0) io.write(`${legacyLines.join("\n")}\n`);
+    if (skillLines.length > 0) io.write(`${skillLines.join("\n")}\n`);
     renderInitSummary({
       preflight: await runDatabasePreflight(preflightEnv),
       skill,

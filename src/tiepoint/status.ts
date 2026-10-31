@@ -7,12 +7,9 @@ import {
   inspectMcpClientConfigs,
   type McpClientConfigDiagnostic,
 } from "./mcp-config.js";
-import {
-  findTiepointWorkspace,
-  type TiepointWorkspace,
-} from "./workspace.js";
+import type { TiepointWorkspace } from "./workspace.js";
 import { readWorkspaceProfile } from "./profile.js";
-import { rejectLegacyWorkspace } from "./legacy-tieline.js";
+import { findWorkspaceRejectingLegacy } from "./legacy-tieline.js";
 import type { DatabaseMode } from "./setup.js";
 
 export interface TiepointStatus {
@@ -163,9 +160,8 @@ export function statusFromPath(
   path: string,
   env: NodeJS.ProcessEnv = process.env
 ): TiepointStatus {
-  const workspace = findTiepointWorkspace(path);
+  const workspace = findWorkspaceRejectingLegacy(path);
   if (!workspace) {
-    rejectLegacyWorkspace(path);
     throw new Error(`No .tiepoint/config.json found from ${path}.`);
   }
   return getTiepointStatus(workspace, env);

@@ -602,9 +602,9 @@ function buildProgram(
       .option("--repo <key>", "stable repository key")
       .option("--json", "emit machine-readable JSON")
   ).action(async (opts) => {
-    const { findTiepointWorkspace } = await import("./tiepoint/workspace.js");
+    const { findWorkspaceRejectingLegacy } = await import("./tiepoint/legacy-tieline.js");
     const { runDependencyTraceCommand } = await import("./commands/code-topology.js");
-    const workspace = findTiepointWorkspace(opts.repository ?? process.cwd());
+    const workspace = findWorkspaceRejectingLegacy(opts.repository ?? process.cwd());
     const repository = opts.repo ?? workspace?.config.product.repo_name;
     if (!repository) {
       throw new Error("`code trace` requires --repo <key> when no Tiepoint workspace is available.");
@@ -644,9 +644,9 @@ function buildProgram(
       .option("--repo <key>", "stable repository key")
       .option("--json", "emit machine-readable JSON")
   ).action(async (opts) => {
-    const { findTiepointWorkspace } = await import("./tiepoint/workspace.js");
+    const { findWorkspaceRejectingLegacy } = await import("./tiepoint/legacy-tieline.js");
     const { runBlastRadiusCommand } = await import("./commands/code-topology.js");
-    const workspace = findTiepointWorkspace(opts.repository ?? process.cwd());
+    const workspace = findWorkspaceRejectingLegacy(opts.repository ?? process.cwd());
     const repository = opts.repo ?? workspace?.config.product.repo_name;
     if (!repository) {
       throw new Error("`code blast-radius` requires --repo <key> when no Tiepoint workspace is available.");
