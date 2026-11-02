@@ -2,8 +2,8 @@ import type { EmbeddingProvider } from "../config.js";
 import { reloadConfig } from "../config.js";
 import {
   renderStatus,
-  type TielineCliDependencies,
-  type TielineCliIO,
+  type TiepointCliDependencies,
+  type TiepointCliIO,
 } from "../cli.js";
 import {
   intro,
@@ -20,52 +20,66 @@ import {
   initWorkspace,
   normalizeContextLocations,
   slugifyRepoName,
-} from "../tieline/init.js";
+} from "../tiepoint/init.js";
 import {
   inspectRepositorySourceScope,
-} from "../tieline/source-scope.js";
+} from "../tiepoint/source-scope.js";
 import {
   resolveEmbeddingProvider,
   runDatabasePreflight,
   type PreflightCheck,
-} from "../tieline/preflight.js";
+} from "../tiepoint/preflight.js";
 import {
   DATABASE_PROFILE_ENV_KEYS,
+  loadWorkspaceProfileForCommand,
   readWorkspaceProfile,
-} from "../tieline/profile.js";
+} from "../tiepoint/profile.js";
+import {
+  filesMentioningLegacyName,
+  findLegacySkillInstalls,
+  legacyEnvironmentKeys,
+  migrateLegacyProfile,
+  removeReplacedLegacySkills,
+  replaceLegacyMcpServers,
+  upgradeLegacyWorkspace,
+  type LegacyProfileMigration,
+  type LegacyWorkspaceUpgrade,
+} from "../tiepoint/legacy-tieline.js";
 import {
   configureWorkspaceRuntime,
   type DatabaseMode,
-} from "../tieline/setup.js";
+} from "../tiepoint/setup.js";
 import {
   registerCodexMcpServer,
   writeMcpClientConfigs,
   type CodexMcpOutcome,
   type McpConfigOutcome,
-} from "../tieline/mcp-config.js";
-import { TIELINE_PACKAGE_SPEC } from "../package-metadata.js";
-import { writeWorkspaceReviewPage } from "../tieline/review.js";
+  type RenamedMcpServerOutcome,
+} from "../tiepoint/mcp-config.js";
+import { TIEPOINT_PACKAGE_SPEC } from "../package-metadata.js";
+import { writeWorkspaceReviewPage } from "../tiepoint/review.js";
 import {
   detectRepositoryAgents,
-  installTielineSkill,
+  installTiepointSkill,
   normalizeSkillAgentIds,
   runSkillfishProcess,
   skippedSkillInstall,
   SUPPORTED_SKILL_AGENTS,
+  type ProjectSkillInstall,
   type SkillAgentId,
   type SkillInstallOutcome,
   type SkillInstallScope,
-} from "../tieline/skill-install.js";
+} from "../tiepoint/skill-install.js";
 import {
-  getTielineStatus,
+  getTiepointStatus,
   ONBOARDING_AGENT_INSTRUCTION,
   ONBOARDING_SKILL_INSTALL_COMMAND,
-} from "../tieline/status.js";
+} from "../tiepoint/status.js";
 import {
-  findTielineWorkspace,
-  TIELINE_DIRECTORY,
-  type TielineWorkspace,
-} from "../tieline/workspace.js";
+  findTiepointWorkspace,
+  TIEPOINT_DIRECTORY,
+  type TiepointWorkspace,
+} from "../tiepoint/workspace.js";
 
 export interface InitOptions {
   target: string;
@@ -141,7 +155,7 @@ function renderMcpSummary(
   for (const write of failed) {
     lines.push(
       ui.yellow(
-        `MCP server: ${write.path} was left untouched (${write.reason}); add the 'tieline' entry manually.`
+        `MCP server: ${write.path} was left untouched (${write.reason}); add the 'tiepoint' entry manually.`
       )
     );
   }
@@ -154,7 +168,7 @@ function renderMcpSummary(
   }
   if (mcp.manualAgents.length > 0) {
     lines.push(
-      `MCP server: ${joinLabels(mcp.manualAgents.map(agentLabel))} ${mcp.manualAgents.length === 1 ? "keeps" : "keep"} MCP configuration outside the repository; register 'npx -y ${TIELINE_PACKAGE_SPEC} serve' there manually.`
+      `MCP server: ${joinLabels(mcp.manualAgents.map(agentLabel))} ${mcp.manualAgents.length === 1 ? "keeps" : "keep"} MCP configuration outside the repository; register 'npx -y ${TIEPOINT_PACKAGE_SPEC} serve' there manually.`
     );
   }
   return lines;
@@ -167,7 +181,7 @@ function renderSourceScopeAdvisory(
   if (roots.length === 0) return [];
   return [
     ui.yellow(
-      `Source scope: recognized code outside configured roots: ${roots.join(", ")}. Review repository.source_roots in ${TIELINE_DIRECTORY}/config.json.`
+      `Source scope: recognized code outside configured roots: ${roots.join(", ")}. Review repository.source_roots in ${TIEPOINT_DIRECTORY}/config.json.`
     ),
   ];
 }
@@ -176,7 +190,7 @@ async function registerMcpClients(
   root: string,
   selection: SkillInstallSelection | null,
   env: NodeJS.ProcessEnv,
-  dependencies: TielineCliDependencies
+  dependencies: TiepointCliDependencies
 ): Promise<{ mcp: McpConfigOutcome; codex: CodexMcpOutcome | null }> {
   const agents = selection?.agents ?? [];
   const mcp = writeMcpClientConfigs(root, agents);
@@ -190,6 +204,172 @@ async function registerMcpClients(
   return { mcp, codex };
 }
 
+interface LegacyUpgrade {
+  root: string;
+  workspace: LegacyWorkspaceUpgrade | null;
+  profile: LegacyProfileMigration;
+  mcp: RenamedMcpServerOutcome;
+  skills: ProjectSkillInstall[];
+}
+
+/**
+ * Upgrades a repository set up under the earlier tieline name. The workspace
+ * move happens once, in the clone that commits it; the profile, MCP, and skill
+ * steps run on every init, so other clones and worktrees, and a later init
+ * after a partial run, finish what is left.
+ */
+function upgradeLegacySetup(
+  target: string,
+  env: NodeJS.ProcessEnv
+): LegacyUpgrade | null {
+  const moved = upgradeLegacyWorkspace(target);
+  const workspace = findTiepointWorkspace(target);
+  if (!workspace) return null;
+  const profile = migrateLegacyProfile(workspace, env);
+  if (profile.movedProfile) {
+    // The CLI loads profiles before dispatching init, when this one was
+    // still under the earlier configuration home.
+    loadWorkspaceProfileForCommand("init", target, env);
+    reloadConfig(env);
+  }
+  const mcp = replaceLegacyMcpServers(workspace.root);
+  const skills = findLegacySkillInstalls(workspace.root);
+  if (
+    !moved &&
+    !profile.movedProfile &&
+    !profile.retainedProfile &&
+    mcp.replaced.length === 0 &&
+    mcp.unrecognized.length === 0 &&
+    skills.length === 0
+  ) {
+    return null;
+  }
+  return { root: workspace.root, workspace: moved, profile, mcp, skills };
+}
+
+/** Reinstalls the skill for agents that had the earlier one unless told otherwise. */
+function withLegacySkillAgents(
+  parsed: InitOptions,
+  upgrade: LegacyUpgrade | null
+): InitOptions {
+  if (!upgrade || parsed.skipSkillInstall || parsed.agents.length > 0) {
+    return parsed;
+  }
+  const agents = [...new Set(upgrade.skills.map((skill) => skill.agentId))];
+  return agents.length > 0 ? { ...parsed, agents } : parsed;
+}
+
+function removeLegacySkills(
+  upgrade: LegacyUpgrade | null,
+  selection: SkillInstallSelection | null,
+  skill: SkillInstallOutcome
+): string[] {
+  if (!upgrade || selection?.scope !== "project" || skill.status !== "installed") {
+    return [];
+  }
+  return removeReplacedLegacySkills(upgrade.root, upgrade.skills, [
+    ...skill.installedAgents,
+    ...skill.alreadyPresentAgents,
+  ]);
+}
+
+/**
+ * Reports the upgrade as soon as it happens, before anything later in init
+ * can fail: a rerun no longer sees the moved workspace, so this is the only
+ * chance to list its follow-ups.
+ */
+function renderLegacyUpgrade(
+  upgrade: LegacyUpgrade | null,
+  env: NodeJS.ProcessEnv,
+  ui: Palette
+): string[] {
+  const done: string[] = [];
+  const followUps: string[] = [];
+  if (upgrade?.workspace) {
+    done.push(`  Workspace: moved .tieline/ to ${TIEPOINT_DIRECTORY}/`);
+    const compile = [
+      `\`npx -y ${TIEPOINT_PACKAGE_SPEC} contract compile .\``,
+      ...(upgrade.workspace.topologyCommitted
+        ? [`\`npx -y ${TIEPOINT_PACKAGE_SPEC} code compile .\``]
+        : []),
+    ].join(" and ");
+    followUps.push(
+      `Run ${compile}, then commit the move to ${TIEPOINT_DIRECTORY}/.`
+    );
+  }
+  const { movedProfile, retainedProfile } = upgrade?.profile ?? {};
+  if (movedProfile) {
+    done.push(
+      movedProfile.from === movedProfile.to
+        ? `  Profile: updated at ${movedProfile.to}`
+        : `  Profile: moved to ${movedProfile.to}`
+    );
+  }
+  if (retainedProfile) {
+    followUps.push(
+      `The tieline profile at ${retainedProfile.path} was not moved because ${retainedProfile.reason}.`
+    );
+  }
+  if (upgrade && upgrade.mcp.replaced.length > 0) {
+    done.push(`  MCP: replaced the tieline server in ${upgrade.mcp.replaced.join(", ")}`);
+  }
+  if (upgrade && upgrade.mcp.unrecognized.length > 0) {
+    followUps.push(
+      `Update the tieline MCP entry in ${upgrade.mcp.unrecognized.join(", ")} to run tiepoint; it was not rewritten automatically.`
+    );
+  }
+  const legacyKeys = legacyEnvironmentKeys(env);
+  if (legacyKeys.length > 0) {
+    followUps.push(
+      `Rename environment variables that are no longer read: ${legacyKeys
+        .map((key) => `${key} to ${key.replace(/^TIELINE_/, "TIEPOINT_")}`)
+        .join(", ")}.`
+    );
+  }
+  if (upgrade) {
+    const mentions = filesMentioningLegacyName(upgrade.root);
+    if (mentions.length > 0) {
+      followUps.push(`Update tieline references in ${mentions.join(", ")}.`);
+    }
+  }
+  if (upgrade?.workspace) {
+    followUps.push(
+      "Registrations outside the repository are unchanged: run `codex mcp remove tieline` if Codex has one, point any MCP entry you added by hand (Claude Desktop or Windsurf, for example) at tiepoint, and remove any global tieline skill."
+    );
+  }
+  if (done.length === 0 && followUps.length === 0) return [];
+  return [
+    ...(done.length > 0 ? [ui.green("Upgraded from tieline:"), ...done] : []),
+    ...(followUps.length > 0
+      ? [ui.yellow("To finish the rename:"), ...followUps.map((line) => `  - ${line}`)]
+      : []),
+    "",
+  ];
+}
+
+/** Skill lines belong in the summary: they depend on the install outcome. */
+function renderLegacySkills(
+  upgrade: LegacyUpgrade | null,
+  removedSkills: readonly string[],
+  ui: Palette
+): string[] {
+  const remaining = (upgrade?.skills ?? []).filter(
+    (skill) => !removedSkills.includes(skill.path)
+  );
+  return [
+    ...(removedSkills.length > 0
+      ? [`Skill: replaced tieline at ${removedSkills.join(", ")}`]
+      : []),
+    ...(remaining.length > 0
+      ? [
+          ui.yellow(
+            `Skill: tieline remains at ${remaining.map((skill) => skill.path).join(", ")}; rerun init with --agent <id> to replace it.`
+          ),
+        ]
+      : []),
+  ];
+}
+
 interface InitSummary {
   preflight: PreflightCheck[];
   skill: SkillInstallOutcome;
@@ -200,11 +380,11 @@ interface InitSummary {
 
 function renderInitSummary(
   summary: InitSummary,
-  io: TielineCliIO
+  io: TiepointCliIO
 ): void {
   const ui = paletteFor(io);
   const lines = [
-    `${ui.green("Workspace:")} ready at ${TIELINE_DIRECTORY}/`,
+    `${ui.green("Workspace:")} ready at ${TIEPOINT_DIRECTORY}/`,
     ...renderMcpSummary(summary.mcp, summary.codex, ui),
     ...renderSourceScopeAdvisory(
       summary.sourceScopeAdvisoryRoots,
@@ -232,7 +412,7 @@ function renderInitSummary(
         : []),
     ].join("; ");
     lines.push(
-      `Skill: tieline ${skillState}`,
+      `Skill: tiepoint ${skillState}`,
       "",
       ui.bold("Next steps"),
       "  1. Restart or reload your agent.",
@@ -240,7 +420,7 @@ function renderInitSummary(
     );
   } else if (summary.skill.status === "failed") {
     lines.push(
-      ui.yellow("Skill: tieline installation incomplete"),
+      ui.yellow("Skill: tiepoint installation incomplete"),
       `Reason: ${summary.skill.reason}`,
       "",
       ui.bold("Next step"),
@@ -256,7 +436,7 @@ function renderInitSummary(
       "Skill: not installed",
       "",
       ui.bold("Next step"),
-      "  Install the tieline skill by running:",
+      "  Install the tiepoint skill by running:",
       "",
       ...renderCopyCallout(ui, ONBOARDING_SKILL_INSTALL_COMMAND)
     );
@@ -266,9 +446,9 @@ function renderInitSummary(
 
 export async function runInit(
   parsed: InitOptions,
-  io: TielineCliIO,
+  io: TiepointCliIO,
   env: NodeJS.ProcessEnv,
-  dependencies: TielineCliDependencies
+  dependencies: TiepointCliDependencies
 ): Promise<number> {
   const embedding = parsed.embedding ?? resolveEmbeddingProvider(env);
   if (
@@ -290,7 +470,10 @@ export async function runInit(
   }
   if (parsed.agents.length > 0) normalizeSkillAgentIds(parsed.agents);
 
-  const existing = findTielineWorkspace(parsed.target);
+  const upgrade = upgradeLegacySetup(parsed.target, env);
+  const upgradeLines = renderLegacyUpgrade(upgrade, env, paletteFor(io));
+  if (upgradeLines.length > 0) io.write(`${upgradeLines.join("\n")}\n`);
+  const existing = findTiepointWorkspace(parsed.target);
   let skillSelection: SkillInstallSelection | null = null;
 
   if (existing) {
@@ -299,7 +482,7 @@ export async function runInit(
       existing.config.repository.source_roots,
       existing.config.repository.ignore
     );
-    const existingStatus = getTielineStatus(existing, env);
+    const existingStatus = getTiepointStatus(existing, env);
     const stored = readWorkspaceProfile(existing, env);
     const databaseMode = parsed.databaseExplicit
       ? parsed.database
@@ -315,7 +498,7 @@ export async function runInit(
       parsed.embeddingExplicit ||
       parsed.installLocalEmbedder;
     skillSelection = await resolveSkillSelection(
-      parsed,
+      withLegacySkillAgents(parsed, upgrade),
       io,
       Boolean(existingStatus.onboarding || shouldConfigure),
       env
@@ -348,10 +531,11 @@ export async function runInit(
       );
       const mcpLines = renderMcpSummary(mcp, null, ui);
       io.write(`${[
-        `Tieline is already initialized at ${existing.directory}.`,
+        `Tiepoint is already initialized at ${existing.directory}.`,
         ...mcpLines,
+        ...renderLegacySkills(upgrade, [], ui),
         ...renderSourceScopeAdvisory(sourceScopeAdvisoryRoots, ui),
-        renderStatus(getTielineStatus(existing, env), ui),
+        renderStatus(getTiepointStatus(existing, env), ui),
       ].join("\n")}\n`);
       return 0;
     }
@@ -360,6 +544,11 @@ export async function runInit(
       skillSelection,
       env,
       dependencies
+    );
+    const removedLegacySkills = removeLegacySkills(
+      upgrade,
+      skillSelection,
+      skill
     );
     const { mcp, codex } = await registerMcpClients(
       existing.root,
@@ -373,6 +562,12 @@ export async function runInit(
     );
     const preflightEnv =
       databaseMode === "offline" ? withoutDatabaseEnvironment(env) : env;
+    const skillLines = renderLegacySkills(
+      upgrade,
+      removedLegacySkills,
+      paletteFor(io)
+    );
+    if (skillLines.length > 0) io.write(`${skillLines.join("\n")}\n`);
     renderInitSummary({
       preflight: await runDatabasePreflight(preflightEnv),
       skill,
@@ -386,7 +581,7 @@ export async function runInit(
   const richInteractive = Boolean(io.interactive && !parsed.yes);
   if (richInteractive) {
     io.write(`${renderBanner(paletteFor(io))}\n\n`);
-    await intro(io, "tieline init");
+    await intro(io, "tiepoint init");
   }
   const product = parsed.product ?? detectProductName(parsed.target);
   const repoName = slugifyRepoName(
@@ -449,7 +644,7 @@ export async function runInit(
   );
   // Close the Clack flow before the summary so the direct skill invocation is
   // the last thing on screen rather than trailing into the flow's end cap.
-  if (richInteractive) await outro(io, "Tieline workspace ready");
+  if (richInteractive) await outro(io, "Tiepoint workspace ready");
   renderInitSummary({
     preflight: await runDatabasePreflight(initEnv),
     skill,
@@ -462,7 +657,7 @@ export async function runInit(
 
 async function resolveSkillSelection(
   parsed: InitOptions,
-  io: TielineCliIO,
+  io: TiepointCliIO,
   requireSelection: boolean,
   env: NodeJS.ProcessEnv
 ): Promise<SkillInstallSelection | null> {
@@ -480,7 +675,7 @@ async function resolveSkillSelection(
     }
     agents = await multiselectChoice<SkillAgentId>(
       io,
-      "Where should Tieline install its onboarding and authoring skill?",
+      "Where should Tiepoint install its onboarding and authoring skill?",
       SKILL_AGENT_OPTIONS,
       detectRepositoryAgents(parsed.target, env)
     );
@@ -494,13 +689,13 @@ async function resolveSkillSelection(
 }
 
 async function runSkillInstall(
-  workspace: TielineWorkspace,
+  workspace: TiepointWorkspace,
   selection: SkillInstallSelection | null,
   env: NodeJS.ProcessEnv,
-  dependencies: TielineCliDependencies
+  dependencies: TiepointCliDependencies
 ): Promise<SkillInstallOutcome> {
   if (!selection) return skippedSkillInstall();
-  return installTielineSkill(
+  return installTiepointSkill(
     {
       workspaceRoot: workspace.root,
       agentIds: selection.agents,

@@ -247,7 +247,7 @@ await test("normalized resolver outcomes retain stable explanatory fields", asyn
 });
 
 await test("keeps mixed-case Unicode resolver configuration and outcomes independent of locale", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-resolution-locale-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-resolution-locale-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     writeFileSync(resolve(root, "src/main.ts"), 'import "@locale/value";\n');

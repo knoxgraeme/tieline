@@ -1,8 +1,8 @@
 /**
- * Deterministic scaffolding for a semantic judgment Tieline does not make.
+ * Deterministic scaffolding for a semantic judgment Tiepoint does not make.
  *
  * The host agent decides whether an artifact supports an acceptance criterion.
- * Tieline owns the complete scope and the closed citation vocabulary, so a
+ * Tiepoint owns the complete scope and the closed citation vocabulary, so a
  * grader may refuse support but cannot silently skip work or invent evidence.
  *
  * A contract link is a claim with two sides, and the scope covers a change to

@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import { readContractManifest } from "../../../src/contract/manifest.js";
 import {
   lookupAcceptanceCriterionIntentContext,
@@ -26,9 +26,9 @@ const unsafeTerminalCodePoint =
 assert.equal(escapeTerminalText(terminalInjection), escapedTerminalInjection);
 assert.equal(escapeTerminalText("field\nvalue\tend"), "field\\x0avalue\\x09end");
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-context-command-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-contract-context-command-"));
 let output = "";
-const io: TielineCliIO = {
+const io: TiepointCliIO = {
   write(message) {
     output += message;
   },
@@ -42,7 +42,7 @@ const io: TielineCliIO = {
 
 try {
   const contextRoot = resolve(root, "context-fixture");
-  mkdirSync(resolve(contextRoot, ".tieline/spec"), { recursive: true });
+  mkdirSync(resolve(contextRoot, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(contextRoot, "src"), { recursive: true });
   mkdirSync(resolve(contextRoot, "test"), { recursive: true });
   writeFileSync(
@@ -60,7 +60,7 @@ try {
   writeFileSync(resolve(contextRoot, "src/missing.ts"), "export const missing = true;\n");
   writeFileSync(resolve(contextRoot, "src/unlinked.ts"), "export const unlinked = true;\n");
   writeFileSync(
-    resolve(contextRoot, ".tieline/spec/context.yaml"),
+    resolve(contextRoot, ".tiepoint/spec/context.yaml"),
     `version: 1
 capability:
   key: CONTEXT
@@ -87,7 +87,7 @@ capability:
             selector: function:storyFeature
       acceptance_criteria:
         - key: CONTEXT-001-AC1
-          criterion: Tieline must include file-level contract coupling for exact selectors.
+          criterion: Tiepoint must include file-level contract coupling for exact selectors.
           rationale: Symbols in one file must remain distinct.
           applies_to:
             roles: [maintainer]
@@ -128,7 +128,7 @@ capability:
                 repository: context-command-test
                 path: src/missing.ts
         - key: CONTEXT-001-AC2
-          criterion: Tieline must preserve every selector-qualified claim in path-only context.
+          criterion: Tiepoint must preserve every selector-qualified claim in path-only context.
           links:
             - relation: implements
               provenance: inferred
@@ -158,7 +158,7 @@ capability:
   );
   rmSync(resolve(contextRoot, "src/missing.ts"));
   const contextManifest = readContractManifest(
-    resolve(contextRoot, ".tieline/manifest")
+    resolve(contextRoot, ".tiepoint/manifest")
   );
 
   output = "";
@@ -469,7 +469,7 @@ capability:
       io,
       {}
     ),
-    /Cannot inspect intent context.*contract manifest.*tieline contract compile/si
+    /Cannot inspect intent context.*contract manifest.*tiepoint contract compile/si
   );
 
 } finally {

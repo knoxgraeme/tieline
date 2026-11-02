@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tiepoint"
+  short_description: "Onboard, author, grade, and reconcile Tiepoint contracts"
+  default_prompt: "Use $tiepoint to semantically onboard this repository from its configured context, or reconcile existing contract behavior."

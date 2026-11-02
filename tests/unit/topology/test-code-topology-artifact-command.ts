@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import { runCodeTopologyArtifactCommand } from "../../../src/commands/code-topology-artifact.js";
 import {
   CODE_TOPOLOGY_ARTIFACT_FILE,
@@ -24,10 +24,10 @@ import { selectGitTopologyRole } from "../../../src/contract/git-artifact-snapsh
 import { readWorkspaceCodeTopologyFiles } from "../../../src/contract/topology-role-snapshot.js";
 import { report, test } from "../../support/harness.js";
 
-const root = mkdtempSync(join(tmpdir(), "tieline-topology-artifact-command-"));
-const topologyRoot = join(root, ".tieline/topology");
+const root = mkdtempSync(join(tmpdir(), "tiepoint-topology-artifact-command-"));
+const topologyRoot = join(root, ".tiepoint/topology");
 let output = "";
-const io: TielineCliIO = {
+const io: TiepointCliIO = {
   write(message) { output += message; },
   error(message) { throw new Error(message); },
   async question() { throw new Error("topology artifact commands must not prompt"); },
@@ -84,11 +84,11 @@ function replaceArtifactBytes(files: ReadonlyMap<string, Buffer>): void {
 }
 
 try {
-  mkdirSync(join(root, ".tieline/spec"), { recursive: true });
+  mkdirSync(join(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(join(root, "src/Zeta.ts"), "export const upper = 1;\n");
   writeFileSync(join(root, "src/main.ts"), "export const value = 1;\n");
-  writeFileSync(join(root, ".tieline/config.json"), `${JSON.stringify({
+  writeFileSync(join(root, ".tiepoint/config.json"), `${JSON.stringify({
     version: 1,
     product: { name: "Artifact fixture", repo_name: "artifact-fixture" },
     repository: { root: "..", source_roots: ["src"], ignore: [] },
@@ -100,7 +100,7 @@ try {
     created_at: "2026-08-12T00:00:00.000Z",
     updated_at: "2026-08-12T00:00:00.000Z",
   }, null, 2)}\n`);
-  writeFileSync(join(root, ".tieline/spec/artifact.yaml"), "version: 1\ncapability:\n  key: ARTIFACT\n  name: Artifact\n  description: Artifact fixture.\n  stories: []\n");
+  writeFileSync(join(root, ".tiepoint/spec/artifact.yaml"), "version: 1\ncapability:\n  key: ARTIFACT\n  name: Artifact\n  description: Artifact fixture.\n  stories: []\n");
   git(["init", "-q"]);
   git(["config", "user.email", "artifact@example.test"]);
   git(["config", "user.name", "Artifact Test"]);
@@ -148,7 +148,7 @@ try {
     }, "committed");
     assert.equal(missing.status, "topology_missing_at_revision");
 
-    git(["add", ".tieline/topology"]);
+    git(["add", ".tiepoint/topology"]);
     git(["commit", "-qm", "compiled topology"]);
     const selected = selectGitTopologyRole({
       repositoryRoot: root,
@@ -170,7 +170,7 @@ try {
     assert.equal(repeated.result.status, "current");
     assert.deepEqual(artifactBytes(), compiledBytes);
 
-    writeFileSync(join(root, ".tieline/spec/artifact.yaml"), "version: 1\ncapability:\n  key: ARTIFACT\n  name: Artifact edited\n  description: Intent-only change.\n  stories: []\n");
+    writeFileSync(join(root, ".tiepoint/spec/artifact.yaml"), "version: 1\ncapability:\n  key: ARTIFACT\n  name: Artifact edited\n  description: Intent-only change.\n  stories: []\n");
     const intentOnly = await cli(["code", "compile", root, "--json"]);
     assert.equal(intentOnly.exit, 0);
     assert.equal(intentOnly.result.status, "current");
@@ -180,7 +180,7 @@ try {
   await test("concurrent compilers serialize publication without changing bytes", async () => {
     const compile = async (): Promise<{ exit: number; result: Record<string, unknown> }> => {
       let message = "";
-      const commandIo: TielineCliIO = {
+      const commandIo: TiepointCliIO = {
         write(value) { message += value; },
         error(value) { throw new Error(value); },
         async question() { throw new Error("topology artifact commands must not prompt"); },
@@ -295,7 +295,7 @@ try {
   });
 
   await test("live lock contention fails closed and a dead stale owner is recovered", async () => {
-    const lockPath = join(root, ".tieline/topology.lock");
+    const lockPath = join(root, ".tiepoint/topology.lock");
     const currentOwner = {
       pid: process.pid,
       host: (await import("node:os")).hostname(),
@@ -319,8 +319,8 @@ try {
   });
 
   await test("escaping topology symlinks fail closed", async () => {
-    const saved = join(root, ".tieline/topology.saved");
-    const outside = mkdtempSync(join(tmpdir(), "tieline-topology-outside-"));
+    const saved = join(root, ".tiepoint/topology.saved");
+    const outside = mkdtempSync(join(tmpdir(), "tiepoint-topology-outside-"));
     renameSync(topologyRoot, saved);
     symlinkSync(outside, topologyRoot, "dir");
     try {

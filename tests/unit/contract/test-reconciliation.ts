@@ -12,12 +12,12 @@ import {
   buildContractIntentIndex,
   type ContractReconciliation,
 } from "../../../src/contract/reconciliation.js";
-import { tielineConfigJson } from "../../support/fixtures.js";
+import { tiepointConfigJson } from "../../support/fixtures.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const root = mkdtempSync(resolve(tmpdir(), "tieline-reconciliation-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-reconciliation-"));
 try {
-  mkdirSync(resolve(root, ".tieline/contract"), { recursive: true });
+  mkdirSync(resolve(root, ".tiepoint/contract"), { recursive: true });
   mkdirSync(resolve(root, "src/generated"), { recursive: true });
   mkdirSync(resolve(root, "docs"), { recursive: true });
   const sourceFiles = [
@@ -38,14 +38,14 @@ try {
   );
   writeFileSync(resolve(root, "docs/guide.md"), "# Guide\n");
   writeFileSync(
-    resolve(root, ".tieline/config.json"),
-    tielineConfigJson({
+    resolve(root, ".tiepoint/config.json"),
+    tiepointConfigJson({
       name: "Reconciliation fixture",
       repoName: "reconciliation-fixture",
     })
   );
   writeFileSync(
-    resolve(root, ".tieline/contract/reconciliation.yaml"),
+    resolve(root, ".tiepoint/contract/reconciliation.yaml"),
     `version: 1
 capability:
   key: RECONCILE
@@ -67,7 +67,7 @@ capability:
             path: src/claimed-story.ts
       acceptance_criteria:
         - key: AC-RECONCILE-001
-          criterion: Tieline must list the acceptance criteria claiming a changed path.
+          criterion: Tiepoint must list the acceptance criteria claiming a changed path.
           links:
             - relation: implements
               provenance: authored
@@ -107,7 +107,7 @@ capability:
                 selector: function:externalTest
                 framework_hint: node-test
         - key: AC-RECONCILE-002
-          criterion: Tieline must report a changed path whose evidence was removed.
+          criterion: Tiepoint must report a changed path whose evidence was removed.
           links:
             - relation: implements
               provenance: authored
@@ -122,12 +122,12 @@ capability:
   execFileSync("git", ["config", "user.email", "test@example.test"], {
     cwd: root,
   });
-  execFileSync("git", ["config", "user.name", "Tieline Test"], { cwd: root });
+  execFileSync("git", ["config", "user.name", "Tiepoint Test"], { cwd: root });
 
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: "reconciliation-fixture",
-    specDirectory: ".tieline/contract",
+    specDirectory: ".tiepoint/contract",
   });
 
   let capabilityWalks = 0;
@@ -261,7 +261,7 @@ capability:
     { status: "deleted", path: "src/gone.ts" },
     { status: "modified", path: "docs/guide.md" },
     { status: "modified", path: "src/generated/output.ts" },
-    { status: "modified", path: ".tieline/contract/reconciliation.yaml" },
+    { status: "modified", path: ".tiepoint/contract/reconciliation.yaml" },
     {
       status: "renamed",
       old_path: "src/renamed-before.ts",
@@ -274,8 +274,8 @@ capability:
       manifest,
       changes: input,
       sourceRoots: ["src"],
-      ignore: [".git", ".tieline", "src/generated"],
-      specDirectory: ".tieline/contract",
+      ignore: [".git", ".tiepoint", "src/generated"],
+      specDirectory: ".tiepoint/contract",
     });
   const report = analyze(changes);
 
@@ -298,7 +298,7 @@ capability:
   );
   assert.equal(
     direct.claimed_by[0].acceptance_criterion,
-    "Tieline must list the acceptance criteria claiming a changed path."
+    "Tiepoint must list the acceptance criteria claiming a changed path."
   );
   assert.equal(direct.claimed_by[0].relation, "implements");
   assert.equal(direct.claimed_by[0].provenance, "authored");
@@ -373,7 +373,7 @@ capability:
     "src/generated"
   );
   assert.equal(
-    excluded.get(".tieline/contract/reconciliation.yaml")?.reason,
+    excluded.get(".tiepoint/contract/reconciliation.yaml")?.reason,
     "contract_definition"
   );
   // A deleted file nothing claims is not a gap: there is nothing left to
@@ -425,7 +425,7 @@ capability:
     manifest,
     changes: [{ status: "modified", path: "docs/guide.md" }],
     sourceRoots: ["."],
-    specDirectory: ".tieline/contract",
+    specDirectory: ".tiepoint/contract",
   });
   assert.deepEqual(
     everything.unclaimed_changes.map((change) => change.path),

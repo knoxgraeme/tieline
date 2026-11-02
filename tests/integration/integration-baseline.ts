@@ -14,7 +14,7 @@ import {
   codeTopologyGenerationIdentity,
   type CompleteCodeTopologyGeneration,
 } from "../../src/domain/code-topology-store.js";
-import { runDatabasePreflight } from "../../src/tieline/preflight.js";
+import { runDatabasePreflight } from "../../src/tiepoint/preflight.js";
 import { requireIntegrationDatabaseAdminUrl } from "../support/integration-database-preflight.js";
 
 const topologyDigest = (character: string): string => character.repeat(64);

@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import postgres from "postgres";
 import { PostgresContractReadRepository } from "../../src/adapters/postgres/contract-read-repository.js";
 import { PostgresContractSyncRepository } from "../../src/adapters/postgres/contract-sync-repository.js";
-import { runCli, type TielineCliIO } from "../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../src/cli.js";
 import { migrateDatabase } from "../../src/commands/migrate.js";
 import {
   attachCurrentArtifactHashes,
@@ -68,7 +68,7 @@ capability:
             external_id: story-fallback-help
       acceptance_criteria:
         - key: ${input.storyKey}-AC1
-          criterion: Tieline must preserve a matching planning acceptance criterion identity.
+          criterion: Tiepoint must preserve a matching planning acceptance criterion identity.
           applies_to:
             roles: [admin]
           links:
@@ -98,7 +98,7 @@ ${
 }${
   input.includeSecondCriterion
     ? `        - key: ${input.storyKey}-AC2
-          criterion: Tieline must retire a removed acceptance criterion without deleting observations.
+          criterion: Tiepoint must retire a removed acceptance criterion without deleting observations.
           supersedes: ${input.storyKey}-AC1
           scenarios:
             - given: an accepted criterion with linked observations
@@ -111,8 +111,8 @@ ${
 
 await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });
-const root = mkdtempSync(resolve(tmpdir(), "tieline-contract-sync-"));
-mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-contract-sync-"));
+mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
 mkdirSync(resolve(root, "scripts"), { recursive: true });
 mkdirSync(resolve(root, "src"), { recursive: true });
 writeFileSync(resolve(root, "scripts/sync.test.ts"), "assert(contractSync);\n");
@@ -136,17 +136,17 @@ try {
     ) values
       (
         ${planningStory.id}, ${repository.id}, 'SYNC-001-AC1',
-        'Tieline must preserve a matching planning acceptance criterion identity.',
+        'Tiepoint must preserve a matching planning acceptance criterion identity.',
         0, 'planning'
       ),
       (
         ${planningStory.id}, ${repository.id}, 'SYNC-001-AC2',
-        'Tieline must preserve observations when accepted intent changes.',
+        'Tiepoint must preserve observations when accepted intent changes.',
         1, 'planning'
       ),
       (
         ${planningStory.id}, ${repository.id}, 'SYNC-001-AC3',
-        'Tieline must transfer omitted planning criteria with their Story.',
+        'Tiepoint must transfer omitted planning criteria with their Story.',
         2, 'planning'
       )
     returning id, stable_id`;
@@ -168,7 +168,7 @@ try {
     returning id`;
 
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "SYNC",
       storyKey: "SYNC-001",
@@ -454,7 +454,7 @@ try {
     )`;
 
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "SYNC",
       storyKey: "SYNC-001",
@@ -516,7 +516,7 @@ try {
     help: "not_applicable",
   });
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "COLLISION",
       storyKey: "COLLISION-001",
@@ -603,7 +603,7 @@ try {
       ${JSON.stringify({ title: "Later planning title" })}
     )`;
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "CONFLICT",
       storyKey: "CONFLICT-001",
@@ -671,7 +671,7 @@ try {
   assert.equal(visibleConflicts[0]?.planning_content.title, "Later planning title");
 
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "CONFLICT",
       storyKey: "CONFLICT-001",
@@ -756,7 +756,7 @@ try {
       story_id, repository_id, stable_id, criterion, position, authority
     ) values (
       ${foreignStory.id}, ${foreignRepository.id}, 'FOREIGN-001-AC1',
-      'Tieline must keep a shared asset another repository still links.',
+      'Tiepoint must keep a shared asset another repository still links.',
       0, 'repository'
     )
     returning id`;
@@ -786,7 +786,7 @@ try {
     "export const projection = 'before';\n"
   );
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "CONFLICT",
       storyKey: "CONFLICT-001",
@@ -815,7 +815,7 @@ try {
     "export const projection = 'after';\n"
   );
   writeFileSync(
-    resolve(root, ".tieline/spec/sync.yaml"),
+    resolve(root, ".tiepoint/spec/sync.yaml"),
     contractYaml({
       capabilityKey: "CONFLICT",
       storyKey: "CONFLICT-001",
@@ -883,7 +883,7 @@ try {
   assert.equal(helpStub.title, null);
   assert.equal(helpStub.markdown, null);
 
-  const manifestDirectory = resolve(root, ".tieline/manifest");
+  const manifestDirectory = resolve(root, ".tiepoint/manifest");
   writeContractManifest(
     manifestDirectory,
     compileContractManifestWithSources({
@@ -897,7 +897,7 @@ try {
     EMBEDDING_PROVIDER: "hash",
   };
   let cliOutput = "";
-  const cliIo: TielineCliIO = {
+  const cliIo: TiepointCliIO = {
     write(message) {
       cliOutput += message;
     },
@@ -930,10 +930,10 @@ try {
   assert.equal(JSON.parse(cliOutput).commit, "cli-explicit-commit");
 
   execFileSync("git", ["init", "--quiet"], { cwd: root });
-  execFileSync("git", ["config", "user.email", "integration@tieline.test"], {
+  execFileSync("git", ["config", "user.email", "integration@tiepoint.test"], {
     cwd: root,
   });
-  execFileSync("git", ["config", "user.name", "Tieline Integration"], {
+  execFileSync("git", ["config", "user.name", "Tiepoint Integration"], {
     cwd: root,
   });
   execFileSync("git", ["add", "."], { cwd: root });

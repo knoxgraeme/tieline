@@ -1,4 +1,4 @@
-; Tieline Rust syntax facts. Resolution remains a separate topology phase.
+; Tiepoint Rust syntax facts. Resolution remains a separate topology phase.
 (struct_item
   name: (type_identifier) @symbol.name) @symbol.declaration
 

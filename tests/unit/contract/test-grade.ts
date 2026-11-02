@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import type { RepositoryPathChange } from "../../../src/contract/impact.js";
 import { createJavaScriptAnalyzer } from "../../../src/contract/code-analysis/javascript.js";
 import {
@@ -34,7 +34,7 @@ import {
 import { createFilesystemSourceSnapshotReader } from "../../../src/contract/source-snapshot.js";
 
 const REPOSITORY = "grade-fixture";
-const root = mkdtempSync(resolve(tmpdir(), "tieline-grade-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-grade-"));
 const OVERSIZED_SOURCE_BYTES = 512_001;
 
 function oversizedSource(marker: "a" | "b"): string {
@@ -49,7 +49,7 @@ function oversizedSource(marker: "a" | "b"): string {
 }
 
 try {
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   writeFileSync(
     resolve(root, "src/feature.ts"),
@@ -118,7 +118,7 @@ impl Worker {
   );
   writeFileSync(resolve(root, "src/oversized.ts"), oversizedSource("a"));
   writeFileSync(
-    resolve(root, ".tieline/spec/feature.yaml"),
+    resolve(root, ".tiepoint/spec/feature.yaml"),
     `version: 1
 capability:
   key: FEATURE
@@ -140,7 +140,7 @@ capability:
             path: src/shared.ts
       acceptance_criteria:
         - key: FEATURE-001-AC1
-          criterion: Tieline must emit every changed link without relevance filtering.
+          criterion: Tiepoint must emit every changed link without relevance filtering.
           links:
             - relation: implements
               provenance: authored
@@ -167,7 +167,7 @@ capability:
                 repository: another-repository
                 path: src/feature.ts
         - key: FEATURE-001-AC2
-          criterion: Tieline must retain changed evidence that has no readable symbols.
+          criterion: Tiepoint must retain changed evidence that has no readable symbols.
           links:
             - relation: implements
               provenance: authored
@@ -187,7 +187,7 @@ capability:
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: REPOSITORY,
-    specDirectory: ".tieline/spec",
+    specDirectory: ".tiepoint/spec",
   });
   const scopeFor = async (
     changes: RepositoryPathChange[],
@@ -200,8 +200,8 @@ capability:
       baseManifest,
       changes,
       sourceRoots: ["src"],
-      ignore: [".git", ".tieline"],
-      specDirectory: ".tieline/spec",
+      ignore: [".git", ".tiepoint"],
+      specDirectory: ".tiepoint/spec",
     });
   const instrumentedAnalysisSession = (
     options: {
@@ -260,8 +260,8 @@ capability:
       baseManifest: linked,
       changes: [{ status: "modified", path }],
       sourceRoots: ["src"],
-      ignore: [".git", ".tieline"],
-      specDirectory: ".tieline/spec",
+      ignore: [".git", ".tiepoint"],
+      specDirectory: ".tiepoint/spec",
       codeAnalysisSession,
     });
   };
@@ -353,7 +353,7 @@ capability:
   assert.equal(feature.repository, REPOSITORY);
   assert.equal(feature.scoped_links, 1);
   assert.equal(feature.entries[0]?.acceptance_criterion_stable_id, "FEATURE-001-AC1");
-  assert.equal(feature.entries[0]?.acceptance_criterion, "Tieline must emit every changed link without relevance filtering.");
+  assert.equal(feature.entries[0]?.acceptance_criterion, "Tiepoint must emit every changed link without relevance filtering.");
   assert.equal(feature.entries[0]?.relation, "implements");
   assert.equal(feature.entries[0]?.provenance, "authored");
   assert.equal(feature.entries[0]?.link_scope, "direct");
@@ -404,7 +404,7 @@ capability:
 
   const rewrittenCriterionManifest = structuredClone(manifest);
   rewrittenCriterionManifest.capabilities[0]!.stories[0]!.acceptance_criteria[0]!
-    .criterion = "Tieline must emit changed links with parser-backed evidence.";
+    .criterion = "Tiepoint must emit changed links with parser-backed evidence.";
   const rewrittenCriterionScope = await buildGradeScope({
     repositoryRoot: root,
     base: "HEAD",
@@ -841,7 +841,7 @@ capability:
   // sentence, so the entry carries it rather than the base's.
   const rewordedBase = structuredClone(manifest);
   rewordedBase.capabilities[0]!.stories[0]!.acceptance_criteria[0]!.criterion =
-    "Tieline must emit only relevant changed links.";
+    "Tiepoint must emit only relevant changed links.";
   const reworded = await scopeFor([], rewordedBase);
   assert.equal(reworded.scoped_links, 4);
   for (const entry of reworded.entries) {
@@ -849,7 +849,7 @@ capability:
     assert.equal(entry.acceptance_criterion_stable_id, "FEATURE-001-AC1");
     assert.equal(
       entry.acceptance_criterion,
-      "Tieline must emit every changed link without relevance filtering."
+      "Tiepoint must emit every changed link without relevance filtering."
     );
   }
 
@@ -966,7 +966,7 @@ capability:
   assert.deepEqual((await scopeFor([])).entries, []);
   assert.deepEqual(
     (await scopeFor([
-      { status: "modified", path: ".tieline/spec/feature.yaml" },
+      { status: "modified", path: ".tiepoint/spec/feature.yaml" },
     ])).entries,
     []
   );
@@ -983,7 +983,7 @@ capability:
     "export const deletedFeature = true;\n"
   );
   writeFileSync(
-    resolve(root, ".tieline/config.json"),
+    resolve(root, ".tiepoint/config.json"),
     `${JSON.stringify(
       {
         version: 1,
@@ -991,7 +991,7 @@ capability:
         repository: {
           root: "..",
           source_roots: ["src"],
-          ignore: [".git", ".tieline"],
+          ignore: [".git", ".tiepoint"],
         },
         context: { sources: [] },
         runtime: {
@@ -1010,18 +1010,18 @@ capability:
     )}\n`
   );
   writeContractManifest(
-    resolve(root, ".tieline/manifest"),
+    resolve(root, ".tiepoint/manifest"),
     compileContractManifestWithSources({
       repositoryRoot: root,
       repositoryKey: REPOSITORY,
-      specDirectory: ".tieline/spec",
+      specDirectory: ".tiepoint/spec",
     })
   );
 
   // A snapshot parse of the directory just written yields the manifest the
   // compiler produced, so a base-ref read compares like with like; and a
   // snapshot that was never a compiled manifest is refused, not guessed at.
-  const manifestDirectory = resolve(root, ".tieline/manifest");
+  const manifestDirectory = resolve(root, ".tiepoint/manifest");
   const snapshotFiles = readdirSync(manifestDirectory).map((name) => ({
     name,
     content: readFileSync(resolve(manifestDirectory, name), "utf8"),
@@ -1061,7 +1061,7 @@ capability:
   execFileSync("git", ["config", "user.email", "test@example.test"], {
     cwd: root,
   });
-  execFileSync("git", ["config", "user.name", "Tieline Test"], {
+  execFileSync("git", ["config", "user.name", "Tiepoint Test"], {
     cwd: root,
   });
   execFileSync("git", ["add", "."], { cwd: root });
@@ -1071,7 +1071,7 @@ capability:
   });
 
   let output = "";
-  const io: TielineCliIO = {
+  const io: TiepointCliIO = {
     write(message) {
       output += message;
     },
@@ -1389,20 +1389,20 @@ capability:
 
   // Re-wording a criterion is claim-side scope over real git history; the
   // artifact the branch also changed keeps its diff reason.
-  const specPath = resolve(root, ".tieline/spec/feature.yaml");
+  const specPath = resolve(root, ".tiepoint/spec/feature.yaml");
   writeFileSync(
     specPath,
     readFileSync(specPath, "utf8").replace(
-      "Tieline must emit every changed link without relevance filtering.",
-      "Tieline must emit every changed link and every changed claim."
+      "Tiepoint must emit every changed link without relevance filtering.",
+      "Tiepoint must emit every changed link and every changed claim."
     )
   );
   writeContractManifest(
-    resolve(root, ".tieline/manifest"),
+    resolve(root, ".tiepoint/manifest"),
     compileContractManifestWithSources({
       repositoryRoot: root,
       repositoryKey: REPOSITORY,
-      specDirectory: ".tieline/spec",
+      specDirectory: ".tiepoint/spec",
     })
   );
   output = "";
@@ -1429,15 +1429,15 @@ capability:
     assert.equal(entry.acceptance_criterion_stable_id, "FEATURE-001-AC1");
     assert.equal(
       entry.acceptance_criterion,
-      "Tieline must emit every changed link and every changed claim."
+      "Tiepoint must emit every changed link and every changed claim."
     );
   }
-  execFileSync("git", ["checkout", "--", ".tieline"], { cwd: root });
+  execFileSync("git", ["checkout", "--", ".tiepoint"], { cwd: root });
 
   // An init-style base — no manifest at the ref — grades the entire contract:
   // the changed artifact keeps its diff reason and every other link is a new
   // claim.
-  execFileSync("git", ["rm", "-r", "--cached", "--quiet", ".tieline"], {
+  execFileSync("git", ["rm", "-r", "--cached", "--quiet", ".tiepoint"], {
     cwd: root,
   });
   execFileSync("git", ["commit", "-m", "untrack contract"], {
@@ -1464,7 +1464,7 @@ capability:
     "modified"
   );
 
-  rmSync(resolve(root, ".tieline/manifest"), {
+  rmSync(resolve(root, ".tiepoint/manifest"), {
     recursive: true,
     force: true,
   });

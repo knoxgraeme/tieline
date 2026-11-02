@@ -212,7 +212,7 @@ await test("explicitly releases compiled compatibility queries", async () => {
   );
 });
 
-await test("analyzes the full Tieline JS/TS corpus", async () => {
+await test("analyzes the full Tiepoint JS/TS corpus", async () => {
   const inventory = createSourceInventory({
     repositoryRoot,
     sourceRoots: ["src", "scripts"],
@@ -236,7 +236,7 @@ await test("analyzes the full Tieline JS/TS corpus", async () => {
     symbols += result.symbols.length;
   }
   const elapsedMs = performance.now() - started;
-  assert.ok(files > 100, `expected the Tieline corpus, received ${files} files`);
+  assert.ok(files > 100, `expected the Tiepoint corpus, received ${files} files`);
   assert.ok(symbols > 100, `expected structural facts, received ${symbols}`);
   console.log(
     `       corpus: ${files} files, ${bytes} bytes, ${symbols} symbols, ${elapsedMs.toFixed(1)}ms`

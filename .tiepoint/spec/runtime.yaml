@@ -1,0 +1,561 @@
+version: 1
+capability:
+  key: RUNTIME
+  name: Portable and safe operation
+  description: Tiepoint initializes, serves, and composes its contract capabilities without leaking privileged writers into read paths.
+  stories:
+    - key: RUNTIME-001
+      title: Initialize a portable Tiepoint workspace
+      actor: maintainer
+      goal: configure contract roots and private runtime credentials
+      benefit: the repository remains shareable without committing secrets
+      lifecycle: production
+      acceptance_criteria:
+        - key: RUNTIME-001-AC1
+          criterion: Tiepoint must keep shared repository configuration portable while storing clone-local setup state and database credentials in a private external profile.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/init.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/status.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/workspace.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC2
+          criterion: Tiepoint must report workspace initialization, clone-local setup, and database-backed capability configuration as separate states.
+          rationale: A tracked config cannot prove that another clone has credentials or semantic matching available.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/profile.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/setup.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/status.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC3
+          criterion: Tiepoint initialization must persist deterministic repository and runtime inputs from explicit flags and auto-detection without generating semantic contract content.
+          rationale: Deterministic setup belongs in the CLI, while interpreting repository context and proposing semantic boundaries belongs with an agent and normal pull-request review.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/init.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC4
+          criterion: Tiepoint initialization must prepare explicitly selected project-agent targets and install the tiepoint skill through Skillfish only for those supported agents and scope.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/skill-install.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/init.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-skill-install.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC5
+          criterion: Tiepoint must preserve a ready workspace and report a structured installer error when requested skill installation fails.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/skill-install.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC6
+          criterion: Tiepoint status must expose concise structured onboarding state without duplicating the authoring workflow.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/status.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC7
+          criterion: Tiepoint initialization must print an exact Tiepoint retry command when requested skill installation is incomplete.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/skill-install.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-skill-install.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC8
+          criterion: Tiepoint initialization must accept context sources only through repeatable --context flags and validate each as an existing repository path or explicit HTTP(S) URL before mutation.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/init.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC9
+          criterion: Tiepoint initialization must use a non-empty interactive agent selection as setup consent, require non-interactive callers to pass an explicit agent or explicitly skip skill installation, auto-detect code scope, and defer product description and context discovery to semantic onboarding while retaining explicit CLI overrides.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/init.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli-ui.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/cli.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/init.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC10
+          criterion: Tiepoint local database setup must persist the container owner credential before waiting for PostgreSQL readiness.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/setup.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/profile.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-001-AC11
+          criterion: Tiepoint initialization must upgrade a workspace created under the earlier tieline name by moving its workspace directory and private profile, replacing recognized tieline MCP entries and project skills, and listing the steps it cannot perform, while other commands must refuse an un-upgraded workspace.
+          rationale: A renamed package must not strand existing repositories or let a contract check pass against an empty contract.
+          scenarios:
+            - given: a repository with a .tieline workspace, a tieline profile, a tieline MCP entry, and a project tieline skill
+              when: a maintainer runs tiepoint init
+              then: the workspace and profile move to tiepoint locations, the MCP entry and skill are replaced, and remaining manual steps are listed
+            - given: a clone that pulled an already-upgraded workspace still has its profile under the tieline configuration home
+              when: a maintainer runs tiepoint init in that clone
+              then: the profile moves to the tiepoint configuration home
+            - given: the tiepoint skill installation fails
+              when: tiepoint init upgrades the repository
+              then: the earlier tieline skill must remain installed
+            - given: an un-upgraded .tieline workspace
+              when: a maintainer runs a contract, check, code, or status command
+              then: the command must fail and name the upgrade command
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tiepoint/legacy-tieline.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/init.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-legacy-migration.ts
+                framework_hint: custom-script
+    - key: RUNTIME-002
+      title: Serve lifecycle-aware tools through MCP
+      actor: agent
+      goal: use a focused contract, search, evidence, and planning interface
+      benefit: tool capabilities match their database authority
+      lifecycle: production
+      acceptance_criteria:
+        - key: RUNTIME-002-AC1
+          criterion: Tiepoint must compose read, evidence-write, and planning-write capabilities without exposing repository synchronization through MCP tools.
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/domain/knowledge-store.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/adapters/postgres/postgres-store.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/default-store.ts
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/store.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/server.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/tools/shared.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/smoke/smoke.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC2
+          criterion: Tiepoint must serve stdio by default and require explicit gateway configuration for non-loopback HTTP.
+          links:
+            - relation: enforces
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/config.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/http.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/index.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/load-env.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/commands/serve.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/stdio.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-http.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC3
+          criterion: Tiepoint must provide a loud in-memory test seam for contract and tool verification without weakening production adapters.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: tests/support/fakes/fake-knowledge-store.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/retrieval/test-contract-read.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC4
+          criterion: Tiepoint must expose one semantic workflow prompt bundle that reports an accessible workspace's contract state, routes an empty contract to a user-facing product orientation before normal repository work, defers state routing to the client when a remote transport cannot access its checkout, then onboards, authors, grades, and reconciles using configured repository context and disclosed local duplicate checks when database-backed matching is unavailable, with a compatibility alias for its former prompt name.
+          rationale: First-run orientation must be ordered by the MCP prompt itself without mistaking a remote service container for the agent's active repository.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/prompts.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/server.ts
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/SKILL.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/references/onboarding.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/references/grading.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/smoke/smoke.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC5
+          criterion: Tiepoint semantic onboarding must produce a repository-wide evidence-backed initial contract by assessing every configured source root and discovered application boundary, covering or explaining every high-confidence observable behavior cluster, and treating path mapping only as a gap diagnostic.
+          rationale: A valid small seed can hide most of a monorepo, while maximizing mapped files would reward implementation-shaped criteria instead of coherent product behavior.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/SKILL.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/references/onboarding.md
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+        - key: RUNTIME-002-AC6
+          criterion: Tiepoint's project-installed skill and equivalent MCP prompt must make semantic closeout discoverable before handoff or branch publication, classify every changed behavior cluster including relevant untracked files, directly apply and validate justified contract changes within the authorized commit or publication boundary, and rerun after later implementation changes.
+          rationale: The semantic workflow supplies the cross-agent trigger, while the resulting pull-request diff remains the review and approval surface.
+          links:
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: skills/tiepoint/SKILL.md
+            - relation: implements
+              provenance: authored
+              target:
+                kind: code
+                repository: tieline
+                path: src/prompts.ts
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/unit/runtime/test-tieline.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/smoke/smoke.ts
+                framework_hint: custom-script
+    - key: RUNTIME-003
+      title: Verify the lifecycle as one system
+      actor: maintainer
+      goal: exercise evidence, planning, authority transfer, profiles, and the baseline together
+      benefit: clean installations prove the shared contract end to end
+      lifecycle: production
+      acceptance_criteria:
+        - key: RUNTIME-003-AC1
+          criterion: Tiepoint must run the clean lifecycle integration suite against a disposable baseline database.
+          links:
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration.ts
+                framework_hint: custom-script
+            - relation: tests
+              provenance: authored
+              target:
+                kind: test
+                repository: tieline
+                path: tests/integration/integration-lifecycle.ts
+                framework_hint: custom-script

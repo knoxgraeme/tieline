@@ -512,7 +512,7 @@ function median(sorted: readonly number[]): number {
  * Leads with the evidence a reviewer can check by opening the file, states the
  * link's position as a rank rather than a percentage — ties at the percentile
  * cut mean more than the configured fraction can be flagged, so a percentage
- * would overstate the window — and closes with the same question `tieline
+ * would overstate the window — and closes with the same question `tiepoint
  * check` puts to a reviewer. The numeric score stays in the structured output;
  * it is not what a human should read first.
  */

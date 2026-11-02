@@ -156,7 +156,7 @@ export function registerSearchKnowledge(server: McpServer): void {
   server.registerTool(
     "search_knowledge",
     {
-      title: "Search the Tieline knowledge graph",
+      title: "Search the Tiepoint knowledge graph",
       description:
         "The single discovery entry point across Stories, ACs, Scenarios, Backlog Items, sanitized Observations, and ingested help articles. A retrieval profile is required; caller filters can only narrow it. Optional typed anchors and code, test, or help artifacts rerank the authorized candidate set without confirming relationships. Every result returns explicit state, ranking features, and a reusable context anchor when available. Use get_help_articles to hydrate selected full help bodies.",
       inputSchema: searchKnowledgeShape,

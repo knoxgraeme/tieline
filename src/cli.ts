@@ -16,50 +16,50 @@ import {
   renderCopyCallout,
 } from "./cli-ui.js";
 import type { Palette } from "./cli-ui.js";
-import { loadWorkspaceProfileForCommand } from "./tieline/profile.js";
-import type { DatabaseMode } from "./tieline/setup.js";
+import { loadWorkspaceProfileForCommand } from "./tiepoint/profile.js";
+import type { DatabaseMode } from "./tiepoint/setup.js";
 import {
   SUPPORTED_SKILL_AGENTS,
   type SkillfishProcessRunner,
   type SkillInstallScope,
-} from "./tieline/skill-install.js";
+} from "./tiepoint/skill-install.js";
 import {
   ONBOARDING_SKILL_INSTALL_COMMAND,
   statusFromPath,
-  type TielineStatus,
-} from "./tieline/status.js";
+  type TiepointStatus,
+} from "./tiepoint/status.js";
 import type {
   ContractAction,
   ContractCommandOptions,
 } from "./commands/contract.js";
-import { TIELINE_VERSION } from "./package-metadata.js";
+import { TIEPOINT_VERSION } from "./package-metadata.js";
 
-export interface TielineCliIO {
+export interface TiepointCliIO {
   write(message: string): void;
   error(message: string): void;
   question(message: string): Promise<string>;
   /** True when attached to a real terminal; enables Clack prompts and color. */
   interactive?: boolean;
-  prompts?: TielineCliPrompts;
+  prompts?: TiepointCliPrompts;
 }
 
-export interface TielineCliPromptOption {
+export interface TiepointCliPromptOption {
   value: string;
   label: string;
   hint?: string;
 }
 
-export interface TielineCliPrompts {
+export interface TiepointCliPrompts {
   text(message: string, defaultValue: string): Promise<string | null>;
   confirm(message: string, initialValue: boolean): Promise<boolean | null>;
   select(
     message: string,
-    options: readonly TielineCliPromptOption[],
+    options: readonly TiepointCliPromptOption[],
     initialValue: string
   ): Promise<string | null>;
   multiselect(
     message: string,
-    options: readonly TielineCliPromptOption[],
+    options: readonly TiepointCliPromptOption[],
     initialValues?: readonly string[]
   ): Promise<string[] | null>;
   note(title: string, message: string): void;
@@ -72,13 +72,13 @@ async function reloadRuntimeConfig(
   reloadConfig(env);
 }
 
-export interface TielineCliDependencies {
+export interface TiepointCliDependencies {
   skillfishRunner?: SkillfishProcessRunner;
   /** Runs agent registration CLIs such as `codex mcp add`. */
   mcpCliRunner?: SkillfishProcessRunner;
 }
 
-export function renderStatus(status: TielineStatus, ui: Palette): string {
+export function renderStatus(status: TiepointStatus, ui: Palette): string {
   const state = (ok: boolean, good: string, bad: string): string =>
     ok ? ui.green(good) : ui.yellow(bad);
   const mcpConfigs = status.integration.mcp_configs ?? [];
@@ -97,7 +97,7 @@ export function renderStatus(status: TielineStatus, ui: Palette): string {
           ? "unrecognized package"
           : "not registered";
   const lines = [
-    ui.bold(`Tieline: ${status.product} (${status.repo})`),
+    ui.bold(`Tiepoint: ${status.product} (${status.repo})`),
     `  root: ${status.root}`,
     `  version: cli=${status.runtime.cli_version ?? "unknown"}, mcp=${mcpVersion}`,
     `  runtime: profile=${state(status.runtime.profile_present, "present", "missing")}, database=${status.runtime.database_mode}, embedding=${status.runtime.embedding_provider}, setup=${state(status.runtime.setup_complete, "complete", "incomplete")}`,
@@ -145,8 +145,8 @@ export function workspaceStartForCommand(
   args: string[],
   env: NodeJS.ProcessEnv
 ): string {
-  if (command !== "init" && env.TIELINE_WORKSPACE) {
-    return env.TIELINE_WORKSPACE;
+  if (command !== "init" && env.TIEPOINT_WORKSPACE) {
+    return env.TIEPOINT_WORKSPACE;
   }
   if (command === "init") {
     return (
@@ -216,16 +216,16 @@ type SharedContractAction = Exclude<
 type ContractActionOptions = Omit<ContractCommandOptions, "repository">;
 
 function buildProgram(
-  io: TielineCliIO,
+  io: TiepointCliIO,
   env: NodeJS.ProcessEnv,
-  dependencies: TielineCliDependencies,
+  dependencies: TiepointCliDependencies,
   setExit: (code: number) => void,
   writeErr: (message: string) => void
 ): Command {
-  const program = new Command("tieline");
+  const program = new Command("tiepoint");
   program
-    .description("Tieline living-contract CLI")
-    .version(TIELINE_VERSION)
+    .description("Tiepoint living-contract CLI")
+    .version(TIEPOINT_VERSION)
     .exitOverride()
     .configureOutput({
       writeOut: (message) => io.write(message),
@@ -234,12 +234,12 @@ function buildProgram(
     .addHelpText("before", () => `${renderBanner(paletteFor(io))}\n\n`)
     .addHelpText(
       "after",
-      "\nRun `tieline init` for deterministic setup and agent-skill installation. Use $tieline for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
+      "\nRun `tiepoint init` for deterministic setup and agent-skill installation. Use $tiepoint for onboarding, planning Story/AC writes, implementation, and branch reconciliation."
     );
 
   program
     .command("init")
-    .description("Create a Tieline workspace or resume runtime setup")
+    .description("Create a Tiepoint workspace or resume runtime setup")
     .argument("[repository]", "repository path", process.cwd())
     .option("--product <name>", "company/product name")
     .option("--repo-name <name>", "stable repository name")
@@ -274,7 +274,7 @@ function buildProgram(
     )
     .option(
       "--agent <id>",
-      `install tieline for a supported agent (repeatable: ${SUPPORTED_SKILL_AGENTS.map((agent) => agent.id).join(", ")})`,
+      `install tiepoint for a supported agent (repeatable: ${SUPPORTED_SKILL_AGENTS.map((agent) => agent.id).join(", ")})`,
       collect,
       []
     )
@@ -286,7 +286,7 @@ function buildProgram(
     )
     .option(
       "--skip-skill-install",
-      "initialize without installing tieline"
+      "initialize without installing tiepoint"
     )
     .option(
       "--yes",
@@ -299,7 +299,7 @@ function buildProgram(
     )
     .option(
       "--provision-roles",
-      "assign generated login passwords to the tieline database roles (requires --database existing)"
+      "assign generated login passwords to the tiepoint database roles (requires --database existing)"
     )
     .action(async (repository: string, opts) => {
       const { runInit } = await import("./commands/init.js");
@@ -602,12 +602,12 @@ function buildProgram(
       .option("--repo <key>", "stable repository key")
       .option("--json", "emit machine-readable JSON")
   ).action(async (opts) => {
-    const { findTielineWorkspace } = await import("./tieline/workspace.js");
+    const { findWorkspaceRejectingLegacy } = await import("./tiepoint/legacy-tieline.js");
     const { runDependencyTraceCommand } = await import("./commands/code-topology.js");
-    const workspace = findTielineWorkspace(opts.repository ?? process.cwd());
+    const workspace = findWorkspaceRejectingLegacy(opts.repository ?? process.cwd());
     const repository = opts.repo ?? workspace?.config.product.repo_name;
     if (!repository) {
-      throw new Error("`code trace` requires --repo <key> when no Tieline workspace is available.");
+      throw new Error("`code trace` requires --repo <key> when no Tiepoint workspace is available.");
     }
     setExit(await runDependencyTraceCommand({
       repositoryRoot: opts.repository,
@@ -644,12 +644,12 @@ function buildProgram(
       .option("--repo <key>", "stable repository key")
       .option("--json", "emit machine-readable JSON")
   ).action(async (opts) => {
-    const { findTielineWorkspace } = await import("./tieline/workspace.js");
+    const { findWorkspaceRejectingLegacy } = await import("./tiepoint/legacy-tieline.js");
     const { runBlastRadiusCommand } = await import("./commands/code-topology.js");
-    const workspace = findTielineWorkspace(opts.repository ?? process.cwd());
+    const workspace = findWorkspaceRejectingLegacy(opts.repository ?? process.cwd());
     const repository = opts.repo ?? workspace?.config.product.repo_name;
     if (!repository) {
-      throw new Error("`code blast-radius` requires --repo <key> when no Tieline workspace is available.");
+      throw new Error("`code blast-radius` requires --repo <key> when no Tiepoint workspace is available.");
     }
     setExit(await runBlastRadiusCommand({
       repositoryRoot: opts.repository,
@@ -727,7 +727,7 @@ function buildProgram(
 
   program
     .command("serve")
-    .description("Run the Tieline MCP server")
+    .description("Run the Tiepoint MCP server")
     .addOption(new Option("--http", "serve over HTTP").conflicts("stdio"))
     .option("--stdio", "serve over stdio")
     .action(async (opts) => {
@@ -745,9 +745,9 @@ function buildProgram(
 
 export async function runCli(
   argv: string[],
-  io: TielineCliIO,
+  io: TiepointCliIO,
   env: NodeJS.ProcessEnv = process.env,
-  dependencies: TielineCliDependencies = {}
+  dependencies: TiepointCliDependencies = {}
 ): Promise<number> {
   let exitCode = 0;
   let commanderErr = "";
@@ -860,7 +860,7 @@ function createQuestioner(): {
 async function main(): Promise<void> {
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const questioner = createQuestioner();
-  const io: TielineCliIO = {
+  const io: TiepointCliIO = {
     write: (message) => process.stdout.write(message),
     error: (message) => process.stderr.write(message),
     question: (message) => questioner.question(message),
@@ -871,7 +871,7 @@ async function main(): Promise<void> {
   } catch (error) {
     const ui = createPalette(interactive);
     io.error(
-      `${ui.red("Tieline error:")} ${error instanceof Error ? error.message : String(error)}\n`
+      `${ui.red("Tiepoint error:")} ${error instanceof Error ? error.message : String(error)}\n`
     );
     process.exitCode = 1;
   } finally {

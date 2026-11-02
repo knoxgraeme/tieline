@@ -4,7 +4,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { relative, resolve } from "node:path";
 import { compileContractManifestWithSources, writeContractManifest } from "../contract/manifest.js";
-import { findTielineWorkspace } from "../tieline/workspace.js";
+import { findTiepointWorkspace } from "../tiepoint/workspace.js";
 import { runCheckCommand } from "./check.js";
 import type { CommandIO } from "./shared.js";
 
@@ -30,9 +30,9 @@ export async function runManifestRefresh(options: RefreshOptions, io: CommandIO)
   }).trim();
   git(root, ["check-ref-format", `refs/heads/${options.branch}`]);
   git(root, ["remote", "get-url", remote]);
-  const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tieline-refresh-"));
+  const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-refresh-"));
   const checkout = resolve(temporaryRoot, "checkout");
-  const privateRef = `refs/tieline-refresh/${randomUUID()}`;
+  const privateRef = `refs/tiepoint-refresh/${randomUUID()}`;
   const emptyHooks = resolve(temporaryRoot, "empty-hooks");
   mkdirSync(emptyHooks);
   const treeGit = (cwd: string, args: string[]) => git(cwd, ["-c", `core.hooksPath=${emptyHooks}`, ...args]);
@@ -49,18 +49,18 @@ export async function runManifestRefresh(options: RefreshOptions, io: CommandIO)
       const sourceCommit = git(root, ["rev-parse", privateRef]);
       // Checkout hooks cannot change the fetched source/config before compilation.
       git(root, ["-c", `core.hooksPath=${emptyHooks}`, "worktree", "add", "--detach", checkout, sourceCommit]);
-      for (const path of [".tieline", ".tieline/config.json", ".tieline/spec", ".tieline/manifest"]) {
+      for (const path of [".tiepoint", ".tiepoint/config.json", ".tiepoint/spec", ".tiepoint/manifest"]) {
         if (existsSync(resolve(checkout, path)) && lstatSync(resolve(checkout, path)).isSymbolicLink()) {
           throw new Error(`Manifest publication refuses symlink '${path}'.`);
         }
       }
-      const workspace = findTielineWorkspace(checkout);
+      const workspace = findTiepointWorkspace(checkout);
       if (!workspace || workspace.root !== checkout || workspace.config.manifest_mode !== "post_merge") {
         throw new Error("The integration branch must opt into manifest_mode=post_merge at its repository root.");
       }
-      if (workspace.manifestPath !== resolve(checkout, ".tieline/manifest") ||
-          workspace.specDirectoryPath !== resolve(checkout, ".tieline/spec")) {
-        throw new Error("Automatic publication requires the standard .tieline/spec and .tieline/manifest paths.");
+      if (workspace.manifestPath !== resolve(checkout, ".tiepoint/manifest") ||
+          workspace.specDirectoryPath !== resolve(checkout, ".tiepoint/spec")) {
+        throw new Error("Automatic publication requires the standard .tiepoint/spec and .tiepoint/manifest paths.");
       }
       if (existsSync(workspace.manifestPath)) {
         for (const entry of readdirSync(workspace.manifestPath, { withFileTypes: true })) {
@@ -69,12 +69,12 @@ export async function runManifestRefresh(options: RefreshOptions, io: CommandIO)
       }
       const compiled = compileContractManifestWithSources({ repositoryRoot: checkout, repositoryKey: workspace.config.product.repo_name });
       const written = writeContractManifest(workspace.manifestPath, compiled);
-      const expected = new Map(written.files.map((name) => [`.tieline/manifest/${name}`, readFileSync(resolve(workspace.manifestPath, name), "utf8")]));
-      const allowedPaths = new Set([...expected.keys(), ...written.removed.map((name) => `.tieline/manifest/${name}`)]);
+      const expected = new Map(written.files.map((name) => [`.tiepoint/manifest/${name}`, readFileSync(resolve(workspace.manifestPath, name), "utf8")]));
+      const allowedPaths = new Set([...expected.keys(), ...written.removed.map((name) => `.tiepoint/manifest/${name}`)]);
       let validation = "";
       const checked = await runCheckCommand({ repository: checkout, base: sourceCommit, json: true }, { write: (message) => { validation += message; } });
       if (checked !== 0) throw new Error(`Generated manifest validation failed: ${validation}`);
-      treeGit(checkout, ["add", "--", ".tieline/manifest"]);
+      treeGit(checkout, ["add", "--", ".tiepoint/manifest"]);
       const tree = treeGit(checkout, ["write-tree"]);
       const paths = treeGit(checkout, ["diff-tree", "-r", "--name-only", "-z", sourceCommit, tree]).split("\0").filter(Boolean);
       if (paths.some((path) => !allowedPaths.has(path))) throw new Error("Publication staged an unexpected path.");
@@ -90,7 +90,7 @@ export async function runManifestRefresh(options: RefreshOptions, io: CommandIO)
       }
       // Commit the verified index tree directly. Commit hooks must not add files
       // or rewrite already-validated manifest bytes between checking and commit.
-      const publishedCommit = treeGit(checkout, ["-c", "user.name=Tieline manifest publisher", "-c", "user.email=tieline-manifest@users.noreply.github.com", "commit-tree", tree, "-p", sourceCommit, "-m", `chore(tieline): refresh manifest for ${sourceCommit}`]);
+      const publishedCommit = treeGit(checkout, ["-c", "user.name=Tiepoint manifest publisher", "-c", "user.email=tiepoint-manifest@users.noreply.github.com", "commit-tree", tree, "-p", sourceCommit, "-m", `chore(tiepoint): refresh manifest for ${sourceCommit}`]);
       try {
         git(checkout, ["push", remote, `${publishedCommit}:refs/heads/${options.branch}`]);
         io.write(`${JSON.stringify({ status: "refreshed", source_commit: sourceCommit, published_commit: publishedCommit, attempts: attempt, files: paths.map((path) => relative(checkout, resolve(checkout, path))) })}\n`);

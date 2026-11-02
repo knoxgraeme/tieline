@@ -17,20 +17,20 @@ The MCP server uses read and planning-write connections. Sync and admin credenti
 explicit CLI/CI operations and should not be exposed to ordinary agents.
 
 The packaged migrations must run with an administrative database role. The baseline installs the
-`vector`, `pgcrypto`, and `pg_trgm` extensions and creates the three Tieline runtime roles.
+`vector`, `pgcrypto`, and `pg_trgm` extensions and creates the three Tiepoint runtime roles.
 Managed Postgres environments may require an administrator to preinstall pgvector/Postgres
 contrib extensions or grant the equivalent `CREATE EXTENSION` and `CREATE ROLE` capabilities
-before `tieline migrate` runs.
+before `tiepoint migrate` runs.
 
 ## Run the MCP server
 
 ```bash
-tieline serve --stdio
-tieline serve --http
+tiepoint serve --stdio
+tiepoint serve --http
 ```
 
 HTTP binds to `127.0.0.1:3000` by default and exposes MCP at `POST /mcp` and liveness at `GET
-/health`. Tieline does not provide end-user authentication. Binding to a non-loopback host
+/health`. Tiepoint does not provide end-user authentication. Binding to a non-loopback host
 therefore requires `HTTP_TRUST_PROXY=true`, at least one comma-separated `HTTP_ALLOWED_ORIGINS`
 entry, and an authenticated TLS gateway in front of the server.
 
@@ -39,7 +39,7 @@ entry, and an authenticated TLS gateway in front of the server.
 The image defaults to HTTP mode:
 
 ```bash
-docker build -t tieline .
+docker build -t tiepoint .
 docker run --rm -p 3000:3000 \
   -e DATABASE_URL=postgresql://... \
   -e DATABASE_URL_WRITE=postgresql://... \
@@ -48,7 +48,7 @@ docker run --rm -p 3000:3000 \
   -e HTTP_HOST=0.0.0.0 \
   -e HTTP_TRUST_PROXY=true \
   -e HTTP_ALLOWED_ORIGINS=https://mcp.example.com \
-  tieline
+  tiepoint
 ```
 
 Run migrations separately with `DATABASE_URL_ADMIN`; do not expose that credential to the serving
@@ -60,7 +60,7 @@ docker run --rm -i \
   -e TRANSPORT=stdio \
   -e DATABASE_URL=postgresql://... \
   -e DATABASE_URL_WRITE=postgresql://... \
-  tieline node dist/cli.js serve --stdio
+  tiepoint node dist/cli.js serve --stdio
 ```
 
 ## Data durability and privacy
@@ -98,10 +98,10 @@ Database integration tests require a disposable blank Postgres database with pgv
 administrative URL with the migration privileges described above:
 
 ```bash
-TIELINE_INTEGRATION_TEST_DATABASE=1 \
+TIEPOINT_INTEGRATION_TEST_DATABASE=1 \
 DATABASE_URL_ADMIN=postgresql://postgres:postgres@localhost:5432/tieline_test \
 npm run test:integration
-TIELINE_INTEGRATION_TEST_DATABASE=1 \
+TIEPOINT_INTEGRATION_TEST_DATABASE=1 \
 DATABASE_URL_ADMIN=postgresql://postgres:postgres@localhost:5432/tieline_test \
 npm run test:integration:code-topology
 ```
@@ -130,20 +130,20 @@ npm run check
 
 Commit `package.json` and `package-lock.json` together and merge the reviewed change
 to `main`. Inspect the Publish run to confirm that the publish step ran, then check
-`npm view tieline version` to verify the registry's latest version.
+`npm view tiepoint version` to verify the registry's latest version.
 
 ## Post-merge manifest maintenance (opt in)
 
 The default `committed` workflow is unchanged. To delegate fingerprint maintenance,
-set the top-level `manifest_mode` to `post_merge` in `.tieline/config.json` and
-install the [refresh workflow](examples/tieline-manifest-refresh.yml) on your
-integration branch. Use a pinned Tieline npm dependency that includes this feature.
+set the top-level `manifest_mode` to `post_merge` in `.tiepoint/config.json` and
+install the [refresh workflow](examples/tiepoint-manifest-refresh.yml) on your
+integration branch. Use a pinned Tiepoint npm dependency that includes this feature.
 Configure the workflow's branch filter (for example `env/staging`), approved write
 identity, and failure notifications before enabling the mode. This repository
 itself continues to use committed manifests.
 
 Retain pre-merge YAML validation, `contract reconcile --base <target>`, selected
-`contract grade --unit criterion --scope claims`, and `tieline check`. Check and
+`contract grade --unit criterion --scope claims`, and `tiepoint check`. Check and
 grade compile current authored definitions in memory; broken evidence still
 fails before merge. Use `contract compile --output <temporary-directory>` for a
 review artifact without committing fingerprint churn. Claim comparison reads
@@ -156,12 +156,12 @@ compiles and smoke-tests topology but has no reviewed graph to compare.
 The publisher command is an explicit write operation:
 
 ```sh
-tieline contract refresh-manifest . --branch env/staging --remote origin --json
+tiepoint contract refresh-manifest . --branch env/staging --remote origin --json
 ```
 
 It fetches the latest remote tip into a private ref and compiles in a temporary
-worktree. Only standard `.tieline/manifest/` output is committed; standard
-`.tieline/spec/` input is required. Normal pushes prevent overwriting concurrent
+worktree. Only standard `.tiepoint/manifest/` output is committed; standard
+`.tiepoint/spec/` input is required. Normal pushes prevent overwriting concurrent
 merges; up to three attempts recompile newer tips. Git operations have 30-second
 timeouts. No-op refreshes create no commit, and the example workflow excludes
 manifest-only pushes to avoid loops. Local user changes remain untouched.

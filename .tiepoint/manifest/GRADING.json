@@ -1,0 +1,701 @@
+{
+  "capability": {
+    "aliases": [
+      "evidence grading",
+      "link claim verification"
+    ],
+    "applies_to": null,
+    "contract_hash": "2c3ff6669ded848c8eea759f0c27a68eb699f1bb51ee58425cb20b39d2799fb1",
+    "description": "A host agent can judge changed contract links while Tiepoint deterministically fixes the scope and rejects unsupported evidence claims.",
+    "name": "Agent-graded contract evidence",
+    "stable_id": "GRADING",
+    "stories": [
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "d847317db4ca563aa0738967d5e26dc0e02d0edf7fbbe547cca2af0247cbf2ad",
+            "criterion": "Tiepoint must emit every local contract link claimed by a changed, renamed, added, or deleted path, must preserve direct and Story-fallback claims as distinct entries, and must not use lexical plausibility to remove an entry.",
+            "links": [
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildGradeScope"
+                }
+              },
+              {
+                "compiled_content_hash": "42dc10c52647959083ab15bec83ac9e851bf016e1e73c679ef3069aa5e87af1f",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/reconciliation.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildContractClaimIndex"
+                }
+              },
+              {
+                "compiled_content_hash": "42be4ce2f510f61afef344b950a28521ece322a32319e176eb3e4348408a64e6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": "Relevance is useful for ranking review work but cannot decide which accepted evidence claims are allowed to escape judgment.",
+            "scenarios": [
+              {
+                "given": "a changed path is linked directly by an Acceptance Criterion and by its owning Story",
+                "position": 0,
+                "stable_id": "GRADING-001-AC1-S1",
+                "then": "Tiepoint must emit both the direct and story_fallback entries",
+                "when": "grading scope is emitted against the branch base"
+              },
+              {
+                "given": "a changed linked artifact shares no lexical vocabulary with its Acceptance Criterion",
+                "position": 1,
+                "stable_id": "GRADING-001-AC1-S2",
+                "then": "Tiepoint must retain the entry for judgment",
+                "when": "grading scope is emitted"
+              },
+              {
+                "given": "one Acceptance Criterion links both the old and new paths of a renamed artifact",
+                "position": 2,
+                "stable_id": "GRADING-001-AC1-S3",
+                "then": "Tiepoint must emit distinct entries whose linked_path values preserve both contract targets",
+                "when": "grading scope is emitted"
+              }
+            ],
+            "stable_id": "GRADING-001-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "6d1ad8add6e273d029043cd70043a2fcd9a123faf123befa4118ee09c4cd45f4",
+            "criterion": "Tiepoint must derive each grading entry's deterministic identity, closed sorted citation allow-list, and bounded source evidence from request-local parser facts for supported JavaScript, TypeScript, Python, Rust, and SQL artifacts; the identity must bind the exact Acceptance Criterion text and current source/parser evidence, while incomplete facts or an invalid, unresolved, or ambiguous explicit selector must produce an empty allow-list instead of a guessed citation.",
+            "links": [
+              {
+                "compiled_content_hash": "21f88d52beb2217195f3ddbf6e67c58e01e7dc914a43cb0fdb80d0e36ca9570c",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/code-analysis/selector-resolution.ts",
+                  "repository": "tieline",
+                  "selector": "function:resolveExactStructuralSelectorFromAnalysis"
+                }
+              },
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:evidenceForClaim"
+                }
+              },
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:scopeId"
+                }
+              },
+              {
+                "compiled_content_hash": "42be4ce2f510f61afef344b950a28521ece322a32319e176eb3e4348408a64e6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Parser facts can establish which current declaration a host agent may cite, but only the host can judge whether that declaration semantically satisfies the Acceptance Criterion.",
+            "scenarios": [
+              {
+                "given": "a source artifact declares a top-level or owner-aware function and names other identifiers only in comments or local variables",
+                "position": 0,
+                "stable_id": "GRADING-001-AC2-S1",
+                "then": "Tiepoint must offer only unique canonical declaration selectors and must not offer comment-only or local identifiers",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a contract link carries an exact canonical selector that resolves uniquely",
+                "position": 1,
+                "stable_id": "GRADING-001-AC2-S2",
+                "then": "Tiepoint must isolate its allow-list and bounded evidence to that declaration",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a linked artifact is missing, unreadable, oversized, unsupported, unsafe to interpret after parser recovery, or named by an invalid, unresolved, or ambiguous explicit selector",
+                "position": 2,
+                "stable_id": "GRADING-001-AC2-S3",
+                "then": "Tiepoint must emit unavailable evidence and an empty citation allow-list without failing the scope",
+                "when": "its grading entry is built"
+              },
+              {
+                "given": "a clean exact selected declaration has an unrelated parser diagnostic or only import and reference facts were truncated",
+                "position": 3,
+                "stable_id": "GRADING-001-AC2-S4",
+                "then": "Tiepoint must retain the selected declaration as citable",
+                "when": "its grading entry is built with complete symbol and diagnostic facts"
+              },
+              {
+                "given": "either the exact Acceptance Criterion text or same-symbol source content changes",
+                "position": 4,
+                "stable_id": "GRADING-001-AC2-S5",
+                "then": "Tiepoint must issue a different entry identity so the earlier verdict cannot be reused",
+                "when": "the grading scope is emitted again"
+              }
+            ],
+            "stable_id": "GRADING-001-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "977dcd510f5562c272f0e8666cd44990d5b443a364029db37aa5ea1b882f6ef0",
+            "criterion": "Contract grading must derive and verify its scope and ephemeral parser evidence from the compiled manifest, working tree, and Git diff without a database, network request, model client, or persisted grade record.",
+            "links": [
+              {
+                "compiled_content_hash": "a9b5acf79c52c318b706d863b4eb278f6493fcd907250b526c770cae6f54cd25",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/cli.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildProgram"
+                }
+              },
+              {
+                "compiled_content_hash": "c0ace6620441c96e3383d321295cf5a05e12dc01a2310b6d398d4dbe8fc32eca",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:runGrade"
+                }
+              },
+              {
+                "compiled_content_hash": "42be4ce2f510f61afef344b950a28521ece322a32319e176eb3e4348408a64e6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "The semantic judgment belongs to the host agent, while both Tiepoint phases remain deterministic and usable in the same offline pull-request loop as contract validation.",
+            "scenarios": [],
+            "stable_id": "GRADING-001-AC3",
+            "supersedes": null
+          }
+        ],
+        "actor": "reviewing agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "semantic evidence claims can be checked without silently omitting difficult links",
+        "contract_hash": "f4da56c52a9a26e1f3cf68cdb70677b56f4cb3ce4e72923ae65b7fb967eb6637",
+        "goal": "receive the complete changed-link work list and its legal citations",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-001",
+        "supersedes": null,
+        "title": "Judge every contract link touched by a change"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "71a125f71270fc1e0e4fd934bc061ee8476418a2f253c11e9aee202395b3e165",
+            "criterion": "Tiepoint must accept only supported, partial, or unsupported verdicts, must require partial and unsupported reasons, and must downgrade a supported verdict to unsupported with fabricated_citation when its citation is absent from the entry's allow-list.",
+            "links": [
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "enforces",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:parseGradeVerdicts"
+                }
+              },
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyGradeVerdicts"
+                }
+              },
+              {
+                "compiled_content_hash": "42be4ce2f510f61afef344b950a28521ece322a32319e176eb3e4348408a64e6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "an agent submits a supported verdict with a citation Tiepoint did not emit for that entry",
+                "position": 0,
+                "stable_id": "GRADING-002-AC1-S1",
+                "then": "Tiepoint must report unsupported with fabricated_citation",
+                "when": "the verdict document is verified"
+              }
+            ],
+            "stable_id": "GRADING-002-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "7bbb7b84236d09a002e2c634f5b3e8b021318e65b511103b497278784b37345e",
+            "criterion": "Tiepoint must report every scoped entry omitted from a verdict document as unsupported, and must reject duplicate or out-of-scope entry identities as malformed submissions.",
+            "links": [
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyGradeVerdicts"
+                }
+              },
+              {
+                "compiled_content_hash": "42be4ce2f510f61afef344b950a28521ece322a32319e176eb3e4348408a64e6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": "Omission is the refusal path rather than a way to skip hard work, while an identity outside the current scope signals stale or substituted input.",
+            "scenarios": [
+              {
+                "given": "the emitted scope contains an entry that no verdict names",
+                "position": 0,
+                "stable_id": "GRADING-002-AC2-S1",
+                "then": "Tiepoint must report that entry unsupported with missing_verdict",
+                "when": "the verdict document is verified"
+              },
+              {
+                "given": "a verdict identity is duplicated or absent from the rederived scope",
+                "position": 1,
+                "stable_id": "GRADING-002-AC2-S2",
+                "then": "Tiepoint must reject the submission instead of choosing or ignoring a verdict",
+                "when": "the verdict document is verified"
+              }
+            ],
+            "stable_id": "GRADING-002-AC2",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "0875a5a4c52acc03888fe134578cfbdca5a95fd5fe85dc94ab5f8e9cfd2279d8",
+            "criterion": "Grade verification must print every unsupported result and exit zero by default, but it must exit non-zero when strict mode is explicitly requested and an unsupported result remains.",
+            "links": [
+              {
+                "compiled_content_hash": "c0ace6620441c96e3383d321295cf5a05e12dc01a2310b6d398d4dbe8fc32eca",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/contract.ts",
+                  "repository": "tieline",
+                  "selector": "function:runGrade"
+                }
+              },
+              {
+                "compiled_content_hash": "32904979a7b4fbefd05b65f1aa73c232c1267855a0309ad53e9e6e95a84fa246",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyGradeVerdicts"
+                }
+              },
+              {
+                "compiled_content_hash": "42be4ce2f510f61afef344b950a28521ece322a32319e176eb3e4348408a64e6",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "framework_hint": "custom-script",
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 2,
+            "rationale": "Agent judgment stays advisory until its operating quality is known; callers that knowingly want a gate can opt into one without hiding its findings.",
+            "scenarios": [
+              {
+                "given": "verification leaves an unsupported result and strict mode is not requested",
+                "position": 0,
+                "stable_id": "GRADING-002-AC3-S1",
+                "then": "Tiepoint must print the unsupported result and exit zero",
+                "when": "contract grade finishes"
+              },
+              {
+                "given": "verification leaves an unsupported result and strict mode is requested",
+                "position": 1,
+                "stable_id": "GRADING-002-AC3-S2",
+                "then": "Tiepoint must print the unsupported result and exit non-zero",
+                "when": "contract grade finishes"
+              }
+            ],
+            "stable_id": "GRADING-002-AC3",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "f371c56b4331cea7b60b9503c14d5382b8669823bdea21045bc41c7ec4a82926",
+            "criterion": "The Tiepoint skill's grading reference must direct the host agent to read and judge every scoped artifact, print every judgment before verification, cite only exact emitted symbols, treat unsupported as useful evidence, and keep independent grading read-only; during implementation the host must investigate findings, record fixed, rejected-with-evidence, or unresolved dispositions, and regrade affected claims after corrections within a bounded loop.",
+            "links": [
+              {
+                "compiled_content_hash": "46d377db0c76d343a77b35d0caa1a0f01a5ae2ed802325e0f2704afd8671e17b",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "skills/tiepoint/references/grading.md",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 3,
+            "rationale": "The host judgment is the only non-deterministic phase, so its refusal and audit rules are part of the shipped workflow.",
+            "scenarios": [],
+            "stable_id": "GRADING-002-AC4",
+            "supersedes": null
+          }
+        ],
+        "actor": "reviewing maintainer",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "an agent cannot turn weak or absent evidence into a silent confirmation",
+        "contract_hash": "04a46ff1a0be64c3af1c39d9796afecc1a852d993a9843123f9bd680833d5641",
+        "goal": "see every negative, missing, malformed, and downgraded judgment",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-002",
+        "supersedes": null,
+        "title": "Refuse grading claims that cannot be checked"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "fb9a076a915d2a1d73d389215dfc9cf1b1d83a3cf73b5b883b1c83c4d1dd4d0b",
+            "criterion": "Criterion grading must select changed rules, scenarios, AC, Story or capability applicability, Story lifecycle, and code/test links in claims mode, include all local evidence for each selected AC, and expose implementation-only and removed ACs for reconciliation; impacted mode must additionally select ACs behind changed artifacts.",
+            "links": [
+              {
+                "compiled_content_hash": "37a7cde62112ab775a0239dc7d9be1604c2ac3a1a0df7138724382a06ed45771",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/criterion-grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildCriterionGradeScope"
+                }
+              },
+              {
+                "compiled_content_hash": "e7abac5a46af36e0b738b4e46e0a51d85345788bc2dfbf42674fbc65de99ea8d",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-criterion-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "an unchanged AC has two links and only one source file changes",
+                "position": 0,
+                "stable_id": "GRADING-003-AC1-S1",
+                "then": "the AC is reported as implementation-only without being graded",
+                "when": "claims scope is requested"
+              },
+              {
+                "given": "only a scenario changes or all evidence links are removed",
+                "position": 1,
+                "stable_id": "GRADING-003-AC1-S2",
+                "then": "the AC remains in scope for judgment",
+                "when": "claims scope is requested"
+              }
+            ],
+            "stable_id": "GRADING-003-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "35e37160f7ab30329175554aadf8bb9abf210130904d192a3ed38713ab4014bc",
+            "criterion": "Criterion verification must accept multiple exact citations from an AC's evidence, preserve irrelevant-link findings separately from overall support, distinguish inconclusive evidence from unsupported claims, and reject stale, duplicate, missing, or fabricated evidence without claiming semantic proof.",
+            "links": [
+              {
+                "compiled_content_hash": "37a7cde62112ab775a0239dc7d9be1604c2ac3a1a0df7138724382a06ed45771",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/criterion-grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:parseCriterionGradeVerdicts"
+                }
+              },
+              {
+                "compiled_content_hash": "37a7cde62112ab775a0239dc7d9be1604c2ac3a1a0df7138724382a06ed45771",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/criterion-grade.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyCriterionGradeVerdicts"
+                }
+              },
+              {
+                "compiled_content_hash": "e7abac5a46af36e0b738b4e46e0a51d85345788bc2dfbf42674fbc65de99ea8d",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-criterion-grade.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "separate confirmation and checkout declarations jointly support the rule",
+                "position": 0,
+                "stable_id": "GRADING-003-AC2-S1",
+                "then": "verification accepts both legal citations for the same AC",
+                "when": "a supported verdict cites both declarations"
+              },
+              {
+                "given": "one irrelevant link accompanies otherwise supported behavior",
+                "position": 1,
+                "stable_id": "GRADING-003-AC2-S2",
+                "then": "the finding remains visible and fails explicitly requested strict mode",
+                "when": "its link finding is verified"
+              }
+            ],
+            "stable_id": "GRADING-003-AC2",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "multi-file behavior can be assessed without repeating review for every cosmetic source edit",
+        "contract_hash": "80ce2e78a1668ae045ffad7c962d6be21c617df00460d1ceb6bfc4aeefab83df",
+        "goal": "review changed claims with all their supporting evidence",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-003",
+        "supersedes": null,
+        "title": "Review complete acceptance criteria with selective scope"
+      },
+      {
+        "acceptance_criteria": [
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "cc58764b089c02cf6d42c1f21ab36720fb985f3ffbc49b37bd63fb31d1abecf5",
+            "criterion": "Closeout must derive affected rules from immutable merge-base and head definitions and both revisions' links, including changed claims, implementation-only changes, removed rules, inherited applicability and lifecycle changes, and configuration changes, independently of manifest publication and uncommitted content.",
+            "links": [
+              {
+                "compiled_content_hash": "25c617377e66d6b91ee5716d1022140e5bd914f1002281a5e80b4b8d3f93e3b3",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/closeout.ts",
+                  "repository": "tieline",
+                  "selector": "function:buildCloseoutScope"
+                }
+              },
+              {
+                "compiled_content_hash": "f1352e84ea0b645d7f846cec52d199fce0c8ff3167f4f85256d33020c5244b3e",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-closeout.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 0,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "a changed implementation loses its link or its rule in the PR",
+                "position": 0,
+                "stable_id": "GRADING-004-AC1-S1",
+                "then": "the previously linked rule still requires a disposition",
+                "when": "closeout scope is emitted"
+              },
+              {
+                "given": "fingerprints are refreshed without reviewing changed implementation",
+                "position": 1,
+                "stable_id": "GRADING-004-AC1-S2",
+                "then": "the implementation's affected rules remain in scope",
+                "when": "closeout scope is emitted against the same target"
+              }
+            ],
+            "stable_id": "GRADING-004-AC1",
+            "supersedes": null
+          },
+          {
+            "aliases": [],
+            "applies_to": null,
+            "contract_hash": "980d6e5f2ceafc7c5e1905a0c8ddd467c2ec601ca002defd5a81ffdf56a565aa",
+            "criterion": "Closeout verification must bind dispositions to resolved repository, target, merge-base and head identities, reject stale or invalid reports, require a disposition for every affected rule, and fail readiness for missing or unresolved dispositions without asserting semantic truth or human approval.",
+            "links": [
+              {
+                "compiled_content_hash": "99a061881f705843d75bc86c976c2902434d572b34b8f44b17c2b090533207ef",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/commands/closeout.ts",
+                  "repository": "tieline",
+                  "selector": "function:runCloseout"
+                }
+              },
+              {
+                "compiled_content_hash": "25c617377e66d6b91ee5716d1022140e5bd914f1002281a5e80b4b8d3f93e3b3",
+                "provenance": "authored",
+                "relation": "implements",
+                "target": {
+                  "kind": "code",
+                  "path": "src/contract/closeout.ts",
+                  "repository": "tieline",
+                  "selector": "function:verifyCloseoutReport"
+                }
+              },
+              {
+                "compiled_content_hash": "f1352e84ea0b645d7f846cec52d199fce0c8ff3167f4f85256d33020c5244b3e",
+                "provenance": "authored",
+                "relation": "tests",
+                "target": {
+                  "kind": "test",
+                  "path": "tests/unit/contract/test-closeout.ts",
+                  "repository": "tieline"
+                }
+              }
+            ],
+            "position": 1,
+            "rationale": null,
+            "scenarios": [
+              {
+                "given": "a report names the prior head commit",
+                "position": 0,
+                "stable_id": "GRADING-004-AC2-S1",
+                "then": "the report is rejected even if the affected rule list is unchanged",
+                "when": "verification runs against the current head"
+              },
+              {
+                "given": "every affected rule has a disposition but one remains unresolved",
+                "position": 1,
+                "stable_id": "GRADING-004-AC2-S2",
+                "then": "the result is complete but not ready and exits nonzero",
+                "when": "verification runs"
+              }
+            ],
+            "stable_id": "GRADING-004-AC2",
+            "supersedes": null
+          }
+        ],
+        "actor": "implementing agent",
+        "aliases": [],
+        "applies_to": null,
+        "benefit": "regenerated fingerprints cannot stand in for review",
+        "contract_hash": "3aa07ad42132fe076a450847afeba8d2007248e0b7ebe0c762d83292c85d356f",
+        "goal": "account for every affected accepted rule at the reviewed revision",
+        "lifecycle": "production",
+        "links": [],
+        "motivated_by": [],
+        "planning_origin": null,
+        "stable_id": "GRADING-004",
+        "supersedes": null,
+        "title": "Record semantic review against immutable revisions"
+      }
+    ],
+    "supersedes": null
+  },
+  "input": {
+    "path": ".tiepoint/spec/grading.yaml",
+    "sha256": "5f1cefbebb043a3f02a67b49e714aec595a02972c142fdae810cd110f6845737"
+  }
+}

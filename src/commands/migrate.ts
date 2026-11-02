@@ -54,7 +54,7 @@ export function assertMigrationHistory(
   if (applied.length > packaged.length) {
     const extra = applied.slice(packaged.length).map((row) => row.filename);
     throw new Error(
-      `This database contains migration history not packaged by this Tieline version (${extra.join(", ")}). ` +
+      `This database contains migration history not packaged by this Tiepoint version (${extra.join(", ")}). ` +
         "Install a compatible version or recreate the development database."
     );
   }
@@ -64,7 +64,7 @@ export function assertMigrationHistory(
       throw new Error(
         `Migration history is not an ordered packaged prefix at position ${index + 1}: ` +
           `found ${row.filename}, expected ${expected?.filename ?? "no migration"}. ` +
-          "Recreate the development database; Tieline will not reorder or reinterpret existing data automatically."
+          "Recreate the development database; Tiepoint will not reorder or reinterpret existing data automatically."
       );
     }
     if (row.checksum !== expected.checksum) {

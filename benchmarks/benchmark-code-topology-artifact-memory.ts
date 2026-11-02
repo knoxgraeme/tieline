@@ -23,9 +23,9 @@ export interface MemoryMeasurement {
   }>;
 }
 
-const mode = process.env.TIELINE_ARTIFACT_MEMORY_MODE as MemoryMode | undefined;
+const mode = process.env.TIEPOINT_ARTIFACT_MEMORY_MODE as MemoryMode | undefined;
 if (mode !== "artifact" && mode !== "parse") {
-  throw new Error("TIELINE_ARTIFACT_MEMORY_MODE must be 'artifact' or 'parse'.");
+  throw new Error("TIEPOINT_ARTIFACT_MEMORY_MODE must be 'artifact' or 'parse'.");
 }
 assert.equal(
   typeof global.gc,
@@ -70,9 +70,9 @@ if (mode === "artifact") {
   };
 } else {
   const topologyModule = await import("../src/contract/topology-generation.js");
-  const repositoryRoot = process.env.TIELINE_ARTIFACT_MEMORY_REPOSITORY_ROOT;
-  const repository = process.env.TIELINE_ARTIFACT_MEMORY_REPOSITORY;
-  const sourceRoot = process.env.TIELINE_ARTIFACT_MEMORY_SOURCE_ROOT ?? "src";
+  const repositoryRoot = process.env.TIEPOINT_ARTIFACT_MEMORY_REPOSITORY_ROOT;
+  const repository = process.env.TIEPOINT_ARTIFACT_MEMORY_REPOSITORY;
+  const sourceRoot = process.env.TIEPOINT_ARTIFACT_MEMORY_SOURCE_ROOT ?? "src";
   if (!repositoryRoot || !repository) {
     throw new Error("parse-first memory measurement is missing repository inputs.");
   }
@@ -107,8 +107,8 @@ const started = performance.now();
 const roles: MemoryMeasurement["roles"] = [];
 try {
   if (mode === "artifact") {
-    const baseRoot = process.env.TIELINE_ARTIFACT_MEMORY_BASE_ROOT;
-    const currentRoot = process.env.TIELINE_ARTIFACT_MEMORY_CURRENT_ROOT;
+    const baseRoot = process.env.TIEPOINT_ARTIFACT_MEMORY_BASE_ROOT;
+    const currentRoot = process.env.TIEPOINT_ARTIFACT_MEMORY_CURRENT_ROOT;
     if (!baseRoot || !currentRoot || !loadArtifact) {
       throw new Error("artifact-first memory measurement is missing artifact roots.");
     }
@@ -116,8 +116,8 @@ try {
     sample();
     roles.push(await loadArtifact(currentRoot));
   } else {
-    const baseRevision = process.env.TIELINE_ARTIFACT_MEMORY_BASE_REVISION;
-    const currentRevision = process.env.TIELINE_ARTIFACT_MEMORY_CURRENT_REVISION;
+    const baseRevision = process.env.TIEPOINT_ARTIFACT_MEMORY_BASE_REVISION;
+    const currentRevision = process.env.TIEPOINT_ARTIFACT_MEMORY_CURRENT_REVISION;
     if (!baseRevision || !currentRevision || !loadParseRole) {
       throw new Error("parse-first memory measurement is missing revision inputs.");
     }

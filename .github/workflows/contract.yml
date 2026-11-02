@@ -114,7 +114,7 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/tieline_test
       DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline_test
-      TIELINE_INTEGRATION_TEST_DATABASE: "1"
+      TIEPOINT_INTEGRATION_TEST_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -147,8 +147,8 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/tieline
       DATABASE_URL_ADMIN: postgres://postgres:postgres@localhost:5432/tieline
-      TIELINE_ENFORCE_RELEASE_BUDGETS: "1"
-      TIELINE_TOPOLOGY_BENCHMARK_SCALE: "1"
+      TIEPOINT_ENFORCE_RELEASE_BUDGETS: "1"
+      TIEPOINT_TOPOLOGY_BENCHMARK_SCALE: "1"
     steps:
       - uses: actions/checkout@v7
         with:

@@ -53,7 +53,7 @@ await test("remote prompt routes contract state through the client workspace", a
   );
   try {
     await client.connect(transport);
-    const prompt = await client.getPrompt({ name: "tieline" });
+    const prompt = await client.getPrompt({ name: "tiepoint" });
     const promptText = String(
       prompt.messages[0]?.content.type === "text"
         ? prompt.messages[0].content.text

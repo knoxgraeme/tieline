@@ -28,7 +28,7 @@ import {
   renderCheckImpactGroupText,
   runCheckCommand,
 } from "../../../src/commands/check.js";
-import { tielineConfigJson } from "../../support/fixtures.js";
+import { tiepointConfigJson } from "../../support/fixtures.js";
 
 const terminalInjection =
   "CSI:\u001b[31m OSC:\u001b]0;owned\u0007 CR:\r BS:\b C1:\u009b BIDI:\u202e";
@@ -37,11 +37,11 @@ const escapedTerminalInjection =
 const unsafeTerminalCodePoint =
   /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-impact-"));
-const outsideRoot = mkdtempSync(resolve(tmpdir(), "tieline-outside-"));
-const looseRoot = mkdtempSync(resolve(tmpdir(), "tieline-loose-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-impact-"));
+const outsideRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-outside-"));
+const looseRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-loose-"));
 try {
-  mkdirSync(resolve(root, ".tieline/contract"), { recursive: true });
+  mkdirSync(resolve(root, ".tiepoint/contract"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   mkdirSync(resolve(root, "scripts"), { recursive: true });
   writeFileSync(
@@ -58,15 +58,15 @@ try {
     "export function featureBehavior() { assert(feature); }\n"
   );
   writeFileSync(
-    resolve(root, ".tieline/config.json"),
-    tielineConfigJson({
+    resolve(root, ".tiepoint/config.json"),
+    tiepointConfigJson({
       name: "Impact fixture",
       repoName: "impact-fixture",
       timestamp: "2026-07-29T00:00:00.000Z",
     })
   );
   writeFileSync(
-    resolve(root, ".tieline/contract/feature.yaml"),
+    resolve(root, ".tiepoint/contract/feature.yaml"),
     `version: 1
 capability:
   key: FEATURE
@@ -89,7 +89,7 @@ capability:
             selector: const:feature
       acceptance_criteria:
         - key: AC-FEATURE-001
-          criterion: Tieline must report a changed implementation path.
+          criterion: Tiepoint must report a changed implementation path.
           links:
             - relation: implements
               provenance: authored
@@ -126,16 +126,16 @@ capability:
   execFileSync("git", ["config", "user.email", "test@example.test"], {
     cwd: root,
   });
-  execFileSync("git", ["config", "user.name", "Tieline Test"], {
+  execFileSync("git", ["config", "user.name", "Tiepoint Test"], {
     cwd: root,
   });
   const compiled = compileContractManifestWithSources({
     repositoryRoot: root,
     repositoryKey: "impact-fixture",
-    specDirectory: ".tieline/contract",
+    specDirectory: ".tiepoint/contract",
   });
   const manifest = compiled.manifest;
-  writeContractManifest(resolve(root, ".tieline/manifest"), compiled);
+  writeContractManifest(resolve(root, ".tiepoint/manifest"), compiled);
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync("git", ["commit", "-m", "baseline"], { cwd: root });
 
@@ -266,9 +266,9 @@ capability:
     repositoryRoot: root,
     manifest,
     changes: [
-      { status: "modified", path: ".tieline/contract/feature.yaml" },
+      { status: "modified", path: ".tiepoint/contract/feature.yaml" },
     ],
-    specDirectory: ".tieline/contract",
+    specDirectory: ".tiepoint/contract",
   });
   assert.equal(contractChanged.length, 1);
   assert.equal(contractChanged[0].reason, "contract_definition_changed");
@@ -278,10 +278,10 @@ capability:
   assert.equal(contractChanged[0].framework_hint, null);
   assert.equal(contractChanged[0].locator_resolution, "not_applicable");
   assert.equal(contractChanged[0].locator_reason, null);
-  assert.equal(contractChanged[0].path, ".tieline/contract");
+  assert.equal(contractChanged[0].path, ".tiepoint/contract");
   assert.equal(
     contractChanged[0].acceptance_criterion,
-    "Tieline must report a changed implementation path."
+    "Tiepoint must report a changed implementation path."
   );
   assert.equal(contractChanged[0].story_title, "Review semantic impact");
 
@@ -323,7 +323,7 @@ capability:
   assert.equal(brokenOutsideDiff[0].locator_reason, "file_missing");
   assert.equal(
     brokenOutsideDiff[0].acceptance_criterion,
-    "Tieline must report a changed implementation path."
+    "Tiepoint must report a changed implementation path."
   );
 
   // The same broken link inside the diff keeps its diff-driven reason and is
@@ -507,7 +507,7 @@ capability:
   assert.equal(unsupportedImpact.locator_reason, "unsupported_language");
   assert.equal(
     report.impacts[0].acceptance_criterion,
-    "Tieline must report a changed implementation path."
+    "Tiepoint must report a changed implementation path."
   );
   assert.equal(report.impacts[0].story_title, "Review semantic impact");
   assert.equal(report.broken_links.length, 0);
@@ -525,7 +525,7 @@ capability:
   const human = humanOutput.join("");
   assert.match(
     human,
-    /Tieline must report a changed implementation path\./
+    /Tiepoint must report a changed implementation path\./
   );
   assert.match(human, /Review semantic impact/);
   assert.match(human, /Does this change still satisfy this criterion\?/);
@@ -601,7 +601,7 @@ capability:
   );
   writeFileSync(resolve(root, "docs/notes.md"), "# notes\n");
   appendFileSync(
-    resolve(root, ".tieline/contract/feature.yaml"),
+    resolve(root, ".tiepoint/contract/feature.yaml"),
     "# reviewed by a maintainer\n"
   );
   rmSync(resolve(root, "src/legacy.ts"));
@@ -614,7 +614,7 @@ capability:
       "src/generated/build-info.ts",
       "src/legacy.ts",
       "docs/notes.md",
-      ".tieline/contract/feature.yaml",
+      ".tiepoint/contract/feature.yaml",
     ],
     { cwd: root }
   );
@@ -744,10 +744,10 @@ capability:
 
   // Without a workspace there is no configured source root, so eligibility
   // cannot be decided; the check says so once instead of guessing.
-  mkdirSync(resolve(looseRoot, ".tieline"), { recursive: true });
+  mkdirSync(resolve(looseRoot, ".tiepoint"), { recursive: true });
   mkdirSync(resolve(looseRoot, "src"), { recursive: true });
   mkdirSync(resolve(looseRoot, "scripts"), { recursive: true });
-  writeContractManifest(resolve(looseRoot, ".tieline/manifest"), compiled);
+  writeContractManifest(resolve(looseRoot, ".tiepoint/manifest"), compiled);
   writeFileSync(
     resolve(looseRoot, "src/feature.ts"),
     "export const feature = 1;\nexport const alternate = 1;\n"
@@ -764,7 +764,7 @@ capability:
   execFileSync("git", ["config", "user.email", "test@example.test"], {
     cwd: looseRoot,
   });
-  execFileSync("git", ["config", "user.name", "Tieline Test"], {
+  execFileSync("git", ["config", "user.name", "Tiepoint Test"], {
     cwd: looseRoot,
   });
   execFileSync("git", ["add", "."], { cwd: looseRoot });
@@ -793,7 +793,7 @@ capability:
   assert.equal(looseReport.exit_code, 0);
   assert.equal(
     looseReport.warnings.filter((warning) =>
-      /no Tieline workspace configuration was found/.test(warning)
+      /no Tiepoint workspace configuration was found/.test(warning)
     ).length,
     1
   );
@@ -807,14 +807,14 @@ capability:
     0
   );
   const looseHuman = looseHumanOutput.join("");
-  assert.match(looseHuman, /no Tieline workspace configuration was found/);
+  assert.match(looseHuman, /no Tiepoint workspace configuration was found/);
   assert.doesNotMatch(looseHuman, /changes to consider=/);
 
   // A capability the manifest has never been compiled for has no file in the
   // manifest directory, so the check must still see the manifest as stale
   // rather than reading the capabilities that happen to be there as complete.
   writeFileSync(
-    resolve(root, ".tieline/contract/added.yaml"),
+    resolve(root, ".tiepoint/contract/added.yaml"),
     `version: 1
 capability:
   key: ADDED
@@ -829,7 +829,7 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: AC-ADDED-001
-          criterion: Tieline must report the manifest as stale.
+          criterion: Tiepoint must report the manifest as stale.
           links:
             - relation: implements
               provenance: authored
@@ -914,13 +914,13 @@ capability:
     { write: (message) => staleTextOutput.push(message) }
   );
   assert.match(staleTextOutput.join(""), /--no-fail-on-stale-manifest/);
-  rmSync(resolve(root, ".tieline/contract/added.yaml"));
+  rmSync(resolve(root, ".tiepoint/contract/added.yaml"));
 
   // A manifest that cannot be recompiled at all is one fault, reported once.
   // Counting it as staleness too would name the same problem twice and let the
   // stale gate fire for a reason the operator cannot act on as staleness.
   writeFileSync(
-    resolve(root, ".tieline/contract/broken.yaml"),
+    resolve(root, ".tiepoint/contract/broken.yaml"),
     "version: 1\ncapability: [this is not a capability]\n"
   );
   const compileErrorOutput: string[] = [];
@@ -939,7 +939,7 @@ capability:
   assert.equal(compileErrorReport.manifest_current, false);
   assert.ok(compileErrorReport.manifest_compile_error);
   assert.equal(compileErrorReport.exit_reason, "ok");
-  rmSync(resolve(root, ".tieline/contract/broken.yaml"));
+  rmSync(resolve(root, ".tiepoint/contract/broken.yaml"));
 
   await assert.rejects(
     runCheckCommand(

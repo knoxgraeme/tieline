@@ -18,7 +18,7 @@ import {
   type ToolResult,
 } from "./shared.js";
 
-const DESCRIPTION = `Exact, read-only lookup over Tieline's Story and acceptance-criteria contract.
+const DESCRIPTION = `Exact, read-only lookup over Tiepoint's Story and acceptance-criteria contract.
 
 Use this when you know an attribute or stable key. Filters are AND-combined:
 repository, capability, story_key, actor, lifecycle, authority, code_path,

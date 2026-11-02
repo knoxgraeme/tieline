@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 
 const MIB = 1024 * 1024;
 const CORPUS_FILES = 116;
-const enforce = process.env.TIELINE_ENFORCE_RELEASE_BUDGETS === "1";
+const enforce = process.env.TIEPOINT_ENFORCE_RELEASE_BUDGETS === "1";
 const pinnedEnvironment =
   process.platform === "linux" && process.arch === "x64" && process.versions.node.startsWith("20.");
 
@@ -34,7 +34,7 @@ const corpus = execFileSync(
   .slice(0, CORPUS_FILES);
 assert.equal(corpus.length, CORPUS_FILES, `benchmark requires ${CORPUS_FILES} supported source files`);
 
-const projectRoot = mkdtempSync(resolve(tmpdir(), "tieline-parser-benchmark-"));
+const projectRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-parser-benchmark-"));
 let tarballPath: string | null = null;
 try {
   const packed = JSON.parse(
@@ -60,14 +60,14 @@ try {
 import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
-import { createJavaScriptAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/javascript.js";
-import { createPythonAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/python.js";
-import { createCodeParserRuntime } from "./node_modules/tieline/dist/contract/code-analysis/runtime.js";
-import { createRustAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/rust.js";
-import { createSqlAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/sql.js";
-import { supportedCodeLanguages } from "./node_modules/tieline/dist/contract/code-analysis/languages.js";
-import { createFilesystemSourceSnapshotReader } from "./node_modules/tieline/dist/contract/source-snapshot.js";
-const repositoryRoot = process.env.TIELINE_BENCHMARK_REPOSITORY;
+import { createJavaScriptAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/javascript.js";
+import { createPythonAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/python.js";
+import { createCodeParserRuntime } from "./node_modules/tiepoint/dist/contract/code-analysis/runtime.js";
+import { createRustAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/rust.js";
+import { createSqlAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/sql.js";
+import { supportedCodeLanguages } from "./node_modules/tiepoint/dist/contract/code-analysis/languages.js";
+import { createFilesystemSourceSnapshotReader } from "./node_modules/tiepoint/dist/contract/source-snapshot.js";
+const repositoryRoot = process.env.TIEPOINT_BENCHMARK_REPOSITORY;
 if (!repositoryRoot) throw new Error("missing benchmark repository");
 const corpus = JSON.parse(readFileSync("corpus.json", "utf8"));
 const started = performance.now();
@@ -111,7 +111,7 @@ process.stdout.write(JSON.stringify({
       execFileSync(process.execPath, [childPath], {
         cwd: projectRoot,
         encoding: "utf8",
-        env: { ...process.env, TIELINE_BENCHMARK_REPOSITORY: repositoryRoot },
+        env: { ...process.env, TIEPOINT_BENCHMARK_REPOSITORY: repositoryRoot },
       })
     ) as {
       initializedMs: number;
@@ -127,7 +127,7 @@ process.stdout.write(JSON.stringify({
   const initialization = runs.map((run) => run.initializedMs).sort((a, b) => a - b);
   const corpusTimes = runs.map((run) => run.corpusMs).sort((a, b) => a - b);
   const parserAssetBytes = directoryBytes(
-    resolve(projectRoot, "node_modules/tieline/assets/parsers/web-tree-sitter-0.26.12")
+    resolve(projectRoot, "node_modules/tiepoint/assets/parsers/web-tree-sitter-0.26.12")
   );
   const installedParserBytes =
     parserAssetBytes + directoryBytes(resolve(projectRoot, "node_modules/web-tree-sitter"));

@@ -16,6 +16,8 @@ export const CODE_TOPOLOGY_ARTIFACT_SCHEMA_VERSION = 1;
 export const CODE_TOPOLOGY_ARTIFACT_ENCODING = "json-v1";
 export const CODE_TOPOLOGY_ARTIFACT_PRODUCER = "tieline_tree_sitter";
 export const CODE_TOPOLOGY_ARTIFACT_PRODUCER_VERSION = 1;
+// Persisted envelope identities: committed and cached graphs written before the
+// tieline -> tiepoint rename carry these values, so they keep the earlier name.
 export const CODE_TOPOLOGY_ARTIFACT_PROVIDER = "tieline";
 export const CODE_TOPOLOGY_MAX_DEPENDENCY_RECORDS = 250_000;
 

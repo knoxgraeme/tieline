@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-interface TielinePackageMetadata {
+interface TiepointPackageMetadata {
   name: string;
   version: string;
 }
@@ -12,16 +12,16 @@ const packageMetadata = JSON.parse(
     resolve(dirname(fileURLToPath(import.meta.url)), "../package.json"),
     "utf8"
   )
-) as Partial<TielinePackageMetadata>;
+) as Partial<TiepointPackageMetadata>;
 
 if (
   typeof packageMetadata.name !== "string" ||
   typeof packageMetadata.version !== "string"
 ) {
-  throw new Error("Tieline package metadata is missing its name or version.");
+  throw new Error("Tiepoint package metadata is missing its name or version.");
 }
 
-export const TIELINE_PACKAGE_NAME = packageMetadata.name;
-export const TIELINE_VERSION = packageMetadata.version;
-export const TIELINE_PACKAGE_SPEC =
-  `${TIELINE_PACKAGE_NAME}@${TIELINE_VERSION}`;
+export const TIEPOINT_PACKAGE_NAME = packageMetadata.name;
+export const TIEPOINT_VERSION = packageMetadata.version;
+export const TIEPOINT_PACKAGE_SPEC =
+  `${TIEPOINT_PACKAGE_NAME}@${TIEPOINT_VERSION}`;

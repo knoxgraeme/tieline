@@ -58,8 +58,8 @@ assert.deepEqual(splitIdentifier("invoice_refund-total"), [
   "refund",
   "total",
 ]);
-assert.deepEqual(splitIdentifier("Tieline must reconcile the invoice."), [
-  "tieline",
+assert.deepEqual(splitIdentifier("Tiepoint must reconcile the invoice."), [
+  "tiepoint",
   "must",
   "reconcile",
   "the",
@@ -152,7 +152,7 @@ function sourceOf(topic: Topic): string {
   return [
     `import { logger } from "../logger.js";`,
     ``,
-    `// Reviewers reconcile Tieline drift in this area.`,
+    `// Reviewers reconcile Tiepoint drift in this area.`,
     ``,
     `/**`,
     ` * ${pascal(a)} handling: ${b}, ${c}, ${d}.`,
@@ -191,7 +191,7 @@ function criterionOf(
   const [a, b, c, d] = topic.words;
   return {
     stable_id: `AC-${topic.key}-001`,
-    criterion: `Tieline must reconcile the ${a} ${b} using ${c} and ${d}.`,
+    criterion: `Tiepoint must reconcile the ${a} ${b} using ${c} and ${d}.`,
     rationale: null,
     aliases: [],
     applies_to: null,
@@ -243,7 +243,7 @@ function manifestOf(stories: ManifestStory[]): ContractManifest {
   };
 }
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-link-plausibility-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-link-plausibility-"));
 try {
   mkdirSync(resolve(root, "src"), { recursive: true });
   mkdirSync(resolve(root, "assets"), { recursive: true });
@@ -395,7 +395,7 @@ try {
     0,
     "a token in every linked file carries no weight"
   );
-  assert.equal(inverseDocumentFrequency(index, "tieline"), 0);
+  assert.equal(inverseDocumentFrequency(index, "tiepoint"), 0);
   assert.ok(inverseDocumentFrequency(index, "signature") > 0);
   assert.ok(
     inverseDocumentFrequency(index, "signature") <
@@ -403,15 +403,15 @@ try {
     "a token in half the files weighs less than a token in one file"
   );
 
-  // The unrelated pair literally overlaps on 'tieline', 'reconcile',
+  // The unrelated pair literally overlaps on 'tiepoint', 'reconcile',
   // 'reviewers' and 'logger'; damping keeps them out of the score entirely.
-  for (const ubiquitous of ["tieline", "reconcile", "reviewers"]) {
+  for (const ubiquitous of ["tiepoint", "reconcile", "reviewers"]) {
     assert.ok(signatureTokens.includes(ubiquitous));
     assert.ok(surfaces.get("timezone")!.includes(ubiquitous));
     assert.ok(!unrelated.shared_terms.includes(ubiquitous));
   }
   const dampedOnly = scoreLexicalPlausibility(
-    ["tieline", "reconcile", "reviewers", "fingerprint"],
+    ["tiepoint", "reconcile", "reviewers", "fingerprint"],
     surfaces.get("timezone")!,
     index
   );
@@ -431,7 +431,7 @@ try {
   // of them: reporting that as 0 — the lowest score there is — would invert the
   // finding, so the measurement declines to score at all.
   const allDamped = scoreLexicalPlausibility(
-    ["tieline", "reconcile", "reviewers"],
+    ["tiepoint", "reconcile", "reviewers"],
     surfaces.get("timezone")!,
     index
   );
@@ -443,7 +443,7 @@ try {
   assert.equal(isScorablePlausibility(allDamped), false);
   assert.deepEqual(allDamped.shared_terms, []);
   assert.deepEqual(allDamped.absent_terms, []);
-  for (const token of ["tieline", "reconcile", "reviewers"]) {
+  for (const token of ["tiepoint", "reconcile", "reviewers"]) {
     assert.ok(
       surfaces.get("timezone")!.includes(token),
       `'${token}' is genuinely present in the file that scored null`
@@ -528,7 +528,7 @@ try {
     "the window is described by rank, not by a 'weakest N%' claim"
   );
 
-  // It closes with the question `tieline check` asks a reviewer.
+  // It closes with the question `tiepoint check` asks a reviewer.
   assert.match(
     candidate.rationale,
     /Does this file still carry this criterion\?/
@@ -626,9 +626,9 @@ try {
     writeFileSync(
       resolve(root, path),
       [
-        `// Reviewers reconcile the Tieline invoice refund; currency and rounding agree.`,
+        `// Reviewers reconcile the Tiepoint invoice refund; currency and rounding agree.`,
         `export function applyRounding(refund: string): string {`,
-        `  return "invoice refund currency rounding reconcile agree tieline reviewers";`,
+        `  return "invoice refund currency rounding reconcile agree tiepoint reviewers";`,
         `}`,
         ``,
       ].join("\n")

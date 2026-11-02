@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { relative, resolve } from "node:path";
 import { z } from "zod";
-import { tielineConfigSchema } from "../tieline/workspace.js";
+import { LEGACY_DIRECTORY } from "../tiepoint/legacy-tieline.js";
+import { TIEPOINT_DIRECTORY, tiepointConfigSchema } from "../tiepoint/workspace.js";
 import { readAuthoredContractAtBase } from "./authored-snapshot.js";
 import { criterionReviewBasis } from "./criterion-grade.js";
 import { buildContractIntentIndex, type IntentAcceptanceCriterionRecord } from "./reconciliation.js";
@@ -60,27 +61,32 @@ export function buildCloseoutScope(input: { repositoryRoot: string; base: string
   const base = commit(input.base);
   const head = commit(input.head);
   const mergeBase = git(["merge-base", base, head]).trim();
-  const snapshot = (revision: string) => {
-    const configPath = ".tieline/config.json";
+  const snapshotIn = (revision: string, directory: string) => {
+    const configPath = `${directory}/config.json`;
     const entry = git(["ls-tree", "-z", revision, "--", configPath]);
     if (!entry) return null;
-    if (!/^100(?:644|755) blob [a-f0-9]+\t\.tieline\/config\.json\0$/.test(entry)) {
-      throw new Error("Closeout requires a regular committed Tieline config.");
+    if (!/^100(?:644|755) blob [a-f0-9]+\t/.test(entry) || !entry.endsWith(`\t${configPath}\0`)) {
+      throw new Error("Closeout requires a regular committed Tiepoint config.");
     }
-    const config = tielineConfigSchema.parse(JSON.parse(git(["show", `${revision}:${configPath}`])));
-    if (resolve(root, ".tieline", config.repository.root) !== root) {
-      throw new Error("Closeout requires the Tieline repository root to be the Git root.");
+    const config = tiepointConfigSchema.parse(JSON.parse(git(["show", `${revision}:${configPath}`])));
+    if (resolve(root, directory, config.repository.root) !== root) {
+      throw new Error("Closeout requires the Tiepoint repository root to be the Git root.");
     }
-    const specPath = relative(resolve(root, ".tieline"), resolve(root, ".tieline", config.files.spec_directory));
+    const specPath = relative(resolve(root, directory), resolve(root, directory, config.files.spec_directory));
     if (!canonicalRepositoryRelativePath(specPath)) throw new Error("Invalid committed spec directory.");
     const manifest = readAuthoredContractAtBase({ repositoryRoot: root, repositoryKey: config.product.repo_name,
-      specDirectory: `.tieline/${specPath}`, base: revision });
-    if (!manifest) throw new Error("Committed Tieline config has no authored contract; restore it or remove the config with the contract.");
+      specDirectory: `${directory}/${specPath}`, base: revision, configPath });
+    if (!manifest) throw new Error("Committed Tiepoint config has no authored contract; restore it or remove the config with the contract.");
     return { key: config.product.repo_name, manifest };
   };
+  // A merge base from before the tieline -> tiepoint rename keeps its contract
+  // under the earlier workspace directory; without it every surviving rule
+  // would read as added and removed rules would drop out of scope.
+  const snapshot = (revision: string) =>
+    snapshotIn(revision, TIEPOINT_DIRECTORY) ?? snapshotIn(revision, LEGACY_DIRECTORY);
   const previous = snapshot(mergeBase);
   const current = snapshot(head);
-  if (!previous && !current) throw new Error("No committed Tieline contract at either revision.");
+  if (!previous && !current) throw new Error("No committed Tiepoint contract at either revision.");
   const before = previous ? buildContractIntentIndex(previous.manifest).acceptance_criteria_by_stable_id : new Map<string, IntentAcceptanceCriterionRecord>();
   const after = current ? buildContractIntentIndex(current.manifest).acceptance_criteria_by_stable_id : new Map<string, IntentAcceptanceCriterionRecord>();
   const paths = git(["diff", "--no-ext-diff", "--no-renames", "--name-only", "-z", mergeBase, head, "--"]).split("\0").filter(Boolean).sort();
@@ -101,7 +107,7 @@ export function buildCloseoutScope(input: { repositoryRoot: string; base: string
     if (!old) reasons.push("added");
     else if (!next) reasons.push("removed");
     else if (criterionReviewBasis(old) !== criterionReviewBasis(next)) reasons.push("claim_changed");
-    if (changed.has(".tieline/config.json")) reasons.push("configuration_changed");
+    if (changed.has(".tiepoint/config.json")) reasons.push("configuration_changed");
     if (touched.length) reasons.push("linked_file_changed");
     if (reasons.length) criteria.push({ id, before: old?.acceptance_criterion.criterion ?? null,
       after: next?.acceptance_criterion.criterion ?? null, reasons, changed_linked_paths: touched });

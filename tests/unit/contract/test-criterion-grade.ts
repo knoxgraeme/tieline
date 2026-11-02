@@ -8,9 +8,9 @@ import { buildCriterionGradeScope, parseCriterionGradeVerdicts, verifyCriterionG
 import { compileContractManifestWithSources, writeContractManifest } from "../../../src/contract/manifest.js";
 import { runCli } from "../../../src/cli.js";
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-criterion-grade-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-criterion-grade-"));
 try {
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"));
   writeFileSync(resolve(root, "src/consent.ts"), "export function confirm(approved: boolean) { return approved; }\n");
   writeFileSync(resolve(root, "src/checkout.ts"), "export function checkout(approved: boolean) { if (!approved) throw new Error('confirmation required'); return 'charged'; }\n");
@@ -24,7 +24,7 @@ try {
       }],
     }] },
   };
-  writeFileSync(resolve(root, ".tieline/spec/billing.yaml"), stringify(spec));
+  writeFileSync(resolve(root, ".tiepoint/spec/billing.yaml"), stringify(spec));
   const compiled = compileContractManifestWithSources({ repositoryRoot: root, repositoryKey: "fixture" });
   const manifest = compiled.manifest;
   const build = (selection: "claims" | "impacted", current = manifest, base = manifest) => buildCriterionGradeScope({
@@ -120,7 +120,7 @@ try {
   assert.equal(renamed.entries[0]!.evidence.find((link) => link.linked_path === "src/consent.ts")!.path, "src/renamed.ts");
   renameSync(resolve(root, "src/renamed.ts"), resolve(root, "src/consent.ts"));
   const refreshed = compileContractManifestWithSources({ repositoryRoot: root, repositoryKey: "fixture" });
-  writeContractManifest(resolve(root, ".tieline/manifest"), refreshed);
+  writeContractManifest(resolve(root, ".tiepoint/manifest"), refreshed);
   const git = (args: string[]) => execFileSync("git", args, { cwd: root, stdio: "pipe" });
   git(["init"]); git(["add", "."]); git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "base"]);
   let output = "";

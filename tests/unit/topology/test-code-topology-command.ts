@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { runCli, type TielineCliIO } from "../../../src/cli.js";
+import { runCli, type TiepointCliIO } from "../../../src/cli.js";
 import { FakeCodeTopologyStore } from "../../support/fakes/fake-code-topology-store.js";
 import { setCodeTopologyStore } from "../../../src/code-topology-store.js";
 import {
@@ -151,8 +151,8 @@ function injectedBlast(): Extract<BlastRadiusPrimitiveResult, { status: "complet
   };
 }
 
-const fixtureRoot = mkdtempSync(resolve(tmpdir(), "tieline-code-command-"));
-mkdirSync(resolve(fixtureRoot, ".tieline/spec"), { recursive: true });
+const fixtureRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-code-command-"));
+mkdirSync(resolve(fixtureRoot, ".tiepoint/spec"), { recursive: true });
 mkdirSync(resolve(fixtureRoot, "src"), { recursive: true });
 writeFileSync(resolve(fixtureRoot, "src/target.ts"), "export function target() { return 1; }\n");
 writeFileSync(resolve(fixtureRoot, ":literal.ts"), "export const literal = true;\n");
@@ -164,11 +164,11 @@ execFileSync("git", ["init", "-q"], { cwd: fixtureRoot });
 execFileSync("git", ["add", "."], { cwd: fixtureRoot });
 execFileSync(
   "git",
-  ["-c", "user.name=Tieline Test", "-c", "user.email=test@tieline.invalid", "commit", "-qm", "fixture"],
+  ["-c", "user.name=Tiepoint Test", "-c", "user.email=test@tiepoint.invalid", "commit", "-qm", "fixture"],
   { cwd: fixtureRoot }
 );
 writeFileSync(
-  resolve(fixtureRoot, ".tieline/config.json"),
+  resolve(fixtureRoot, ".tiepoint/config.json"),
   `${JSON.stringify({
     version: 1,
     product: { name: "Topology fixture", repo_name: "topology-fixture" },
@@ -183,7 +183,7 @@ writeFileSync(
   }, null, 2)}\n`
 );
 writeFileSync(
-  resolve(fixtureRoot, ".tieline/spec/topology.yaml"),
+  resolve(fixtureRoot, ".tiepoint/spec/topology.yaml"),
   `version: 1
 capability:
   key: TOPOLOGY
@@ -198,7 +198,7 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: TOPOLOGY-001-AC1
-          criterion: Tieline must report a consumer as potentially impacted when its imported target changes.
+          criterion: Tiepoint must report a consumer as potentially impacted when its imported target changes.
           links:
             - relation: implements
               provenance: authored
@@ -217,7 +217,7 @@ capability:
 );
 
 let output = "";
-const io: TielineCliIO = {
+const io: TiepointCliIO = {
   write(message) { output += message; },
   error(message) { throw new Error(message); },
   async question() { throw new Error("code topology commands must not prompt"); },
@@ -242,7 +242,7 @@ try {
     execFileSync("git", ["add", "."], { cwd: fixtureRoot });
     execFileSync(
       "git",
-      ["-c", "user.name=Tieline Test", "-c", "user.email=test@tieline.invalid", "commit", "-qm", "compiled artifacts"],
+      ["-c", "user.name=Tiepoint Test", "-c", "user.email=test@tiepoint.invalid", "commit", "-qm", "compiled artifacts"],
       { cwd: fixtureRoot }
     );
   });
@@ -269,7 +269,7 @@ try {
 
   await test("stale artifact reads fail without repairing or rewriting", async () => {
     const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
-    const artifactPath = resolve(fixtureRoot, ".tieline/topology/graph.json");
+    const artifactPath = resolve(fixtureRoot, ".tiepoint/topology/graph.json");
     const source = readFileSync(sourcePath, "utf8");
     const artifact = readFileSync(artifactPath);
     writeFileSync(sourcePath, `${source}// selected input changed\n`);
@@ -284,7 +284,7 @@ try {
 
   await test("an exact Git revision traces successfully from a dirty worktree without rewriting artifacts", async () => {
     const sourcePath = resolve(fixtureRoot, "src/consumer.ts");
-    const artifactPath = resolve(fixtureRoot, ".tieline/topology/graph.json");
+    const artifactPath = resolve(fixtureRoot, ".tiepoint/topology/graph.json");
     const source = readFileSync(sourcePath, "utf8");
     const artifact = readFileSync(artifactPath);
     const commit = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -316,8 +316,8 @@ try {
   });
 
   await test("trace ignores manifest health while blast fails the current contract role", async () => {
-    const manifest = resolve(fixtureRoot, ".tieline/manifest");
-    const hidden = resolve(fixtureRoot, ".tieline/manifest.hidden");
+    const manifest = resolve(fixtureRoot, ".tiepoint/manifest");
+    const hidden = resolve(fixtureRoot, ".tiepoint/manifest.hidden");
     renameSync(manifest, hidden);
     try {
       const traced = await cli(traceArgs);
@@ -448,8 +448,8 @@ try {
   });
 
   await test("MCP structured results exactly match CLI domain results", async () => {
-    const originalWorkspace = process.env.TIELINE_WORKSPACE;
-    process.env.TIELINE_WORKSPACE = fixtureRoot;
+    const originalWorkspace = process.env.TIEPOINT_WORKSPACE;
+    process.env.TIEPOINT_WORKSPACE = fixtureRoot;
     const server = createServer();
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await server.connect(serverTransport);
@@ -523,8 +523,8 @@ try {
     } finally {
       await client.close();
       await server.close();
-      if (originalWorkspace === undefined) delete process.env.TIELINE_WORKSPACE;
-      else process.env.TIELINE_WORKSPACE = originalWorkspace;
+      if (originalWorkspace === undefined) delete process.env.TIEPOINT_WORKSPACE;
+      else process.env.TIEPOINT_WORKSPACE = originalWorkspace;
     }
   });
 
@@ -578,10 +578,10 @@ try {
     });
     setCodeTopologyStore(store);
     const previousCwd = process.cwd();
-    const originalWorkspace = process.env.TIELINE_WORKSPACE;
-    const empty = mkdtempSync(resolve(tmpdir(), "tieline-hosted-topology-"));
+    const originalWorkspace = process.env.TIEPOINT_WORKSPACE;
+    const empty = mkdtempSync(resolve(tmpdir(), "tiepoint-hosted-topology-"));
     try {
-      delete process.env.TIELINE_WORKSPACE;
+      delete process.env.TIEPOINT_WORKSPACE;
       process.chdir(empty);
       output = "";
       assert.equal(await runCli([
@@ -627,8 +627,8 @@ try {
     } finally {
       process.chdir(previousCwd);
       rmSync(empty, { recursive: true, force: true });
-      if (originalWorkspace === undefined) delete process.env.TIELINE_WORKSPACE;
-      else process.env.TIELINE_WORKSPACE = originalWorkspace;
+      if (originalWorkspace === undefined) delete process.env.TIEPOINT_WORKSPACE;
+      else process.env.TIEPOINT_WORKSPACE = originalWorkspace;
     }
   });
 
@@ -643,10 +643,10 @@ try {
 
   await test("no workspace and no database is an explicit unavailable state", async () => {
     const previousCwd = process.cwd();
-    const originalWorkspace = process.env.TIELINE_WORKSPACE;
-    const empty = mkdtempSync(resolve(tmpdir(), "tieline-no-workspace-"));
+    const originalWorkspace = process.env.TIEPOINT_WORKSPACE;
+    const empty = mkdtempSync(resolve(tmpdir(), "tiepoint-no-workspace-"));
     try {
-      delete process.env.TIELINE_WORKSPACE;
+      delete process.env.TIEPOINT_WORKSPACE;
       process.chdir(empty);
       const result = await cli([
         "code", "trace", "--repo", "hosted-repository", "--path", "src/missing.ts", "--json",
@@ -656,8 +656,8 @@ try {
     } finally {
       process.chdir(previousCwd);
       rmSync(empty, { recursive: true, force: true });
-      if (originalWorkspace === undefined) delete process.env.TIELINE_WORKSPACE;
-      else process.env.TIELINE_WORKSPACE = originalWorkspace;
+      if (originalWorkspace === undefined) delete process.env.TIEPOINT_WORKSPACE;
+      else process.env.TIEPOINT_WORKSPACE = originalWorkspace;
     }
   });
 } finally {

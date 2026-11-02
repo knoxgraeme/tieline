@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Entry point. Loads .env, then starts the transport selected by TRANSPORT.
- * Default: stdio. Set TRANSPORT=http or run `tieline serve --http` for the
+ * Default: stdio. Set TRANSPORT=http or run `tiepoint serve --http` for the
  * standalone HTTP server.
  */
 
 import "./load-env.js";
-import { removePrivilegedDatabaseEnvironment } from "./tieline/profile.js";
+import { removePrivilegedDatabaseEnvironment } from "./tiepoint/profile.js";
 
 async function main(): Promise<void> {
   removePrivilegedDatabaseEnvironment(process.env);

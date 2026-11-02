@@ -38,8 +38,8 @@ function withLocaleCompare<T>(locale: string, run: () => T): T {
 }
 
 await test("shares deterministic source-root, ignore, symlink, and repository-boundary inventory rules", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-inventory-"));
-  const outside = mkdtempSync(resolve(tmpdir(), "tieline-inventory-outside-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-inventory-"));
+  const outside = mkdtempSync(resolve(tmpdir(), "tiepoint-inventory-outside-"));
   try {
     mkdirSync(resolve(root, "src/nested"), { recursive: true });
     writeFileSync(resolve(root, "src/z.ts"), "export const z = true;\n");
@@ -94,7 +94,7 @@ await test("shares deterministic source-root, ignore, symlink, and repository-bo
 });
 
 await test("keeps mixed-case Unicode inventory order and digests independent of locale", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-inventory-locale-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-inventory-locale-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     for (const name of ["Zeta", "alpha", "Ångs", "äthe"]) {
@@ -116,7 +116,7 @@ await test("keeps mixed-case Unicode inventory order and digests independent of 
 });
 
 await test("keeps mixed-case Unicode Git inventory order and digests independent of locale", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-git-inventory-locale-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-git-inventory-locale-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     for (const name of ["Zeta", "alpha", "Ångs", "äthe"]) {
@@ -152,7 +152,7 @@ await test("keeps mixed-case Unicode Git inventory order and digests independent
 });
 
 await test("reads one immutable snapshot with hash, metadata, language, and explicit coordinates", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-unicode-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-snapshot-unicode-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const source = "const astral = '😀';\r\nconst combined = 'e\u0301';\n";
@@ -225,8 +225,8 @@ await test("reads one immutable snapshot with hash, metadata, language, and expl
 });
 
 await test("returns named outcomes for unsafe or unusable source inputs", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-outcomes-"));
-  const outside = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-escape-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-snapshot-outcomes-"));
+  const outside = mkdtempSync(resolve(tmpdir(), "tiepoint-snapshot-escape-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     writeFileSync(resolve(root, "src/binary.ts"), Buffer.from([0, 1, 2, 3]));
@@ -270,7 +270,7 @@ await test("returns named outcomes for unsafe or unusable source inputs", () => 
 });
 
 await test("opts into race-checked streaming hashes for oversized source", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-oversized-hash-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-snapshot-oversized-hash-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const path = resolve(root, "src/large.ts");
@@ -318,7 +318,7 @@ await test("opts into race-checked streaming hashes for oversized source", () =>
 });
 
 await test("detects a file changing between pre-read and post-read metadata", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-race-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-snapshot-race-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     writeFileSync(resolve(root, "src/changing.rs"), "fn before() {}\n");
@@ -353,7 +353,7 @@ await test("detects a file changing between pre-read and post-read metadata", ()
 });
 
 await test("refuses a stable read when the file changed after inventory capture", () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-snapshot-inventory-race-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-snapshot-inventory-race-"));
   try {
     mkdirSync(resolve(root, "src"), { recursive: true });
     const path = resolve(root, "src/changing.py");

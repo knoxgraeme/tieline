@@ -47,7 +47,7 @@ import {
 export const RECONCILIATION_DISCLAIMER =
   "This is authoring input, not a verdict. A claimed change means an acceptance criterion may need re-reading; an unclaimed change means a human should consider whether behavior changed at all. Many changes are refactors that need no acceptance criterion, and nothing here should be authored merely to shrink a count.";
 
-export const DEFAULT_SPEC_DIRECTORY = ".tieline/spec";
+export const DEFAULT_SPEC_DIRECTORY = ".tiepoint/spec";
 
 export type ReconciliationChangeStatus = RepositoryPathChange["status"];
 

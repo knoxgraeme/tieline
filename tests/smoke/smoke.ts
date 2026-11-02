@@ -140,10 +140,10 @@ try {
   const resources = await client.listResources();
   assert.deepEqual(
     resources.resources.map((resource) => resource.uri),
-    ["docs://tieline-contract"]
+    ["docs://tiepoint-contract"]
   );
   const guide = await client.readResource({
-    uri: "docs://tieline-contract",
+    uri: "docs://tiepoint-contract",
   });
   assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /Authority and lifecycle/);
   assert.match(resourceText(guide.contents[0] ?? { blob: "" }), /get_asset_intent_context/);
@@ -161,20 +161,20 @@ try {
   const prompts = await client.listPrompts();
   assert.deepEqual(
     prompts.prompts.map((prompt) => prompt.name),
-    ["tieline", "tieline_author"]
+    ["tiepoint", "tieline_author"]
   );
-  const tielinePromptMetadata = prompts.prompts.find(
-    (prompt) => prompt.name === "tieline"
+  const tiepointPromptMetadata = prompts.prompts.find(
+    (prompt) => prompt.name === "tiepoint"
   );
-  assert.match(tielinePromptMetadata?.title ?? "", /close out branch semantics/i);
+  assert.match(tiepointPromptMetadata?.title ?? "", /close out branch semantics/i);
   assert.match(
-    tielinePromptMetadata?.description ?? "",
+    tiepointPromptMetadata?.description ?? "",
     /before implementation handoff, commit, push, or pull-request publication/i
   );
-  const tielinePrompt = await client.getPrompt({ name: "tieline" });
+  const tiepointPrompt = await client.getPrompt({ name: "tiepoint" });
   const promptText = String(
-    tielinePrompt.messages[0]?.content.type === "text"
-      ? tielinePrompt.messages[0].content.text
+    tiepointPrompt.messages[0]?.content.type === "text"
+      ? tiepointPrompt.messages[0].content.text
       : ""
   );
   const expectedPromptText = [
@@ -186,16 +186,16 @@ try {
     "references/report.md",
   ]
     .map((path) =>
-      readFileSync(resolve(process.cwd(), "skills/tieline", path), "utf8")
+      readFileSync(resolve(process.cwd(), "skills/tiepoint", path), "utf8")
     )
     .join("\n\n");
   assert.ok(
     promptText.endsWith(expectedPromptText),
-    "the MCP prompt must expose the complete installed Tieline workflow"
+    "the MCP prompt must expose the complete installed Tiepoint workflow"
   );
   assert.match(
     promptText,
-    /^# Active Tieline invocation\n\nContract state: `contract_present`\./,
+    /^# Active Tiepoint invocation\n\nContract state: `contract_present`\./,
     "the MCP prompt must tell the agent when normal contract work is available"
   );
   assert.ok(
@@ -205,18 +205,18 @@ try {
   );
 
   const emptyWorkspace = mkdtempSync(
-    resolve(tmpdir(), "tieline-empty-prompt-")
+    resolve(tmpdir(), "tiepoint-empty-prompt-")
   );
-  mkdirSync(resolve(emptyWorkspace, ".tieline/spec"), { recursive: true });
+  mkdirSync(resolve(emptyWorkspace, ".tiepoint/spec"), { recursive: true });
   writeFileSync(
-    resolve(emptyWorkspace, ".tieline/config.json"),
+    resolve(emptyWorkspace, ".tiepoint/config.json"),
     `${JSON.stringify({
       version: 1,
       product: { name: "Empty Prompt", repo_name: "empty-prompt" },
       repository: {
         root: "..",
         source_roots: ["src"],
-        ignore: [".git", ".tieline", "node_modules", "dist", "coverage"],
+        ignore: [".git", ".tiepoint", "node_modules", "dist", "coverage"],
       },
       context: { sources: [] },
       runtime: {
@@ -239,7 +239,7 @@ try {
   await onboardingClient.connect(onboardingClientTransport);
   try {
     const onboardingPrompt = await onboardingClient.getPrompt({
-      name: "tieline",
+      name: "tiepoint",
     });
     const onboardingPromptText = String(
       onboardingPrompt.messages[0]?.content.type === "text"
@@ -248,7 +248,7 @@ try {
     );
     assert.match(
       onboardingPromptText,
-      /^# Active Tieline invocation\n\nContract state: `onboarding_required`\.[\s\S]*first visible response must be the verbatim product orientation/i,
+      /^# Active Tiepoint invocation\n\nContract state: `onboarding_required`\.[\s\S]*first visible response must be the verbatim product orientation/i,
       "an empty contract must make onboarding the explicit MCP prompt state"
     );
     assert.ok(
@@ -352,7 +352,7 @@ class ContextualSearchStore extends FakeKnowledgeStore {
           "00000000-0000-4000-8000-000000000011",
         acceptance_criterion_stable_id: "SEARCH-001-AC1",
         metadata: {
-          repository: "tieline",
+          repository: "tiepoint",
           authority: "repository",
           lifecycle: "production",
           active: true,
@@ -405,7 +405,7 @@ try {
     artifacts: [
       {
         kind: "code",
-        repository: "tieline",
+        repository: "tiepoint",
         path: "src/tools/search-knowledge.ts",
       },
     ],
@@ -417,7 +417,7 @@ try {
       profile: "engineering",
       authority: ["repository"],
       lifecycle: ["production"],
-      repository: ["tieline"],
+      repository: ["tiepoint"],
       include_inactive: true,
       context,
     },
@@ -437,7 +437,7 @@ try {
     sources: undefined,
     authorities: ["repository"],
     lifecycles: ["production"],
-    repositories: ["tieline"],
+    repositories: ["tiepoint"],
     include_inactive: false,
     context,
     limit: 40,
@@ -458,7 +458,7 @@ try {
   );
   assert.deepEqual(contextualResults[0]?.context_anchor, {
     kind: "acceptance_criterion",
-    repository: "tieline",
+    repository: "tiepoint",
     stable_id: "SEARCH-001-AC1",
   });
   const helpResult = contextualResults.find(

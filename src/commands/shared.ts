@@ -1,8 +1,6 @@
 import { basename, relative, resolve, sep } from "node:path";
-import {
-  findTielineWorkspace,
-  type TielineWorkspace,
-} from "../tieline/workspace.js";
+import type { TiepointWorkspace } from "../tiepoint/workspace.js";
+import { findWorkspaceRejectingLegacy } from "../tiepoint/legacy-tieline.js";
 
 export interface CommandIO {
   write(message: string): void;
@@ -40,7 +38,7 @@ export interface CommandContextOptions {
 
 export interface CommandContext {
   root: string;
-  workspace: TielineWorkspace | null;
+  workspace: TiepointWorkspace | null;
   repositoryKey: string;
   manifestPath: string;
   specDirectory: string;
@@ -56,19 +54,19 @@ export function resolveCommandContext(
   options: CommandContextOptions
 ): CommandContext {
   const requestedRoot = resolve(options.repository ?? process.cwd());
-  const workspace = findTielineWorkspace(requestedRoot);
+  const workspace = findWorkspaceRejectingLegacy(requestedRoot);
   const root = workspace?.root ?? requestedRoot;
   return {
     root,
     workspace,
     repositoryKey:
       options.repo ?? workspace?.config.product.repo_name ?? basename(root),
-    manifestPath: workspace?.manifestPath ?? resolve(root, ".tieline/manifest"),
+    manifestPath: workspace?.manifestPath ?? resolve(root, ".tiepoint/manifest"),
     specDirectory:
       options.spec ??
       (workspace
         ? relative(root, workspace.specDirectoryPath).split(sep).join("/")
-        : ".tieline/spec"),
+        : ".tiepoint/spec"),
   };
 }
 

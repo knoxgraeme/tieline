@@ -32,11 +32,11 @@ import {
 } from "../src/contract/topology-role-snapshot.js";
 import type { CodeTopologyReadModelGeneration } from "../src/domain/code-topology-store.js";
 import {
-  findTielineWorkspace,
+  findTiepointWorkspace,
   workspaceTopologyMode,
-  type TielineWorkspace,
-} from "../src/tieline/workspace.js";
-import type { TielineCliIO } from "../src/cli.js";
+  type TiepointWorkspace,
+} from "../src/tiepoint/workspace.js";
+import type { TiepointCliIO } from "../src/cli.js";
 
 export type GeneratedArtifactName = "manifest" | "topology";
 
@@ -235,7 +235,7 @@ export function compareGeneratedArtifact(
     : null;
 }
 
-function commandIo(output: string[] = []): TielineCliIO {
+function commandIo(output: string[] = []): TiepointCliIO {
   return {
     write(message) {
       output.push(message);
@@ -271,8 +271,8 @@ async function compileAndValidate(repositoryRoot: string): Promise<void> {
   ) {
     throw new Error(`Temporary contract validation did not complete: ${lastResult()}`);
   }
-  const workspace = findTielineWorkspace(repositoryRoot);
-  if (!workspace) throw new Error("The temporary root is not a Tieline workspace.");
+  const workspace = findTiepointWorkspace(repositoryRoot);
+  if (!workspace) throw new Error("The temporary root is not a Tiepoint workspace.");
   const manifest = selectWorkspaceManifestRole(
     workspace,
     workspace.config.product.repo_name
@@ -304,7 +304,7 @@ async function compileAndValidate(repositoryRoot: string): Promise<void> {
 
 function cachedSmokeReadModel(
   repositoryRoot: string,
-  workspace: TielineWorkspace
+  workspace: TiepointWorkspace
 ): CodeTopologyReadModelGeneration {
   const selected = selectWorkspaceTopologyRole({
     repositoryRoot,
@@ -335,8 +335,8 @@ function committedSmokeReadModel(repositoryRoot: string): CodeTopologyReadModelG
 }
 
 async function artifactFirstSmoke(repositoryRoot: string): Promise<void> {
-  const workspace = findTielineWorkspace(repositoryRoot);
-  if (!workspace) throw new Error("The temporary root is not a Tieline workspace.");
+  const workspace = findTiepointWorkspace(repositoryRoot);
+  if (!workspace) throw new Error("The temporary root is not a Tiepoint workspace.");
   const readModel = workspaceTopologyMode(workspace) === "cached"
     ? cachedSmokeReadModel(repositoryRoot, workspace)
     : committedSmokeReadModel(repositoryRoot);
@@ -387,35 +387,35 @@ async function artifactFirstSmoke(repositoryRoot: string): Promise<void> {
 /**
  * Rebuilds only inside a unique temporary repository root. There is
  * intentionally no output-path option: compilers always write their normal
- * `.tieline/manifest` and `.tieline/topology` authorities in that root.
+ * `.tiepoint/manifest` and `.tiepoint/topology` authorities in that root.
  */
 export async function runGeneratedArtifactGate(
   repositoryRoot = process.cwd()
 ): Promise<GeneratedArtifactGateResult> {
   const reviewedRoot = realpathSync(resolve(repositoryRoot));
-  const reviewedWorkspace = findTielineWorkspace(reviewedRoot);
+  const reviewedWorkspace = findTiepointWorkspace(reviewedRoot);
   const postMerge = reviewedWorkspace?.config.manifest_mode === "post_merge";
   const topologyCached = workspaceTopologyMode(reviewedWorkspace) === "cached";
   const before = snapshotGitVisibleFiles(reviewedRoot);
-  const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tieline-derivation-gate-"));
+  const temporaryRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-derivation-gate-"));
   try {
     copyGitVisibleCheckout(reviewedRoot, temporaryRoot);
     // A clean authority root prevents reviewed artifacts from influencing or
     // blocking compilation. The reviewed bytes remain only in reviewedRoot
     // for the subsequent complete-set comparison.
-    rmSync(resolve(temporaryRoot, ".tieline/manifest"), {
+    rmSync(resolve(temporaryRoot, ".tiepoint/manifest"), {
       recursive: true,
       force: true,
     });
-    rmSync(resolve(temporaryRoot, ".tieline/topology"), {
+    rmSync(resolve(temporaryRoot, ".tiepoint/topology"), {
       recursive: true,
       force: true,
     });
     await compileAndValidate(temporaryRoot);
     const mismatches = (
       [
-        ["manifest", ".tieline/manifest"],
-        ["topology", ".tieline/topology"],
+        ["manifest", ".tiepoint/manifest"],
+        ["topology", ".tiepoint/topology"],
       ] as const
     ).flatMap(([artifact, path]) => {
       if (postMerge && artifact === "manifest") return [];
@@ -444,7 +444,7 @@ export async function runGeneratedArtifactGate(
         status: "generated_artifact_mismatch",
         artifacts: mismatches,
         remediation:
-          "Run `tieline contract compile .` and `tieline code compile .`, then commit the complete generated artifacts.",
+          "Run `tiepoint contract compile .` and `tiepoint code compile .`, then commit the complete generated artifacts.",
         checkout_unchanged: true,
       };
     }

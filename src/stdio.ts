@@ -7,7 +7,7 @@ import { createServer, SERVER_NAME } from "./server.js";
 
 export async function runStdio(): Promise<void> {
   const server = createServer({
-    workspaceRoot: process.env.TIELINE_WORKSPACE ?? process.cwd(),
+    workspaceRoot: process.env.TIEPOINT_WORKSPACE ?? process.cwd(),
   });
   const transport = new StdioServerTransport();
   await server.connect(transport);

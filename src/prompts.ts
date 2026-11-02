@@ -3,9 +3,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { hasAcceptedContractSources } from "./contract/load.js";
-import { findTielineWorkspace } from "./tieline/workspace.js";
+import { findTiepointWorkspace } from "./tiepoint/workspace.js";
 
-const TIELINE_SKILL_FILES = [
+const TIEPOINT_SKILL_FILES = [
   "SKILL.md",
   "references/onboarding.md",
   "references/contract.md",
@@ -13,44 +13,44 @@ const TIELINE_SKILL_FILES = [
   "references/grading.md",
   "references/report.md",
 ] as const;
-const TIELINE_SKILL_ROOT = resolve(
+const TIEPOINT_SKILL_ROOT = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../skills/tieline"
+  "../skills/tiepoint"
 );
-let tielineInstructionsPromise: Promise<string> | undefined;
+let tiepointInstructionsPromise: Promise<string> | undefined;
 
-export interface TielinePromptOptions {
+export interface TiepointPromptOptions {
   workspaceRoot?: string;
 }
 
-function tielineInstructions(): Promise<string> {
-  tielineInstructionsPromise ??= Promise.all(
-    TIELINE_SKILL_FILES.map((path) =>
-      readFile(resolve(TIELINE_SKILL_ROOT, path), "utf8")
+function tiepointInstructions(): Promise<string> {
+  tiepointInstructionsPromise ??= Promise.all(
+    TIEPOINT_SKILL_FILES.map((path) =>
+      readFile(resolve(TIEPOINT_SKILL_ROOT, path), "utf8")
     )
   ).then((files) => files.join("\n\n"));
-  return tielineInstructionsPromise;
+  return tiepointInstructionsPromise;
 }
 
-function activeInvocation(options: TielinePromptOptions): string {
-  const workspaceRoot = options.workspaceRoot ?? process.env.TIELINE_WORKSPACE;
+function activeInvocation(options: TiepointPromptOptions): string {
+  const workspaceRoot = options.workspaceRoot ?? process.env.TIEPOINT_WORKSPACE;
   if (workspaceRoot === undefined) {
-    return `# Active Tieline invocation
+    return `# Active Tiepoint invocation
 
 Contract state: \`client_routed\`.
 This server has no explicit server-side workspace root, so it cannot determine
-whether the client's active checkout has an initialized Tieline contract. Do
+whether the client's active checkout has an initialized Tiepoint contract. Do
 not report \`setup_required\` based on the server filesystem. Route the workflow
-using the client's active workspace: inspect its Tieline state, onboard when it
+using the client's active workspace: inspect its Tiepoint state, onboard when it
 has no accepted contract YAML, or choose the matching normal workflow when a
 contract is present.`;
   }
-  const workspace = findTielineWorkspace(workspaceRoot);
+  const workspace = findTiepointWorkspace(workspaceRoot);
   if (!workspace) {
-    return `# Active Tieline invocation
+    return `# Active Tiepoint invocation
 
 Contract state: \`setup_required\`.
-No Tieline workspace is available. Run the deterministic setup described below,
+No Tiepoint workspace is available. Run the deterministic setup described below,
 then evaluate the active workspace again before choosing a workflow.`;
   }
   if (
@@ -59,7 +59,7 @@ then evaluate the active workspace again before choosing a workflow.`;
       workspace.config.files.spec_directory
     )
   ) {
-    return `# Active Tieline invocation
+    return `# Active Tiepoint invocation
 
 Contract state: \`onboarding_required\`.
 The active workspace has no accepted contract YAML. Begin semantic onboarding
@@ -67,21 +67,21 @@ immediately. Before any repository inspection or normal authoring work, the
 first visible response must be the verbatim product orientation in the
 onboarding workflow below.`;
   }
-  return `# Active Tieline invocation
+  return `# Active Tiepoint invocation
 
 Contract state: \`contract_present\`.
 The active workspace already has accepted contract YAML. Skip first-run
 onboarding and choose the normal workflow that matches the user's request.`;
 }
 
-async function tielinePrompt(options: TielinePromptOptions) {
+async function tiepointPrompt(options: TiepointPromptOptions) {
   return {
     messages: [
       {
         role: "user" as const,
         content: {
           type: "text" as const,
-          text: `${activeInvocation(options)}\n\n${await tielineInstructions()}`,
+          text: `${activeInvocation(options)}\n\n${await tiepointInstructions()}`,
         },
       },
     ],
@@ -90,25 +90,25 @@ async function tielinePrompt(options: TielinePromptOptions) {
 
 export function registerPrompts(
   server: McpServer,
-  options: TielinePromptOptions = {}
+  options: TiepointPromptOptions = {}
 ): void {
   server.registerPrompt(
-    "tieline",
+    "tiepoint",
     {
       title:
-        "Onboard, author, grade, reconcile, or close out branch semantics with Tieline",
+        "Onboard, author, grade, reconcile, or close out branch semantics with Tiepoint",
       description:
-        "Onboard repository behavior, shape planning Stories/ACs, grade evidence, reconcile a branch, or close out semantic changes before implementation handoff, commit, push, or pull-request publication while preserving Tieline authority boundaries.",
+        "Onboard repository behavior, shape planning Stories/ACs, grade evidence, reconcile a branch, or close out semantic changes before implementation handoff, commit, push, or pull-request publication while preserving Tiepoint authority boundaries.",
     },
-    () => tielinePrompt(options)
+    () => tiepointPrompt(options)
   );
   server.registerPrompt(
     "tieline_author",
     {
-      title: "Tieline (legacy prompt name)",
+      title: "Tiepoint (legacy prompt name)",
       description:
-        "Deprecated compatibility alias for the tieline semantic workflow prompt.",
+        "Deprecated compatibility alias for the tiepoint semantic workflow prompt.",
     },
-    () => tielinePrompt(options)
+    () => tiepointPrompt(options)
   );
 }

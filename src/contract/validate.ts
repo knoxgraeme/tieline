@@ -27,7 +27,7 @@ export interface ValidateAcceptedContractOptions {
    */
   selectorVocabulary?: SelectorVocabulary;
   /**
-   * Repository root to read `.tieline/config.json` from when no vocabulary is
+   * Repository root to read `.tiepoint/config.json` from when no vocabulary is
    * supplied. This is how config-declared kinds reach validation: the schema is
    * a static value shared by manifest compilation and cannot carry per-repository
    * configuration, so membership is checked here, at the one layer that can
@@ -45,7 +45,7 @@ export interface ValidateAcceptedContractOptions {
  */
 export function selectorVocabularyForRepository(
   repositoryRoot: string,
-  configPath = ".tieline/config.json"
+  configPath = ".tiepoint/config.json"
 ): SelectorVocabulary {
   let raw: string;
   try {

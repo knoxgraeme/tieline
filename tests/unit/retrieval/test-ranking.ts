@@ -599,7 +599,7 @@ await test("knowledge search accepts bounded typed retrieval context", () => {
       artifacts: [
         {
           kind: "code",
-          repository: "tieline",
+          repository: "tiepoint",
           path: "src/tools/search-knowledge.ts",
         },
         {
@@ -626,7 +626,7 @@ await test("knowledge search accepts bounded typed retrieval context", () => {
       context: {
         artifacts: Array.from({ length: 51 }, (_, index) => ({
           kind: "code",
-          repository: "tieline",
+          repository: "tiepoint",
           path: `src/context-${index}.ts`,
         })),
       },
@@ -647,7 +647,7 @@ await test("create schemas accept machine candidate selection tokens", () => {
   );
   assert.equal(
     createPlanningStorySchema.safeParse({
-      repository: "tieline",
+      repository: "tiepoint",
       title: "Reuse related behavior",
       selected_suggestion_id: token,
     }).success,

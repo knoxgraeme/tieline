@@ -16,18 +16,18 @@
 No install is required. Bootstrap with the current published CLI:
 
 ```bash
-npx -y tieline@latest init
+npx -y tiepoint@latest init
 ```
 
-This does not add Tieline to the application's dependencies or modify its lockfile. After
-setup, commands can run through `npx -y tieline@latest <command>`. Registered MCP
+This does not add Tiepoint to the application's dependencies or modify its lockfile. After
+setup, commands can run through `npx -y tiepoint@latest <command>`. Registered MCP
 configuration pins the exact package version that performed initialization.
 
-A global install also works when a bare `tieline` command is preferred:
+A global install also works when a bare `tiepoint` command is preferred:
 
 ```bash
-npm install --global tieline
-tieline --help
+npm install --global tiepoint
+tiepoint --help
 ```
 
 ## Initialize and onboard a repository
@@ -46,16 +46,16 @@ first and verify instead of interrogate.
 
 ```bash
 cd /path/to/product-repository
-npx -y tieline@latest init
+npx -y tiepoint@latest init
 ```
 
-Restart or reload the selected agent, then ask it to use the installed `tieline` skill to begin onboarding. That invocation is the semantic-onboarding
+Restart or reload the selected agent, then ask it to use the installed `tiepoint` skill to begin onboarding. That invocation is the semantic-onboarding
 handoff.
 
 ### Prompt-free setup
 
 ```bash
-npx -y tieline@latest init /path/to/product-repository \
+npx -y tiepoint@latest init /path/to/product-repository \
   --database offline \
   --embedding local \
   --description "A concise description of the product and business" \
@@ -69,7 +69,7 @@ no agent should receive the skill. `--skill-scope` defaults to `project`. To ini
 multiple agents:
 
 ```bash
-npx -y tieline@latest init /path/to/product-repository \
+npx -y tiepoint@latest init /path/to/product-repository \
   --database offline \
   --embedding local \
   --yes \
@@ -81,7 +81,7 @@ npx -y tieline@latest init /path/to/product-repository \
 ### Product context
 
 Interactive init does not ask for a product description or context inventory; the installed
-`tieline` skill discovers README, product documentation, public code entry points, and tests
+`tiepoint` skill discovers README, product documentation, public code entry points, and tests
 during semantic onboarding. Automation can still provide known product framing with
 `--description`.
 
@@ -96,10 +96,10 @@ second backlog.
 
 ### Code scope
 
-Tieline auto-detects the code directories used for mapping coverage and records them as the
+Tiepoint auto-detects the code directories used for mapping coverage and records them as the
 **code scope** — for example, `apps` and `packages`. Most users do not need to configure
 this. Use a repeatable `--source-root` only when the repository uses code directories
-Tieline did not detect. The stored configuration name is `repository.source_roots`.
+Tiepoint did not detect. The stored configuration name is `repository.source_roots`.
 
 ## Database modes
 
@@ -113,11 +113,14 @@ In `existing` mode, the baseline defines the least-privilege roles as `NOLOGIN`.
 init, provide URLs for operator-managed login roles that inherit `tieline_reader`,
 `tieline_planning_writer`, and `tieline_repository_sync`. Init does not create or rotate
 passwords unless `--provision-roles` explicitly asks it to. That flag assigns generated login
-passwords to the Tieline roles directly, which is how the agent-driven provisioning path (a
+passwords to the Tiepoint roles directly, which is how the agent-driven provisioning path (a
 freshly created Neon project, for example) reaches a working setup from `DATABASE_URL_ADMIN`
 alone.
 
-Tieline is provider-neutral: a local Postgres installation, Neon, Supabase, RDS, or any other
+Database roles, functions, and the local Docker database keep the `tieline` names from before
+the package was renamed, so databases created by earlier versions keep working unchanged.
+
+Tiepoint is provider-neutral: a local Postgres installation, Neon, Supabase, RDS, or any other
 managed Postgres with pgvector enabled works. It reads `DATABASE_URL_ADMIN` from the
 environment or a local `.env`; credentials are never accepted as CLI arguments. Provisioning
 tools that synchronize `.env` files are picked up automatically.
@@ -130,7 +133,7 @@ credential:
 
 ```bash
 DATABASE_URL_SYNC=postgresql://... \
-  npx -y tieline@latest contract sync . \
+  npx -y tiepoint@latest contract sync . \
   --expected-previous-commit <previous-main-sha>
 ```
 
@@ -155,8 +158,8 @@ Choose one provider:
 `--embedding hash` is not offered during interactive onboarding. For a real deployment,
 choose `local`, `openai`, or `supabase-edge`.
 
-When Tieline is already initialized, rerun init with `--embedding local
---install-local-embedder` to install the local runtime in Tieline's private runtime
+When Tiepoint is already initialized, rerun init with `--embedding local
+--install-local-embedder` to install the local runtime in Tiepoint's private runtime
 directory. Container builds can instead use `--build-arg WITH_LOCAL_EMBEDDER=true`.
 
 Remote embedding providers receive canonical semantic text or the caller's query — not raw
@@ -166,12 +169,12 @@ locators.
 ## What init writes
 
 Init writes shared product identity, configured context, code scope, contract paths, and
-runtime defaults to `.tieline/config.json`.
+runtime defaults to `.tiepoint/config.json`.
 
-It also writes `.tieline/review.html`, a self-contained page for browsing the authored
-capabilities, Stories, and Acceptance Criteria in a browser instead of raw YAML. `tieline
+It also writes `.tiepoint/review.html`, a self-contained page for browsing the authored
+capabilities, Stories, and Acceptance Criteria in a browser instead of raw YAML. `tiepoint
 contract compile` regenerates it whenever the contract changes, and a nested
-`.tieline/.gitignore` keeps the derived page out of commits.
+`.tiepoint/.gitignore` keeps the derived page out of commits.
 
 Clone-local setup state and credentials live in private configuration outside the repository, so
 a new clone completes its own runtime setup instead of inheriting another machine's "ready"
@@ -179,7 +182,7 @@ state.
 
 ## Agent and MCP registration
 
-Init registers the `tieline` MCP server with each selected coding agent. `.mcp.json` at the
+Init registers the `tiepoint` MCP server with each selected coding agent. `.mcp.json` at the
 repository root is always created or updated, and Claude Code and compatible hosts load it
 automatically on the next session. Selecting Cursor, GitHub Copilot, Gemini CLI, or OpenCode
 additionally maintains `.cursor/mcp.json`, `.vscode/mcp.json`, `.gemini/settings.json`, or
@@ -205,22 +208,22 @@ Project scope is the interactive default. Cancelling agent selection stops initi
 before anything is written. Headless callers can use `--skip-skill-install` to suppress
 installation.
 
-Project-scoped setup delegates skill installation without adding either Tieline or its installer
+Project-scoped setup delegates skill installation without adding either Tiepoint or its installer
 to the application dependencies. If an installation fails, the initialized workspace and private
 runtime configuration remain available and init prints a retry command:
 
 ```bash
-npx -y tieline@latest init . --yes --agent codex --skill-scope project
+npx -y tiepoint@latest init . --yes --agent codex --skill-scope project
 ```
 
 ### Version pinning
 
-The MCP server is registered with the exact Tieline version that ran `init`, so hosts use the
+The MCP server is registered with the exact Tiepoint version that ran `init`, so hosts use the
 same published package without requiring a global install or silently changing versions.
-Rerun `npx -y tieline@latest init .` to upgrade repository-local pins; repeat any `--agent`
+Rerun `npx -y tiepoint@latest init .` to upgrade repository-local pins; repeat any `--agent`
 options for hosts configured outside the repository.
 
-The checked-in configs keep `TIELINE_WORKSPACE` at `"."`, which resolves against the host's
+The checked-in configs keep `TIEPOINT_WORKSPACE` at `"."`, which resolves against the host's
 working directory. Hosts that keep MCP configuration outside the repository and have no
 registration CLI (Claude Desktop, Windsurf) need a manual entry with the same exact version
 and the absolute repository path:
@@ -228,21 +231,44 @@ and the absolute repository path:
 ```json
 {
   "mcpServers": {
-    "tieline": {
+    "tiepoint": {
       "command": "npx",
-      "args": ["-y", "tieline@<installed-version>", "serve"],
-      "env": { "TIELINE_WORKSPACE": "/absolute/path/to/repository" }
+      "args": ["-y", "tiepoint@<installed-version>", "serve"],
+      "env": { "TIEPOINT_WORKSPACE": "/absolute/path/to/repository" }
     }
   }
 }
 ```
 
+## Upgrading from tieline
+
+Tiepoint was previously published as `tieline`. In a repository set up by `tieline`, run:
+
+```bash
+npx -y tiepoint@latest init .
+```
+
+In a non-interactive shell, add `--yes --agent <id>`, or `--skip-skill-install` to upgrade only
+the workspace.
+
+Init moves `.tieline/` to `.tiepoint/`, moves the clone-local profile to the Tiepoint
+configuration directory, replaces `tieline` entries in repository MCP files, and replaces
+project-installed `tieline` skills with the `tiepoint` skill. It prints what it did and what it
+cannot change for you: recompiling the manifest, workflows and other files that still invoke
+`tieline`, `TIELINE_*` environment variables, and registrations outside the repository such as
+Codex. Other commands refuse to run against a `.tieline/` workspace until it is upgraded.
+
+Commit the move once. Every other clone or worktree runs `init` once after pulling it, which moves
+that clone's own profile. A profile under a custom `TIELINE_CONFIG_HOME` stays in that directory;
+rename the variable to `TIEPOINT_CONFIG_HOME` as init advises. Branches created before the upgrade
+should merge or rebase onto the upgraded branch rather than repeat it.
+
 ## Start onboarding
 
-An empty `.tieline/spec/` immediately after init is intentional: initialization configures the
-workspace but does not invent generic capabilities. Restart the selected agent and run `$tieline`
-in Codex, `/tieline` in slash-command agents, or ask another supported agent to use the installed
-Tieline skill.
+An empty `.tiepoint/spec/` immediately after init is intentional: initialization configures the
+workspace but does not invent generic capabilities. Restart the selected agent and run `$tiepoint`
+in Codex, `/tiepoint` in slash-command agents, or ask another supported agent to use the installed
+Tiepoint skill.
 
 The skill reads the configured context and repository, builds a coverage ledger, and writes the
 justified Capabilities, Stories, ACs, and evidence links for review. It also performs semantic
@@ -251,8 +277,8 @@ definitions, reconcile links, grade changed claims, and regenerate the manifest.
 topology when relevant source or resolver changes require it. The resulting
 pull-request diff remains the review and acceptance surface.
 
-While the spec has no Stories, `npx -y tieline@latest status --json` reports that onboarding is
-required and includes the skill invocation. Open `.tieline/review.html` after onboarding to review
+While the spec has no Stories, `npx -y tiepoint@latest status --json` reports that onboarding is
+required and includes the skill invocation. Open `.tiepoint/review.html` after onboarding to review
 the contract as cards, then follow [How the contract stays current](../README.md#how-the-contract-stays-current)
 to add the CI check.
 

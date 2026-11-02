@@ -1,4 +1,4 @@
-; Tieline Python syntax facts. Resolution remains a separate topology phase.
+; Tiepoint Python syntax facts. Resolution remains a separate topology phase.
 (function_definition
   name: (identifier) @symbol.name) @symbol.declaration
 

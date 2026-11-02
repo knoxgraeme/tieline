@@ -19,7 +19,7 @@ const adminUrl = requireIntegrationDatabaseAdminUrl(process.env);
 
 await migrateDatabase(adminUrl);
 const sql = postgres(adminUrl, { max: 1, prepare: false });
-const root = mkdtempSync(join(tmpdir(), "tieline-topology-integration-"));
+const root = mkdtempSync(join(tmpdir(), "tiepoint-topology-integration-"));
 const repository = `topology-integration-${Date.now()}`;
 
 function git(args: string[]): void {

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/tieline-logo.png" alt="Tieline" width="520">
+  <img src="assets/tiepoint-logo.png" alt="Tiepoint" width="520">
 </p>
 
 <p align="center">
@@ -17,14 +17,14 @@
 
 ---
 
-Tieline generates Capabilities, User Stories, and Acceptance Criteria, linking them to
-the exact code and tests as evidence. By creating a semantic business intent layer grounded in your production code, Tieline ensures nothing gets lost in translation between you and your agent. 
+Tiepoint generates Capabilities, User Stories, and Acceptance Criteria, linking them to
+the exact code and tests as evidence. By creating a semantic business intent layer grounded in your production code, Tiepoint ensures nothing gets lost in translation between you and your agent. 
 
 - **Reviewed intent:** Stories and ACs evolve beside the implementation and are accepted through
   normal pull-request review.
 - **Graded evidence:** a fresh grader assesses changed ACs against bounded source evidence and a
   closed citation list, returning `supported`, `partial`, or `unsupported`.
-- **A derived code topology:** `tieline code compile` records parsed symbols and static
+- **A derived code topology:** `tiepoint code compile` records parsed symbols and static
   dependencies for the exact source snapshot, letting agents trace code and connect possible
   impact back to accepted ACs.
 - **Follow features from idea to production** In addition to production state, track 'Observations' such as feature requests, ideas and bug reports, allowing you to track features through their lifecycle to production. 
@@ -35,7 +35,7 @@ state of `main`, and review + update 'Observations'.
 
 ## How it works
 
-1. **An agent proposes intent.** The Tieline skill reads product context and code, then drafts or
+1. **An agent proposes intent.** The Tiepoint skill reads product context and code, then drafts or
    updates Stories, ACs, and evidence links for review.
 2. **Parsers ground code links.** Tree-sitter extracts canonical symbols, source ranges, and bounded
    snippets. Conservative resolvers preserve ambiguous and unresolved relationships as diagnostics.
@@ -43,7 +43,7 @@ state of `main`, and review + update 'Observations'.
    closed citation list. Deterministic verification rejects stale or invented citations.
 4. **Review establishes acceptance.** The YAML, compiled manifest, and code change travel together.
    Merge accepts that version of the relationship.
-5. **Checks make drift visible.** The skill updates intent as behavior changes, while `tieline check`
+5. **Checks make drift visible.** The skill updates intent as behavior changes, while `tiepoint check`
    flags changed evidence, broken links, invalid contracts, and stale artifacts.
 
 Optional Postgres storage adds Observations such as feature requests, ideas, and bugs, giving agents
@@ -55,13 +55,16 @@ context on both accepted behavior and future direction.
 
 ```bash
 cd /path/to/your-repository
-npx -y tieline@latest init
+npx -y tiepoint@latest init
 ```
 
-Restart your agent, then run the /tieline skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
-`.tieline/review.html` provides a browser-friendly view.
+Restart your agent, then run the /tiepoint skill to begin onboarding. The skill proposes the initial contract and code links for review; the generated
+`.tiepoint/review.html` provides a browser-friendly view.
 
 Postgres is optional. Use it to allow all your agents to query the current state of your product, and to record 'Observations' like feature requests alongside the products current state. The postgres DB gets updated with each merge. See [Setup's post-merge sync](docs/setup.md#post-merge-contract-sync) for configuration.
+
+Tiepoint was previously published as `tieline`. Running the same `init` command upgrades a
+repository set up by `tieline`; see [Upgrading from tieline](docs/setup.md#upgrading-from-tieline).
 
 ## Core concepts
 
@@ -100,12 +103,12 @@ Observations and shape backlog Stories.
 
 ## How the code graph works
 
-`tieline code compile` uses Tree-sitter parsers to build a derived snapshot of the repository's
-source structure. By default it is kept out of Git in `.tieline/topology/cache/`, keyed by the exact
+`tiepoint code compile` uses Tree-sitter parsers to build a derived snapshot of the repository's
+source structure. By default it is kept out of Git in `.tiepoint/topology/cache/`, keyed by the exact
 source and resolver inputs it describes, so concurrent pull requests never conflict on generated
 topology. Later reads select the graph for the snapshot they inspect without starting a parser or
 writing to Postgres. Set `"topology_mode": "committed"` to commit one reviewed
-`.tieline/topology/graph.json` instead.
+`.tiepoint/topology/graph.json` instead.
 
 | Layer | Role |
 | --- | --- |
@@ -151,24 +154,24 @@ capability:
       lifecycle: production
       acceptance_criteria:
         - key: CONTRACT-003-AC4
-          criterion: Tieline must expose exact manifest-backed context without a database.
+          criterion: Tiepoint must expose exact manifest-backed context without a database.
           scenarios:
             - given: the compiled manifest is available
               when: an agent requests context for a known code locator
-              then: Tieline returns its accepted intent and linked evidence
+              then: Tiepoint returns its accepted intent and linked evidence
           links:
             - relation: implements
               provenance: authored
               target:
                 kind: code
-                repository: tieline
+                repository: tiepoint
                 path: src/tools/intent-context.ts
                 selector: function:registerIntentContextTools
             - relation: tests
               provenance: authored
               target:
                 kind: test
-                repository: tieline
+                repository: tiepoint
                 path: tests/unit/contract/test-intent-context.ts
 ```
 
@@ -177,21 +180,21 @@ conditions or edge cases.
 
 ## How the contract stays current
 
-During implementation, the Tieline skill proposes new Stories and ACs when behavior was added,
+During implementation, the Tiepoint skill proposes new Stories and ACs when behavior was added,
 updates existing definitions when behavior changed, reconciles evidence links, grades changed
 claims, and refreshes generated artifacts for review.
 
 Run the deterministic check in CI:
 
 ```bash
-npx -y tieline@latest check --base <base-ref> .
+npx -y tiepoint@latest check --base <base-ref> .
 ```
 
 Invalid YAML, broken links, and stale generated artifacts fail. Changed linked evidence identifies
 the affected ACs for agent or human review. After merge, an idempotent sync publishes accepted
 `main` to Postgres.
 
-[GitHub Actions example](docs/examples/tieline-check.yml) · [CLI reference](docs/cli.md)
+[GitHub Actions example](docs/examples/tiepoint-check.yml) · [CLI reference](docs/cli.md)
 
 ## Where to learn more
 

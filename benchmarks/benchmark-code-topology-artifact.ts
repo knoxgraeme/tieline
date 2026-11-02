@@ -30,15 +30,15 @@ const MIB = 1024 * 1024;
 const REVIEW_ENVELOPE_FILES = 1_500;
 const REVIEW_ENVELOPE_SYMBOLS = 30_000;
 const REVIEW_ENVELOPE_DEPENDENCIES = 75_000;
-const enforce = process.env.TIELINE_ENFORCE_RELEASE_BUDGETS === "1";
+const enforce = process.env.TIEPOINT_ENFORCE_RELEASE_BUDGETS === "1";
 const pinnedEnvironment = process.platform === "linux" && process.arch === "x64" && process.versions.node.startsWith("20.");
-const scale = Number(process.env.TIELINE_ARTIFACT_BENCHMARK_SCALE ?? "1");
-const benchmarkMode = process.env.TIELINE_ARTIFACT_BENCHMARK_MODE ?? "all";
+const scale = Number(process.env.TIEPOINT_ARTIFACT_BENCHMARK_SCALE ?? "1");
+const benchmarkMode = process.env.TIEPOINT_ARTIFACT_BENCHMARK_MODE ?? "all";
 if (!Number.isFinite(scale) || scale <= 0 || scale > 1) {
-  throw new Error("TIELINE_ARTIFACT_BENCHMARK_SCALE must be greater than zero and at most one.");
+  throw new Error("TIEPOINT_ARTIFACT_BENCHMARK_SCALE must be greater than zero and at most one.");
 }
 if (!["size", "memory", "all"].includes(benchmarkMode)) {
-  throw new Error("TIELINE_ARTIFACT_BENCHMARK_MODE must be 'size', 'memory', or 'all'.");
+  throw new Error("TIEPOINT_ARTIFACT_BENCHMARK_MODE must be 'size', 'memory', or 'all'.");
 }
 if (enforce) {
   assert.ok(pinnedEnvironment, "artifact release budgets require Ubuntu x64 Node 20");
@@ -191,7 +191,7 @@ function measureTwoRoleMemory(distribution: Distribution): {
   peak_improvement_fraction: number;
   retained_improvement_fraction: number;
 } {
-  const root = mkdtempSync(join(tmpdir(), `tieline-artifact-memory-${distribution}-`));
+  const root = mkdtempSync(join(tmpdir(), `tiepoint-artifact-memory-${distribution}-`));
   try {
     const repositoryRoot = join(root, "repository");
     const sourceRoot = join(repositoryRoot, "src");
@@ -239,17 +239,17 @@ function measureTwoRoleMemory(distribution: Distribution): {
     global.gc?.();
 
     const artifactFirst = runMemoryChild({
-      TIELINE_ARTIFACT_MEMORY_MODE: "artifact",
-      TIELINE_ARTIFACT_MEMORY_BASE_ROOT: baseArtifactRoot,
-      TIELINE_ARTIFACT_MEMORY_CURRENT_ROOT: currentArtifactRoot,
+      TIEPOINT_ARTIFACT_MEMORY_MODE: "artifact",
+      TIEPOINT_ARTIFACT_MEMORY_BASE_ROOT: baseArtifactRoot,
+      TIEPOINT_ARTIFACT_MEMORY_CURRENT_ROOT: currentArtifactRoot,
     });
     const parseFirst = runMemoryChild({
-      TIELINE_ARTIFACT_MEMORY_MODE: "parse",
-      TIELINE_ARTIFACT_MEMORY_REPOSITORY_ROOT: repositoryRoot,
-      TIELINE_ARTIFACT_MEMORY_REPOSITORY: `artifact-${distribution}`,
-      TIELINE_ARTIFACT_MEMORY_SOURCE_ROOT: "src",
-      TIELINE_ARTIFACT_MEMORY_BASE_REVISION: baseRevision,
-      TIELINE_ARTIFACT_MEMORY_CURRENT_REVISION: currentRevision,
+      TIEPOINT_ARTIFACT_MEMORY_MODE: "parse",
+      TIEPOINT_ARTIFACT_MEMORY_REPOSITORY_ROOT: repositoryRoot,
+      TIEPOINT_ARTIFACT_MEMORY_REPOSITORY: `artifact-${distribution}`,
+      TIEPOINT_ARTIFACT_MEMORY_SOURCE_ROOT: "src",
+      TIEPOINT_ARTIFACT_MEMORY_BASE_REVISION: baseRevision,
+      TIEPOINT_ARTIFACT_MEMORY_CURRENT_REVISION: currentRevision,
     });
     const symbolCount = Math.max(fileCount, Math.round(REVIEW_ENVELOPE_SYMBOLS * scale));
     const dependencyCount = Math.max(fileCount, Math.round(REVIEW_ENVELOPE_DEPENDENCIES * scale));

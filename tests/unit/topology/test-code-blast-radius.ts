@@ -9,7 +9,7 @@ import { compileContractManifest } from "../../../src/contract/manifest.js";
 import { buildCommittedTopologyGeneration } from "../../../src/contract/topology-generation.js";
 import { report, test } from "../../support/harness.js";
 
-const root = mkdtempSync(join(tmpdir(), "tieline-blast-radius-"));
+const root = mkdtempSync(join(tmpdir(), "tiepoint-blast-radius-"));
 const store = new FakeCodeTopologyStore();
 const git = (args: string[]) =>
   execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -28,11 +28,11 @@ async function build() {
 
 try {
   mkdirSync(join(root, "src"), { recursive: true });
-  mkdirSync(join(root, ".tieline/spec"), { recursive: true });
+  mkdirSync(join(root, ".tiepoint/spec"), { recursive: true });
   writeFileSync(join(root, "src/b.ts"), "export const b = 1;\n");
   writeFileSync(join(root, "src/a.ts"), 'import { b } from "./b";\nexport const a = b;\n');
   writeFileSync(join(root, "src/c.ts"), "export const c = 1;\n");
-  writeFileSync(join(root, ".tieline/spec/blast.yaml"), `version: 1
+  writeFileSync(join(root, ".tiepoint/spec/blast.yaml"), `version: 1
 capability:
   key: BLAST
   name: Blast radius
@@ -50,7 +50,7 @@ capability:
           target: { kind: code, repository: blast-fixture, path: src/a.ts }
       acceptance_criteria:
         - key: AC-BLAST-001
-          criterion: Tieline must keep derived dependencies separate from authored links.
+          criterion: Tiepoint must keep derived dependencies separate from authored links.
           links:
             - relation: implements
               provenance: authored
@@ -78,7 +78,7 @@ capability:
   const manifest = compileContractManifest({
     repositoryRoot: root,
     repositoryKey: "blast-fixture",
-    specDirectory: ".tieline/spec",
+    specDirectory: ".tiepoint/spec",
   });
 
   await test("defaults to dependents and joins exact direct/fallback authored claims", async () => {

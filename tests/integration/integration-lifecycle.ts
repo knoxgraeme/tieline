@@ -30,7 +30,7 @@ const storyDefinition = {
   goal: "move observed needs through planning and implementation",
   benefit: "evidence remains connected to the production contract",
   criterion:
-    "Tieline must preserve Story and AC identity when repository sync accepts planned intent.",
+    "Tiepoint must preserve Story and AC identity when repository sync accepts planned intent.",
   scenario: {
     given:
       "an Observation is connected to a Backlog Item and planning Story",
@@ -44,7 +44,7 @@ const backlog = new PostgresBacklogRepository(() => sql);
 const planning = new PostgresPlanningStoryRepository(() => sql);
 const reads = new PostgresContractReadRepository(() => sql);
 const sync = new PostgresContractSyncRepository(() => sql);
-const root = mkdtempSync(resolve(tmpdir(), "tieline-lifecycle-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-lifecycle-"));
 
 function contractYaml(input: {
   planningRecordId: string;
@@ -95,7 +95,7 @@ capability:
 
 try {
   await migrateDatabase(adminUrl);
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(root, "src"), { recursive: true });
   mkdirSync(resolve(root, "scripts"), { recursive: true });
   writeFileSync(
@@ -222,7 +222,7 @@ try {
   assert.equal(attribution.target_id, planningCriterion.id);
 
   writeFileSync(
-    resolve(root, ".tieline/spec/lifecycle.yaml"),
+    resolve(root, ".tiepoint/spec/lifecycle.yaml"),
     contractYaml({
       planningRecordId: planningStory.id,
       planningRevision: planningStory.revision,

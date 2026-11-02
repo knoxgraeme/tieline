@@ -46,7 +46,7 @@ import {
   readWorkspaceTopologySelectedInput,
   type TopologyGenerationSourceOptions,
 } from "../contract/topology-generation.js";
-import { workspaceTopologyMode } from "../tieline/workspace.js";
+import { workspaceTopologyMode } from "../tiepoint/workspace.js";
 import { resolveCommandContext, type CommandIO } from "./shared.js";
 
 export type CodeTopologyArtifactAction = "compile" | "validate" | "untrack";
@@ -72,11 +72,11 @@ interface LockOwner {
 
 const LOCK_WAIT_MS = 1_000;
 const LOCK_STALE_MS = 30_000;
-const LOCK_FILE = ".tieline/topology.lock";
+const LOCK_FILE = ".tiepoint/topology.lock";
 /** Writers evict least-recently-compiled entries beyond this bound; readers never write. */
 export const CODE_TOPOLOGY_CACHE_MAX_ENTRIES = 8;
 const TOPOLOGY_IGNORE_FILE = ".gitignore";
-/** Everything under `.tieline/topology/` is derived; only this rule file is shared. */
+/** Everything under `.tiepoint/topology/` is derived; only this rule file is shared. */
 export const CODE_TOPOLOGY_IGNORE_CONTENT = "*\n!.gitignore\n";
 const LEGACY_GRAPH_PATH = `${CODE_TOPOLOGY_DIRECTORY}/${CODE_TOPOLOGY_ARTIFACT_FILE}`;
 const GIT_TIMEOUT_MS = 30_000;
@@ -169,8 +169,8 @@ function recoverStaleLock(path: string): boolean {
 }
 
 async function acquireLock(repositoryRoot: string): Promise<{ path: string; owner: LockOwner }> {
-  const tielineRoot = resolve(repositoryRoot, ".tieline");
-  assertOwnedDirectory(tielineRoot, "The repository .tieline directory");
+  const tiepointRoot = resolve(repositoryRoot, ".tiepoint");
+  assertOwnedDirectory(tiepointRoot, "The repository .tiepoint directory");
   const path = resolve(repositoryRoot, LOCK_FILE);
   const owner: LockOwner = {
     pid: process.pid,
@@ -301,7 +301,7 @@ export async function publishCodeTopologyArtifact(input: {
 }
 
 /**
- * Tieline owns `.tieline/topology/`, so it may add the rule that keeps derived
+ * Tiepoint owns `.tiepoint/topology/`, so it may add the rule that keeps derived
  * graphs out of Git. An existing rule file belongs to the user and is kept.
  */
 function ensureTopologyIgnore(topologyRoot: string): void {
@@ -463,15 +463,15 @@ function lifecycleNotices(repositoryRoot: string, mode: CodeTopologyMode): strin
       const cacheDirectory = `${CODE_TOPOLOGY_CACHE_DIRECTORY}/`;
       return [
         ...(legacyGraphTracked(repositoryRoot)
-          ? [`${LEGACY_GRAPH_PATH} is still tracked by Git but is no longer updated in cached mode. Run \`tieline code untrack .\` and commit the result.`]
+          ? [`${LEGACY_GRAPH_PATH} is still tracked by Git but is no longer updated in cached mode. Run \`tiepoint code untrack .\` and commit the result.`]
           : []),
         ...(existsSync(resolve(repositoryRoot, cacheDirectory)) && !gitPathIgnored(repositoryRoot, cacheDirectory)
-          ? [`${cacheDirectory} is not ignored by Git. Keep derived graphs out of commits, for example with the rule \`*\` and \`!.gitignore\` in .tieline/topology/.gitignore.`]
+          ? [`${cacheDirectory} is not ignored by Git. Keep derived graphs out of commits, for example with the rule \`*\` and \`!.gitignore\` in .tiepoint/topology/.gitignore.`]
           : []),
       ];
     }
     return insideGitWorkTree(repositoryRoot) && gitPathIgnored(repositoryRoot, LEGACY_GRAPH_PATH)
-      ? [`${LEGACY_GRAPH_PATH} is ignored by Git, so committed mode cannot commit it. Remove the ignore rule (for example the cached-mode .tieline/topology/.gitignore).`]
+      ? [`${LEGACY_GRAPH_PATH} is ignored by Git, so committed mode cannot commit it. Remove the ignore rule (for example the cached-mode .tiepoint/topology/.gitignore).`]
       : [];
   } catch (error) {
     return [`Could not inspect Git for ${LEGACY_GRAPH_PATH}: ${error instanceof Error ? error.message : String(error)}`];

@@ -7,9 +7,9 @@ import { stringify } from "yaml";
 import { buildCloseoutScope, verifyCloseoutReport, type CloseoutReport } from "../../../src/contract/closeout.js";
 import { runCloseout } from "../../../src/commands/closeout.js";
 import { runCli } from "../../../src/cli.js";
-import { tielineConfigJson } from "../../support/fixtures.js";
+import { tiepointConfigJson } from "../../support/fixtures.js";
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-closeout-test-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-closeout-test-"));
 const git = (args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", timeout: 30_000, stdio: "pipe",
   env: { ...process.env, GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z" } }).trim();
 const commit = (message: string) => { git(["add", "."]); git(["commit", "-m", message]); return git(["rev-parse", "HEAD"]); };
@@ -23,11 +23,11 @@ const definition = { version: 1, capability: { key: "EVAL", name: "Fixture", des
     { key: "AC-EXTERNAL", criterion: "External behavior must remain external.", links: [link("src/checkout.ts", "another-repo")] },
   ],
 }] } };
-const spec = resolve(root, ".tieline/spec/fixture.yaml");
+const spec = resolve(root, ".tiepoint/spec/fixture.yaml");
 try {
   git(["init", "-b", "main"]); git(["config", "user.name", "Test"]); git(["config", "user.email", "test@example.invalid"]);
-  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true }); mkdirSync(resolve(root, "src"));
-  writeFileSync(resolve(root, ".tieline/config.json"), tielineConfigJson({ name: "Fixture", repoName: "fixture", specDirectory: "spec" }));
+  mkdirSync(resolve(root, ".tiepoint/spec"), { recursive: true }); mkdirSync(resolve(root, "src"));
+  writeFileSync(resolve(root, ".tiepoint/config.json"), tiepointConfigJson({ name: "Fixture", repoName: "fixture", specDirectory: "spec" }));
   for (const name of ["checkout", "old", "shared"]) writeFileSync(resolve(root, `src/${name}.ts`), "export const allowed = true;\n");
   writeFileSync(spec, stringify(definition));
   const base = commit("baseline");
@@ -70,7 +70,7 @@ try {
   git(["restore", "src/checkout.ts"]);
   let output = "";
   const io = { write: (message: string) => { output += message; } };
-  const configPath = resolve(root, ".tieline/config.json");
+  const configPath = resolve(root, ".tiepoint/config.json");
   const config = readFileSync(configPath, "utf8");
   writeFileSync(configPath, "invalid uncommitted config");
   assert.equal(await runCli(["contract", "closeout", resolve(root, "src"), "--base", base, "--head", head, "--emit-scope"],
@@ -113,7 +113,7 @@ try {
   assert.ok(removed.criteria.find((criterion) => criterion.id === "AC-TWO")!.changed_linked_paths.includes("src/old.ts"));
   assert.ok(removed.criteria.find((criterion) => criterion.id === "AC-THREE")!.changed_linked_paths.includes("src/shared.ts"));
   assert.ok(removed.criteria.find((criterion) => criterion.id === "AC-NEW")!.reasons.includes("added"));
-  const grouped = { schema_version: 1, binding: removed.binding, dispositions: [{ criteria: removed.criteria.map((criterion) => criterion.id), disposition: "updated", reason: "Reviewed the policy change and its affected definitions together.", changed_paths: [".tieline/spec/fixture.yaml"] }] };
+  const grouped = { schema_version: 1, binding: removed.binding, dispositions: [{ criteria: removed.criteria.map((criterion) => criterion.id), disposition: "updated", reason: "Reviewed the policy change and its affected definitions together.", changed_paths: [".tiepoint/spec/fixture.yaml"] }] };
   assert.equal(verifyCloseoutReport(removed, grouped).ready, true);
   assert.throws(() => verifyCloseoutReport(removed, { ...grouped, dispositions: [{ ...grouped.dispositions[0], disposition: "still_valid" }] }), /Changed claim/);
   const priorConfig = git(["rev-parse", "HEAD"]);
@@ -128,17 +128,33 @@ try {
   assert.ok(applicabilityScope.criteria.every((criterion) => criterion.reasons.includes("claim_changed")));
   // No compiled manifest is needed, and a generated baseline cannot erase Git impacts.
   const beforePublication = buildCloseoutScope({ repositoryRoot: root, base, head: "HEAD" });
-  mkdirSync(resolve(root, ".tieline/manifest"));
-  writeFileSync(resolve(root, ".tieline/manifest/index.json"), "{}");
+  mkdirSync(resolve(root, ".tiepoint/manifest"));
+  writeFileSync(resolve(root, ".tiepoint/manifest/index.json"), "{}");
   const refreshed = buildCloseoutScope({ repositoryRoot: root, base, head: commit("generated publication") });
   assert.deepEqual(refreshed.criteria, beforePublication.criteria);
   assert.ok(refreshed.criteria.some((criterion) => criterion.id === "AC-TWO" && criterion.reasons.includes("removed")));
   // Missing config at head cannot hide all formerly accepted rules.
-  rmSync(resolve(root, ".tieline"), { recursive: true });
+  rmSync(resolve(root, ".tiepoint"), { recursive: true });
   const deleted = buildCloseoutScope({ repositoryRoot: root, base, head: commit("remove contract") });
   assert.equal(deleted.criteria.length, 4);
   assert.ok(deleted.criteria.every((criterion) => criterion.reasons.includes("removed")));
   assert.throws(() => buildCloseoutScope({ repositoryRoot: root, base: "--all", head: "HEAD" }));
   assert.ok(readFileSync(reportPath, "utf8").includes(scope.binding.head_commit));
+  // A merge base from before the tieline -> tiepoint rename still supplies the prior contract.
+  const legacyDefinition = structuredClone(definition);
+  legacyDefinition.capability.stories[0]!.acceptance_criteria = [
+    { key: "AC-KEPT", criterion: "Kept rules must survive the rename.", links: [] },
+    { key: "AC-DROPPED", criterion: "Dropped rules must stay in scope.", links: [] },
+  ];
+  mkdirSync(resolve(root, ".tieline/spec"), { recursive: true });
+  writeFileSync(resolve(root, ".tieline/config.json"), tiepointConfigJson({ name: "Fixture", repoName: "fixture", specDirectory: "spec" }));
+  writeFileSync(resolve(root, ".tieline/spec/fixture.yaml"), stringify(legacyDefinition));
+  const legacyBase = commit("tieline workspace");
+  git(["mv", ".tieline", ".tiepoint"]);
+  legacyDefinition.capability.stories[0]!.acceptance_criteria.pop();
+  writeFileSync(resolve(root, ".tiepoint/spec/fixture.yaml"), stringify(legacyDefinition));
+  const upgraded = buildCloseoutScope({ repositoryRoot: root, base: legacyBase, head: commit("upgrade to tiepoint") });
+  assert.ok(upgraded.criteria.find((criterion) => criterion.id === "AC-DROPPED")?.reasons.includes("removed"));
+  assert.ok(!upgraded.criteria.find((criterion) => criterion.id === "AC-KEPT")?.reasons.includes("added"));
   console.log("commit-bound closeout tests passed");
 } finally { rmSync(root, { recursive: true, force: true }); }

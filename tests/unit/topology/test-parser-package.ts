@@ -106,7 +106,7 @@ await test("limits concurrent parser ownership and supports repeat use", async (
 });
 
 await test("fails closed when a parser asset is missing", async () => {
-  const root = mkdtempSync(resolve(tmpdir(), "tieline-parser-assets-"));
+  const root = mkdtempSync(resolve(tmpdir(), "tiepoint-parser-assets-"));
   try {
     const runtime = createCodeParserRuntime({ assetRoot: root });
     await assert.rejects(runtime.withParser("typescript", () => undefined), /asset|manifest/i);
@@ -117,8 +117,8 @@ await test("fails closed when a parser asset is missing", async () => {
 
 await test("fails closed for corrupt assets and incompatible ABI manifests", async () => {
   const source = resolve("assets/parsers/web-tree-sitter-0.26.12");
-  const corruptRoot = mkdtempSync(resolve(tmpdir(), "tieline-parser-corrupt-"));
-  const abiRoot = mkdtempSync(resolve(tmpdir(), "tieline-parser-abi-"));
+  const corruptRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-parser-corrupt-"));
+  const abiRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-parser-abi-"));
   try {
     cpSync(source, corruptRoot, { recursive: true });
     writeFileSync(resolve(corruptRoot, "tree-sitter-typescript.wasm"), "corrupt");
@@ -143,7 +143,7 @@ await test("fails closed for corrupt assets and incompatible ABI manifests", asy
 });
 
 await test("runs packaged parsers offline without native grammar packages", () => {
-  const projectRoot = mkdtempSync(resolve(tmpdir(), "tieline-parser-install-"));
+  const projectRoot = mkdtempSync(resolve(tmpdir(), "tiepoint-parser-install-"));
   let tarballPath: string | undefined;
   try {
     const packed = JSON.parse(
@@ -179,7 +179,7 @@ await test("runs packaged parsers offline without native grammar packages", () =
     assert.equal(
       execFileSync(
         process.execPath,
-        [resolve(projectRoot, "node_modules/tieline/dist/cli.js"), "--version"],
+        [resolve(projectRoot, "node_modules/tiepoint/dist/cli.js"), "--version"],
         { cwd: projectRoot, encoding: "utf8" }
       ).trim(),
       result.version,
@@ -197,11 +197,11 @@ await test("runs packaged parsers offline without native grammar packages", () =
       `import { createHash } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { createJavaScriptAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/javascript.js";
-import { createPythonAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/python.js";
-import { createRustAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/rust.js";
-import { createSqlAnalyzer } from "./node_modules/tieline/dist/contract/code-analysis/sql.js";
-import { createFilesystemSourceSnapshotReader } from "./node_modules/tieline/dist/contract/source-snapshot.js";
+import { createJavaScriptAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/javascript.js";
+import { createPythonAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/python.js";
+import { createRustAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/rust.js";
+import { createSqlAnalyzer } from "./node_modules/tiepoint/dist/contract/code-analysis/sql.js";
+import { createFilesystemSourceSnapshotReader } from "./node_modules/tiepoint/dist/contract/source-snapshot.js";
 const root = resolve("sources");
 const reader = createFilesystemSourceSnapshotReader({ repositoryRoot: root });
 const analyzers = [createJavaScriptAnalyzer(), createPythonAnalyzer(), createRustAnalyzer(), createSqlAnalyzer()];
@@ -231,7 +231,7 @@ process.stdout.write(JSON.stringify({ digest, languages: facts.map((fact) => fac
     assert.deepEqual(runs[0]!.languages.sort(), supportedCodeLanguages.map((language) => language.id).sort());
 
     const parserAssetBytes = directoryBytes(
-      resolve(projectRoot, "node_modules/tieline/assets/parsers/web-tree-sitter-0.26.12")
+      resolve(projectRoot, "node_modules/tiepoint/assets/parsers/web-tree-sitter-0.26.12")
     );
     const installedParserBytes =
       parserAssetBytes + directoryBytes(resolve(projectRoot, "node_modules/web-tree-sitter"));

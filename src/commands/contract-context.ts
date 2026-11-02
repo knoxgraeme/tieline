@@ -168,7 +168,7 @@ function readIntentContextManifest(
     throw new Error(
       `Cannot inspect intent context because the contract manifest at '${parsed.manifestPath}' is unreadable: ${
         error instanceof Error ? error.message : String(error)
-      } Run \`tieline contract compile .\` and commit the manifest.`
+      } Run \`tiepoint contract compile .\` and commit the manifest.`
     );
   }
 }

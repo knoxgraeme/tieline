@@ -66,7 +66,7 @@ export interface UnclaimedChange {
 export type UnclaimedChangesStatus = "evaluated" | "not_evaluated";
 
 const UNCLAIMED_NOT_EVALUATED =
-  "Changed files were not weighed against the contract because no Tieline workspace configuration was found, so the configured source roots are unknown.";
+  "Changed files were not weighed against the contract because no Tiepoint workspace configuration was found, so the configured source roots are unknown.";
 
 function unclaimedSummaryWarning(count: number): string {
   return `${count} changed source file(s) are named by no acceptance criterion; consider whether any of them changes behavior someone should accept.`;
@@ -443,7 +443,7 @@ export async function runCheckCommand(
     for (const finding of invalidLocators) io.write(`  Invalid locator: ${finding.path} ${finding.selector} (${finding.resolution}).\n`);
     if (staleManifestFails) {
       io.write(
-        "  A stale manifest fails this check. Run `tieline contract compile` and commit the result, or re-run with --no-fail-on-stale-manifest to downgrade it to a warning.\n"
+        "  A stale manifest fails this check. Run `tiepoint contract compile` and commit the result, or re-run with --no-fail-on-stale-manifest to downgrade it to a warning.\n"
       );
     }
   }

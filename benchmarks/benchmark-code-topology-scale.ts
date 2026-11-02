@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import { buildCommittedTopologyReadModel } from "../src/contract/topology-generation.js";
 
-const repositoryRoot = process.env.TIELINE_SCALE_REPOSITORY_ROOT;
-const repository = process.env.TIELINE_SCALE_REPOSITORY;
-const sourceRoot = process.env.TIELINE_SCALE_SOURCE_ROOT;
-const revision = process.env.TIELINE_SCALE_REVISION ?? "HEAD";
+const repositoryRoot = process.env.TIEPOINT_SCALE_REPOSITORY_ROOT;
+const repository = process.env.TIEPOINT_SCALE_REPOSITORY;
+const sourceRoot = process.env.TIEPOINT_SCALE_SOURCE_ROOT;
+const revision = process.env.TIEPOINT_SCALE_REVISION ?? "HEAD";
 if (!repositoryRoot || !repository || !sourceRoot) {
   throw new Error("isolated topology scale benchmark is missing repository inputs");
 }

@@ -18,18 +18,18 @@ import {
 } from "../../../src/contract/code-topology-artifact.js";
 import { readWorkspaceCodeTopologyFiles } from "../../../src/contract/topology-role-snapshot.js";
 import { codeTopologyArtifactProjectionDigest } from "../../../src/domain/code-topology-artifact.js";
-import type { TielineCliIO } from "../../../src/cli.js";
+import type { TiepointCliIO } from "../../../src/cli.js";
 import {
   compareGeneratedArtifact,
   runGeneratedArtifactGate,
   type GeneratedArtifactMismatch,
 } from "../../../scripts/generated-artifact-gate.js";
-import { tielineConfigJson } from "../../support/fixtures.js";
+import { tiepointConfigJson } from "../../support/fixtures.js";
 import { report, test } from "../../support/harness.js";
 
 console.log("Generated artifact derivation gate");
 
-const root = mkdtempSync(resolve(tmpdir(), "tieline-generated-artifacts-"));
+const root = mkdtempSync(resolve(tmpdir(), "tiepoint-generated-artifacts-"));
 try {
   const reviewed = resolve(root, "reviewed");
   const generated = resolve(root, "generated");
@@ -69,11 +69,11 @@ try {
   });
 
   const fixture = resolve(root, "repository");
-  mkdirSync(resolve(fixture, ".tieline/spec"), { recursive: true });
+  mkdirSync(resolve(fixture, ".tiepoint/spec"), { recursive: true });
   mkdirSync(resolve(fixture, "src"), { recursive: true });
   writeFileSync(
-    resolve(fixture, ".tieline/config.json"),
-    tielineConfigJson({
+    resolve(fixture, ".tiepoint/config.json"),
+    tiepointConfigJson({
       name: "Derivation fixture",
       repoName: "derivation-fixture",
       specDirectory: "spec",
@@ -83,7 +83,7 @@ try {
   const sourcePath = resolve(fixture, "src/value.ts");
   const source = "export function value() { return 1; }\n";
   writeFileSync(sourcePath, source);
-  const specPath = resolve(fixture, ".tieline/spec/fixture.yaml");
+  const specPath = resolve(fixture, ".tiepoint/spec/fixture.yaml");
   const spec = `version: 1
 capability:
   key: DERIVATION
@@ -112,7 +112,7 @@ capability:
   execFileSync("git", ["init", "-q", fixture]);
 
   const commandOutput: string[] = [];
-  const commandIo: TielineCliIO = {
+  const commandIo: TiepointCliIO = {
     write(message) {
       commandOutput.push(message);
     },
@@ -153,9 +153,9 @@ capability:
   });
 
   await test("post-merge mode validates generated content while deferring only manifest publication", async () => {
-    const configPath = resolve(fixture, ".tieline/config.json");
+    const configPath = resolve(fixture, ".tiepoint/config.json");
     const originalConfig = readFileSync(configPath, "utf8");
-    const shardPath = resolve(fixture, ".tieline/manifest/DERIVATION.json");
+    const shardPath = resolve(fixture, ".tiepoint/manifest/DERIVATION.json");
     const originalShard = readFileSync(shardPath, "utf8");
     try {
       writeFileSync(configPath, originalConfig.replace('"version": 1,', '"version": 1, "manifest_mode": "post_merge",'));
@@ -179,9 +179,9 @@ capability:
   });
 
   await test("cached topology mode compiles and smokes topology without a reviewed graph", async () => {
-    const configPath = resolve(fixture, ".tieline/config.json");
+    const configPath = resolve(fixture, ".tiepoint/config.json");
     const originalConfig = readFileSync(configPath, "utf8");
-    const graphPath = resolve(fixture, ".tieline/topology", CODE_TOPOLOGY_ARTIFACT_FILE);
+    const graphPath = resolve(fixture, ".tiepoint/topology", CODE_TOPOLOGY_ARTIFACT_FILE);
     const graphBytes = readFileSync(graphPath);
     try {
       writeFileSync(configPath, originalConfig.replace('  "topology_mode": "committed",\n', ""));
@@ -251,7 +251,7 @@ capability:
   });
 
   await test("producer and committed-byte tampering name topology", async () => {
-    const graphPath = resolve(fixture, ".tieline/topology", CODE_TOPOLOGY_ARTIFACT_FILE);
+    const graphPath = resolve(fixture, ".tiepoint/topology", CODE_TOPOLOGY_ARTIFACT_FILE);
     const graphBytes = readFileSync(graphPath);
     const graph = JSON.parse(graphBytes.toString("utf8"));
     graph.producer.version += 1;
@@ -293,7 +293,7 @@ capability:
       frontiers: divergent.frontiers,
     });
     const serialized = serializeCodeTopologyArtifact(divergent);
-    const topologyRoot = resolve(fixture, ".tieline/topology");
+    const topologyRoot = resolve(fixture, ".tiepoint/topology");
     rmSync(topologyRoot, { recursive: true, force: true });
     for (const [name, bytes] of serialized.files) {
       const path = resolve(topologyRoot, name);

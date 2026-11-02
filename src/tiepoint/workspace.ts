@@ -1,0 +1,166 @@
+import {
+  existsSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, resolve, sep } from "node:path";
+import { z } from "zod";
+import { selectorConfigSchema } from "../config.js";
+import { withinRepository } from "../contract/paths.js";
+import type { CodeTopologyMode } from "../contract/topology-role-snapshot.js";
+
+export const TIEPOINT_DIRECTORY = ".tiepoint";
+export const TIEPOINT_CONFIG_FILE = "config.json";
+export const TIEPOINT_SPEC_DIRECTORY = "spec";
+/**
+ * The compiled manifest is a directory, not a file: an index for the
+ * repository-level fields and one file per capability.
+ */
+export const TIEPOINT_MANIFEST_DIRECTORY = "manifest";
+
+const contextSourceSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.enum(["description", "website", "local"]),
+    location: z.string().min(1).nullable(),
+    content: z.string().min(1).nullable(),
+    allow_external_fetch: z.boolean(),
+  })
+  .strict();
+
+export const tiepointConfigSchema = z
+  .object({
+    version: z.literal(1),
+    product: z
+      .object({
+        name: z.string().min(1),
+        repo_name: z.string().min(1),
+      })
+      .strict(),
+    repository: z
+      .object({
+        root: z.string().min(1),
+        source_roots: z.array(z.string()).min(1),
+        ignore: z.array(z.string()),
+      })
+      .strict(),
+    context: z
+      .object({
+        sources: z.array(contextSourceSchema),
+      })
+      .strict(),
+    runtime: z
+      .object({
+        default_embedding_provider: z.enum([
+          "local",
+          "openai",
+          "supabase-edge",
+          "hash",
+        ]),
+        default_database_mode: z.enum(["local", "existing", "offline"]),
+      })
+      .strict(),
+    files: z
+      .object({
+        spec_directory: z.string().min(1),
+        manifest: z.string().min(1),
+      })
+      .strict(),
+    // Optional so existing configurations stay valid. The block is read
+    // independently by readSelectorConfig; it is declared here only so a
+    // repository that declares selector kinds still loads its workspace.
+    selectors: selectorConfigSchema.optional(),
+    manifest_mode: z.enum(["committed", "post_merge"]).optional(),
+    // Optional so existing configurations stay valid; absence selects the
+    // cached lifecycle. See workspaceTopologyMode.
+    topology_mode: z.enum(["committed", "cached"]).optional(),
+    created_at: z.string().min(1),
+    updated_at: z.string().min(1),
+  })
+  .strict();
+
+export type TiepointConfig = z.infer<typeof tiepointConfigSchema>;
+export type TiepointContextSource = z.infer<typeof contextSourceSchema>;
+
+export interface TiepointWorkspace {
+  directory: string;
+  root: string;
+  configPath: string;
+  config: TiepointConfig;
+  specDirectoryPath: string;
+  /** Directory holding the compiled manifest, not a single file. */
+  manifestPath: string;
+}
+
+function resolveWorkspaceFile(directory: string, path: string): string {
+  const resolved = resolve(directory, path);
+  if (!withinRepository(directory, resolved)) {
+    throw new Error(`Tiepoint file '${path}' escapes ${directory}.`);
+  }
+  return resolved;
+}
+
+/**
+ * Cached topology is the default: compiled graphs live in an ignored,
+ * content-addressed store instead of every pull request. Committed mode keeps
+ * the reviewed `.tiepoint/topology/graph.json` lifecycle and must be explicit.
+ */
+export function workspaceTopologyMode(
+  workspace: Pick<TiepointWorkspace, "config"> | null | undefined
+): CodeTopologyMode {
+  return workspace?.config.topology_mode ?? "cached";
+}
+
+export function workspaceFromConfig(configPath: string): TiepointWorkspace {
+  const directory = dirname(configPath);
+  const config = tiepointConfigSchema.parse(
+    JSON.parse(readFileSync(configPath, "utf8"))
+  );
+  const workspaceOwner = realpathSync(dirname(directory));
+  const root = resolve(directory, config.repository.root);
+  const realRoot = realpathSync(root);
+  if (!withinRepository(workspaceOwner, realRoot)) {
+    throw new Error(
+      `Tiepoint repository root '${config.repository.root}' escapes the workspace at '${workspaceOwner}'.`
+    );
+  }
+  return {
+    directory,
+    root,
+    configPath,
+    config,
+    specDirectoryPath: resolveWorkspaceFile(
+      directory,
+      config.files.spec_directory
+    ),
+    manifestPath: resolveWorkspaceFile(directory, config.files.manifest),
+  };
+}
+
+export function findTiepointWorkspace(
+  startPath: string
+): TiepointWorkspace | null {
+  let current = resolve(startPath);
+  if (existsSync(current) && !statSync(current).isDirectory()) {
+    current = dirname(current);
+  }
+  while (true) {
+    const configPath = current.endsWith(`${sep}${TIEPOINT_DIRECTORY}`)
+      ? resolve(current, TIEPOINT_CONFIG_FILE)
+      : resolve(current, TIEPOINT_DIRECTORY, TIEPOINT_CONFIG_FILE);
+    if (existsSync(configPath)) return workspaceFromConfig(configPath);
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+export function writeTiepointConfig(
+  configPath: string,
+  config: TiepointConfig
+): void {
+  config.updated_at = new Date().toISOString();
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+}

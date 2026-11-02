@@ -57,7 +57,7 @@ try {
       story_id, repository_id, stable_id, criterion, authority
     ) values (
       ${repositoryStory.id}, ${repository.id}, 'EVIDENCE-001-AC1',
-      'Tieline must preserve observations without requiring a work item.',
+      'Tiepoint must preserve observations without requiring a work item.',
       'repository'
     )
     returning id`;
@@ -122,17 +122,17 @@ try {
     ) values
       (
         ${repositoryStory.id}, ${repository.id}, 'EVIDENCE-001-US',
-        'Tieline must find evidence applicable to the United States.',
+        'Tiepoint must find evidence applicable to the United States.',
         'repository'
       ),
       (
         ${repositoryStory.id}, ${repository.id}, 'EVIDENCE-001-EU',
-        'Tieline must find evidence applicable to Europe.',
+        'Tiepoint must find evidence applicable to Europe.',
         'repository'
       ),
       (
         ${repositoryStory.id}, ${repository.id}, 'EVIDENCE-001-CA',
-        'Tieline must find evidence applicable to Canada.',
+        'Tiepoint must find evidence applicable to Canada.',
         'repository'
       )
     returning id, stable_id`;
@@ -190,7 +190,7 @@ try {
   assert.equal(firstIndex.embedded, true);
   assert.equal(secondIndex.embedded, false);
   const criterionText =
-    "Capture observations\nTieline must preserve observations without requiring a work item.";
+    "Capture observations\nTiepoint must preserve observations without requiring a work item.";
   await asPlanningWriter(() =>
     semantics.upsertEmbeddingDocument({
       entity_kind: "acceptance_criterion",

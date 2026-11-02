@@ -1,10 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SUPPORTED_SKILL_AGENTS } from "./tieline/skill-install.js";
-import { ONBOARDING_SKILL_INSTALL_COMMAND } from "./tieline/status.js";
+import { SUPPORTED_SKILL_AGENTS } from "./tiepoint/skill-install.js";
+import { ONBOARDING_SKILL_INSTALL_COMMAND } from "./tiepoint/status.js";
 
-const HOW_TO_QUERY = `# Tieline contract guide
+const HOW_TO_QUERY = `# Tiepoint contract guide
 
-Tieline distinguishes accepted behavior, planning work, and source evidence.
+Tiepoint distinguishes accepted behavior, planning work, and source evidence.
 
 - A **Story** describes desired user value using structured actor, goal, and benefit.
 - An **acceptance criterion (AC)** states one observable outcome and is the primary
@@ -17,7 +17,7 @@ Tieline distinguishes accepted behavior, planning work, and source evidence.
 ## Authority and lifecycle
 
 Postgres owns Stories and ACs only while their lifecycle is \`backlog\`. Once the
-same stable IDs are materialized into strict YAML under \`.tieline/spec/\` and the
+same stable IDs are materialized into strict YAML under \`.tiepoint/spec/\` and the
 pull request merges, the repository owns them as \`in_progress\`, \`production\`,
 or \`retired\`. Repository-owned definitions change only through another code
 change and pull request.
@@ -81,14 +81,14 @@ were applied, their ranking features, and concise match reasons.
 6. Create or update planning Stories/ACs through the planning tools. The tools
    search before creation and require an explicit reuse-or-continue decision.
 
-Invoke the MCP \`tieline\` prompt (or use the bundled
-\`$tieline\` skill) to onboard repository behavior, materialize planning
+Invoke the MCP \`tiepoint\` prompt (or use the bundled
+\`$tiepoint\` skill) to onboard repository behavior, materialize planning
 definitions, reconcile branch changes, validate/compile YAML, and review the
 semantic diff. Normal pull-request merge is the semantic approval event.
-During deterministic setup, interactive \`tieline init\` asks which coding
+During deterministic setup, interactive \`tiepoint init\` asks which coding
 agents should receive this onboarding and authoring skill. While the spec has
 no Stories,
-\`tieline status --json\` exposes concise structured onboarding state and
+\`tiepoint status --json\` exposes concise structured onboarding state and
 \`${ONBOARDING_SKILL_INSTALL_COMMAND}\` as the skill-install entry point.
 That command is interactive. An agent running init without a terminal must
 append \`--yes --agent <id>\` (supported IDs: ${SUPPORTED_SKILL_AGENTS.map(
@@ -104,10 +104,10 @@ receipts are intentionally deferred beyond the MVP.
 
 export function registerResources(server: McpServer): void {
   server.registerResource(
-    "Tieline contract guide",
-    "docs://tieline-contract",
+    "Tiepoint contract guide",
+    "docs://tiepoint-contract",
     {
-      title: "Tieline contract guide",
+      title: "Tiepoint contract guide",
       description:
         "Vocabulary, authority, retrieval profiles, and evidence/planning workflow.",
       mimeType: "text/markdown",

@@ -34,7 +34,7 @@ function definition(testCase: GradingEvaluationCase): string {
 }
 
 function fixtureFiles(testCase: GradingEvaluationCase): Record<string, string> {
-  return { ...testCase.sources, ".tieline/spec/evaluation.yaml": definition(testCase) };
+  return { ...testCase.sources, ".tiepoint/spec/evaluation.yaml": definition(testCase) };
 }
 
 function verifyInventory(root: string, expectedFiles: string[]): void {
@@ -94,7 +94,7 @@ export async function prepareGradingEvaluation(directory: string): Promise<void>
       writeFileSync(resolve(caseRoot, "scope.json"), serialized(scope));
       writeFileSync(resolve(caseRoot, "packet.json"), serialized({ scope, sources: testCase.sources }));
     }
-    const rubric = readFileSync(new URL("../../skills/tieline/references/criterion-grading.md", import.meta.url), "utf8");
+    const rubric = readFileSync(new URL("../../skills/tiepoint/references/criterion-grading.md", import.meta.url), "utf8");
     writeFileSync(resolve(root, "grader-rubric.md"), rubric);
     writeFileSync(resolve(root, "run.json"), JSON.stringify({ schema_version: 1, corpus_version: gradingCorpusVersion, prepared_at: new Date().toISOString(), rubric_sha256: createHash("sha256").update(rubric).digest("hex"), cases: gradingCases.length }, null, 2));
     writeFileSync(resolve(root, "grader-instructions.md"), `Review each supplied packet using the included grader-rubric.md snapshot.\nUse only the provided scope and raw sources; no tools, network, credentials, author notes, or evaluator expectations.\nReturn one verdict document per case. Every selected AC needs a grade and reason.\nSupported grades need exact emitted link_id/selector citations. Record wrong or overstated links separately.\nAn empty scope receives {"verdicts":[]}; it does not certify the implementation.\nDo not edit fixtures. The host will save your documents as <case>/verdicts.json.\n`);
